@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Fab'Anki — Flashcards sans compte</title>
+  <!-- KaTeX CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <style>
+    :root{--bg:#f6f7fb;--fg:#111;--card:#fff;--muted:#666;--accent:#0066ff}
+    [data-theme='dark']{--bg:#0f1115;--fg:#e6eef8;--card:#111319;--muted:#9aa4b2;--accent:#66a0ff}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    .app{max-width:900px;margin:18px auto;padding:18px}
+    header{display:flex;gap:8px;align-items:center;justify-content:space-between}
+    h1{font-size:1rem;margin:0}
+    .controls{display:flex;gap:8px;align-items:center}
+    .deck-input{width:420px;max-width:40vw}
+    .card{background:var(--card);border-radius:10px;padding:20px;box-shadow:0 6px 20px rgba(2,6,23,0.08);min-height:220px;display:flex;flex-direction:column;gap:12px}
+    .card-content{flex:1;overflow:auto}
+    .meta{font-size:0.9rem;color:var(--muted)}
+    .buttons{display:flex;gap:8px;flex-wrap:wrap}
+    button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+    button.secondary{background:transparent;color:var(--fg);border:1px solid rgba(0,0,0,0.06)}
+    .resp-buttons{display:flex;gap:8px}
+    .resp-buttons button{flex:1}
+    .progress{height:8px;background:linear-gradient(90deg,#e6eef8 0%,#e6eef8 100%);border-radius:8px;overflow:hidden}
+    .progress > i{display:block;height:100%;background:var(--accent);width:0%}
+    .small{font-size:0.9rem}
+    .muted{color:var(--muted)}
+    footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+    @media (max-width:640px){.deck-input{width:100%}}
+    /* Make KaTeX output wrap responsively instead of forcing no-wrap */
+    .katex{white-space:normal;word-break:break-word;overflow-wrap:anywhere}
+    .katex .katex-html{white-space:normal}
+    .katex .katex-mathml{white-space:normal}
+    .katex-display{display:block; margin:0.6em 0}
+    /* Dark theme detailed overrides */
+    [data-theme='dark'] body{background:var(--bg);color:var(--fg)}
+    [data-theme='dark'] .card{background:var(--card);color:var(--fg);box-shadow:0 6px 24px rgba(0,0,0,0.6)}
+    [data-theme='dark'] header, [data-theme='dark'] footer{color:var(--muted)}
+    [data-theme='dark'] input.deck-input{background:#0f1115;border:1px solid rgba(255,255,255,0.06);color:var(--fg)}
+    [data-theme='dark'] button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--fg)}
+    [data-theme='dark'] .muted{color:var(--muted)}
+    [data-theme='dark'] .progress{background:#1b1d22}
+    [data-theme='dark'] .progress > i{background:linear-gradient(90deg,#6f8cff,#b9bfff)}
+    /* Rating button colors (override in dark) */
+    .rate-ratte{background:#d9534f}
+    .rate-difficile{background:#f0ad4e}
+    .rate-bon{background:#007bff}
+    .rate-facile{background:#28a745}
+
+    /* Histogram styles */
+    .histogram{display:flex;gap:12px;margin-top:18px;align-items:flex-end}
+    .hist-column{flex:1;display:flex;flex-direction:column;align-items:center}
+    .hist-count{font-weight:600;margin-bottom:6px;color:var(--muted)}
+    .hist-viewport{width:100%;height:120px;background:transparent;display:flex;align-items:flex-end;justify-content:center}
+    .hist-fill{width:70%;border-radius:6px 6px 0 0;box-shadow:inset 0 -4px 8px rgba(0,0,0,0.06)}
+    .hist-label{font-size:0.85rem;margin-top:8px;text-align:center;color:var(--muted)}
+    .hist-count{width:100%;text-align:center}
+
+    /* Deck browser modal */
+    .modal-overlay{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,0.4);display:none;align-items:flex-start;padding:48px;z-index:1000}
+    .modal{background:var(--card);color:var(--fg);border-radius:12px;max-width:900px;width:100%;margin:0 auto;padding:12px;box-shadow:0 10px 40px rgba(0,0,0,0.25);}
+    .modal{transform:translateY(-6px) scale(0.99);opacity:0;transition:transform .18s ease,opacity .18s ease}
+    .modal.open{transform:translateY(0) scale(1);opacity:1}
+    .tooltip{position:fixed;background:var(--card);color:var(--fg);padding:8px 10px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.12);font-size:0.9rem;z-index:1100}
+    .modal h3{margin:6px 0}
+    .deck-list{max-height:60vh;overflow:auto;padding:6px}
+    .deck-entry{padding:8px;border-radius:8px;display:flex;justify-content:space-between;align-items:center}
+    .deck-entry:hover{background:rgba(0,0,0,0.03)}
+
+    /* Mobile full-screen card and swipe-to-show histogram */
+    @media (max-width:640px){
+      body,html{height:100%}
+      .app{max-width:100%;margin:0;padding:0;padding-top:66px}
+      header{position:fixed;top:0;left:0;right:0;height:56px;padding:0 8px;display:flex;align-items:center;justify-content:space-around;background:var(--card);box-shadow:0 6px 18px rgba(0,0,0,0.08);z-index:60}
+      h1{font-size:1rem;margin:0;text-align:center}
+      .card{border-radius:0;min-height:calc(100vh - 66px);padding:16px;display:flex;flex-direction:column}
+      section#stats{display:none}
+      section#stats.visible{display:block;position:fixed;left:0;right:0;top:0;bottom:0;padding:12px;z-index:999;overflow:auto}
+      .hist-viewport{height:140px}
+      .hist-fill{width:40%}
+      .hist-count{width:100%;text-align:center}
+      /* Larger, centered card text and buttons */
+      .card-content{display:flex;align-items:center;justify-content:center;text-align:center;font-size:1.15rem;padding:6px}
+      .resp-buttons button{padding:12px 14px;font-size:1.05rem}
+      .buttons button{font-size:1.02rem;padding:10px 14px}
+    }
+    /* Rating button colors */
+    .rate-ratte{background:#d9534f}
+    .rate-difficile{background:#f0ad4e}
+    .rate-bon{background:#007bff}
+    .rate-facile{background:#28a745}
+    /* Hide histogram toggle on desktop; show only on mobile */
+    #toggleStats{display:none}
+    /* Close button for mobile stats (hidden by default) */
+    #closeStatsMobile{display:none}
+    /* Desktop uniform button/card sizes */
+    @media (min-width:641px){
+      .buttons button, .resp-buttons button, button.secondary{min-width:120px;padding:10px 14px}
+      .card{min-height:260px}
+    }
+    /* Mobile-specific rules */
+    @media (max-width:640px){
+      #toggleStats{display:inline-block}
+      #closeStatsMobile{display:inline-block}
+      /* Histogram vertical layout on mobile */
+      .histogram{flex-direction:column;align-items:stretch}
+      .hist-column{flex-direction:row;align-items:center;justify-content:space-between;padding:8px 6px}
+      .hist-viewport{width:60%;height:24px}
+      .hist-fill{height:100%;width:0%;border-radius:6px}
+      .hist-count{width:30%;text-align:left;margin-right:6px}
+      .hist-label{width:40%;text-align:right}
+      /* Footer stacked vertically on mobile */
+      footer{flex-direction:column;align-items:center;gap:6px}
+    }
+    /* Footer full-bleed on desktop: make it span viewport width */
+    @media (min-width:641px){
+      footer{position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw;width:100vw;padding:12px 18px}
+    }
+    /* Center card on desktop */
+    @media (min-width:641px){
+      main > div { display:flex; justify-content:center; }
+      .card{max-width:760px;margin-left:auto;margin-right:auto}
+    }
+    /* TTS play button */
+    .tts-play{margin-left:8px;padding:6px 8px;border-radius:8px;border:0;background:rgba(0,0,0,0.06);cursor:pointer}
+    .tts-play:active{transform:scale(0.98)}
+  </style>
+</head>
+<body>
+  <div class="app" id="app" data-theme="light">
+    <header>
+      <h1>Fab'Anki — Flashcards (sans compte)</h1>
+      <div class="controls">
+        <!-- Hidden file picker used as a fallback when running the page from file:// -->
+        <input id="filePicker" type="file" accept=".xml,application/xml" style="display:none" />
+        <button id="loadBtn">Charger</button>
+        <button id="browseDecks" class="secondary">Parcourir decks</button>
+        <button id="toggleStats" class="secondary">Histogramme</button>
+        <button id="toggleTheme" class="secondary">Mode sombre</button>
+        <button id="resetBtn" class="secondary">Réinitialiser données locales</button>
+      </div>
+    </header>
+
+    <main style="margin-top:12px">
+      <div id="status" class="muted small">Fournissez l'URL d'un deck via le paramètre <code>?deck=</code></div>
+
+      <div style="margin-top:12px;display:flex;gap:12px;align-items:center">
+        <div style="flex:1">
+          <div class="card" id="cardArea" aria-live="polite">
+            <div class="card-content">
+              <div id="front" class="front"></div>
+              <div id="always" class="muted small" style="margin-top:8px"></div>
+            </div>
+            <div class="meta" id="meta"><span id="dueInline" class="muted small">Cartes prêtes : <strong id="dueCount">0</strong></span></div>
+            <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
+              <div class="buttons">
+                <button id="showAnswer">Afficher la réponse</button>
+                <div class="resp-buttons" id="respButtons" style="display:none;margin-left:12px">
+                  <button id="again" class="rate-ratte">Raté</button>
+                  <button id="hard" class="rate-difficile">Difficile</button>
+                  <button id="good" class="rate-bon">Bon</button>
+                  <button id="easy" class="rate-facile">Facile</button>
+                </div>
+              </div>
+              <div style="width:30%">
+                <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+                <div id="progressInfo" class="muted small" style="text-align:center;margin-top:6px">Révisées : 0 / 0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- right panel removed: merged into main card -->
+      </div>
+    </main>
+
+    <!-- Deck browser modal (hidden) -->
+    <div id="deckBrowserOverlay" class="modal-overlay" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h3>Parcourir les decks (./decks/)</h3>
+          <div>
+            <button id="refreshDeckList" class="secondary">Rafraîchir</button>
+            <button id="closeDeckBrowser" class="secondary">Fermer</button>
+          </div>
+        </div>
+        <div id="deckBrowserMsg" class="muted small" style="margin-bottom:8px">Recherche de ./decks/ ...</div>
+        <div id="deckList" class="deck-list"></div>
+      </div>
+    </div>
+
+    <!-- Histogram / study breakdown -->
+    <section id="stats" style="max-width:900px;margin:18px auto;padding:0 18px">
+      <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:6px 0;color:var(--muted)">Répartition des cartes par échéance</h3>
+        <button id="closeStatsMobile" class="secondary" style="display:none">Fermer</button>
+      </div>
+      <div id="histogram" class="histogram" aria-hidden="false">
+        <div class="hist-column">
+          <div id="count-new" class="hist-count">0</div>
+          <div class="hist-viewport"><div class="hist-fill" id="bar-new" style="background:linear-gradient(180deg,#e9d8ff,#d6b8ff)"></div></div>
+          <div class="hist-label">Nouveau</div>
+        </div>
+        <div class="hist-column">
+          <div id="count-now" class="hist-count">0</div>
+          <div class="hist-viewport"><div class="hist-fill" id="bar-now" style="background:#d9534f"></div></div>
+          <div class="hist-label">Maintenant</div>
+        </div>
+        <div class="hist-column">
+          <div id="count-12h" class="hist-count">0</div>
+          <div class="hist-viewport"><div class="hist-fill" id="bar-12h" style="background:#ff9b9b"></div></div>
+          <div class="hist-label">&lt;12h</div>
+        </div>
+        <div class="hist-column">
+          <div id="count-tomorrow" class="hist-count">0</div>
+          <div class="hist-viewport"><div class="hist-fill" id="bar-tomorrow" style="background:#ffd966"></div></div>
+          <div class="hist-label">Demain</div>
+        </div>
+        <div class="hist-column">
+          <div id="count-week" class="hist-count">0</div>
+          <div class="hist-viewport"><div class="hist-fill" id="bar-week" style="background:#6f8cff"></div></div>
+          <div class="hist-label">&lt;1 semaine</div>
+        </div>
+        <div class="hist-column">
+          <div id="count-long" class="hist-count">0</div>
+          <div class="hist-viewport"><div class="hist-fill" id="bar-long" style="background:#28a745"></div></div>
+          <div class="hist-label">Longtemps</div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="muted small" id="deckInfo"></div>
+      <div class="muted small">Fab'Anki — Fonctionne entièrement côté navigateur</div>
+      <div class="muted small">© Swiess corporation - 2026 - MPSI1 &gt;&gt; MPSI2</div>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+  <script>
+  // Single-file app implementing requested functions.
+
+  // Utility: simple DOM helpers
+  const $ = sel => document.querySelector(sel);
+
+  // Application state
+  let deckURL = null;
+  let deck = {title:'', cards:[]};
+  let dueCards = [];
+  let currentIndex = 0;
+  let sessionTotal = 0;
+  let reviewedCount = 0;
+  let deckKey = null; // prefix for localStorage
+  let tooltipShown = false;
+
+  // === FSRS storage key helpers ===
+  function storageKey(s){ return `fabanki:${deckKey}:${s}` }
+
+  // === Function: loadDeckFromURL ===
+  async function loadDeckFromURL(url){
+    updateStatus('Téléchargement du deck...');
+    try{
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const text = await res.text();
+      const parser = new DOMParser();
+      let xml = parser.parseFromString(text,'application/xml');
+      let parsererror = xml.querySelector('parsererror');
+      if(parsererror){
+        // Fallback: some exported decks contain unescaped '<' inside TeX fields
+        // which makes the file not well-formed XML. Try lenient HTML parsing.
+        updateStatus('XML invalide — tentative d\u00e9codage permissif (HTML)');
+        xml = parser.parseFromString(text,'text/html');
+        parsererror = null;
+      }
+      parseXMLDeck(xml, url);
+      initFSRS();
+      updateStatus('Deck chargé — prêt pour révision');
+    }catch(err){
+      console.error(err);
+      updateStatus('Erreur chargement deck: '+err.message);
+      deck = {title:'', cards:[]};
+      renderEmpty();
+    }
+  }
+
+  // === Function: parseXMLDeck ===
+  // Parse the <fields> definition (name,type,sides) and build per-card `fields` objects.
+  // Rules implemented:
+  // - Read field definitions from <fields> (order preserved) and store in deck.fieldDefs.
+  // - For each <card>, build card.fields = { [fieldName]: { html, type, sides } }.
+  // - If a field is absent in a <card>, it is omitted (robustness requirement).
+  function parseXMLDeck(xml, url){
+    // create a deckKey based on URL (use synchronous fallback hash to avoid Promise issues)
+    deckKey = fallbackSha1(url).slice(0,10);
+    deck = {title:'', cards:[], fieldDefs:[]};
+
+    // title (optional)
+    const titleEl = xml.querySelector('title') || xml.querySelector('name') || xml.documentElement.getAttribute('name');
+    if(titleEl) deck.title = titleEl.textContent ? titleEl.textContent.trim() : (xml.documentElement.getAttribute('name')||'');
+
+    // --- Read <fields> definitions ---
+    // Each child of <fields> defines a field: tag name (rich-text|tex), @name and @sides.
+    const fieldsContainer = xml.querySelector('fields');
+    if(fieldsContainer){
+      const defs = Array.from(fieldsContainer.children || []);
+      for(const f of defs){
+        // Use localName when available for robust tag detection
+        const type = (f.localName || f.tagName || '').toLowerCase(); // e.g. 'rich-text' or 'tex'
+        const name = f.getAttribute('name') || '';
+        const sidesAttr = f.getAttribute('sides') || (f.textContent||'');
+        const sides = interpretSides(sidesAttr);
+        const lang = f.getAttribute('lang') || f.getAttribute('xml:lang') || '';
+        if(name) deck.fieldDefs.push({name, type, sides, lang});
+      }
+    }
+
+    // If no field definitions detected, fall back to old heuristic to keep backwards compatibility.
+    if(deck.fieldDefs.length === 0){
+      // Find any explicit field-like tags to infer names
+      const inferred = Array.from(xml.querySelectorAll('rich-text,tex')).map(n=>({name:n.getAttribute('name')||'Front', type:n.tagName.toLowerCase(), sides:{front:true,back:false,always:false}}));
+      deck.fieldDefs = inferred.length ? inferred : [{name:'Front', type:'rich-text', sides:{front:true,back:false,always:false}},{name:'Back', type:'rich-text', sides:{front:false,back:true,always:false}}];
+    }
+
+    // --- Build cards from <cards><card> ---
+    // Prefer explicit <cards><card> nodes; fallback to any <card> elements anywhere
+    const cardNodes = Array.from(xml.getElementsByTagName('card'));
+    const candidates = cardNodes.length ? cardNodes : Array.from(xml.querySelectorAll('card, note, item, entry, record'));
+
+    let idx = 0;
+    for(const node of candidates){
+      try{
+        const cardObj = { id: node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idx++)), fields: {} };
+
+        // For each fieldDef, attempt to read the corresponding element inside this <card>
+        for(const def of deck.fieldDefs){
+          let el = null;
+          // 1) any child element with attribute name equal to field name
+          el = Array.from(node.children).find(ch => (ch.getAttribute && ch.getAttribute('name') === def.name));
+          // 2) any child element whose localName/tag matches the expected type and (optional) name
+          if(!el) el = Array.from(node.children).find(ch => ((ch.localName || ch.tagName || '').toLowerCase() === def.type));
+          // 3) fallback: any descendant with name attribute matching
+          if(!el) el = node.querySelector(`[name="${def.name}"]`);
+          // 4) last resort: first child element
+          if(!el && node.children && node.children.length>0) el = node.children[0];
+
+          if(el){
+            // For <tts> fields, preserve textContent (treat like <p>) to avoid raw HTML parsing
+            let html = '';
+            if((def.type||'').toLowerCase() === 'tts'){
+              html = (el.textContent || '').trim();
+            } else {
+              html = (el.innerHTML || '').trim();
+            }
+            const fldLang = el.getAttribute && (el.getAttribute('lang') || el.getAttribute('xml:lang')) || def.lang || '';
+            cardObj.fields[def.name] = { html, type: def.type, sides: def.sides, lang: fldLang };
+          }
+        }
+
+        // Only include card if it has at least one field
+        if(Object.keys(cardObj.fields).length>0) deck.cards.push(cardObj);
+      }catch(e){ console.warn('ignored malformed card', e); continue }
+    }
+
+    // If still empty, try to parse table rows as last fallback
+    if(deck.cards.length===0){
+      const rows = Array.from(xml.querySelectorAll('tr'));
+      for(const r of rows){
+        const tds = Array.from(r.querySelectorAll('td'));
+        if(tds.length>=2){
+          const cardObj = { id: 'card-'+(idx++), fields: {} };
+          cardObj.fields['Front'] = { html: tds[0].innerHTML||'', type: 'rich-text', sides: {front:true,back:false,always:false} };
+          cardObj.fields['Back']  = { html: tds[1].innerHTML||'', type: 'rich-text', sides: {front:false,back:true,always:false} };
+          deck.cards.push(cardObj);
+        }
+      }
+    }
+
+    if(deck.cards.length===0) throw new Error('Aucune carte détectée dans le fichier XML');
+
+    // Update UI
+    $('#deckInfo').textContent = `Deck: ${deck.title || 'non nommé'} — ${deck.cards.length} cartes`;
+  }
+
+  // === Function: interpretSides ===
+  // Accepts strings like "11","10","01", or words 'front','back','both','always'.
+  function interpretSides(s){
+    const out = {front:false, back:false, always:false};
+    if(!s) { out.front=true; out.back=false; return out; }
+    s = String(s).trim().toLowerCase();
+    if(s==='both' || s==='11' || s==='always') { out.front=true; out.back=true; out.always=true; return out; }
+    if(s==='front' || s==='f' || s==='10') { out.front=true; out.back=false; return out; }
+    if(s==='back' || s==='b' || s==='01') { out.front=false; out.back=true; return out; }
+    if(s.length===2 && /[01]{2}/.test(s)){ out.front = s[0]==='1'; out.back = s[1]==='1'; out.always = out.front && out.back; return out; }
+    // fallback: show on front
+    out.front=true; return out;
+  }
+
+  // === Function: renderFront ===
+  // Render fields that are allowed on the front side according to their `sides`.
+  // Each card now has `card.fields` where keys are field names and values are {html,type,sides}.
+  function renderFront(card){
+    const frontEl = $('#front');
+    const alwaysEl = $('#always');
+    if(!card) { frontEl.innerHTML=''; alwaysEl.textContent=''; return }
+
+    // Clear previous content
+    frontEl.innerHTML = '';
+    alwaysEl.textContent = '';
+
+    // Build front content following the order in deck.fieldDefs (if present)
+    const defs = deck.fieldDefs || [];
+    let anyAlways = false;
+    for(const def of defs){
+      const f = card.fields && card.fields[def.name];
+      if(!f) continue;
+      if(f.sides.always || f.sides.front){
+        const node = buildFieldElement(def, f);
+        frontEl.appendChild(node);
+      }
+      if(f.sides.always) anyAlways = true;
+    }
+
+    // Simple indicator if some fields are always visible on both sides
+    // hide always-indicator (not shown per user preference)
+    alwaysEl.textContent = '';
+  }
+
+  // === Function: renderBack ===
+  // Similar to renderFront but shows fields allowed on the back side.
+  function renderBack(card){
+    const backEl = $('#back');
+    if(!card){ backEl.innerHTML=''; return }
+
+    backEl.innerHTML = '';
+    const defs = deck.fieldDefs || [];
+    let anyContent = false;
+    for(const def of defs){
+      const f = card.fields && card.fields[def.name];
+      if(!f) continue;
+      if(f.sides.always || f.sides.back){
+        const node = buildFieldElement(def, f);
+        backEl.appendChild(node);
+        anyContent = true;
+      }
+    }
+
+    if(!anyContent){ backEl.innerHTML = '<em>Contenu masqué côté réponse</em>'; }
+  }
+
+  // Helper: buildFieldElement(def, f)
+  // Returns an HTMLElement for a given field definition and card field value.
+  function buildFieldElement(def, f){
+    const wrapper = document.createElement('div');
+    wrapper.className = 'field field-'+def.name.replace(/\s+/g,'-').toLowerCase();
+    // Treat only explicit 'tex'/'math' types as TeX — avoid matching 'text'
+    const ttype = (f.type||def.type||'').toLowerCase();
+    const isTexType = ['tex','math','latex'].includes(ttype);
+    const isTTS = (ttype === 'tts');
+    const isPlainText = (ttype === 'text');
+    const containsBlockTags = /<(p|div|ul|ol|li|table|tr|td|br|h[1-6])\b/i.test(f.html||'');
+    if(isTTS){
+      // Render <tts> as a paragraph with plain text and add a play button
+      const p = document.createElement('p');
+      p.textContent = f.html || '';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'tts-play secondary';
+      btn.title = 'Lire le texte';
+      btn.textContent = '🔊';
+      btn.addEventListener('click', ()=>{
+        try{
+          if(!('speechSynthesis' in window)){ alert('TTS non supporté dans ce navigateur'); return }
+          // If currently speaking, cancel (acts as stop)
+          if(window.speechSynthesis.speaking){ window.speechSynthesis.cancel(); btn.textContent = '🔊'; return }
+          const text = (f.html||'').trim();
+          if(!text) return;
+          const u = new SpeechSynthesisUtterance(text);
+          // prefer English by default for TTS unless field specifies otherwise
+          u.lang = 'en-US';
+          // prefer default voice; user can modify in browser
+          btn.textContent = '⏸';
+          u.onend = ()=>{ try{ btn.textContent = '🔊' }catch(e){} };
+          u.onerror = ()=>{ try{ btn.textContent = '🔊' }catch(e){} };
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(u);
+        }catch(e){ console.warn('TTS error', e); alert('Erreur TTS: '+(e && e.message || e)); }
+      });
+      wrapper.appendChild(p);
+      wrapper.appendChild(btn);
+    } else if(isPlainText){
+      // Render explicit <text> fields as plain text (do not attempt KaTeX)
+      const p = document.createElement('p'); p.textContent = f.html || ''; wrapper.appendChild(p);
+    } else if(isTexType && !containsBlockTags){
+      // Safe to render with KaTeX (no block HTML inside)
+      const texSrc = (f.html||'').trim();
+      const span = document.createElement('div');
+      try{
+        if(window.katex && typeof katex.render === 'function'){
+          const display = /\\\\\[|\\\\\]|\$\$|\n/.test(texSrc) || texSrc.split(/\\n|\n/).length>1;
+          katex.render(texSrc, span, {throwOnError:false, displayMode: display});
+        } else { span.textContent = texSrc }
+      }catch(e){ span.textContent = texSrc }
+      wrapper.appendChild(span);
+    } else {
+      // Render as HTML (rich-text) — do NOT run KaTeX here
+      wrapper.innerHTML = f.html || '';
+    }
+    return wrapper;
+  }
+
+  // === Function: renderKaTeX ===
+  // Uses auto-render with throwOnError:false to avoid breaking on invalid TeX.
+  function renderKaTeX(container){
+    // No-op: we render only explicit <tex> fields using katex.render()
+    return;
+  }
+
+  // === FSRS implementation (SM-2-like) ===
+  function initFSRS(){
+    // ensure per-card state exists
+    for(const c of deck.cards){
+      const key = storageKey('card:'+c.id);
+      if(!localStorage.getItem(key)){
+        const state = {reps:0,interval:0,ef:2.5,due: (new Date()).toISOString(), last: null};
+        localStorage.setItem(key, JSON.stringify(state));
+      }
+    }
+    dueCards = getDueCards();
+    // compute session total as number of cards that are "Nouveau" or "Maintenant" at session start
+    sessionTotal = 0; reviewedCount = 0;
+    const now = new Date();
+    for(const c of deck.cards){
+      const key = storageKey('card:'+c.id);
+      const st = JSON.parse(localStorage.getItem(key) || '{}');
+      const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
+      const due = st && st.due ? new Date(st.due) : now;
+      const isNow = due <= now;
+      if(isNew || isNow) sessionTotal++;
+    }
+    const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
+    currentIndex = 0;
+    showNextCard();
+    updateProgressDisplay();
+    updateHistogram();
+  }
+
+  function getDueCards(){
+    // use current time so cards scheduled for now are included
+    const now = new Date();
+    const list = [];
+    for(const c of deck.cards){
+      const key = storageKey('card:'+c.id);
+      const st = JSON.parse(localStorage.getItem(key) || '{}');
+      const due = st && st.due ? new Date(st.due) : new Date();
+      if(due <= now){ list.push(c); }
+    }
+    // shuffle due list for variety
+    for(let i=list.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [list[i],list[j]]=[list[j],list[i]] }
+    return list;
+  }
+
+  // === Histogram helper ===
+  function updateHistogram(){
+    if(!deck || !deck.cards) return;
+    const now = new Date();
+    const counts = {new:0, now:0, h12:0, tomorrow:0, week:0, long:0};
+    for(const c of deck.cards){
+      const key = storageKey('card:'+c.id);
+      const st = JSON.parse(localStorage.getItem(key) || '{}');
+      if(!st || (!st.last && (st.reps===0 || st.reps===undefined))){ counts.new++; continue }
+      const due = st && st.due ? new Date(st.due) : now;
+      const hrs = (due - now) / (1000*60*60);
+      if(due <= now) counts.now++;
+      else if(hrs <= 12) counts.h12++;
+      else if(hrs <= 24) counts.tomorrow++;
+      else if(hrs <= 24*7) counts.week++;
+      else counts.long++;
+    }
+    // compute max for scaling
+    const max = Math.max(1, counts.new, counts.now, counts.h12, counts.tomorrow, counts.week, counts.long);
+    // set fills heights and counts above bars
+    const setCol = (fillId, countId, val) => {
+      const fill = document.getElementById(fillId);
+      const cnt = document.getElementById(countId);
+      if(cnt) cnt.textContent = val;
+      if(!fill) return;
+      const pct = Math.round((val / max) * 100);
+      if(window.innerWidth <= 640){
+        // mobile: horizontal bars (width-based)
+        fill.style.width = pct + '%';
+        fill.style.height = '100%';
+      } else {
+        // desktop: vertical bars (height-based)
+        fill.style.height = pct + '%';
+        fill.style.width = '';
+      }
+      fill.title = val + ' cartes';
+    };
+    setCol('bar-new','count-new', counts.new);
+    setCol('bar-now','count-now', counts.now);
+    setCol('bar-12h','count-12h', counts.h12);
+    setCol('bar-tomorrow','count-tomorrow', counts.tomorrow);
+    setCol('bar-week','count-week', counts.week);
+    setCol('bar-long','count-long', counts.long);
+    // Also update session total display if it hasn't been set (fallback)
+    const infoEl = document.getElementById('progressInfo');
+    if(infoEl && sessionTotal === 0){ infoEl.textContent = `Révisées : ${reviewedCount} / ${sessionTotal}` }
+  }
+
+  function updateProgressDisplay(){
+    const infoEl = document.getElementById('progressInfo');
+    const pb = document.getElementById('progressBar');
+    const total = sessionTotal || 0;
+    const done = reviewedCount || 0;
+    if(infoEl) infoEl.textContent = `Révisées : ${done} / ${total}`;
+    if(pb){ const pct = total>0? Math.round((done/total)*100): 0; pb.style.width = pct + '%'; }
+  }
+
+  function scheduleCard(cardId, quality){
+    // quality: 0..5 following SM-2 mapping. We'll expect mapping from buttons.
+    const key = storageKey('card:'+cardId);
+    const st = JSON.parse(localStorage.getItem(key) || '{}');
+    const today = startOfDay(new Date());
+    if(quality < 3){
+      // Raté: reset and make due immediately
+      st.reps = 0; st.interval = 0; // due now
+    } else {
+      if(!st.reps) st.reps = 0;
+      if(st.reps === 0){ st.interval = 1; }
+      else if(st.reps === 1){ st.interval = 6; }
+      else { st.interval = Math.round(st.interval * (st.ef || 2.5)); }
+      st.reps = (st.reps || 0) + 1;
+      // update ef (tuned for ~90% retention target)
+      st.ef = (st.ef || 2.5) + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+      // small bonus for Good/Easy to increase retention stability
+      if(quality >= 4) st.ef += 0.02;
+      if(st.ef < 1.3) st.ef = 1.3;
+    }
+    // set due
+    let next;
+    const prevDue = st && st.due ? new Date(st.due) : null;
+    const now = new Date();
+    if((st.interval || 0) === 0){
+      next = new Date(); // immediate
+    } else {
+      next = addDays(today, st.interval || 1);
+    }
+    st.due = next.toISOString();
+    st.last = (new Date()).toISOString();
+    localStorage.setItem(key, JSON.stringify(st));
+    // If this card moved from future to 'now' during the session, include it in session total
+    try{
+      if(prevDue && prevDue > now && next <= now){ sessionTotal = (sessionTotal||0) + 1; updateProgressDisplay(); }
+    }catch(e){}
+    // update due list and UI
+    dueCards = getDueCards();
+    const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
+    updateHistogram();
+  }
+
+  // random integer helper
+  function randInt(min, max){ return Math.floor(Math.random()*(max-min+1)) + min }
+
+  // === Helpers ===
+  function updateStatus(t){ $('#status').textContent = t }
+  function renderEmpty(){
+    const front = $('#front'); if(front) front.innerHTML='';
+    const back = $('#back'); if(back) back.innerHTML='';
+    const resp = $('#respButtons'); if(resp) resp.style.display='none';
+    const sa = $('#showAnswer'); if(sa) sa.style.display='none';
+  }
+  function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x }
+  function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x }
+
+  // sha1 small implementation (for id generation). Use subtle crypto if available.
+  function sha1(msg){
+    try{
+      const enc = new TextEncoder();
+      const data = enc.encode(msg);
+      return crypto.subtle.digest('SHA-1', data)
+        .then(buf => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join(''))
+        .catch(() => fallbackSha1(msg));
+    }catch(e){
+      return fallbackSha1(msg);
+    }
+  }
+
+  function fallbackSha1(s){
+    // crude fallback hash for environments without crypto.subtle
+    let h = 0;
+    for(let i=0;i<s.length;i++){
+      h = ((h<<5)-h) + s.charCodeAt(i);
+      h |= 0;
+    }
+    return (h>>>0).toString(16);
+  }
+
+  // Because crypto.subtle returns a Promise, wrap sha1 usage accordingly in parseXMLDeck id creation.
+  // For simplicity where sha1 is used synchronously above, ensure fallback string is returned; this is acceptable for IDs.
+
+  // === UI flow ===
+  function showNextCard(){
+    if(!dueCards || dueCards.length===0){ updateStatus('Aucune carte à réviser aujourd\'hui'); renderEmpty(); return }
+    if(currentIndex >= dueCards.length) currentIndex = 0;
+    const c = dueCards[currentIndex];
+    const sa = $('#showAnswer'); if(sa) sa.style.display = 'inline-block';
+    const resp = $('#respButtons'); if(resp) resp.style.display = 'none';
+    const backEl = $('#back'); if(backEl) backEl.style.display = 'none';
+    renderFront(c);
+    // do not show per-card index (user requested removal)
+    // progress
+    const pct = Math.round(((currentIndex)/Math.max(1,dueCards.length))*100);
+    const pb = $('#progressBar'); if(pb) pb.style.width = pct + '%';
+  }
+
+  // Button handlers
+  $('#showAnswer').addEventListener('click', ()=>{
+    const c = dueCards[currentIndex];
+    // Replace front content with back fields (single-card view)
+    const frontEl = $('#front');
+    frontEl.innerHTML = '';
+    const defs = deck.fieldDefs || [];
+    for(const def of defs){
+      const f = c.fields && c.fields[def.name];
+      if(!f) continue;
+      if(f.sides.always || f.sides.back){
+        const node = buildFieldElement(def, f);
+        frontEl.appendChild(node);
+      }
+    }
+    // show response buttons in side panel, hide ShowAnswer
+    const respBtn = $('#respButtons'); if(respBtn) respBtn.style.display = 'flex';
+    const showBtn = $('#showAnswer'); if(showBtn) showBtn.style.display = 'none';
+  });
+
+  $('#again').addEventListener('click', ()=>{ answerCurrent(0) });
+  $('#hard').addEventListener('click', ()=>{ answerCurrent(3) });
+  $('#good').addEventListener('click', ()=>{ answerCurrent(4) });
+  $('#easy').addEventListener('click', ()=>{ answerCurrent(5) });
+
+  function answerCurrent(q){
+    const c = dueCards[currentIndex];
+    // count this attempt for session progress
+    reviewedCount = (reviewedCount || 0) + 1;
+    updateProgressDisplay();
+    scheduleCard(c.id, q);
+    // Anki-like behaviour: on Fail (q<3) reinsert this card later in the session
+    if(q < 3){
+      // remove current card from list
+      dueCards.splice(currentIndex, 1);
+      // insert it after a random offset (5..20)
+      const offset = randInt(5,20);
+      const insertPos = Math.min(dueCards.length, currentIndex + offset);
+      dueCards.splice(insertPos, 0, c);
+      // don't advance index: currentIndex now points to the next card
+      if(dueCards.length === 0){ updateStatus('Révision terminée pour aujourd\'hui'); renderEmpty(); }
+      else { showNextCard(); }
+    } else {
+      // remove answered card; next card naturally shifts into currentIndex
+      dueCards.splice(currentIndex, 1);
+      if(currentIndex >= dueCards.length){ updateStatus('Révision terminée pour aujourd\'hui'); renderEmpty(); }
+      else { showNextCard(); }
+    }
+    const dueEl2 = $('#dueCount'); if(dueEl2) dueEl2.textContent = dueCards.length;
+    updateProgressDisplay();
+  }
+
+  // Load deck from URL param on start
+  function param(key){ const p = new URLSearchParams(location.search); return p.get(key) }
+  window.addEventListener('load', async ()=>{
+    // wire UI
+    // Load button now opens file picker to add a local deck
+    $('#loadBtn').addEventListener('click', ()=>{
+      const picker = document.getElementById('filePicker');
+      if(picker) { picker.value = ''; picker.click(); updateStatus('Sélectionnez un fichier XML à charger...') }
+    });
+
+    // Hidden file picker: read local XML and parse
+    const filePicker = document.getElementById('filePicker');
+    if(filePicker){
+      filePicker.addEventListener('change', (ev)=>{
+        const f = ev.target.files && ev.target.files[0];
+        if(!f) return;
+        const reader = new FileReader();
+        reader.onload = (e)=>{
+          try{
+            const text = e.target.result;
+            const parser = new DOMParser();
+            let xml = parser.parseFromString(text,'application/xml');
+            let parsererror = xml.querySelector('parsererror');
+            if(parsererror){
+              // Try lenient HTML parse as fallback for malformed XML (unescaped '<' in TeX)
+              updateStatus('XML invalide — utilisation d\u00e9codage permissif pour le fichier local');
+              xml = parser.parseFromString(text,'text/html');
+              parsererror = null;
+            }
+            parseXMLDeck(xml, f.name);
+            initFSRS();
+            updateStatus('Deck chargé depuis fichier local');
+            // set deckURL for consistency but do not try to write to ./decks/
+            deckURL = './decks/'+f.name;
+            history.replaceState(null,'', '?deck='+encodeURIComponent(f.name));
+          }catch(err){ console.error(err); updateStatus('Erreur lecture du fichier local'); }
+        };
+        reader.readAsText(f);
+      });
+    }
+    $('#resetBtn').addEventListener('click', ()=>{ if(confirm('Supprimer toutes les données locales pour ce deck ?')){ // clear keys for this deck
+      if(!deckKey) { alert('Aucun deck chargé'); return }
+      const prefix = `fabanki:${deckKey}:`;
+      for(const k of Object.keys(localStorage)) if(k.startsWith(prefix)) localStorage.removeItem(k);
+      alert('Données locales supprimées'); initFSRS(); }});
+    const toggleBtn = $('#toggleTheme');
+    if(toggleBtn){
+      // ensure document root inherits initial theme
+      document.documentElement.setAttribute('data-theme', document.getElementById('app')?.getAttribute('data-theme') || 'light');
+      toggleBtn.addEventListener('click', ()=>{
+        const appEl = document.getElementById('app');
+        if(!appEl) return;
+        const current = document.documentElement.getAttribute('data-theme') || 'light';
+        const t = current === 'light' ? 'dark' : 'light';
+        // set on root so CSS variables apply globally, and on app for scoped selectors
+        document.documentElement.setAttribute('data-theme', t);
+        appEl.setAttribute('data-theme', t);
+        toggleBtn.textContent = t==='dark' ? 'Mode clair' : 'Mode sombre';
+      });
+    }
+
+    // Move grading buttons into main card area so they appear with the card
+    try{
+      const resp = document.getElementById('respButtons');
+      const mainButtons = document.querySelector('#cardArea .buttons');
+      if(resp && mainButtons){
+        mainButtons.appendChild(resp);
+        resp.style.display = 'none';
+        resp.style.marginTop = '8px';
+      }
+    }catch(e){ /* ignore */ }
+
+    // Swipe gestures: on mobile, swipe down on the card to reveal histogram, swipe up to hide
+    try{
+      let touchStartY = 0, touchStartX = 0, touching = false;
+      const cardArea = document.getElementById('cardArea');
+      const statsSection = document.getElementById('stats');
+      if(cardArea && statsSection){
+        cardArea.addEventListener('touchstart', (ev)=>{ if(window.innerWidth<=640){ const t = ev.touches[0]; touchStartY = t.clientY; touchStartX = t.clientX; touching = true } });
+        cardArea.addEventListener('touchmove', (ev)=>{ if(!touching) return; const t = ev.touches[0]; const dy = t.clientY - touchStartY; const dx = t.clientX - touchStartX; if(dy > 80 && Math.abs(dy) > Math.abs(dx)){ statsSection.classList.add('visible'); touching = false } });
+        // allow hiding with swipe up inside stats overlay
+        statsSection.addEventListener('touchstart', (ev)=>{ if(window.innerWidth<=640){ const t = ev.touches[0]; touchStartY = t.clientY; touching = true } });
+        statsSection.addEventListener('touchmove', (ev)=>{ if(!touching) return; const t = ev.touches[0]; const dy = t.clientY - touchStartY; if(dy < -80){ statsSection.classList.remove('visible'); touching = false } });
+      }
+    }catch(e){ /* ignore */ }
+
+    // Wire Browse Decks modal
+    const browseBtn = document.getElementById('browseDecks');
+    const overlay = document.getElementById('deckBrowserOverlay');
+    const deckList = document.getElementById('deckList');
+    const deckMsg = document.getElementById('deckBrowserMsg');
+    const closeBtn = document.getElementById('closeDeckBrowser');
+    const refreshBtn = document.getElementById('refreshDeckList');
+    async function fetchDirectory(path){
+      // Try manifest first (recommended for GitHub Pages)
+      try{
+        const manifestRes = await fetch((path.replace(/\/$/, '') + '/manifest.json'));
+        if(manifestRes && manifestRes.ok){
+          const list = await manifestRes.json();
+          if(Array.isArray(list)) return list;
+        }
+      }catch(e){ /* manifest not found — continue to try HTML listing */ }
+      try{
+        const res = await fetch(path);
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const text = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text,'text/html');
+        const anchors = Array.from(doc.querySelectorAll('a'));
+        const entries = [];
+        for(const a of anchors){
+          let href = a.getAttribute('href')||'';
+          if(!href) continue;
+          // normalize
+          if(href.startsWith('./')) href = href.slice(2);
+          // ignore parent links
+          if(href === '../' || href === '/') continue;
+          // trim trailing slash for folders
+          if(href.endsWith('/')) href = href;
+          entries.push(href);
+        }
+        return Array.from(new Set(entries));
+      }catch(err){
+        throw err;
+      }
+    }
+
+    async function openDeckBrowser(){
+      if(!overlay) return;
+      overlay.style.display = 'flex'; overlay.setAttribute('aria-hidden','false');
+      overlay.querySelector('.modal')?.classList.add('open');
+      deckList.innerHTML = '';
+      deckMsg.textContent = 'Recherche de ./decks/ ...';
+      try{
+        const entries = await fetchDirectory('./decks/');
+        if(!entries || entries.length===0){ deckMsg.textContent = 'Aucun fichier trouvé dans ./decks/'; return }
+        deckMsg.textContent = '';
+        // If manifest contains paths with '/', treat as manifest-mode and build a tree
+        const manifestMode = entries.some(e=> typeof e === 'string' && e.includes('/'));
+        if(manifestMode){
+          // keep entries for navigation
+          overlay._manifestEntries = entries.slice();
+          renderPath('');
+        } else {
+          // normal directory listing (server HTML) — render directly
+          renderList(entries, './decks/');
+        }
+
+        function renderPath(path){
+          deckList.innerHTML = '';
+          // path is like '' or 'Anglais/' or 'Anglais/Sub/'
+          const prefix = path;
+          const files = new Set();
+          const folders = new Set();
+          for(const p of entries){
+            if(!p.startsWith(prefix)) continue;
+            const tail = p.slice(prefix.length);
+            const parts = tail.split('/');
+            if(parts.length === 1){ files.add(parts[0]); }
+            else { folders.add(parts[0] + '/'); }
+          }
+          // parent link
+          if(prefix){
+            const back = document.createElement('div'); back.className='deck-entry';
+            const nm = document.createElement('div'); nm.textContent = '..';
+            const act = document.createElement('div');
+            const b = document.createElement('button'); b.className='secondary'; b.textContent='Retour';
+            b.addEventListener('click', ()=>{ const up = prefix.replace(/[^\/]+\/$/,''); renderPath(up); });
+            act.appendChild(b); back.appendChild(nm); back.appendChild(act); deckList.appendChild(back);
+          }
+          // folders
+          Array.from(folders).sort().forEach(folder=>{
+            const row = document.createElement('div'); row.className='deck-entry';
+            const nm = document.createElement('div'); nm.textContent = decodeURIComponent((prefix+folder).replace(/\+/g,' ')).replace(/\/$/,'');
+            const act = document.createElement('div');
+            const b = document.createElement('button'); b.className='secondary'; b.textContent='Ouvrir';
+            b.addEventListener('click', ()=>{ renderPath(prefix+folder); });
+            act.appendChild(b); row.appendChild(nm); row.appendChild(act); deckList.appendChild(row);
+          });
+          // files
+          Array.from(files).sort().forEach(file=>{
+            const row = document.createElement('div'); row.className='deck-entry';
+            const dec = decodeURIComponent((prefix+file).replace(/\+/g,' '));
+            const nm = document.createElement('div'); nm.textContent = dec.replace(/\.xml$/i,'');
+            const act = document.createElement('div');
+            if(file.toLowerCase().endsWith('.xml')){ const b=document.createElement('button'); b.className='secondary'; b.textContent='Charger'; b.addEventListener('click', ()=>{ overlay.querySelector('.modal')?.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); loadDeckFromURL('./decks/'+prefix+file); deckURL = './decks/'+prefix+file; }); act.appendChild(b); }
+            row.appendChild(nm); row.appendChild(act); deckList.appendChild(row);
+          });
+          deckMsg.textContent = '';
+        }
+
+        async function renderList(list, base){
+          deckList.innerHTML = '';
+          for(const e of list){
+            const row = document.createElement('div'); row.className='deck-entry';
+            const decoded = (()=>{ try{ return decodeURIComponent(e.replace(/\+/g,' ')) }catch(x){ return e } })();
+            const name = document.createElement('div'); name.textContent = decoded.replace(/\.xml$/i,'');
+            const actions = document.createElement('div');
+            if(e.endsWith('.xml')){ const btn = document.createElement('button'); btn.className='secondary'; btn.textContent='Charger'; btn.addEventListener('click', ()=>{ overlay.querySelector('.modal')?.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); loadDeckFromURL(base+e); deckURL = base+e; }); actions.appendChild(btn); }
+            else { const btn = document.createElement('button'); btn.className='secondary'; btn.textContent='Ouvrir'; btn.addEventListener('click', async ()=>{ deckMsg.textContent = 'Exploration de '+base+e+' ...'; try{ const sub = await fetchDirectory(base+e); renderList(sub, base+e); }catch(err){ deckMsg.textContent = 'Impossible d\'explorer le dossier: '+err.message } }); actions.appendChild(btn); }
+            row.appendChild(name); row.appendChild(actions); deckList.appendChild(row);
+          }
+        }
+      }catch(err){ deckMsg.textContent = 'Impossible d\'accéder à ./decks/ — invoquez via un serveur HTTP (non supporté en file://)'; }
+    }
+    if(browseBtn) browseBtn.addEventListener('click', openDeckBrowser);
+    // show tooltip first-time to indicate where to change deck
+    function showDeckTooltipOnce(){
+      try{
+        const key = 'fabanki_seenDeckTooltip_v1';
+        if(localStorage.getItem(key)) return;
+        const btn = document.getElementById('browseDecks');
+        if(!btn) return;
+        const r = btn.getBoundingClientRect();
+        const tip = document.createElement('div'); tip.className='tooltip'; tip.id='deckTooltip';
+        tip.textContent = 'Cliquer ici pour choisir un deck';
+        document.body.appendChild(tip);
+        // position above the button
+        tip.style.left = (r.left + window.scrollX) + 'px';
+        tip.style.top = (r.bottom + window.scrollY + 8) + 'px';
+        setTimeout(()=>{ try{ tip.style.opacity='0'; tip.remove(); localStorage.setItem(key,'1') }catch(e){} }, 3800);
+      }catch(e){}
+    }
+    showDeckTooltipOnce();
+    if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(overlay){ overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); overlay.querySelector('.modal')?.classList.remove('open'); } });
+    if(overlay){ overlay.addEventListener('click', (ev)=>{ if(ev.target === overlay){ overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); overlay.querySelector('.modal')?.classList.remove('open'); } }); }
+    if(refreshBtn) refreshBtn.addEventListener('click', ()=>{ openDeckBrowser(); });
+    // toggle histogram button (mobile: overlay, desktop: scroll)
+    const toggleStatsBtn = document.getElementById('toggleStats');
+    if(toggleStatsBtn){
+      toggleStatsBtn.addEventListener('click', ()=>{
+        const stats = document.getElementById('stats');
+        if(!stats) return;
+        if(window.innerWidth <= 640){ stats.classList.toggle('visible'); }
+        else { stats.scrollIntoView({behavior:'smooth'}); }
+      });
+    }
+    // close button for mobile histogram overlay
+    const closeStatsBtn = document.getElementById('closeStatsMobile');
+    if(closeStatsBtn){
+      closeStatsBtn.addEventListener('click', ()=>{
+        const stats = document.getElementById('stats'); if(!stats) return; stats.classList.remove('visible');
+      });
+    }
+
+    // check URL param
+    const pdeck = param('deck');
+    if(pdeck){
+      deckURL = pdeck; loadDeckFromURL(pdeck);
+    } else {
+      // DEBUG fallback: try local deck when served via HTTP
+      const debugPath = 'decks/Chap8.xml';
+      if(location.protocol !== 'file:'){
+        // when served over http(s), try loading automatically
+        deckURL = debugPath;
+        loadDeckFromURL(debugPath);
+        history.replaceState(null,'', '?deck='+encodeURIComponent(debugPath));
+      } else {
+        // when opened via file://, instruct user to click Charger
+        updateStatus('Pré-rempli pour debug : cliquez sur Charger et sélectionnez un fichier XML local');
+      }
+    }
+  });
+
+  // Expose functions as required (so they're available globally)
+  window.loadDeckFromURL = loadDeckFromURL;
+  window.parseXMLDeck = parseXMLDeck;
+  window.interpretSides = interpretSides;
+  window.renderFront = renderFront;
+  window.renderBack = renderBack;
+  window.renderKaTeX = renderKaTeX;
+  window.initFSRS = initFSRS;
+  window.scheduleCard = scheduleCard;
+  window.getDueCards = getDueCards;
+
+  </script>
+</body>
+</html>
