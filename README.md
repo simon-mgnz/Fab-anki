@@ -1,25 +1,74 @@
-Fab'Anki — Hébergement sur GitHub Pages
+# Fab'Anki
 
-Prérequis et instructions rapides pour publier `index.html` via GitHub Pages:
+A lightweight, browser-based flashcard application with no account requirement. Built for efficient spaced-repetition study, with comprehensive support for mathematical notation via KaTeX.
 
-- Créer un dépôt GitHub et pousser le contenu du projet (tous les fichiers y compris `index.html` et le dossier `decks/`).
-- Activer GitHub Pages dans les paramètres du dépôt: Settings → Pages → Source: `main` branch → `/ (root)` puis Enregistrer.
-- Après publication, votre site sera accessible à `https://<votre-utilisateur>.github.io/<votre-repo>/`.
+## Features
 
-Notes importantes:
-- Le navigateur côté client ne peut pas écrire directement dans le répertoire `./decks/` sur le serveur; l'interface "Charger" ouvre un sélecteur de fichiers local pour charger des decks côté client seulement. Pour permettre l'upload depuis l'interface, il faut implémenter un endpoint serveur (ex: simple upload POST) qui écrit les fichiers dans `./decks/`.
-- La fonctionnalité "Parcourir decks" tente d'utiliser l'index de répertoire renvoyé par le serveur (listing HTML). GitHub Pages n'affiche généralement pas l'index des dossiers; pour une liste fiable, fournissez un fichier `decks/manifest.json` contenant la liste des decks et leurs chemins, et modifiez l'app pour charger ce manifest plutôt que d'analyser le listing HTML.
+### Deck Management
+- Load local XML deck files from your computer
+- Browse hosted decks from `./decks/` directory
+- Support for multiple concurrent decks
+- Optimized manifest.json indexing system
 
-Recommandation pour production:
-- Ajouter `decks/manifest.json` formaté ainsi:
+### Card Review System
+- Minimal, distraction-free interface
+- SM-2 spacing algorithm with four difficulty ratings (Again, Hard, Good, Easy)
+- Progressive answer reveal on demand
+- Full Anki field support (front, back, always-show)
 
-  [
-    "Chap8.xml",
-    "subfolder/Chap9.xml"
-  ]
+### Progress Tracking
+- Visual histogram showing card distribution by due date
+- Real-time progress bar during study sessions
+- Detailed statistics: total cards and ready cards
+- Due date categories: New, Now, <12h, Tomorrow, <1 week, Long-term
 
-- Puis adapter l'appel `fetchDirectory('./decks/')` dans `index.html` pour charger `./decks/manifest.json` si présent.
+### Mathematical Support
+- Integrated KaTeX rendering for LaTeX formulas
+- Support for inline `$...$` and display `$$...$$` notation
 
-Si tu veux, je peux générer un exemple `decks/manifest.json` et patcher `index.html` pour l'utiliser automatiquement si présent.
+### Customization
+- Dark mode for reduced eye strain
+- Fully responsive design for all devices
+- Mobile-optimized full-screen interface with enlarged touch targets
 
-© Fab'Anki
+### Local Storage
+- Browser-based localStorage persistence
+- No server required, no account needed
+- Automatic session retention across browser instances
+- Local data reset capability
+
+### Deployment
+- URL parameter support via `?deck=` for direct deck loading
+- GitHub Pages compatible
+- Single-file deployment
+
+## Included Decks (in French)
+- English
+- Mathematics
+- Physics
+- IT
+- Industrial Engineering
+- French Literature
+
+## Deployment (if you want to fork it)
+
+### GitHub Pages Setup
+
+1. Create a GitHub repository and push all project files (index.html and decks/ directory)
+2. Enable GitHub Pages in repository settings: Settings → Pages → Source: main branch → / (root)
+3. Your application will be available at `https://<username>.github.io/<repo>/`
+
+### Important Notes
+
+- Deck uploads via the UI load files client-side only. Server-side upload requires implementing a dedicated endpoint.
+- GitHub Pages does not display directory listings by default. The `decks/manifest.json` file provides reliable deck discovery.
+
+## Architecture
+
+- Single-file application contained in index.html
+- Zero dependencies except KaTeX (served via CDN)
+- Client-side only, no server required
+- Persistent state via localStorage
+
+
+© Fab'Anki - 2026 - MPSI1 >> MPSI2
