@@ -44,6 +44,7 @@
     [data-theme='dark'] .muted{color:var(--muted)}
     [data-theme='dark'] .progress{background:#1b1d22}
     [data-theme='dark'] .progress > i{background:linear-gradient(90deg,#6f8cff,#b9bfff)}
+    [data-theme='dark'] .hist-hint-box{background:#2b1a1a;border-left:4px solid #ff6b6b;color:#ffdede}
     /* Rating button colors (override in dark) */
     .rate-ratte{background:#d9534f}
     .rate-difficile{background:#f0ad4e}
@@ -72,26 +73,34 @@
 
     /* Mobile full-screen card and swipe-to-show histogram */
     @media (max-width:640px){
-      body,html{height:100%}
-      .app{max-width:100%;margin:0;padding:0;padding-top:66px}
+      body,html{height:100%;overflow:hidden}
+      .app{max-width:100%;margin:0;padding:0;padding-top:66px;padding-left:12px;padding-right:12px}
       header{position:fixed;top:0;left:0;right:0;height:56px;padding:0 8px;display:flex;align-items:center;justify-content:space-around;background:var(--card);box-shadow:0 6px 18px rgba(0,0,0,0.08);z-index:60}
       h1{font-size:1rem;margin:0;text-align:center}
-      .card{border-radius:0;min-height:calc(100vh - 66px);padding:16px;display:flex;flex-direction:column}
+      /* reduce height slightly so bottom buttons can appear above fold */
+      .card{border-radius:0;min-height:calc(100vh - 120px);padding:12px;display:flex;flex-direction:column;max-width:calc(100% - 24px);margin:0 auto}
       section#stats{display:none}
       section#stats.visible{display:block;position:fixed;left:0;right:0;top:0;bottom:0;padding:12px;z-index:999;overflow:auto}
       .hist-viewport{height:140px}
       .hist-fill{width:40%}
       .hist-count{width:100%;text-align:center}
       /* Larger, centered card text and buttons */
-      .card-content{display:flex;align-items:center;justify-content:center;text-align:center;font-size:1.15rem;padding:6px}
-      .resp-buttons button{padding:12px 14px;font-size:1.05rem}
-      .buttons button{font-size:1.02rem;padding:10px 14px}
+      /* center main content both horizontally and vertically */
+      .card-content{display:flex;align-items:center;justify-content:center;text-align:center;font-size:1.05rem;padding:12px 6px 6px 6px;min-height:40vh}
+      /* keep response buttons on a single line and compact */
+      .resp-buttons{flex-wrap:nowrap;gap:6px;overflow:auto}
+      .resp-buttons button{flex:0 1 auto;padding:8px 8px;font-size:0.92rem;min-width:56px}
+      .buttons button{font-size:1.0rem;padding:8px 12px}
+      /* make passer smaller on mobile so it doesn't force layout */
+      .resp-buttons #passer{min-width:56px;padding:8px 8px;font-size:0.9rem}
     }
     /* Rating button colors */
     .rate-ratte{background:#d9534f}
     .rate-difficile{background:#f0ad4e}
     .rate-bon{background:#007bff}
     .rate-facile{background:#28a745}
+    /* Passer button: outlined, keep to the right of easy and don't flex-grow */
+    .resp-buttons #passer{flex:0 0 auto;min-width:84px;padding:10px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:transparent;color:var(--fg)}
     /* Hide histogram toggle on desktop; show only on mobile */
     #toggleStats{display:none}
     /* Close button for mobile stats (hidden by default) */
@@ -99,7 +108,16 @@
     /* Desktop uniform button/card sizes */
     @media (min-width:641px){
       .buttons button, .resp-buttons button, button.secondary{min-width:120px;padding:10px 14px}
+      /* Standardize top-bar buttons on desktop */
+      header .controls button{min-width:120px;padding:10px 14px}
       .card{min-height:260px}
+      /* Disable page scrolling on desktop */
+      body{overflow:hidden}
+    }
+
+    /* Center front content on desktop */
+    @media (min-width:641px){
+      .card-content > #front{display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center}
     }
     /* Mobile-specific rules */
     @media (max-width:640px){
@@ -115,6 +133,42 @@
       /* Footer stacked vertically on mobile */
       footer{flex-direction:column;align-items:center;gap:6px}
     }
+    /* Make deck browser modal full-screen on mobile like the stats overlay */
+    @media (max-width:640px){
+      .modal-overlay{padding:0;align-items:flex-start}
+      .modal-overlay[aria-hidden="false"]{display:flex}
+      .modal{border-radius:0;max-width:100%;height:100vh;width:100%;margin:0;padding:12px;padding-top:66px;box-shadow:none;overflow:auto}
+      .modal .secondary{min-width:96px}
+      /* Make Charger buttons gray; keep primary actions visually accentuated where needed */
+      .modal .deck-entry button{margin-left:6px}
+    }
+
+    /* deck browser: due badge - big number with small label */
+    /* due-badge: make available globally (welcome + deck browser) */
+    .due-badge{color:#d9534f;font-weight:600;margin-left:8px;font-size:0.95rem;display:inline-block;text-align:center}
+    .due-badge .due-num{font-size:1.25rem;font-weight:700;line-height:1}
+    .due-badge .due-label{font-size:0.75rem;color:var(--muted)}
+    .due-badge{margin-right:8px}
+    .deck-entry .due-badge{margin-left:0}
+
+    /* Level ring in profile popup */
+    .level-box{display:flex;gap:12px;align-items:center;margin-top:10px}
+    .level-ring{width:88px;height:88px;position:relative;flex:0 0 88px}
+    .level-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+    .level-ring .level-num{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.2rem}
+    .level-info{display:flex;flex-direction:column}
+    .level-info .next{font-size:0.9rem;color:var(--muted)}
+    .level-info .progress-remaining{font-weight:700}
+    /* Compact level summary card used on welcome page */
+    .level-summary{max-width:720px;margin:0 auto 12px;padding:12px;display:flex;align-items:center;gap:12px;min-height:0 !important}
+    .level-summary .level-ring{width:64px;height:64px;flex:0 0 64px}
+    .level-summary .level-num{font-size:1.1rem}
+    @media (max-width:640px){
+      .level-summary{padding:10px;margin-bottom:10px}
+      .level-summary .level-ring{width:56px;height:56px;flex:0 0 56px}
+      .level-summary .level-num{font-size:1rem}
+    }
+    .deck-entry .deck-actions{display:flex;gap:8px;align-items:center}
     /* Footer full-bleed on desktop: make it span viewport width */
     @media (min-width:641px){
       footer{position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw;width:100vw;padding:12px 18px}
@@ -127,20 +181,77 @@
     /* TTS play button */
     .tts-play{margin-left:8px;padding:6px 8px;border-radius:8px;border:0;background:rgba(0,0,0,0.06);cursor:pointer}
     .tts-play:active{transform:scale(0.98)}
+    /* Card status small box (persistent) */
+    .card-status{position:absolute;left:14px;top:14px;padding:6px 10px;border-radius:8px;font-weight:600;z-index:1400;background:rgba(0,0,0,0.04);color:var(--fg)}
+    /* Use same colors as histogram bars */
+    .card-status.status-new{background:linear-gradient(180deg,#e9d8ff,#d6b8ff);color:#6f2fff}
+    .card-status.status-now{background:rgba(217,83,79,0.12);color:#d9534f}
+    .card-status.status-12h{background:rgba(255,155,155,0.12);color:#ff6b6b}
+    .card-status.status-tomorrow{background:rgba(255,217,102,0.12);color:#b88600}
+    .card-status.status-week{background:rgba(111,140,255,0.12);color:#2f6fff}
+    .card-status.status-long{background:rgba(40,167,69,0.12);color:#1f7a2f}
+    .card-status.status-upcoming{background:rgba(0,0,0,0.04);color:var(--muted)}
+
+    /* XP toast animation */
+    .xp-toast{animation:xp-pop .45s ease both}
+    @keyframes xp-pop{0%{transform:translateY(-6px) scale(.92);opacity:0}50%{transform:translateY(-2px) scale(1.03);opacity:1}100%{transform:translateY(0) scale(1);opacity:1}}
+
+    /* Level ring transitions */
+    .level-ring .ring-fill{transition:stroke-dashoffset .9s cubic-bezier(.2,.9,.2,1), stroke .4s ease}
+    /* Level up notification */
+    .level-up-notify{position:fixed;left:50%;top:20%;transform:translateX(-50%) scale(.98);background:var(--card);padding:14px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:2000;opacity:0;animation:level-up-in .6s ease forwards}
+    @keyframes level-up-in{0%{opacity:0;transform:translateX(-50%) scale(.9)}60%{opacity:1;transform:translateX(-50%) scale(1.05)}100%{opacity:1;transform:translateX(-50%) scale(1)}}
+    /* Hint box styling (red) */
+    .hist-hint-box{background:#ffecec;border-left:4px solid #d9534f;color:#681214;padding:8px;border-radius:6px}
+    @media (max-width:640px){
+      /* On mobile, pin hint under top bar */
+      .hist-hint-box{position:fixed;top:66px;left:12px;right:12px;z-index:1001;margin-top:0}
+      /* Mobile modal & deck browser adjustments: remove unexpected left gutter, keep full-bleed */
+      .modal-overlay{padding:0;left:0;right:0}
+      .modal{box-sizing:border-box;padding-left:12px;padding-right:12px;margin-left:0 !important;margin-right:0 !important;left:0;right:0}
+      .deck-list{padding-left:6px;padding-right:6px}
+      .deck-entry{padding-left:6px;padding-right:6px}
+      /* Ensure back element is centered like front on mobile */
+      #back{display:none}
+      .card-content #back{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:12px 6px 6px 6px;box-sizing:border-box;width:100%}
+      /* Ensure all nested field content centers within the back element (mobile only) and respects card padding */
+      .card-content #back .field{width:100%;max-width:760px;text-align:center;margin-left:auto;margin-right:auto}
+      .card-content #back .field *{text-align:center}
+      /* Remove left margin on due-badges on mobile to prevent odd gutter next to Charger */
+      .deck-entry .due-badge{margin-left:0;margin-right:6px}
+      /* Ensure both front and back occupy the .card-content flex space and center their content */
+      .card-content > #front, .card-content > #back { width:100%; display:flex; flex:1 1 auto; flex-direction:column; align-items:center; justify-content:center }
+    }
+    /* Tight mobile tweaks for very narrow screens to prevent button overflow */
+    @media (max-width:500px){
+      .progress-container{flex:0 0 110px;min-width:90px;max-width:140px}
+      .buttons{flex:1 1 auto;min-width:0}
+      .resp-buttons{flex-wrap:wrap;gap:6px}
+      .resp-buttons button{min-width:48px;padding:6px 8px;font-size:0.86rem}
+      .buttons button{font-size:0.95rem;padding:8px 10px}
+      .progress{height:6px}
+      /* ensure progress container aligns at the right without being pushed off-screen */
+      .progress-container{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+      /* When buttons wrap, center both rows to align with each other */
+      .buttons{justify-content:center}
+      .resp-buttons{justify-content:center}
+    }
   </style>
 </head>
 <body>
   <div class="app" id="app" data-theme="light">
     <header>
-      <h1>Fab'Anki — Flashcards (sans compte)</h1>
+      <h1 id="appTitle">Fab'Anki — Flashcards (sans compte)</h1>
       <div class="controls">
         <!-- Hidden file picker used as a fallback when running the page from file:// -->
         <input id="filePicker" type="file" accept=".xml,application/xml" style="display:none" />
-        <button id="loadBtn">Charger</button>
-        <button id="browseDecks" class="secondary">Parcourir decks</button>
-        <button id="toggleStats" class="secondary">Histogramme</button>
-        <button id="toggleTheme" class="secondary">Mode sombre</button>
-        <button id="resetBtn" class="secondary">Réinitialiser données locales</button>
+        <!-- swapped: Parcourir decks before Charger per user request -->
+        <button id="browseDecks" data-label-text="Parcourir decks" data-label-emoji="📚">Parcourir decks</button>
+        <button id="profileBtn" data-label-text="Profile" data-label-emoji="👤">Profile</button>
+        <button id="loadBtn" class="secondary" data-label-text="Charger" data-label-emoji="📂">Charger</button>
+        <button id="toggleStats" class="secondary" data-label-text="Histogramme" data-label-emoji="📊">Histogramme</button>
+        <button id="toggleTheme" class="secondary" data-label-text="Mode sombre" data-label-emoji="🌙">Mode sombre</button>
+        <button id="resetBtn" class="secondary" data-label-text="Réinitialiser données locales" data-label-emoji="♻️">Réinitialiser données locales</button>
       </div>
     </header>
 
@@ -152,6 +263,7 @@
           <div class="card" id="cardArea" aria-live="polite">
             <div class="card-content">
               <div id="front" class="front"></div>
+              <div id="back" class="back" style="display:none"></div>
               <div id="always" class="muted small" style="margin-top:8px"></div>
             </div>
             <div class="meta" id="meta"><span id="dueInline" class="muted small">Cartes prêtes : <strong id="dueCount">0</strong></span></div>
@@ -163,9 +275,10 @@
                   <button id="hard" class="rate-difficile">Difficile</button>
                   <button id="good" class="rate-bon">Bon</button>
                   <button id="easy" class="rate-facile">Facile</button>
+                  <button id="passer" class="secondary" title="Passer cette carte">Passer</button>
                 </div>
               </div>
-              <div style="width:30%">
+              <div class="progress-container">
                 <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
                 <div id="progressInfo" class="muted small" style="text-align:center;margin-top:6px">Révisées : 0 / 0</div>
               </div>
@@ -179,8 +292,8 @@
     <!-- Deck browser modal (hidden) -->
     <div id="deckBrowserOverlay" class="modal-overlay" aria-hidden="true">
       <div class="modal" role="dialog" aria-modal="true">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <h3>Parcourir les decks (./decks/)</h3>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h3>Parcourir les decks (./decks/)</h3>
           <div>
             <button id="refreshDeckList" class="secondary">Rafraîchir</button>
             <button id="closeDeckBrowser" class="secondary">Fermer</button>
@@ -196,7 +309,7 @@
       <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h3 style="margin:6px 0;color:var(--muted)">Répartition des cartes par échéance</h3>
-        <button id="closeStatsMobile" class="secondary" style="display:none">Fermer</button>
+        <button id="closeStatsMobile" class="secondary">✖️</button>
       </div>
       <div id="histogram" class="histogram" aria-hidden="false">
         <div class="hist-column">
@@ -231,6 +344,8 @@
         </div>
       </div>
     </section>
+    <!-- Hint box (kept OUTSIDE the stats section). On desktop it will appear under the chart; on mobile it's positioned above the main card via CSS. -->
+    <div id="histHint" class="muted small hist-hint-box" style="margin-top:10px">Nouvelle version : Profile, Xp, niveau, cartes à faire, page d'accueil, affichage corrigé</div>
 
     <footer>
       <div class="muted small" id="deckInfo"></div>
@@ -257,6 +372,7 @@
   let reviewedCount = 0;
   let deckKey = null; // prefix for localStorage
   let tooltipShown = false;
+  let cardShownAt = Date.now();
 
   // === FSRS storage key helpers ===
   function storageKey(s){ return `fabanki:${deckKey}:${s}` }
@@ -440,10 +556,15 @@
     backEl.innerHTML = '';
     const defs = deck.fieldDefs || [];
     let anyContent = false;
+    // detect whether front is currently visible (so we avoid duplicating 'always' fields)
+    const frontVisible = (function(){ try{ const fe = document.getElementById('front'); return fe && fe.style.display !== 'none'; }catch(e){ return false } })();
     for(const def of defs){
       const f = card.fields && card.fields[def.name];
       if(!f) continue;
-      if(f.sides.always || f.sides.back){
+      // If the field is visible on the front and the front is currently shown, skip it
+      if(f.sides.front && frontVisible) continue;
+      // Otherwise show fields that are marked for back (or 'always' when front is hidden)
+      if(f.sides.back || (f.sides.always && !frontVisible)){
         const node = buildFieldElement(def, f);
         backEl.appendChild(node);
         anyContent = true;
@@ -668,7 +789,17 @@
   function randInt(min, max){ return Math.floor(Math.random()*(max-min+1)) + min }
 
   // === Helpers ===
-  function updateStatus(t){ $('#status').textContent = t }
+  // updateStatus: set status text and ensure on mobile the status appears above the hint box
+    function updateStatus(t){
+    try{
+      const s = document.getElementById('status'); if(!s) return; s.textContent = t;
+      const hint = document.getElementById('histHint');
+      // Show status and hint in normal document flow above the main card (mobile and desktop).
+      // Avoid using fixed positioning which overlays the card content.
+      if(s){ s.style.position = ''; s.style.top = ''; s.style.left = ''; s.style.right = ''; s.style.zIndex = ''; s.style.background = ''; s.style.padding = t ? '8px' : ''; s.style.borderRadius = t ? '6px' : ''; s.style.boxShadow = t ? '0 6px 18px rgba(0,0,0,0.04)' : ''; s.style.display = t ? 'block' : ''; }
+      if(hint){ hint.style.position = ''; hint.style.top = ''; hint.style.left = ''; hint.style.right = ''; hint.style.zIndex = ''; hint.style.display = t ? 'block' : ''; }
+    }catch(e){ try{ $('#status').textContent = t }catch(e){} }
+  }
   function renderEmpty(){
     const front = $('#front'); if(front) front.innerHTML='';
     const back = $('#back'); if(back) back.innerHTML='';
@@ -713,36 +844,107 @@
     const resp = $('#respButtons'); if(resp) resp.style.display = 'none';
     const backEl = $('#back'); if(backEl) backEl.style.display = 'none';
     renderFront(c);
+    // update card status box (Nouveau / Maintenant)
+    try{ renderCardStatus(c); }catch(e){}
+    // record when this card was shown to compute XP based on time spent
+    try{ cardShownAt = Date.now(); }catch(e){}
+    // Ensure front is visible (might have been hidden after showing an answer)
+    const frontEl = $('#front'); if(frontEl){ frontEl.style.display = 'flex'; frontEl.style.flex = '1 1 auto'; }
     // do not show per-card index (user requested removal)
     // progress
     const pct = Math.round(((currentIndex)/Math.max(1,dueCards.length))*100);
     const pb = $('#progressBar'); if(pb) pb.style.width = pct + '%';
   }
 
-  // Button handlers
-  $('#showAnswer').addEventListener('click', ()=>{
-    const c = dueCards[currentIndex];
-    // Replace front content with back fields (single-card view)
-    const frontEl = $('#front');
-    frontEl.innerHTML = '';
-    const defs = deck.fieldDefs || [];
-    for(const def of defs){
-      const f = c.fields && c.fields[def.name];
-      if(!f) continue;
-      if(f.sides.always || f.sides.back){
-        const node = buildFieldElement(def, f);
-        frontEl.appendChild(node);
+  // Render or update the small persistent card status box
+  function renderCardStatus(card){
+    try{
+      if(!card) return;
+      const cardArea = document.getElementById('cardArea'); if(!cardArea) return;
+      let stEl = document.getElementById('cardStatus');
+      if(!stEl){ stEl = document.createElement('div'); stEl.id = 'cardStatus'; stEl.className = 'card-status'; cardArea.appendChild(stEl); cardArea.style.position = cardArea.style.position || 'relative'; }
+      const key = storageKey('card:'+card.id);
+      const st = JSON.parse(localStorage.getItem(key) || '{}');
+      const now = new Date();
+      let txt = '';
+      let cls = 'status-upcoming';
+      const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
+      if(isNew){ txt = 'Nouveau'; cls = 'status-new'; }
+      else {
+        const due = st && st.due ? new Date(st.due) : now;
+        const hrs = (due - now) / (1000*60*60);
+        if(due <= now){ txt = 'Maintenant'; cls = 'status-now'; }
+        else if(hrs <= 12){ txt = '<12h'; cls = 'status-12h'; }
+        else if(hrs <= 24){ txt = 'Demain'; cls = 'status-tomorrow'; }
+        else if(hrs <= 24*7){ txt = '<1 sem'; cls = 'status-week'; }
+        else { txt = 'Longtemps'; cls = 'status-long'; }
       }
-    }
-    // show response buttons in side panel, hide ShowAnswer
-    const respBtn = $('#respButtons'); if(respBtn) respBtn.style.display = 'flex';
-    const showBtn = $('#showAnswer'); if(showBtn) showBtn.style.display = 'none';
+      stEl.textContent = txt; stEl.className = 'card-status ' + cls;
+    }catch(e){ console.warn('renderCardStatus', e) }
+  }
+
+  // Button handlers
+    $('#showAnswer').addEventListener('click', ()=>{
+    const c = dueCards[currentIndex];
+    try{
+      renderBack(c);
+      const frontEl = $('#front');
+      const backEl = $('#back');
+      const respBtn = $('#respButtons');
+      const showBtn = $('#showAnswer');
+      if(window.innerWidth <= 640){
+        // mobile: replace front with back (full-screen centered)
+        if(frontEl){ frontEl.style.display = 'none'; frontEl.style.flex = '0 0 auto'; }
+        if(backEl){ backEl.style.display = 'flex'; backEl.style.flex = '1 1 auto'; }
+      } else {
+        // desktop: show answer under the question, center both
+        if(frontEl){ frontEl.style.display = 'block'; frontEl.style.flex = '0 0 auto'; }
+        if(backEl){ backEl.style.display = 'block'; backEl.style.flex = '0 0 auto'; }
+        // ensure text inside both is centered
+        try{ frontEl.querySelectorAll('.field').forEach(n=>n.style.textAlign='center'); }catch(e){}
+        try{ backEl.querySelectorAll('.field').forEach(n=>n.style.textAlign='center'); }catch(e){}
+      }
+      if(respBtn) respBtn.style.display = 'flex';
+      if(showBtn) showBtn.style.display = 'none';
+    }catch(e){ console.warn('showAnswer error', e); }
   });
 
   $('#again').addEventListener('click', ()=>{ answerCurrent(0) });
   $('#hard').addEventListener('click', ()=>{ answerCurrent(3) });
   $('#good').addEventListener('click', ()=>{ answerCurrent(4) });
   $('#easy').addEventListener('click', ()=>{ answerCurrent(5) });
+  // Pass current card: mark as 'Never' (far future) and remove from session
+  $('#passer').addEventListener('click', ()=>{ passCurrent() });
+
+  function passCurrent(){
+    try{
+      const c = dueCards[currentIndex]; if(!c) return;
+      // mark card as never due again by setting a far-future date
+      const key = storageKey('card:'+c.id);
+      const st = JSON.parse(localStorage.getItem(key) || '{}');
+      st.never = true;
+      st.due = new Date(9999,11,31,23,59,59).toISOString();
+      st.last = (new Date()).toISOString();
+      localStorage.setItem(key, JSON.stringify(st));
+      // count this as reviewed for session
+      reviewedCount = (reviewedCount || 0) + 1; updateProgressDisplay();
+      // remove from due list and show next
+      dueCards.splice(currentIndex, 1);
+      if(currentIndex >= dueCards.length){ updateStatus('Révision terminée pour aujourd\'hui'); renderEmpty(); }
+      else { showNextCard(); }
+      const dueEl2 = $('#dueCount'); if(dueEl2) dueEl2.textContent = dueCards.length;
+      updateHistogram();
+      try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
+      try{
+        // apply penalty XP for pass action
+        const section = (typeof window.getDeckSection === 'function') ? window.getDeckSection() : '';
+        const pen = (typeof window.computePenaltyForSection === 'function') ? window.computePenaltyForSection(section) : (section? -2 : -2);
+        const applied = (typeof window.applyXp === 'function') ? window.applyXp(pen) : 0;
+        if(applied) { try{ window.showXpToast(applied); }catch(e){} }
+        if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
+      }catch(e){}
+    }catch(e){ console.warn('pass error', e); }
+  }
 
   function answerCurrent(q){
     const c = dueCards[currentIndex];
@@ -769,6 +971,19 @@
     }
     const dueEl2 = $('#dueCount'); if(dueEl2) dueEl2.textContent = dueCards.length;
     updateProgressDisplay();
+    try{
+      // compute XP for this successful review (only for qualities 3/4/5)
+      if([3,4,5].includes(q)){
+        try{
+          const timeSec = Math.max(0, (Date.now() - (cardShownAt||Date.now())) / 1000);
+          const section = (typeof window.getDeckSection === 'function') ? window.getDeckSection() : '';
+          const xp = (typeof window.computeXpForQuality === 'function') ? window.computeXpForQuality(section, q, timeSec) : 0;
+          const applied = (typeof window.applyXp === 'function') ? window.applyXp(xp) : 0;
+          if(applied) { try{ window.showXpToast(applied); }catch(e){} }
+        }catch(e){ console.warn('xp calc', e); }
+      }
+      if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
+    }catch(e){}
   }
 
   // Load deck from URL param on start
@@ -820,7 +1035,7 @@
     if(toggleBtn){
       // ensure document root inherits initial theme
       document.documentElement.setAttribute('data-theme', document.getElementById('app')?.getAttribute('data-theme') || 'light');
-      toggleBtn.addEventListener('click', ()=>{
+        toggleBtn.addEventListener('click', ()=>{
         const appEl = document.getElementById('app');
         if(!appEl) return;
         const current = document.documentElement.getAttribute('data-theme') || 'light';
@@ -828,9 +1043,25 @@
         // set on root so CSS variables apply globally, and on app for scoped selectors
         document.documentElement.setAttribute('data-theme', t);
         appEl.setAttribute('data-theme', t);
-        toggleBtn.textContent = t==='dark' ? 'Mode clair' : 'Mode sombre';
+        const themeLabel = t==='dark' ? 'Mode clair' : 'Mode sombre';
+        toggleBtn.setAttribute('data-label-text', themeLabel);
+        try{ if(typeof updateTopBarLabels === 'function') updateTopBarLabels(); }catch(e){}
       });
+
     }
+
+    // Update app title for mobile vs desktop (mobile shows short title)
+    function updateAppTitle(){
+      try{
+        const el = document.getElementById('appTitle'); if(!el) return;
+        if(window.innerWidth <= 640) el.textContent = "Fab'Anki";
+        else el.textContent = "Fab'Anki — Flashcards (sans compte)";
+      }catch(e){}  
+    }
+    updateAppTitle();
+    window.addEventListener('resize', updateAppTitle);
+    // Ensure status/hint positions update on resize
+    window.addEventListener('resize', ()=>{ try{ updateStatus(document.getElementById('status')?.textContent || '') }catch(e){} });
 
     // Move grading buttons into main card area so they appear with the card
     try{
@@ -843,12 +1074,13 @@
       }
     }catch(e){ /* ignore */ }
 
-    // Swipe gestures: on mobile, swipe down on the card to reveal histogram, swipe up to hide
+    // Swipe gestures: disabled by default. Set `swipeEnabled = true` to re-enable.
     try{
+      const swipeEnabled = false;
       let touchStartY = 0, touchStartX = 0, touching = false;
       const cardArea = document.getElementById('cardArea');
       const statsSection = document.getElementById('stats');
-      if(cardArea && statsSection){
+      if(swipeEnabled && cardArea && statsSection){
         cardArea.addEventListener('touchstart', (ev)=>{ if(window.innerWidth<=640){ const t = ev.touches[0]; touchStartY = t.clientY; touchStartX = t.clientX; touching = true } });
         cardArea.addEventListener('touchmove', (ev)=>{ if(!touching) return; const t = ev.touches[0]; const dy = t.clientY - touchStartY; const dx = t.clientX - touchStartX; if(dy > 80 && Math.abs(dy) > Math.abs(dx)){ statsSection.classList.add('visible'); touching = false } });
         // allow hiding with swipe up inside stats overlay
@@ -937,7 +1169,7 @@
             const back = document.createElement('div'); back.className='deck-entry';
             const nm = document.createElement('div'); nm.textContent = '..';
             const act = document.createElement('div');
-            const b = document.createElement('button'); b.className='secondary'; b.textContent='Retour';
+              const b = document.createElement('button'); b.className='secondary'; b.textContent='Retour';
             b.addEventListener('click', ()=>{ const up = prefix.replace(/[^\/]+\/$/,''); renderPath(up); });
             act.appendChild(b); back.appendChild(nm); back.appendChild(act); deckList.appendChild(back);
           }
@@ -950,13 +1182,30 @@
             b.addEventListener('click', ()=>{ renderPath(prefix+folder); });
             act.appendChild(b); row.appendChild(nm); row.appendChild(act); deckList.appendChild(row);
           });
-          // files
-          Array.from(files).sort().forEach(file=>{
+          // files (limit to first 10)
+          Array.from(files).sort().slice(0,10).forEach(file=>{
             const row = document.createElement('div'); row.className='deck-entry';
             const dec = decodeURIComponent((prefix+file).replace(/\+/g,' '));
             const nm = document.createElement('div'); nm.textContent = dec.replace(/\.xml$/i,'');
             const act = document.createElement('div');
-            if(file.toLowerCase().endsWith('.xml')){ const b=document.createElement('button'); b.className='secondary'; b.textContent='Charger'; b.addEventListener('click', ()=>{ overlay.querySelector('.modal')?.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); loadDeckFromURL('./decks/'+prefix+file); deckURL = './decks/'+prefix+file; }); act.appendChild(b); }
+              if(file.toLowerCase().endsWith('.xml')){ const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
+                const b=document.createElement('button'); b.className='secondary';
+                b.textContent = (window.innerWidth <= 640) ? '▶️' : 'Charger';
+                b.addEventListener('click', async ()=>{ await removeWelcome(); overlay.querySelector('.modal')?.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); loadDeckFromURL('./decks/'+prefix+file); deckURL = './decks/'+prefix+file; });
+                act.appendChild(dueBadge); act.appendChild(b);
+                // asynchronously compute number of cards due now for this deck and display
+                (async ()=>{
+                  try{
+                    const url = './decks/'+prefix+file;
+                    const n = await countDueNowForDeck(url);
+                    if(typeof n === 'number' && n>=0){
+                      dueBadge.querySelector('.due-num').textContent = n>0? n : '';
+                      // hide label when zero
+                      dueBadge.querySelector('.due-label').style.display = n>0? 'block' : 'none';
+                    } else { dueBadge.querySelector('.due-num').textContent = ''; dueBadge.querySelector('.due-label').style.display = 'none' }
+                  }catch(e){ /* ignore */ }
+                })();
+              }
             row.appendChild(nm); row.appendChild(act); deckList.appendChild(row);
           });
           deckMsg.textContent = '';
@@ -964,12 +1213,19 @@
 
         async function renderList(list, base){
           deckList.innerHTML = '';
-          for(const e of list){
+          for(const e of (list.slice ? list.slice(0,10) : list)){
             const row = document.createElement('div'); row.className='deck-entry';
             const decoded = (()=>{ try{ return decodeURIComponent(e.replace(/\+/g,' ')) }catch(x){ return e } })();
             const name = document.createElement('div'); name.textContent = decoded.replace(/\.xml$/i,'');
+            const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
+            name.appendChild(dueBadge);
             const actions = document.createElement('div');
-            if(e.endsWith('.xml')){ const btn = document.createElement('button'); btn.className='secondary'; btn.textContent='Charger'; btn.addEventListener('click', ()=>{ overlay.querySelector('.modal')?.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); loadDeckFromURL(base+e); deckURL = base+e; }); actions.appendChild(btn); }
+            if(e.endsWith('.xml')){ const dueBadge2 = document.createElement('span'); dueBadge2.className = 'due-badge'; dueBadge2.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
+              const btn = document.createElement('button'); btn.className='secondary';
+              btn.textContent = (window.innerWidth <= 640) ? '📂' : 'Charger';
+              btn.addEventListener('click', async ()=>{ await removeWelcome(); overlay.querySelector('.modal')?.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); loadDeckFromURL(base+e); deckURL = base+e; }); actions.appendChild(dueBadge2); actions.appendChild(btn);
+                (async ()=>{ try{ const n = await countDueNowForDeck(base+e); if(typeof n === 'number' && n>=0){ dueBadge2.querySelector('.due-num').textContent = n>0? n : ''; dueBadge2.querySelector('.due-label').style.display = n>0? 'block' : 'none'; }else{ dueBadge2.querySelector('.due-num').textContent=''; dueBadge2.querySelector('.due-label').style.display='none'; } }catch(err){} })();
+            }
             else { const btn = document.createElement('button'); btn.className='secondary'; btn.textContent='Ouvrir'; btn.addEventListener('click', async ()=>{ deckMsg.textContent = 'Exploration de '+base+e+' ...'; try{ const sub = await fetchDirectory(base+e); renderList(sub, base+e); }catch(err){ deckMsg.textContent = 'Impossible d\'explorer le dossier: '+err.message } }); actions.appendChild(btn); }
             row.appendChild(name); row.appendChild(actions); deckList.appendChild(row);
           }
@@ -998,6 +1254,45 @@
     if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(overlay){ overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); overlay.querySelector('.modal')?.classList.remove('open'); } });
     if(overlay){ overlay.addEventListener('click', (ev)=>{ if(ev.target === overlay){ overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); overlay.querySelector('.modal')?.classList.remove('open'); } }); }
     if(refreshBtn) refreshBtn.addEventListener('click', ()=>{ openDeckBrowser(); });
+    
+    // Helper: parse card ids from an XML document (lightweight, used by deck browser counts)
+    function parseCardIdsFromXML(xml){
+      const cardNodes = Array.from(xml.getElementsByTagName('card'));
+      const candidates = cardNodes.length ? cardNodes : Array.from(xml.querySelectorAll('card, note, item, entry, record'));
+      const ids = [];
+      let idx = 0;
+      for(const node of candidates){
+        try{ const id = node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idx++)); ids.push(id); }catch(e){ continue }
+      }
+      return ids;
+    }
+
+    // Count number of cards due now for a deck URL (considers localStorage state for that deck)
+    async function countDueNowForDeck(url){
+      try{
+        const res = await fetch(url);
+        if(!res.ok) return 0;
+        const text = await res.text();
+        const parser = new DOMParser();
+        let xml = parser.parseFromString(text,'application/xml');
+        if(xml.querySelector && xml.querySelector('parsererror')) xml = parser.parseFromString(text,'text/html');
+        const ids = parseCardIdsFromXML(xml);
+        const keyPrefix = 'fabanki:' + fallbackSha1(url).slice(0,10) + ':';
+        const now = new Date();
+        let cnt = 0;
+        for(const id of ids){
+          try{
+            const key = keyPrefix + 'card:' + id;
+            const st = JSON.parse(localStorage.getItem(key) || '{}');
+            const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
+            if(isNew) continue;
+            const due = st && st.due ? new Date(st.due) : now;
+            if(due <= now) cnt++;
+          }catch(e){ continue }
+        }
+        return cnt;
+      }catch(e){ return 0 }
+    }
     // toggle histogram button (mobile: overlay, desktop: scroll)
     const toggleStatsBtn = document.getElementById('toggleStats');
     if(toggleStatsBtn){
@@ -1008,6 +1303,91 @@
         else { stats.scrollIntoView({behavior:'smooth'}); }
       });
     }
+
+    // Mobile-only: replace top-bar button labels with emojis.
+    function updateTopBarLabels(){
+      try{
+        const isMobile = window.innerWidth <= 640;
+        const buttons = document.querySelectorAll('header .controls button[data-label-text]');
+        buttons.forEach(btn=>{
+          const text = btn.getAttribute('data-label-text') || btn.textContent;
+          const emoji = btn.getAttribute('data-label-emoji') || text;
+          btn.textContent = isMobile ? emoji : text;
+        });
+        // no inline profile badge; profile info shown in popup on click
+      }catch(e){}
+    }
+    updateTopBarLabels();
+    window.addEventListener('resize', updateTopBarLabels);
+
+    // Hide status and hint when mobile stats overlay is visible
+    (function(){
+      try{
+        const statsEl = document.getElementById('stats');
+        if(!statsEl) return;
+        const handle = ()=>{
+          const isVis = statsEl.classList.contains('visible');
+          const isMobile = window.innerWidth <= 640;
+          const s = document.getElementById('status');
+          const hint = document.getElementById('histHint');
+          if(isMobile && isVis){ if(s) s.style.display='none'; if(hint) hint.style.display='none'; }
+          else { if(s) s.style.display=''; if(hint) hint.style.display=''; try{ updateStatus(s?.textContent || '') }catch(e){} }
+        };
+        // observe class changes
+        const mo = new MutationObserver(handle);
+        mo.observe(statsEl, { attributes: true, attributeFilter: ['class'] });
+        // also run once to sync initial state
+        window.addEventListener('load', handle);
+        window.addEventListener('resize', handle);
+      }catch(e){}
+    })();
+    // Hide card status when any modal or stats overlay is visible
+    (function(){
+      function anyModalOpen(){
+        try{
+          const overlays = Array.from(document.querySelectorAll('.modal-overlay'));
+          for(const o of overlays){
+            const aria = o.getAttribute('aria-hidden');
+            const disp = (o.style && o.style.display) || getComputedStyle(o).display;
+            if(aria === 'false' || disp !== 'none') return true;
+          }
+          const stats = document.getElementById('stats'); if(stats && stats.classList.contains('visible')) return true;
+        }catch(e){}
+        return false;
+      }
+      function syncCardStatus(){
+        try{
+          const st = document.getElementById('cardStatus'); if(!st) return;
+          if(anyModalOpen()) st.style.display = 'none'; else st.style.display = '';
+        }catch(e){}
+      }
+      try{
+        const mo = new MutationObserver(syncCardStatus);
+        mo.observe(document.body, {subtree:true, childList:true, attributes:true, attributeFilter:['style','aria-hidden','class']});
+      }catch(e){}
+      setTimeout(syncCardStatus, 120);
+      window.addEventListener('resize', syncCardStatus);
+    })();
+
+    // Also hide status/hint when the deck browser overlay is visible on mobile
+    (function(){
+      try{
+        const deckOverlay = document.getElementById('deckBrowserOverlay');
+        if(!deckOverlay) return;
+        const handleDeck = ()=>{
+          const isOpen = deckOverlay.style.display === 'flex' || deckOverlay.getAttribute('aria-hidden') === 'false';
+          const isMobile = window.innerWidth <= 640;
+          const s = document.getElementById('status');
+          const hint = document.getElementById('histHint');
+          if(isMobile && isOpen){ if(s) s.style.display='none'; if(hint) hint.style.display='none'; }
+          else { if(s) s.style.display=''; if(hint) hint.style.display=''; try{ updateStatus(s?.textContent || '') }catch(e){} }
+        };
+        const mo2 = new MutationObserver(handleDeck);
+        mo2.observe(deckOverlay, { attributes:true, attributeFilter:['style','aria-hidden'] });
+        window.addEventListener('resize', handleDeck);
+        window.addEventListener('load', handleDeck);
+      }catch(e){}
+    })();
     // close button for mobile histogram overlay
     const closeStatsBtn = document.getElementById('closeStatsMobile');
     if(closeStatsBtn){
@@ -1018,21 +1398,337 @@
 
     // check URL param
     const pdeck = param('deck');
-    if(pdeck){
-      deckURL = pdeck; loadDeckFromURL(pdeck);
-    } else {
-      // DEBUG fallback: try local deck when served via HTTP
-      const debugPath = 'decks/Chap8.xml';
-      if(location.protocol !== 'file:'){
-        // when served over http(s), try loading automatically
-        deckURL = debugPath;
-        loadDeckFromURL(debugPath);
-        history.replaceState(null,'', '?deck='+encodeURIComponent(debugPath));
+    // Profile & XP helpers
+    function getProfileStats(){
+      let total = 0, today = 0;
+      const now = new Date();
+      for(const k of Object.keys(localStorage)){
+        // support keys like 'fabanki:<deckKey>:card:<id>' and older 'fabanki:card:<id>'
+        if(!k.includes(':card:')) continue;
+        try{
+          const st = JSON.parse(localStorage.getItem(k) || '{}');
+          if(st && st.reps && st.reps>0) total++;
+          if(st && st.last){ const d = new Date(st.last); if(d.toDateString() === now.toDateString()) today++; }
+        }catch(e){}
+      }
+      const xp = Number(localStorage.getItem('fabanki:xp_total') || 0);
+      return {totalReviewed: total, todayReviewed: today, xpTotal: xp};
+    }
+
+    function showProfilePopup(){
+      try{
+        // prevent duplicates
+        if(document.getElementById('profileOverlay')) return;
+        const stats = getProfileStats();
+        const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='1200';
+        const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='420px'; m.style.width='90%';
+        const h = document.createElement('h3'); h.textContent='Profil'; m.appendChild(h);
+        const p1 = document.createElement('div'); p1.className='muted small'; p1.textContent = `Cartes lues: ${stats.totalReviewed}`; m.appendChild(p1);
+        const p2 = document.createElement('div'); p2.className='muted small'; p2.textContent = `Cartes lues aujourd'hui: ${stats.todayReviewed}`; m.appendChild(p2);
+        const p3 = document.createElement('div'); p3.className='muted small'; p3.style.marginTop='8px'; p3.innerHTML = `<strong>XP:</strong> ${stats.xpTotal}`; m.appendChild(p3);
+
+        // Level box: ring + info
+        try{
+          const lvl = computeLevelAndProgress(stats.xpTotal || 0);
+          const levelBox = document.createElement('div'); levelBox.className = 'level-box';
+          const ring = document.createElement('div'); ring.className = 'level-ring';
+          const circ = 2 * Math.PI * 42;
+          const pct = Math.max(0, Math.min(100, Math.round(lvl.pct || 0)));
+          const offset = Math.round(circ * (1 - pct/100));
+          const color = getLevelColor(lvl.level);
+          ring.innerHTML = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" stroke="#eee" stroke-width="8" fill="none"></circle><circle class="ring-fill" cx="50" cy="50" r="42" stroke="${color}" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"></circle></svg><div class="level-num">${lvl.level}</div>`;
+          const info = document.createElement('div'); info.className='level-info';
+          const next = document.createElement('div'); next.className='next muted small'; next.textContent = `Prochain niveau dans ${lvl.toNext} XP`;
+          const rem = document.createElement('div'); rem.className='progress-remaining'; rem.textContent = `${lvl.progress}/${lvl.need} (${pct}%)`;
+          info.appendChild(next); info.appendChild(rem);
+          levelBox.appendChild(ring); levelBox.appendChild(info);
+          m.appendChild(levelBox);
+        }catch(e){ /* ignore level rendering errors */ }
+
+        const close = document.createElement('div'); close.style.display='flex'; close.style.justifyContent='flex-end'; close.style.marginTop='12px';
+        const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='Fermer'; cb.addEventListener('click', ()=>{ ov.remove(); }); close.appendChild(cb);
+        m.appendChild(close);
+        ov.appendChild(m); document.body.appendChild(ov);
+        // animate modal open and allow clicking overlay to close
+        try{ m.classList.add('open'); }catch(e){}
+        ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
+      }catch(e){ console.warn('profile popup error', e); }
+    }
+
+    function updateProfilePopupIfOpen(){
+      try{
+        const ov = document.getElementById('profileOverlay');
+        if(!ov) return;
+        const stats = getProfileStats();
+        const p = ov.querySelector('div.muted.small');
+        if(p) p.textContent = `Cartes lues: ${stats.totalReviewed}`;
+        const nodes = ov.querySelectorAll('div.muted.small');
+        if(nodes && nodes.length>=2){ nodes[0].textContent = `Cartes lues: ${stats.totalReviewed}`; nodes[1].textContent = `Cartes lues aujourd'hui: ${stats.todayReviewed}`; }
+        const xpNode = ov.querySelector('div strong'); if(xpNode) xpNode.parentNode.innerHTML = `<strong>XP:</strong> ${stats.xpTotal}`;
+        // update level ring if present
+        try{
+          const lvl = computeLevelAndProgress(stats.xpTotal || 0);
+          const ringFill = ov.querySelector('.level-ring .ring-fill');
+          const levelNum = ov.querySelector('.level-ring .level-num');
+          const nextTxt = ov.querySelector('.level-info .next');
+          const remTxt = ov.querySelector('.level-info .progress-remaining');
+          if(ringFill){ const circ = 2 * Math.PI * 42; const pct = Math.max(0, Math.min(100, Math.round(lvl.pct || 0))); ringFill.style.stroke = getLevelColor(lvl.level); ringFill.setAttribute('stroke-dasharray', String(circ)); ringFill.setAttribute('stroke-dashoffset', String(Math.round(circ * (1 - pct/100)))); }
+          if(levelNum) levelNum.textContent = String(lvl.level);
+          if(nextTxt) nextTxt.textContent = `Next level in ${lvl.toNext} XP`;
+          if(remTxt) remTxt.textContent = `${lvl.progress}/${lvl.need} (${Math.round(lvl.pct||0)}%)`;
+        }catch(e){}
+      }catch(e){}
+    }
+
+    // expose helpers globally so other handlers (outside load) can use them
+    try{ window.applyXp = applyXp; window.computeXpForQuality = computeXpForQuality; window.getDeckSection = getDeckSection; window.showXpToast = showXpToast; window.getXpTotal = getXpTotal; window.updateProfilePopupIfOpen = updateProfilePopupIfOpen; window.computePenaltyForSection = computePenaltyForSection; window.computeLevelAndProgress = computeLevelAndProgress; window.getLevelColor = getLevelColor; }catch(e){}
+
+    const profileBtn = document.getElementById('profileBtn');
+    if(profileBtn) profileBtn.addEventListener('click', ()=>{ showProfilePopup(); updateProfilePopupIfOpen(); });
+    // refresh periodically
+    setInterval(()=>{ try{ updateProfilePopupIfOpen(); }catch(e){} }, 30*1000);
+
+    // XP helpers
+    function getXpTotal(){ return Number(localStorage.getItem('fabanki:xp_total') || 0); }
+    function applyXp(delta){
+      try{
+        let total = getXpTotal();
+        const prevLevel = computeLevelAndProgress(total).level;
+        if(delta < 0){ if(total <= 0) return 0; const remove = Math.min(total, Math.abs(delta)); total -= remove; localStorage.setItem('fabanki:xp_total', total); return -remove; }
+        total += delta; localStorage.setItem('fabanki:xp_total', total);
+        const newLevel = computeLevelAndProgress(total).level;
+        // If level increased, show notification
+        if(newLevel > prevLevel){ try{ showLevelUpNotification(newLevel, prevLevel); }catch(e){} }
+        return delta;
+      }catch(e){ return 0 }
+    }
+
+    function getDeckSection(){
+      try{
+        const u = (deckURL || '').toLowerCase(); const t = (deck.title || '').toLowerCase();
+        const s = u || t;
+        if(!s) return '';
+        if(s.includes('math')) return 'maths';
+        if(s.includes('phys')) return 'physique';
+        if(s.includes('sciences') || s.includes('industri')) return 'si';
+        if(s.includes('informat')) return 'info';
+        if(s.includes('anglais')) return 'anglais';
+        if(s.includes('fran')) return 'francais';
+        return '';
+      }catch(e){ return '' }
+    }
+
+    function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min }
+
+    function computeXpForQuality(section, quality, timeSec){
+      // quality: 3=Difficile,4=Bon,5=Facile ; timeSec adjusts slightly
+      let low=0, high=0, penalty=0;
+      if(section === 'maths' || section === 'physique'){
+        if(quality===3){ low=7; high=10 } else if(quality===4){ low=10; high=15 } else if(quality===5){ low=12; high=20 } else return 0;
+        penalty = -5;
+      } else if(section === 'si' || section === 'info'){
+        if(quality===3){ low=5; high=8 } else if(quality===4){ low=8; high=12 } else if(quality===5){ low=10; high=15 } else return 0;
+        penalty = -3;
+      } else if(section === 'anglais' || section === 'francais'){
+        if(quality===3){ low=3; high=5 } else if(quality===4){ low=5; high=8 } else if(quality===5){ low=8; high=12 } else return 0;
+        penalty = -2;
       } else {
-        // when opened via file://, instruct user to click Charger
-        updateStatus('Pré-rempli pour debug : cliquez sur Charger et sélectionnez un fichier XML local');
+        // default small gains
+        if(quality===3){ low=3; high=6 } else if(quality===4){ low=5; high=8 } else if(quality===5){ low=8; high=10 } else return 0;
+        penalty = -2;
+      }
+      const base = randInt(low, high);
+      // time factor: short <5s -> 0.8, 5-20s ->1, >20s ->1.2
+      let factor = 1;
+      if(timeSec < 5) factor = 0.8; else if(timeSec > 20) factor = 1.2;
+      return Math.max(0, Math.round(base * factor));
+    }
+
+    function computePenaltyForSection(section){ if(section==='maths' || section==='physique') return -5; if(section==='si' || section==='info') return -3; if(section==='anglais' || section==='francais') return -2; return -2 }
+
+    // Level / XP helpers
+    function xpForLevel(level){
+      // exponential growth per level: base * mult^(level-1)
+      const base = 100; const mult = 1.6;
+      return Math.floor(base * Math.pow(mult, Math.max(0, level-1)));
+    }
+
+    function computeLevelAndProgress(totalXp){
+      // returns { level, progress, need, toNext, pct }
+      let remaining = Math.max(0, Math.floor(totalXp || 0));
+      let level = 1;
+      while(true){
+        const need = xpForLevel(level);
+        if(remaining < need){
+          const progress = remaining;
+          const toNext = need - remaining;
+          const pct = need>0 ? (progress / need * 100) : 100;
+          return { level, progress, need, toNext, pct };
+        }
+        remaining -= need;
+        level++;
+        // safety cap
+        if(level > 200) return { level:200, progress:0, need: xpForLevel(200), toNext: xpForLevel(200), pct:0 };
       }
     }
+
+    function getLevelColor(level){
+      // grade colors by level ranges
+      if(level < 5) return '#6f8cff'; // blue
+      if(level < 10) return '#28a745'; // green
+      if(level < 15) return '#ff9b41'; // orange
+      return '#9b5cff'; // purple
+    }
+
+    // show a centered level-up notification
+    function showLevelUpNotification(newLevel, oldLevel){
+      try{
+        const id = 'levelUpNotify';
+        if(document.getElementById(id)) document.getElementById(id).remove();
+        const ov = document.createElement('div'); ov.id = id; ov.className = 'level-up-notify';
+        const icon = document.createElement('div'); icon.style.fontSize='22px'; icon.textContent = '✨'; icon.style.marginBottom='6px'; icon.style.textAlign='center';
+        const h = document.createElement('div'); h.style.fontWeight='700'; h.style.fontSize='1.05rem'; h.style.textAlign='center'; h.textContent = `Niveau ${newLevel} !`;
+        const sub = document.createElement('div'); sub.className='muted small'; sub.style.textAlign='center'; sub.textContent = oldLevel? `Félicitations — vous êtes passé de ${oldLevel} à ${newLevel}` : `Nouveau niveau : ${newLevel}`;
+        ov.appendChild(icon); ov.appendChild(h); ov.appendChild(sub);
+        document.body.appendChild(ov);
+        setTimeout(()=>{ try{ ov.remove(); }catch(e){} }, 4200);
+      }catch(e){ console.warn('levelUpNotify', e); }
+    }
+
+    // create transient XP badge on main card
+    function showXpToast(delta){
+      try{
+        if(!delta) return;
+        const card = document.querySelector('.card#cardArea') || document.querySelector('.card');
+        if(!card) return;
+        const t = document.createElement('div');
+        t.className = 'xp-toast';
+        t.style.position = 'absolute'; t.style.right = '14px'; t.style.top = '14px'; t.style.padding='6px 10px'; t.style.borderRadius='8px'; t.style.zIndex='1500'; t.style.fontWeight='600'; t.style.boxShadow='0 6px 18px rgba(0,0,0,0.08)';
+        if(delta>0){ t.style.background = 'rgba(30,160,80,0.12)'; t.style.color = 'green'; t.textContent = `+${delta} XP`; }
+        else { t.style.background = 'rgba(255,80,80,0.08)'; t.style.color = 'crimson'; t.textContent = `${delta} XP`; }
+        card.style.position = card.style.position || 'relative'; card.appendChild(t);
+        setTimeout(()=>{ try{ t.remove(); }catch(e){} }, 2000);
+      }catch(e){}
+    }
+    // Render welcome decks view when no deck is loaded
+    async function removeWelcome(){
+      try{
+        const w = document.getElementById('welcomeDecks'); if(w) w.remove();
+        const mainEl = document.querySelector('main'); if(mainEl) mainEl.style.display='block';
+        const stats = document.getElementById('stats'); if(stats) stats.style.display='block';
+        const hint = document.getElementById('histHint'); if(hint) { hint.style.display='block'; hint.style.position=''; hint.style.marginBottom=''; }
+        // restore body scrolling to previous behavior (desktop: hidden, mobile: default)
+        try{ document.body.style.overflowY = (window.innerWidth >= 641) ? 'hidden' : ''; }catch(e){}
+      }catch(e){}
+    }
+
+    async function renderWelcomeDecks(){
+      try{
+        // remove any existing welcome first
+        await removeWelcome();
+        updateStatus("Bienvenue sur Fab'Anki");
+        // hide existing main/stats but keep DOM so handlers remain
+        const mainEl = document.querySelector('main'); if(!mainEl) return;
+        mainEl.style.display = 'none';
+        const stats = document.getElementById('stats'); if(stats) stats.style.display='none';
+        const hint = document.getElementById('histHint');
+        const container = document.createElement('div'); container.id = 'welcomeDecks'; container.style.padding = '18px';
+
+        // allow vertical scrolling on welcome page
+        try{ document.body.style.overflowY = 'auto'; }catch(e){}
+
+        // Level summary card (above the decks list)
+        try{
+          // if a hint exists, clone it and place the clone above the level card so it's not overlaying
+          try{
+            if(hint){
+              const clone = hint.cloneNode(true);
+              clone.id = 'histHint_welcome';
+              clone.style.position = 'static';
+              clone.style.top = '';
+              clone.style.left = '';
+              clone.style.right = '';
+              clone.style.zIndex = '';
+              clone.style.marginBottom = '10px';
+              container.appendChild(clone);
+              // hide original to prevent overlap
+              hint.style.display = 'none';
+            }
+          }catch(e){}
+          const lvlStats = computeLevelAndProgress(getXpTotal());
+          const levelCard = document.createElement('div'); levelCard.className = 'card level-summary'; levelCard.style.marginBottom = '12px';
+          const lvlBox = document.createElement('div'); lvlBox.style.display='flex'; lvlBox.style.alignItems='center'; lvlBox.style.gap='12px';
+          const circ = 2 * Math.PI * 28;
+          const offset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct))/100));
+          const color = getLevelColor(lvlStats.level);
+          const ringHtml = `<div class="level-ring" style="flex:0 0 64px"><svg viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"28\" stroke=\"#eee\" stroke-width=\"8\" fill=\"none\"></circle><circle class=\"ring-fill\" cx=\"50\" cy=\"50\" r=\"28\" stroke=\"${color}\" stroke-width=\"8\" fill=\"none\" stroke-linecap=\"round\" stroke-dasharray=\"${circ}\" stroke-dashoffset=\"${offset}\"></circle></svg><div class=\"level-num\">${lvlStats.level}</div></div>`;
+          const info = document.createElement('div'); info.style.display='flex'; info.style.flexDirection='column';
+          const t = document.createElement('div'); t.style.fontWeight='700'; t.textContent = `Level ${lvlStats.level}`;
+          const s = document.createElement('div'); s.className='muted small'; s.textContent = `${lvlStats.progress}/${lvlStats.need} XP avant le prochain niveau`;
+          info.appendChild(t); info.appendChild(s);
+          lvlBox.innerHTML = ringHtml; lvlBox.appendChild(info); levelCard.appendChild(lvlBox);
+          container.appendChild(levelCard);
+        }catch(e){ /* ignore level rendering on welcome if error */ }
+
+        const card = document.createElement('div'); card.className='card';
+        const title = document.createElement('h2'); title.textContent = "Decks disponibles"; title.style.margin='6px 0 12px 0'; title.style.color='var(--muted)';
+        card.appendChild(title);
+        const list = document.createElement('div'); list.style.display='flex'; list.style.flexDirection='column'; list.style.gap='8px';
+        // fetch deck list
+        let entries = [];
+        try{ entries = await fetchDirectory('./decks/'); }catch(e){ entries = []; }
+        if(!entries || entries.length===0){ const msg = document.createElement('div'); msg.textContent='Aucun deck trouvé'; card.appendChild(msg); container.appendChild(card); document.body.appendChild(container); return }
+        // normalize to simple file list and limit based on viewport height
+        const allFiles = (Array.isArray(entries) ? entries : []).filter(e=> typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
+        // compute limit: desktop -> 10; mobile -> depends on available vertical space
+        function computeWelcomeLimit(){
+          try{
+            if(window.innerWidth >= 641) return 10;
+            const headerHeight = 66; // fixed header
+            const reserved = headerHeight + 160; // approximate space for title and actions
+            const rowH = 64; // estimated per-row height
+            const avail = Math.max(200, window.innerHeight - reserved);
+            const lim = Math.max(3, Math.floor(avail / rowH));
+            return lim;
+          }catch(e){ return 6 }
+        }
+        const limit = computeWelcomeLimit();
+        const files = allFiles.slice(0, limit);
+        // compute counts
+        const rows = [];
+        for(const f of files){
+          const url = './decks/' + f;
+          const name = decodeURIComponent(f.replace(/\+/g,'')).replace(/\.xml$/i,'');
+          const cnt = await countDueNowForDeck(url);
+          rows.push({name, url, cnt});
+        }
+        rows.sort((a,b)=> (b.cnt||0) - (a.cnt||0));
+        // show total due count next to title in red
+        try{ const totalDue = rows.reduce((s,x)=> s + (x.cnt||0), 0); title.innerHTML = `Decks disponibles <span style="color:#d9534f;margin-left:8px">(${totalDue} à faire)</span>`; }catch(e){}
+        for(const r of rows){
+          const row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center'; row.style.gap='8px';
+          const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='12px';
+          const nm = document.createElement('div'); nm.textContent = r.name; nm.style.fontWeight = '600';
+          left.appendChild(nm);
+          const act = document.createElement('div'); act.style.display='flex'; act.style.alignItems='center'; act.style.gap='8px';
+          const badge = document.createElement('span'); badge.className='due-badge'; badge.innerHTML = `<div class="due-num">${r.cnt>0? r.cnt : ''}</div><div class="due-label" style="display:${r.cnt>0?'block':'none'}">à faire</div>`;
+          const b = document.createElement('button'); b.className='secondary';
+          b.textContent = (window.innerWidth <= 640) ? '📂' : 'Charger';
+          b.addEventListener('click', async ()=>{ await removeWelcome(); loadDeckFromURL(r.url); deckURL = r.url; });
+          // mirror deck-browser layout: badge to the left of the Charger button
+          act.appendChild(badge); act.appendChild(b);
+          row.appendChild(left); row.appendChild(act); list.appendChild(row);
+        }
+        card.appendChild(list); container.appendChild(card);
+        const host = document.querySelector('.app') || document.body;
+        const footer = host.querySelector('footer') || document.querySelector('footer') || null;
+        if(footer) host.insertBefore(container, footer);
+        else host.appendChild(container);
+      }catch(e){ updateStatus("Bienvenue sur Fab'Anki"); }
+    }
+
+    if(pdeck){ deckURL = pdeck; loadDeckFromURL(pdeck); }
+    else { renderWelcomeDecks(); }
   });
 
   // Expose functions as required (so they're available globally)
