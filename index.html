@@ -6,6 +6,30 @@
   <title>Fab'Anki — Flashcards sans compte</title>
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <!-- Firebase (compat) - add your project config in the firebaseConfig object below -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script>
+    // Replace with your Firebase project's config. Leave as {} to disable cloud sync.
+    window.__fabanki_firebaseConfig = window.__fabanki_firebaseConfig || {
+        apiKey: "AIzaSyCHt0J--9GuXCE5PaU2vkdWVWTWRu5phBM",
+        authDomain: "fab-anki-classement.firebaseapp.com",
+        projectId: "fab-anki-classement",
+        storageBucket: "fab-anki-classement.firebasestorage.app",
+        messagingSenderId: "469715316592",
+        appId: "1:469715316592:web:c737c247abed9199e0a9b5"
+    };
+    // initialize firebase if config provided
+    (function(){
+      try{
+        const cfg = window.__fabanki_firebaseConfig || {};
+        if(cfg && cfg.apiKey){
+          firebase.initializeApp(cfg);
+          window.__fabanki_firestore = firebase.firestore();
+        } else { window.__fabanki_firestore = null; }
+      }catch(e){ console.warn('Firebase init failed', e); window.__fabanki_firestore = null; }
+    })();
+  </script>
   <style>
     :root{--bg:#f6f7fb;--fg:#111;--card:#fff;--muted:#666;--accent:#0066ff}
     [data-theme='dark']{--bg:#0f1115;--fg:#e6eef8;--card:#111319;--muted:#9aa4b2;--accent:#66a0ff}
@@ -198,9 +222,18 @@
 
     /* Level ring transitions */
     .level-ring .ring-fill{transition:stroke-dashoffset .9s cubic-bezier(.2,.9,.2,1), stroke .4s ease}
-    /* Level up notification */
-    .level-up-notify{position:fixed;left:50%;top:20%;transform:translateX(-50%) scale(.98);background:var(--card);padding:14px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:2000;opacity:0;animation:level-up-in .6s ease forwards}
-    @keyframes level-up-in{0%{opacity:0;transform:translateX(-50%) scale(.9)}60%{opacity:1;transform:translateX(-50%) scale(1.05)}100%{opacity:1;transform:translateX(-50%) scale(1)}}
+    /* Level up notification: animate in/out */
+    .level-up-notify{position:fixed;left:50%;top:20%;transform:translateX(-50%) scale(.98);background:var(--card);padding:14px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:2000;opacity:0;transform-origin:center center;transition:opacity .32s ease,transform .32s ease}
+    .level-up-notify.show{opacity:1;transform:translateX(-50%) scale(1)}
+    @keyframes level-up-in{0%{opacity:0;transform:translateX(-50%) scale(.9)}60%{opacity:1;transform:translateX(-50%) scale(1.05)}100%{opacity:1;transform:translateX(-50%) scale(1)} }
+    /* XP toast animations */
+    .xp-toast{opacity:0;transform:translateY(-6px) scale(.98);transition:opacity .28s ease,transform .28s cubic-bezier(.2,.9,.2,1);border-radius:8px;padding:6px 10px;font-weight:600;box-shadow:0 6px 18px rgba(0,0,0,0.08)}
+    .xp-toast.show{opacity:1;transform:translateY(0) scale(1)}
+    .xp-toast.leave{opacity:0;transform:translateY(-8px) scale(.98)}
+    /* Modal overlay fade when opened */
+    .modal-overlay{opacity:0;transition:opacity .18s ease}
+    .modal-overlay.open{opacity:1}
+    .modal-overlay[aria-hidden="false"]{opacity:1}
     /* Hint box styling (red) */
     .hist-hint-box{background:#ffecec;border-left:4px solid #d9534f;color:#681214;padding:8px;border-radius:6px}
     @media (max-width:640px){
@@ -235,7 +268,14 @@
       /* When buttons wrap, center both rows to align with each other */
       .buttons{justify-content:center}
       .resp-buttons{justify-content:center}
-    }
+     }
+    /* Leaderboard table styles */
+    .leaderboard-table th{background:var(--card);text-align:left;padding:8px;border-bottom:1px solid rgba(0,0,0,0.06);font-weight:700}
+    .leaderboard-table td{padding:8px;border-bottom:1px solid rgba(0,0,0,0.04)}
+    .leaderboard-table tr:nth-child(even){background:rgba(0,0,0,0.02)}
+    .badge-chip{background:rgba(0,0,0,0.04);padding:4px 6px;border-radius:6px;font-size:0.8rem}
+     /* Small helper for popup open animation (profile uses .open class on modal and .open on overlay)
+       showProfilePopup now toggles overlay.open when inserting the modal */
   </style>
 </head>
 <body>
@@ -345,7 +385,7 @@
       </div>
     </section>
     <!-- Hint box (kept OUTSIDE the stats section). On desktop it will appear under the chart; on mobile it's positioned above the main card via CSS. -->
-    <div id="histHint" class="muted small hist-hint-box" style="margin-top:10px">Nouvelle version : Profile, Xp, niveau, cartes à faire, page d'accueil, affichage corrigé</div>
+    <div id="histHint" class="muted small hist-hint-box" style="margin-top:10px">Nouvelle version : Leaderboard, Titres, streak, plus de niveaux, meilleure review.</div>
 
     <footer>
       <div class="muted small" id="deckInfo"></div>
@@ -376,6 +416,12 @@
 
   // === FSRS storage key helpers ===
   function storageKey(s){ return `fabanki:${deckKey}:${s}` }
+
+  // Ensure incLocal is defined early (fallback) to avoid ReferenceError
+  if(typeof incLocal !== 'function'){
+    var incLocal = function(key, n){ try{ const v = Number(localStorage.getItem(key) || 0) + (n||1); localStorage.setItem(key, String(v)); return v; }catch(e){ return 0 } };
+    try{ window.incLocal = incLocal; }catch(e){}
+  }
 
   // === Function: loadDeckFromURL ===
   async function loadDeckFromURL(url){
@@ -480,9 +526,8 @@
 
         // Only include card if it has at least one field
         if(Object.keys(cardObj.fields).length>0) deck.cards.push(cardObj);
-      }catch(e){ console.warn('ignored malformed card', e); continue }
-    }
-
+        }catch(e){ console.warn('ignored malformed card', e); continue }
+      }
     // If still empty, try to parse table rows as last fallback
     if(deck.cards.length===0){
       const rows = Array.from(xml.querySelectorAll('tr'));
@@ -653,17 +698,8 @@
       }
     }
     dueCards = getDueCards();
-    // compute session total as number of cards that are "Nouveau" or "Maintenant" at session start
-    sessionTotal = 0; reviewedCount = 0;
-    const now = new Date();
-    for(const c of deck.cards){
-      const key = storageKey('card:'+c.id);
-      const st = JSON.parse(localStorage.getItem(key) || '{}');
-      const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
-      const due = st && st.due ? new Date(st.due) : now;
-      const isNow = due <= now;
-      if(isNew || isNow) sessionTotal++;
-    }
+    // sessionTotal should equal number of due cards at session start
+    sessionTotal = dueCards.length; reviewedCount = 0;
     const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
     currentIndex = 0;
     showNextCard();
@@ -674,16 +710,20 @@
   function getDueCards(){
     // use current time so cards scheduled for now are included
     const now = new Date();
-    const list = [];
+    const nowList = [], newList = [];
     for(const c of deck.cards){
       const key = storageKey('card:'+c.id);
       const st = JSON.parse(localStorage.getItem(key) || '{}');
       const due = st && st.due ? new Date(st.due) : new Date();
-      if(due <= now){ list.push(c); }
+      const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
+      if(due <= now && !isNew){ nowList.push(c); }
+      else if(isNew){ newList.push(c); }
     }
-    // shuffle due list for variety
-    for(let i=list.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [list[i],list[j]]=[list[j],list[i]] }
-    return list;
+    // shuffle within each bucket
+    const shuffle = (arr)=>{ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] } };
+    shuffle(nowList); shuffle(newList);
+    // prioritize 'Maintenant' then 'Nouveau'
+    return nowList.concat(newList);
   }
 
   // === Histogram helper ===
@@ -752,15 +792,32 @@
       // Raté: reset and make due immediately
       st.reps = 0; st.interval = 0; // due now
     } else {
+      // Conservative FSRS adjustments to better separate qualities:
+      // - Hard (3): small bonus, penalize ef
+      // - Good (4): normal behavior
+      // - Easy (5): larger bonus and ensure first-success moves to >= tomorrow
       if(!st.reps) st.reps = 0;
-      if(st.reps === 0){ st.interval = 1; }
-      else if(st.reps === 1){ st.interval = 6; }
-      else { st.interval = Math.round(st.interval * (st.ef || 2.5)); }
+      if(st.reps === 0){
+        if(quality === 5) st.interval = 2; // Easy: at least 2 days on first success
+        else if(quality === 4) st.interval = 1; // Good: tomorrow
+        else st.interval = 1; // Hard: tomorrow but conservative
+      } else if(st.reps === 1){
+        if(quality === 5) st.interval = 8; // reward Easy with larger second interval
+        else if(quality === 4) st.interval = 6; // standard
+        else st.interval = 3; // Hard: limited bonus
+      } else {
+        const baseMult = (st.ef || 2.5);
+        let mult = baseMult;
+        if(quality === 3) mult = Math.max(1.1, baseMult * 0.8); // Hard -> conservative growth
+        else if(quality === 4) mult = Math.max(1.15, baseMult * 0.95);
+        else if(quality === 5) mult = baseMult * 1.2; // Easy -> larger growth
+        st.interval = Math.max(1, Math.round(st.interval * mult));
+      }
       st.reps = (st.reps || 0) + 1;
-      // update ef (tuned for ~90% retention target)
+      // update ef but apply stronger penalties/bonuses depending on quality
       st.ef = (st.ef || 2.5) + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
-      // small bonus for Good/Easy to increase retention stability
-      if(quality >= 4) st.ef += 0.02;
+      if(quality === 3) st.ef = (st.ef || 2.5) - 0.15; // penalize for Hard
+      if(quality === 5) st.ef = (st.ef || 2.5) + 0.12; // boost for Easy
       if(st.ef < 1.3) st.ef = 1.3;
     }
     // set due
@@ -928,6 +985,10 @@
       localStorage.setItem(key, JSON.stringify(st));
       // count this as reviewed for session
       reviewedCount = (reviewedCount || 0) + 1; updateProgressDisplay();
+      try{ incLocal('fabanki:pass_total', 1); resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = -6; const cur = Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta; localStorage.setItem('fabanki:score_mpsi_semaine', String(cur)); const curM = Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta; localStorage.setItem('fabanki:score_mpsi_mois', String(curM)); }catch(e){}
+      try{ incLocal('fabanki:cards_since_streak_reset',1); }catch(e){}
+      try{ localStorage.setItem('fabanki:consec_correct','0'); localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
+      try{ const deltaToday = -6; const curD = Number(localStorage.getItem('fabanki:score_mpsi_today')||0) + deltaToday; localStorage.setItem('fabanki:score_mpsi_today', String(curD)); }catch(e){}
       // remove from due list and show next
       dueCards.splice(currentIndex, 1);
       if(currentIndex >= dueCards.length){ updateStatus('Révision terminée pour aujourd\'hui'); renderEmpty(); }
@@ -935,6 +996,7 @@
       const dueEl2 = $('#dueCount'); if(dueEl2) dueEl2.textContent = dueCards.length;
       updateHistogram();
       try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
+      try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
       try{
         // apply penalty XP for pass action
         const section = (typeof window.getDeckSection === 'function') ? window.getDeckSection() : '';
@@ -951,7 +1013,57 @@
     // count this attempt for session progress
     reviewedCount = (reviewedCount || 0) + 1;
     updateProgressDisplay();
+    // capture previous review time (hours since last review) to compute XP multiplier
+    let prevReviewHours = null;
+    try{
+      const keyPrev = storageKey('card:'+c.id);
+      const stPrev = JSON.parse(localStorage.getItem(keyPrev) || '{}');
+      if(stPrev && stPrev.last){ const lastD = new Date(stPrev.last); prevReviewHours = (new Date() - lastD) / (1000*60*60); }
+      else if(stPrev && stPrev.due){ const pd = new Date(stPrev.due); prevReviewHours = (new Date() - pd) / (1000*60*60); }
+    }catch(e){}
     scheduleCard(c.id, q);
+    // update local counters for ranking
+    // Robustly update local counters and titles metrics
+    try{
+      const keyPrev = storageKey('card:'+c.id);
+      const stNow = JSON.parse(localStorage.getItem(keyPrev) || '{}');
+      // mastered detection: became mastered if reps crossed threshold (>=3)
+      try{
+        const prevReps = (typeof stPrev !== 'undefined' && stPrev && stPrev.reps) ? Number(stPrev.reps) : 0;
+        const nowReps = (stNow && stNow.reps) ? Number(stNow.reps) : 0;
+        if(prevReps < 3 && nowReps >= 3){ incLocal('fabanki:mastered_total',1); }
+      }catch(e){}
+
+      try{ incLocal('fabanki:cards_since_streak_reset',1); }catch(e){}
+
+      // compute time spent on card for Hadamard (long answers)
+      let timeSec = 0;
+      try{ timeSec = Math.max(0, (Date.now() - (cardShownAt||Date.now())) / 1000); }catch(e){}
+      try{ if(timeSec > 20) incLocal('fabanki:long_answer_total', 1); }catch(e){}
+
+      // quality handling
+      if(q < 3){
+        incLocal('fabanki:fail_total',1);
+        try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
+        try{ localStorage.setItem('fabanki:consec_correct','0'); }catch(e){}
+        try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = -4; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
+      } else if(q === 3){
+        incLocal('fabanki:difficult_total',1);
+        try{ const cd = incLocal('fabanki:consec_difficult',1); if(cd >= 100) localStorage.setItem('fabanki:objective_Feynman','1'); }catch(e){}
+        try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
+        try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = 1; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
+      } else if(q === 4){
+        incLocal('fabanki:good_total',1);
+        try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
+        try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
+        try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = 2; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
+      } else if(q === 5){
+        incLocal('fabanki:good_total',1);
+        try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
+        try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
+        try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = 3; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
+      }
+    }catch(e){ console.warn('answerCurrent counters', e) }
     // Anki-like behaviour: on Fail (q<3) reinsert this card later in the session
     if(q < 3){
       // remove current card from list
@@ -976,20 +1088,24 @@
       if([3,4,5].includes(q)){
         try{
           const timeSec = Math.max(0, (Date.now() - (cardShownAt||Date.now())) / 1000);
+          // track long answers (>20s) for Hadamard titre
+          try{ if(timeSec > 20) incLocal('fabanki:long_answer_total', 1); }catch(e){}
           const section = (typeof window.getDeckSection === 'function') ? window.getDeckSection() : '';
-          const xp = (typeof window.computeXpForQuality === 'function') ? window.computeXpForQuality(section, q, timeSec) : 0;
+          const xp = (typeof window.computeXpForQuality === 'function') ? window.computeXpForQuality(section, q, timeSec, prevReviewHours) : 0;
           const applied = (typeof window.applyXp === 'function') ? window.applyXp(xp) : 0;
           if(applied) { try{ window.showXpToast(applied); }catch(e){} }
         }catch(e){ console.warn('xp calc', e); }
       }
       if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
+      try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
     }catch(e){}
   }
 
   // Load deck from URL param on start
   function param(key){ const p = new URLSearchParams(location.search); return p.get(key) }
   window.addEventListener('load', async ()=>{
-    // wire UI
+  // wire UI
+  try{ ensurePseudo(); resetWeeklyIfNeeded(); resetDailyIfNeeded(); }catch(e){}
     // Load button now opens file picker to add a local deck
     $('#loadBtn').addEventListener('click', ()=>{
       const picker = document.getElementById('filePicker');
@@ -1132,7 +1248,7 @@
 
     async function openDeckBrowser(){
       if(!overlay) return;
-      overlay.style.display = 'flex'; overlay.setAttribute('aria-hidden','false');
+      overlay.style.display = 'flex'; overlay.setAttribute('aria-hidden','false'); overlay.classList.add('open');
       overlay.querySelector('.modal')?.classList.add('open');
       deckList.innerHTML = '';
       deckMsg.textContent = 'Recherche de ./decks/ ...';
@@ -1183,7 +1299,7 @@
             act.appendChild(b); row.appendChild(nm); row.appendChild(act); deckList.appendChild(row);
           });
           // files (limit to first 10)
-          Array.from(files).sort().slice(0,10).forEach(file=>{
+          Array.from(files).sort().forEach(file=>{
             const row = document.createElement('div'); row.className='deck-entry';
             const dec = decodeURIComponent((prefix+file).replace(/\+/g,' '));
             const nm = document.createElement('div'); nm.textContent = dec.replace(/\.xml$/i,'');
@@ -1191,7 +1307,7 @@
               if(file.toLowerCase().endsWith('.xml')){ const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
                 const b=document.createElement('button'); b.className='secondary';
                 b.textContent = (window.innerWidth <= 640) ? '▶️' : 'Charger';
-                b.addEventListener('click', async ()=>{ await removeWelcome(); overlay.querySelector('.modal')?.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); loadDeckFromURL('./decks/'+prefix+file); deckURL = './decks/'+prefix+file; });
+                b.addEventListener('click', async ()=>{ await removeWelcome(); overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); loadDeckFromURL('./decks/'+prefix+file); deckURL = './decks/'+prefix+file; });
                 act.appendChild(dueBadge); act.appendChild(b);
                 // asynchronously compute number of cards due now for this deck and display
                 (async ()=>{
@@ -1213,7 +1329,7 @@
 
         async function renderList(list, base){
           deckList.innerHTML = '';
-          for(const e of (list.slice ? list.slice(0,10) : list)){
+          for(const e of (list.slice ? list : list)){
             const row = document.createElement('div'); row.className='deck-entry';
             const decoded = (()=>{ try{ return decodeURIComponent(e.replace(/\+/g,' ')) }catch(x){ return e } })();
             const name = document.createElement('div'); name.textContent = decoded.replace(/\.xml$/i,'');
@@ -1223,7 +1339,7 @@
             if(e.endsWith('.xml')){ const dueBadge2 = document.createElement('span'); dueBadge2.className = 'due-badge'; dueBadge2.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
               const btn = document.createElement('button'); btn.className='secondary';
               btn.textContent = (window.innerWidth <= 640) ? '📂' : 'Charger';
-              btn.addEventListener('click', async ()=>{ await removeWelcome(); overlay.querySelector('.modal')?.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); loadDeckFromURL(base+e); deckURL = base+e; }); actions.appendChild(dueBadge2); actions.appendChild(btn);
+              btn.addEventListener('click', async ()=>{ await removeWelcome(); overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); loadDeckFromURL(base+e); deckURL = base+e; }); actions.appendChild(dueBadge2); actions.appendChild(btn);
                 (async ()=>{ try{ const n = await countDueNowForDeck(base+e); if(typeof n === 'number' && n>=0){ dueBadge2.querySelector('.due-num').textContent = n>0? n : ''; dueBadge2.querySelector('.due-label').style.display = n>0? 'block' : 'none'; }else{ dueBadge2.querySelector('.due-num').textContent=''; dueBadge2.querySelector('.due-label').style.display='none'; } }catch(err){} })();
             }
             else { const btn = document.createElement('button'); btn.className='secondary'; btn.textContent='Ouvrir'; btn.addEventListener('click', async ()=>{ deckMsg.textContent = 'Exploration de '+base+e+' ...'; try{ const sub = await fetchDirectory(base+e); renderList(sub, base+e); }catch(err){ deckMsg.textContent = 'Impossible d\'explorer le dossier: '+err.message } }); actions.appendChild(btn); }
@@ -1251,8 +1367,8 @@
       }catch(e){}
     }
     showDeckTooltipOnce();
-    if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(overlay){ overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); overlay.querySelector('.modal')?.classList.remove('open'); } });
-    if(overlay){ overlay.addEventListener('click', (ev)=>{ if(ev.target === overlay){ overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); overlay.querySelector('.modal')?.classList.remove('open'); } }); }
+    if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(overlay){ overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); } });
+    if(overlay){ overlay.addEventListener('click', (ev)=>{ if(ev.target === overlay){ overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); } }); }
     if(refreshBtn) refreshBtn.addEventListener('click', ()=>{ openDeckBrowser(); });
     
     // Helper: parse card ids from an XML document (lightweight, used by deck browser counts)
@@ -1407,7 +1523,8 @@
         if(!k.includes(':card:')) continue;
         try{
           const st = JSON.parse(localStorage.getItem(k) || '{}');
-          if(st && st.reps && st.reps>0) total++;
+          // Count as reviewed if it has reps>0 OR it was seen (has last) — include Pass actions
+          if(st && ((st.reps && st.reps>0) || st.last)) total++;
           if(st && st.last){ const d = new Date(st.last); if(d.toDateString() === now.toDateString()) today++; }
         }catch(e){}
       }
@@ -1423,10 +1540,39 @@
         const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='1200';
         const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='420px'; m.style.width='90%';
         const h = document.createElement('h3'); h.textContent='Profil'; m.appendChild(h);
-        const p1 = document.createElement('div'); p1.className='muted small'; p1.textContent = `Cartes lues: ${stats.totalReviewed}`; m.appendChild(p1);
-        const p2 = document.createElement('div'); p2.className='muted small'; p2.textContent = `Cartes lues aujourd'hui: ${stats.todayReviewed}`; m.appendChild(p2);
-        const p3 = document.createElement('div'); p3.className='muted small'; p3.style.marginTop='8px'; p3.innerHTML = `<strong>XP:</strong> ${stats.xpTotal}`; m.appendChild(p3);
+        // Pseudo display (from localStorage)
+        const userPseudo = localStorage.getItem('pseudo') || '';
+        const p0 = document.createElement('div'); p0.id='profilePseudo'; p0.className='muted small'; p0.style.marginBottom='6px'; p0.textContent = `Pseudo: ${userPseudo}`;
+        // modifier button
+        const editBtn = document.createElement('button'); editBtn.className='secondary'; editBtn.style.marginLeft='8px'; editBtn.textContent = 'Modifier';
+        editBtn.addEventListener('click', ()=>{
+          try{
+            const cur = localStorage.getItem('pseudo') || '';
+            const input = document.createElement('input'); input.type='text'; input.value = cur; input.style.width='60%'; input.style.marginLeft='8px';
+            const save = document.createElement('button'); save.className='secondary'; save.textContent='Enregistrer'; save.style.marginLeft='6px';
+            const cancel = document.createElement('button'); cancel.className='secondary'; cancel.textContent='Annuler'; cancel.style.marginLeft='6px';
+            p0.textContent = 'Pseudo : '; p0.appendChild(input); p0.appendChild(save); p0.appendChild(cancel);
+            save.addEventListener('click', ()=>{ const v = (input.value||'').trim(); if(!v) return input.focus(); localStorage.setItem('pseudo', v); if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){} });
+            cancel.addEventListener('click', ()=>{ p0.textContent = `Pseudo: ${localStorage.getItem('pseudo') || ''}` });
+          }catch(e){ console.warn('edit pseudo', e) }
+        });
+        const pWrap = document.createElement('div'); pWrap.style.display='flex'; pWrap.style.alignItems='center'; pWrap.appendChild(p0); pWrap.appendChild(editBtn); m.appendChild(pWrap);
+        const p1 = document.createElement('div'); p1.className='muted small profile-total'; p1.textContent = `Cartes lues: ${stats.totalReviewed}`; m.appendChild(p1);
+        const p2 = document.createElement('div'); p2.className='muted small profile-today'; p2.textContent = `Cartes lues aujourd'hui: ${stats.todayReviewed}`; m.appendChild(p2);
+        
+        const p4 = document.createElement('div'); p4.className='muted small profile-streak'; p4.style.marginTop='6px'; p4.textContent = `Jours consécutifs: ${Number(localStorage.getItem('fabanki:streak_current')||0)}`; m.appendChild(p4);
 
+        // Classement button
+        const rankBtnWrap = document.createElement('div'); rankBtnWrap.style.marginTop = '10px'; rankBtnWrap.style.display = 'flex'; rankBtnWrap.style.gap = '8px';
+        const rankBtn = document.createElement('button'); rankBtn.className = 'secondary'; rankBtn.textContent = 'Classement';
+        rankBtn.addEventListener('click', ()=>{ try{ showLeaderboardPopup(); }catch(e){ console.warn(e) } });
+        rankBtnWrap.appendChild(rankBtn);
+        // Titres button
+        const titlesBtn = document.createElement('button'); titlesBtn.className='secondary'; titlesBtn.textContent = 'Titres';
+        titlesBtn.addEventListener('click', ()=>{ try{ showTitlesPopup(); }catch(e){ console.warn(e) } });
+        rankBtnWrap.appendChild(titlesBtn);
+        m.appendChild(rankBtnWrap);
+        const p3 = document.createElement('div'); p3.className='muted small profile-xp'; p3.style.marginTop='8px'; p3.innerHTML = `<strong>XP:</strong> ${stats.xpTotal}`; m.appendChild(p3);
         // Level box: ring + info
         try{
           const lvl = computeLevelAndProgress(stats.xpTotal || 0);
@@ -1449,8 +1595,8 @@
         const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='Fermer'; cb.addEventListener('click', ()=>{ ov.remove(); }); close.appendChild(cb);
         m.appendChild(close);
         ov.appendChild(m); document.body.appendChild(ov);
-        // animate modal open and allow clicking overlay to close
-        try{ m.classList.add('open'); }catch(e){}
+        // mark overlay open so CSS fade can run, then animate modal open
+        try{ ov.classList.add('open'); ov.setAttribute('aria-hidden','false'); m.classList.add('open'); }catch(e){}
         ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
       }catch(e){ console.warn('profile popup error', e); }
     }
@@ -1460,11 +1606,10 @@
         const ov = document.getElementById('profileOverlay');
         if(!ov) return;
         const stats = getProfileStats();
-        const p = ov.querySelector('div.muted.small');
-        if(p) p.textContent = `Cartes lues: ${stats.totalReviewed}`;
-        const nodes = ov.querySelectorAll('div.muted.small');
-        if(nodes && nodes.length>=2){ nodes[0].textContent = `Cartes lues: ${stats.totalReviewed}`; nodes[1].textContent = `Cartes lues aujourd'hui: ${stats.todayReviewed}`; }
-        const xpNode = ov.querySelector('div strong'); if(xpNode) xpNode.parentNode.innerHTML = `<strong>XP:</strong> ${stats.xpTotal}`;
+        const pseudoNode = ov.querySelector('#profilePseudo'); if(pseudoNode) pseudoNode.textContent = `Pseudo: ${localStorage.getItem('pseudo') || ''}`;
+        const totalNode = ov.querySelector('.profile-total'); if(totalNode) totalNode.textContent = `Cartes lues: ${stats.totalReviewed}`;
+        const todayNode = ov.querySelector('.profile-today'); if(todayNode) todayNode.textContent = `Cartes lues aujourd'hui: ${stats.todayReviewed}`;
+        const xpNode = ov.querySelector('.profile-xp'); if(xpNode) xpNode.innerHTML = `<strong>XP:</strong> ${stats.xpTotal}`;
         // update level ring if present
         try{
           const lvl = computeLevelAndProgress(stats.xpTotal || 0);
@@ -1474,14 +1619,20 @@
           const remTxt = ov.querySelector('.level-info .progress-remaining');
           if(ringFill){ const circ = 2 * Math.PI * 42; const pct = Math.max(0, Math.min(100, Math.round(lvl.pct || 0))); ringFill.style.stroke = getLevelColor(lvl.level); ringFill.setAttribute('stroke-dasharray', String(circ)); ringFill.setAttribute('stroke-dashoffset', String(Math.round(circ * (1 - pct/100)))); }
           if(levelNum) levelNum.textContent = String(lvl.level);
-          if(nextTxt) nextTxt.textContent = `Next level in ${lvl.toNext} XP`;
+          if(nextTxt) nextTxt.textContent = `Prochain niveau dans ${lvl.toNext} XP`;
           if(remTxt) remTxt.textContent = `${lvl.progress}/${lvl.need} (${Math.round(lvl.pct||0)}%)`;
         }catch(e){}
+        // refresh pseudo display (target the specific element, not the first div)
+        try{ const p0 = ov.querySelector('#profilePseudo'); if(p0) p0.textContent = `Pseudo: ${localStorage.getItem('pseudo') || ''}` }catch(e){}
+        try{ const s = ov.querySelector('.profile-streak'); if(s) s.textContent = `Jours consécutifs: ${Number(localStorage.getItem('fabanki:streak_current')||0)}` }catch(e){}
       }catch(e){}
     }
 
     // expose helpers globally so other handlers (outside load) can use them
     try{ window.applyXp = applyXp; window.computeXpForQuality = computeXpForQuality; window.getDeckSection = getDeckSection; window.showXpToast = showXpToast; window.getXpTotal = getXpTotal; window.updateProfilePopupIfOpen = updateProfilePopupIfOpen; window.computePenaltyForSection = computePenaltyForSection; window.computeLevelAndProgress = computeLevelAndProgress; window.getLevelColor = getLevelColor; }catch(e){}
+
+    // expose leaderboard helpers
+    try{ window.ensurePseudo = ensurePseudo; window.syncClassement = syncClassement; window.showLeaderboardPopup = showLeaderboardPopup; }catch(e){}
 
     const profileBtn = document.getElementById('profileBtn');
     if(profileBtn) profileBtn.addEventListener('click', ()=>{ showProfilePopup(); updateProfilePopupIfOpen(); });
@@ -1496,6 +1647,7 @@
         const prevLevel = computeLevelAndProgress(total).level;
         if(delta < 0){ if(total <= 0) return 0; const remove = Math.min(total, Math.abs(delta)); total -= remove; localStorage.setItem('fabanki:xp_total', total); return -remove; }
         total += delta; localStorage.setItem('fabanki:xp_total', total);
+        try{ resetWeeklyIfNeeded(); const curWeekXp = Number(localStorage.getItem('fabanki:xp_semaine') || 0) + Math.max(0, delta); localStorage.setItem('fabanki:xp_semaine', String(curWeekXp)); }catch(e){}
         const newLevel = computeLevelAndProgress(total).level;
         // If level increased, show notification
         if(newLevel > prevLevel){ try{ showLevelUpNotification(newLevel, prevLevel); }catch(e){} }
@@ -1518,9 +1670,518 @@
       }catch(e){ return '' }
     }
 
+    // --- Pseudo & Leaderboard (cloud sync) ---
+    function generateUserId(){
+      try{ if(window.crypto && crypto.getRandomValues){ const a = new Uint8Array(16); crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join(''); } }catch(e){}
+      return 'u-' + Date.now() + '-' + Math.floor(Math.random()*100000);
+    }
+
+    function ensurePseudo(){
+      try{
+        let p = localStorage.getItem('pseudo');
+        let uid = localStorage.getItem('userId');
+        if(!uid){ uid = generateUserId(); localStorage.setItem('userId', uid); }
+        if(!p){ showPseudoModal(); return false; }
+        return true;
+      }catch(e){ return false }
+    }
+
+    function showPseudoModal(){
+      try{
+        if(document.getElementById('pseudoOverlay')) return;
+        const ov = document.createElement('div'); ov.id='pseudoOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='2500';
+        const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='520px'; m.style.width='94%';
+        const h = document.createElement('h3'); h.textContent = "Entre ton Pseudo"; m.appendChild(h);
+        const inp = document.createElement('input'); inp.type='text'; inp.placeholder='Ton Pseudo'; inp.style.width='100%'; inp.style.padding='8px'; inp.style.fontSize='1rem'; inp.style.marginTop='8px';
+        m.appendChild(inp);
+        const row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='flex-end'; row.style.gap='8px'; row.style.marginTop='12px';
+        const btn = document.createElement('button'); btn.className='secondary'; btn.textContent='Valider';
+        btn.addEventListener('click', ()=>{
+          const v = (inp.value || '').trim(); if(!v) return inp.focus();
+          localStorage.setItem('pseudo', v);
+          if(!localStorage.getItem('userId')) localStorage.setItem('userId', generateUserId());
+          try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
+          try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+          ov.remove();
+        });
+        row.appendChild(btn); m.appendChild(row); ov.appendChild(m); document.body.appendChild(ov);
+        try{ m.classList.add('open'); ov.classList.add('open'); }catch(e){}
+        ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
+      }catch(e){ console.warn('pseudo modal error', e) }
+    }
+
+    // Weekly helpers
+    function getWeekId(d){ // ISO-like YYYY-WW
+      try{
+        const dt = d ? new Date(d) : new Date();
+        const y = dt.getFullYear();
+        // get ISO week number approximation
+        const onejan = new Date(y,0,1);
+        const days = Math.floor((dt - onejan) / 86400000);
+        const week = String(Math.floor((days + onejan.getDay()+1)/7)+1).padStart(2,'0');
+        return `${y}-${week}`;
+      }catch(e){ return (new Date()).toISOString().slice(0,8) }
+    }
+
+    function resetWeeklyIfNeeded(){
+      try{
+        const currentWeek = getWeekId();
+        const stored = localStorage.getItem('fabanki:week_id');
+        if(stored !== currentWeek){
+          localStorage.setItem('fabanki:week_id', currentWeek);
+          localStorage.setItem('fabanki:xp_semaine', '0');
+          localStorage.setItem('fabanki:score_mpsi_semaine', '0');
+        }
+      }catch(e){}
+    }
+
+    function getDayId(d){ try{ return (d? new Date(d): new Date()).toISOString().slice(0,10); }catch(e){ return (new Date()).toISOString().slice(0,10) } }
+
+    function resetDailyIfNeeded(){
+      try{
+        const currentDay = getDayId();
+        const stored = localStorage.getItem('fabanki:day_id');
+        if(stored !== currentDay){
+          localStorage.setItem('fabanki:day_id', currentDay);
+          localStorage.setItem('fabanki:score_mpsi_today', '0');
+        }
+      }catch(e){}
+    }
+
+    function getMonthId(d){ try{ const dt = d? new Date(d): new Date(); return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0'); }catch(e){ return (new Date()).toISOString().slice(0,7) } }
+
+    function resetMonthlyIfNeeded(){
+      try{
+        const current = getMonthId();
+        const stored = localStorage.getItem('fabanki:month_id');
+        if(stored !== current){
+          localStorage.setItem('fabanki:month_id', current);
+          localStorage.setItem('fabanki:score_mpsi_mois','0');
+        }
+      }catch(e){}
+    }
+
+    function incLocal(key, n){ try{ const v = Number(localStorage.getItem(key) || 0) + (n||1); localStorage.setItem(key, String(v)); return v; }catch(e){ return 0 } }
+
+    function getLocalNum(key){ return Number(localStorage.getItem(key) || 0) }
+
+    function countMasteredCards(){
+      try{
+        let cnt = 0;
+        for(const k of Object.keys(localStorage)){
+          if(!k.includes(':card:')) continue;
+          try{ const st = JSON.parse(localStorage.getItem(k) || '{}'); if(st && st.reps && st.reps >= 3) cnt++; }catch(e){}
+        }
+        return cnt;
+      }catch(e){ return 0 }
+    }
+
+    function computeBadges(stats){
+      // Backwards-compatible wrapper: compute titles and return top textual badges
+      try{
+        const out = [];
+        const computed = computeTitles(stats || {});
+        const titres = computed.titres || [];
+        for(const t of titres.slice(0,3)){
+          const roman = tierToRoman(t.tier || 0);
+          out.push(`${t.nom} ${roman}`);
+        }
+        // if none, fall back to some simple legacy badges
+        if(out.length === 0){
+          const legacy = [];
+          const streak = Number(localStorage.getItem('fabanki:streak_max') || 0);
+          const good = Number(localStorage.getItem('fabanki:good_total') || 0);
+          const reviewed = stats.totalReviewed || 0;
+          const pass = Number(localStorage.getItem('fabanki:pass_total') || 0);
+          if(streak >= 5) legacy.push('Régularité');
+          if(good >= 200) legacy.push('Précision');
+          if(reviewed >= 1000) legacy.push('Endurance');
+          if((reviewed - pass) >= 50) legacy.push('Zéro gaspillage');
+          return legacy;
+        }
+        return out;
+      }catch(e){ return [] }
+    }
+
+    function tierToRoman(t){ const map=['','I','II','III','IV','V']; return map[Number(t)||0]||String(t); }
+
+    function computeTitles(stats){
+      // stats should include totalReviewed, todayReviewed, xpTotal
+      try{
+        const titres = [];
+        const objectifs = [];
+        const bonnes = Number(localStorage.getItem('fabanki:good_total') || 0);
+        const reviewed = Number(stats.totalReviewed || 0);
+        const passes = Number(localStorage.getItem('fabanki:pass_total') || 0);
+        const mastered = Number(localStorage.getItem('fabanki:mastered_total') || countMasteredCards());
+        const streakMax = Number(localStorage.getItem('fabanki:streak_max') || 0);
+        const streakCurrent = Number(localStorage.getItem('fabanki:streak_current') || 0);
+        const longCount = Number(localStorage.getItem('fabanki:long_answer_total') || 0);
+
+        // Helper to compute highest tier from thresholds array
+        const highestTier = (value, thresholds)=>{
+          let tier = 0; for(let i=0;i<thresholds.length;i++){ if(value >= thresholds[i]) tier = i+1; }
+          return tier;
+        };
+
+        // Define title thresholds
+        const defs = [
+          {nom:'Gauss', th:[100,300,600,1000,2000], val: bonnes},
+          {nom:'Fourier', th:[200,600,1200,2500,5000], val: reviewed},
+          {nom:'Euler', th:[200,500,1000,2000,4000], val: (reviewed>0? Math.round((bonnes/reviewed)*100):0), isPercent:true, percentDefs:[0.75,0.80,0.85,0.90,0.92]},
+          {nom:'Newton', th:[20,50,100,200,365], val: streakMax},
+          {nom:'Maxwell', th:[3,7,21,60,120], val: streakCurrent},
+          {nom:'Noether', th:[50,150,400,1000,3000], val: Math.max(0, reviewed - passes)},
+          {nom:'Hadamard', th:[50,150,400,1000,3000], val: longCount}
+        ];
+        for(const d of defs){
+          let tier = 0;
+          if(d.isPercent){
+            for(let i=0;i<d.percentDefs.length;i++){ if(reviewed >= d.th[i] && (bonnes/reviewed) >= d.percentDefs[i]) tier = i+1; }
+          } else {
+            tier = highestTier(d.val, d.th);
+          }
+          titres.push({nom: d.nom, tier});
+        }
+
+        // Special one-shot objectifs
+        try{
+          // Lagrange: 95% de bonnes réponses sur 500 cartes
+          if(reviewed >= 500 && reviewed>0 && (bonnes / reviewed) >= 0.95){ objectifs.push('Lagrange'); localStorage.setItem('fabanki:objective_Lagrange','1'); }
+          // Cauchy: aucune 'Passer' sur 300 cartes
+          if(reviewed >= 300 && passes === 0){ objectifs.push('Cauchy'); localStorage.setItem('fabanki:objective_Cauchy','1'); }
+          // Laplace, Feynman, Ramanujan: detect via explicit flags if present (allow server/backfill)
+          if(localStorage.getItem('fabanki:objective_Laplace') === '1') objectifs.push('Laplace');
+          if(localStorage.getItem('fabanki:objective_Feynman') === '1') objectifs.push('Feynman');
+          if(localStorage.getItem('fabanki:objective_Ramanujan') === '1') objectifs.push('Ramanujan');
+        }catch(e){}
+
+        return { titres, objectifs };
+      }catch(e){ return {titres:[], objectifs:[]} }
+    }
+
+    // Synchronize local profile/Xp to Firestore under collection 'Classement'
+    async function syncClassement(){
+      try{
+        const db = window.__fabanki_firestore;
+        if(!db) return false;
+        const userId = localStorage.getItem('userId') || generateUserId();
+        const pseudo = localStorage.getItem('pseudo') || 'Anonyme';
+        const xp = Number(localStorage.getItem('fabanki:xp_total') || 0);
+        const lvl = (typeof computeLevelAndProgress === 'function') ? computeLevelAndProgress(xp).level : 1;
+        // ensure weekly counters are current
+        resetWeeklyIfNeeded();
+        // update daily streak information
+        try{
+          const today = (new Date()).toDateString();
+          const last = localStorage.getItem('fabanki:last_active_date');
+          if(last === today){ /* already recorded today */ }
+          else {
+            const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+            if(last === yesterday.toDateString()){
+              const cur = Number(localStorage.getItem('fabanki:streak_current')||0) + 1; localStorage.setItem('fabanki:streak_current', String(cur));
+              const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), cur); localStorage.setItem('fabanki:streak_max', String(maxi));
+            } else {
+              localStorage.setItem('fabanki:streak_current', '1');
+              const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), 1); localStorage.setItem('fabanki:streak_max', String(maxi));
+            }
+            localStorage.setItem('fabanki:last_active_date', today);
+          }
+        }catch(e){}
+        const stats = getProfileStats();
+        const cartes = stats.totalReviewed || 0;
+        const bonnes = Number(localStorage.getItem('fabanki:good_total') || 0);
+        const rates = Number(localStorage.getItem('fabanki:fail_total') || 0);
+        const passes = Number(localStorage.getItem('fabanki:pass_total') || 0);
+        const mastered = Number(localStorage.getItem('fabanki:mastered_total') || countMasteredCards());
+        const streakMax = Number(localStorage.getItem('fabanki:streak_max') || 0);
+        const xpS = Number(localStorage.getItem('fabanki:xp_semaine') || 0);
+        const scoreWeekLocal = Number(localStorage.getItem('fabanki:score_mpsi_semaine') || 0);
+        const scoreMonthLocal = Number(localStorage.getItem('fabanki:score_mpsi_mois') || 0);
+        // compute Score MPSI
+        const scoreMPSI = (mastered * 6) + (bonnes * 2) + (streakMax * 10) - (rates * 4) - (passes * 6);
+        // determine friendly Niveau label (happy-medium tone)
+        let niveauPrep = 'Débutant';
+        if(scoreMPSI >= 7000) niveauPrep = 'Expert';
+        else if(scoreMPSI >= 4000) niveauPrep = 'Avancé';
+        else if(scoreMPSI >= 2000) niveauPrep = 'Équilibré';
+        else if(scoreMPSI >= 800) niveauPrep = 'Progression';
+        else niveauPrep = 'Débutant';
+
+        const computedTitles = (typeof computeTitles === 'function') ? computeTitles(stats) : {titres:[], objectifs:[]};
+        const titres = computedTitles.titres || [];
+        const objectifs = computedTitles.objectifs || [];
+        // prepare textual badges for backward compatibility (top 3)
+        const badges = (titres.length>0) ? titres.slice(0,3).map(t=> (t.nom || '') + ' ' + tierToRoman(t.tier || 0)) : computeBadges(stats);
+
+        // prepare daily stats and objectives persistence
+        try{
+          // ensure daily counters are current
+          resetDailyIfNeeded();
+          // cards since last streak reset: if streak was reset now (not consecutive), reset counter
+          try{
+            const today = (new Date()).toDateString();
+            const last = localStorage.getItem('fabanki:last_active_date');
+            const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+            if(!(last === yesterday.toDateString())){
+              // streak reset occurred
+              localStorage.setItem('fabanki:cards_since_streak_reset','0');
+            }
+          }catch(e){}
+          // handle Ramanujan: consecutive days with score_mpsi_today > 200
+          try{
+            const todayScore = Number(localStorage.getItem('fabanki:score_mpsi_today') || 0);
+            const lastOver = localStorage.getItem('fabanki:last_score_over200_date');
+            const daysStreak = Number(localStorage.getItem('fabanki:days_score_over200_streak') || 0);
+            const todayDate = getDayId();
+            const yesterdayDate = getDayId(new Date(Date.now() - 86400000));
+            let newDays = daysStreak;
+            if(todayScore > 200){
+              if(lastOver === yesterdayDate) newDays = daysStreak + 1; else newDays = 1;
+              localStorage.setItem('fabanki:last_score_over200_date', todayDate);
+            } else {
+              newDays = 0; localStorage.removeItem('fabanki:last_score_over200_date');
+            }
+            localStorage.setItem('fabanki:days_score_over200_streak', String(newDays));
+            // persist objective if reached
+            if(newDays >= 10) localStorage.setItem('fabanki:objective_Ramanujan','1');
+              // Laplace: cards reviewed since last streak reset
+              try{ const cardsSince = Number(localStorage.getItem('fabanki:cards_since_streak_reset')||0); if(cardsSince >= 1000) localStorage.setItem('fabanki:objective_Laplace','1'); }catch(e){}
+          }catch(e){}
+        }catch(e){}
+
+        // prepare doc
+        const nowIso = (new Date()).toISOString();
+        const weekId = getWeekId();
+        const monthId = getMonthId();
+        const doc = {
+          Pseudo: pseudo,
+          XP: xp,
+          Niveau: lvl,
+          ['Cartes révisées']: cartes,
+          ['Dernière mise à jour']: nowIso,
+          ['Dernière synchronisation']: nowIso,
+          Score_MPSI: scoreMPSI,
+          ['Bonnes réponses']: bonnes,
+          ['Ratés']: rates,
+          ['Passer']: passes,
+          ['Streak_max']: streakMax,
+          ['Cartes maîtrisées']: mastered,
+          Badges: badges,
+          Titres: titres,
+          Objectifs: objectifs,
+          Titres: titres,
+          Objectifs: objectifs,
+          XP_semaine: xpS,
+          Score_MPSI_semaine: scoreWeekLocal,
+          Semaine_ID: weekId,
+          Score_MPSI_mois: scoreMonthLocal,
+          Mois_ID: monthId,
+          ['Niveau Prépa']: niveauPrep
+        };
+
+        // Anti-cheat: fetch previous doc and compare deltas
+        try{
+          const ref = db.collection('Classement').doc(userId);
+          const prev = await ref.get();
+          if(prev && prev.exists){
+            const pd = prev.data() || {};
+            const prevScore = Number(pd.Score_MPSI || 0);
+            const prevCards = Number(pd['Cartes révisées'] || 0);
+            const prevSync = pd['Dernière synchronisation'] || pd['Dernière mise à jour'] || null;
+            if(prevSync){
+              const prevDate = new Date(prevSync);
+              const mins = (Date.now() - prevDate.getTime()) / 60000;
+              if((scoreMPSI - prevScore) > 400 && mins < 10){ console.warn('Synchronisation bloquée (progression irréaliste)'); return false }
+              if((cartes - prevCards) > 80 && mins < 10){ console.warn('Synchronisation bloquée (progression irréaliste)'); return false }
+            }
+          }
+        }catch(e){ console.warn('syncClassement anti-cheat check failed', e) }
+
+        try{
+          // detect title upgrades compared to local cache and show toasts
+          try{
+            const prevCacheRaw = localStorage.getItem('fabanki:titles_cache') || '{}';
+            const prevCache = JSON.parse(prevCacheRaw || '{}');
+            const newCache = prevCache || {};
+            (titres || []).forEach(tt => {
+              try{
+                const name = tt.nom || '';
+                const newTier = Number(tt.tier || 0);
+                const oldTier = Number(prevCache[name] || 0);
+                if(newTier > oldTier){ try{ showTitleUpNotification(name, newTier, oldTier); }catch(e){} }
+                newCache[name] = newTier;
+              }catch(e){}
+            });
+            try{ localStorage.setItem('fabanki:titles_cache', JSON.stringify(newCache)); }catch(e){}
+          }catch(e){ /* ignore cache errors */ }
+        }catch(e){}
+        await db.collection('Classement').doc(userId).set(doc, {merge:true});
+        return true;
+      }catch(e){ console.warn('syncClassement', e); return false }
+    }
+
+    // Leaderboard popup (real-time listener)
+    function showLeaderboardPopup(){
+      try{
+        if(document.getElementById('leaderboardOverlay')) return;
+        const db = window.__fabanki_firestore;
+        const ov = document.createElement('div'); ov.id='leaderboardOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='2200';
+        const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='860px'; m.style.width='94%'; m.style.maxHeight='80vh'; m.style.overflow='auto';
+        const h = document.createElement('h3'); h.textContent = 'Classement'; m.appendChild(h);
+        // tabs
+        const tabs = document.createElement('div'); tabs.style.display='flex'; tabs.style.gap='8px'; tabs.style.marginBottom='8px';
+        const tabGlobal = document.createElement('button'); tabGlobal.className='secondary'; tabGlobal.textContent='Classement global';
+        const tabWeek = document.createElement('button'); tabWeek.className='secondary'; tabWeek.textContent='Classement du mois';
+        tabs.appendChild(tabGlobal); tabs.appendChild(tabWeek); m.appendChild(tabs);
+        const table = document.createElement('table'); table.className = 'leaderboard-table'; table.style.width='100%'; table.style.borderCollapse='collapse';
+        const thead = document.createElement('thead'); thead.innerHTML = '<tr><th>Rang</th><th>Pseudo</th><th>Niveau</th><th>Titres</th><th>Score MPSI</th><th>Cartes</th></tr>';
+        table.appendChild(thead);
+        const tbody = document.createElement('tbody'); table.appendChild(tbody);
+        m.appendChild(table);
+        const closeDiv = document.createElement('div'); closeDiv.style.display='flex'; closeDiv.style.justifyContent='flex-end'; closeDiv.style.marginTop='8px';
+        const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='Fermer'; cb.addEventListener('click', ()=>{ try{ if(typeof unsubGlobal === 'function') unsubGlobal(); if(typeof unsubWeek === 'function') unsubWeek(); }catch(e){} ov.remove(); }); closeDiv.appendChild(cb); m.appendChild(closeDiv);
+        ov.appendChild(m); document.body.appendChild(ov);
+        try{ m.classList.add('open'); ov.classList.add('open'); }catch(e){}
+        if(!db){ tbody.innerHTML = '<tr><td colspan="6">Le service Classement n\'est pas configuré. Ajoutez la configuration Firebase dans index.html.</td></tr>'; return; }
+        let unsubGlobal = null, unsubWeek = null;
+        function renderRow(d, rank){
+          const tr = document.createElement('tr');
+          const tdRank = document.createElement('td'); tdRank.textContent = String(rank);
+          const tdPseudo = document.createElement('td'); tdPseudo.textContent = d.Pseudo || '';
+          const tdNiv = document.createElement('td'); tdNiv.textContent = d['Niveau'] || d['Niveau Prépa'] || '';
+          const tdScore = document.createElement('td'); tdScore.textContent = d.Score_MPSI || d.Score_MPSI || 0;
+          const tdBadges = document.createElement('td'); tdBadges.style.display='flex'; tdBadges.style.gap='6px';
+          try{
+            const t = d.Titres || d.titres || [];
+            try{
+              // take only titres with tier>0, sort by tier desc, show top 3
+              if(Array.isArray(t) && t.length){
+                const sorted = t.filter(x=> (x && Number(x.tier||0) > 0)).sort((a,b)=> Number(b.tier||0) - Number(a.tier||0)).slice(0,3);
+                sorted.forEach(obj=>{
+                  const name = obj.nom || obj.name || '';
+                  const tier = obj.tier || 0;
+                  const sp = document.createElement('span'); sp.className='badge-chip'; sp.textContent = name + ' ' + tierToRoman(tier);
+                  sp.style.fontSize='0.8rem'; sp.style.padding='4px 6px'; sp.style.borderRadius='6px'; sp.style.background='rgba(0,0,0,0.04)'; tdBadges.appendChild(sp);
+                });
+              } else {
+                const b = d.Badges || [];
+                b.forEach(bn=>{ const sp = document.createElement('span'); sp.className='badge-chip'; sp.textContent = bn; sp.style.fontSize='0.8rem'; sp.style.padding='4px 6px'; sp.style.borderRadius='6px'; sp.style.background='rgba(0,0,0,0.04)'; tdBadges.appendChild(sp); });
+              }
+            }catch(e){}
+          }catch(e){}
+          const tdCartes = document.createElement('td'); tdCartes.textContent = d['Cartes révisées'] || 0;
+          tr.appendChild(tdRank); tr.appendChild(tdPseudo); tr.appendChild(tdNiv); tr.appendChild(tdBadges); tr.appendChild(tdScore); tr.appendChild(tdCartes);
+          return tr;
+        }
+
+        function attachGlobal(){
+          if(unsubGlobal) return;
+          const qg = db.collection('Classement').orderBy('Score_MPSI','desc');
+          unsubGlobal = qg.onSnapshot(snapshot=>{
+            try{ tbody.innerHTML=''; let r=1; snapshot.forEach(doc=>{ const d=doc.data()||{}; tbody.appendChild(renderRow(d, r++)); }); }catch(e){ console.warn('leaderboard render', e); }
+          }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="8">Erreur lecture du classement</td></tr>'; });
+        }
+
+        function attachWeek(){
+          if(unsubWeek) return;
+          const m = getMonthId();
+          const qw = db.collection('Classement').where('Mois_ID','==', m).orderBy('Score_MPSI_mois','desc');
+          unsubWeek = qw.onSnapshot(snapshot=>{
+            try{ tbody.innerHTML=''; let r=1; snapshot.forEach(doc=>{ const d=doc.data()||{}; tbody.appendChild(renderRow(d, r++)); }); }catch(e){ console.warn('leaderboard render', e); }
+          }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="6">Erreur lecture du classement</td></tr>'; });
+        }
+
+        tabGlobal.addEventListener('click', ()=>{ try{ if(unsubWeek){ unsubWeek(); unsubWeek = null; } if(!unsubGlobal) attachGlobal(); tabGlobal.disabled=true; tabWeek.disabled=false; }catch(e){} });
+        tabWeek.addEventListener('click', ()=>{ try{ if(unsubGlobal){ unsubGlobal(); unsubGlobal = null; } if(!unsubWeek) attachWeek(); tabWeek.disabled=true; tabGlobal.disabled=false; }catch(e){} });
+        // start on global
+        tabGlobal.disabled = true; attachGlobal();
+        // ensure listeners removed when overlay removed
+        ov.addEventListener('remove', ()=>{ try{ if(unsubGlobal) unsubGlobal(); if(unsubWeek) unsubWeek(); }catch(e){} });
+      }catch(e){ console.warn('showLeaderboardPopup', e); }
+    }
+
     function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min }
 
-    function computeXpForQuality(section, quality, timeSec){
+    // Titles popup: show all Titres and Objectifs computed locally
+    function showTitlesPopup(){
+      try{
+        if(document.getElementById('titlesOverlay')) return;
+        const stats = getProfileStats();
+        const computed = (typeof computeTitles === 'function') ? computeTitles(stats) : {titres:[], objectifs:[]};
+        const ov = document.createElement('div'); ov.id='titlesOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='2300';
+        const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='640px'; m.style.width='94%';
+        const h = document.createElement('h3'); h.textContent = 'Titres obtenus'; m.appendChild(h);
+        const list = document.createElement('div'); list.style.display='flex'; list.style.flexDirection='column'; list.style.gap='8px';
+        // Titres
+        const tbox = document.createElement('div'); tbox.style.marginTop='6px';
+        // definitions for titles: thresholds and descriptions
+        const defs = {
+          'Gauss': {th:[100,300,600,1000,2000], desc:'Nombre total de bonnes réponses.' , metric: ()=> Number(localStorage.getItem('fabanki:good_total')||0) },
+          'Fourier': {th:[200,600,1200,2500,5000], desc:'Cartes révisées au total.', metric: ()=> Number(stats.totalReviewed||0) },
+          'Euler': {th:[75,80,85,90,92], desc:'Pourcentage de bonnes réponses (sur un grand échantillon).', metric: ()=>{ const tot = Number(stats.totalReviewed||0); const good=Number(localStorage.getItem('fabanki:good_total')||0); return tot>0? Math.round((good/tot)*100):0 } },
+          'Newton': {th:[20,50,100,200,365], desc:'Séquence de cartes consécutives sans "Raté" (cartes correctes d\'affilée).', metric: ()=> Number(localStorage.getItem('fabanki:consec_correct_max')||0) },
+          'Maxwell': {th:[3,7,21,60,120], desc:'Jours consécutifs d\'activité.', metric: ()=> Number(localStorage.getItem('fabanki:streak_current')||0) },
+          'Noether': {th:[50,150,400,1000,3000], desc:'Cartes révisées sans "Passer".', metric: ()=> Math.max(0, Number(stats.totalReviewed||0) - Number(localStorage.getItem('fabanki:pass_total')||0)) },
+          'Hadamard': {th:[50,150,400,1000,3000], desc:'Cartes à réponses longues (>20s)', metric: ()=> Number(localStorage.getItem('fabanki:long_answer_total')||0) }
+        };
+        if(computed.titres && computed.titres.length){
+          computed.titres.forEach(t=>{
+            const def = defs[t.nom] || null;
+            const row = document.createElement('div'); row.style.display='flex'; row.style.flexDirection='column'; row.style.gap='6px'; row.style.padding='8px'; row.style.borderBottom='1px solid rgba(0,0,0,0.04)';
+            const top = document.createElement('div'); top.style.display='flex'; top.style.justifyContent='space-between'; top.style.alignItems='center';
+            const left = document.createElement('div'); left.style.fontWeight='700'; left.textContent = t.nom || '';
+            const right = document.createElement('div'); right.className='muted small'; right.textContent = 'Tier ' + tierToRoman(t.tier || 0);
+            top.appendChild(left); top.appendChild(right);
+            row.appendChild(top);
+            // description
+            const desc = document.createElement('div'); desc.className='muted small'; desc.textContent = def? def.desc : '';
+            row.appendChild(desc);
+            // progress bar -> show progress toward NEXT tier; if at max tier, show 'Niveau max atteint'
+            if(def){
+              const cur = def.metric();
+              const th = def.th;
+              const curTier = Number(t.tier || 0);
+              const maxTier = th.length;
+              const barWrap = document.createElement('div'); barWrap.style.display='flex'; barWrap.style.alignItems='center'; barWrap.style.gap='8px';
+              if(curTier >= maxTier){
+                const done = document.createElement('div'); done.className='muted small'; done.textContent = 'Niveau max atteint';
+                barWrap.appendChild(done);
+              } else {
+                const prevThreshold = curTier > 0 ? th[curTier-1] : 0;
+                const nextThreshold = th[curTier];
+                const progress = nextThreshold > prevThreshold ? Math.min(100, Math.max(0, Math.round((cur - prevThreshold) / (nextThreshold - prevThreshold) * 100))) : 100;
+                const bar = document.createElement('div'); bar.style.flex='1'; bar.style.height='10px'; bar.style.background='#eee'; bar.style.borderRadius='6px';
+                const fill = document.createElement('div'); fill.style.height='100%'; fill.style.width = progress + '%'; fill.style.background = getLevelColor(Math.min(50, Math.max(1, curTier+1))); fill.style.borderRadius='6px'; bar.appendChild(fill);
+                const label = document.createElement('div'); label.className='muted small'; label.style.minWidth='140px';
+                label.textContent = (typeof def.metric === 'function' && t.nom === 'Euler') ? `${cur}%` : `${cur} / ${nextThreshold}`;
+                barWrap.appendChild(bar); barWrap.appendChild(label);
+              }
+              row.appendChild(barWrap);
+            }
+            tbox.appendChild(row);
+          });
+        } else { const none = document.createElement('div'); none.className='muted small'; none.textContent='Aucun titre débloqué pour le moment.'; tbox.appendChild(none); }
+        list.appendChild(tbox);
+
+        // Objectifs
+        const obox = document.createElement('div'); obox.style.marginTop='12px';
+        const oh = document.createElement('h4'); oh.textContent='Objectifs spéciaux'; obox.appendChild(oh);
+        if(computed.objectifs && computed.objectifs.length){
+          computed.objectifs.forEach(o=>{ const d = document.createElement('div'); d.textContent = o; obox.appendChild(d); });
+        } else { const none = document.createElement('div'); none.className='muted small'; none.textContent='Aucun objectif spécial atteint.'; obox.appendChild(none); }
+        list.appendChild(obox);
+
+        m.appendChild(list);
+        const closeDiv = document.createElement('div'); closeDiv.style.display='flex'; closeDiv.style.justifyContent='flex-end'; closeDiv.style.marginTop='12px';
+        const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='Fermer'; cb.addEventListener('click', ()=>{ ov.remove(); }); closeDiv.appendChild(cb); m.appendChild(closeDiv);
+        ov.appendChild(m); document.body.appendChild(ov);
+        try{ ov.classList.add('open'); m.classList.add('open'); ov.setAttribute('aria-hidden','false'); }catch(e){}
+        ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
+      }catch(e){ console.warn('showTitlesPopup', e); }
+    }
+
+    function computeXpForQuality(section, quality, timeSec, prevReviewHours){
       // quality: 3=Difficile,4=Bon,5=Facile ; timeSec adjusts slightly
       let low=0, high=0, penalty=0;
       if(section === 'maths' || section === 'physique'){
@@ -1541,7 +2202,16 @@
       // time factor: short <5s -> 0.8, 5-20s ->1, >20s ->1.2
       let factor = 1;
       if(timeSec < 5) factor = 0.8; else if(timeSec > 20) factor = 1.2;
-      return Math.max(0, Math.round(base * factor));
+      // previous-review multiplier: old reviews give more XP
+      let prevMult = 1;
+      try{
+        if(prevReviewHours === null || prevReviewHours === undefined) prevMult = 0.9; // new card
+        else if(prevReviewHours >= 24*7) prevMult = 1.4; // long time
+        else if(prevReviewHours >= 24) prevMult = 1.15;
+        else if(prevReviewHours >= 12) prevMult = 1.05;
+        else prevMult = 1;
+      }catch(e){ prevMult = 1 }
+      return Math.max(0, Math.round(base * factor * prevMult));
     }
 
     function computePenaltyForSection(section){ if(section==='maths' || section==='physique') return -5; if(section==='si' || section==='info') return -3; if(section==='anglais' || section==='francais') return -2; return -2 }
@@ -1549,7 +2219,7 @@
     // Level / XP helpers
     function xpForLevel(level){
       // exponential growth per level: base * mult^(level-1)
-      const base = 100; const mult = 1.6;
+      const base = 50; const mult = 1.1;
       return Math.floor(base * Math.pow(mult, Math.max(0, level-1)));
     }
 
@@ -1574,9 +2244,14 @@
 
     function getLevelColor(level){
       // grade colors by level ranges
-      if(level < 5) return '#6f8cff'; // blue
-      if(level < 10) return '#28a745'; // green
-      if(level < 15) return '#ff9b41'; // orange
+       if(level < 3) return '#c70d00'; // dark-red
+      if(level < 5) return '#eb4034'; // red
+      if(level < 10) return '#ff771c'; // orange-red
+      if(level < 15) return '#d1c70f'; // yellow
+      if(level < 20) return '#7bc30f'; // lime-green
+      if(level < 30) return '#0fa3b1'; // teal
+      if(level < 40) return '#0f7ad1'; // blue
+      if(level < 50) return '#263af0'; // indigo
       return '#9b5cff'; // purple
     }
 
@@ -1591,8 +2266,29 @@
         const sub = document.createElement('div'); sub.className='muted small'; sub.style.textAlign='center'; sub.textContent = oldLevel? `Félicitations — vous êtes passé de ${oldLevel} à ${newLevel}` : `Nouveau niveau : ${newLevel}`;
         ov.appendChild(icon); ov.appendChild(h); ov.appendChild(sub);
         document.body.appendChild(ov);
-        setTimeout(()=>{ try{ ov.remove(); }catch(e){} }, 4200);
+        // animate in
+        requestAnimationFrame(()=> ov.classList.add('show'));
+        // remove after a short display, animate out first
+        setTimeout(()=>{
+          try{ ov.classList.remove('show'); setTimeout(()=>{ try{ ov.remove(); }catch(e){} }, 360); }catch(e){}
+        }, 4200);
       }catch(e){ console.warn('levelUpNotify', e); }
+    }
+
+    // show a small centered title-up notification (toast)
+    function showTitleUpNotification(name, newTier, oldTier){
+      try{
+        const id = 'titleUpNotify-'+name.replace(/\s+/g,'_');
+        if(document.getElementById(id)) document.getElementById(id).remove();
+        const ov = document.createElement('div'); ov.id = id; ov.className = 'title-up-notify';
+        const icon = document.createElement('div'); icon.style.fontSize='18px'; icon.textContent = '🏅'; icon.style.marginBottom='6px'; icon.style.textAlign='center';
+        const h = document.createElement('div'); h.style.fontWeight='700'; h.style.fontSize='0.98rem'; h.style.textAlign='center'; h.textContent = `${name} ${tierToRoman(newTier)}`;
+        const sub = document.createElement('div'); sub.className='muted small'; sub.style.textAlign='center'; sub.textContent = oldTier? `Amélioration : ${tierToRoman(oldTier)} → ${tierToRoman(newTier)}` : `Titre débloqué : ${tierToRoman(newTier)}`;
+        ov.appendChild(icon); ov.appendChild(h); ov.appendChild(sub);
+        document.body.appendChild(ov);
+        requestAnimationFrame(()=> ov.classList.add('show'));
+        setTimeout(()=>{ try{ ov.classList.remove('show'); setTimeout(()=>{ try{ ov.remove(); }catch(e){} }, 360); }catch(e){} }, 3800);
+      }catch(e){ console.warn('titleUpNotify', e); }
     }
 
     // create transient XP badge on main card
@@ -1603,11 +2299,17 @@
         if(!card) return;
         const t = document.createElement('div');
         t.className = 'xp-toast';
-        t.style.position = 'absolute'; t.style.right = '14px'; t.style.top = '14px'; t.style.padding='6px 10px'; t.style.borderRadius='8px'; t.style.zIndex='1500'; t.style.fontWeight='600'; t.style.boxShadow='0 6px 18px rgba(0,0,0,0.08)';
+        // position via CSS inline for placement but animation via classes
+        t.style.position = 'absolute'; t.style.right = '14px'; t.style.top = '14px'; t.style.zIndex = '1500';
         if(delta>0){ t.style.background = 'rgba(30,160,80,0.12)'; t.style.color = 'green'; t.textContent = `+${delta} XP`; }
         else { t.style.background = 'rgba(255,80,80,0.08)'; t.style.color = 'crimson'; t.textContent = `${delta} XP`; }
         card.style.position = card.style.position || 'relative'; card.appendChild(t);
-        setTimeout(()=>{ try{ t.remove(); }catch(e){} }, 2000);
+        // animate in
+        requestAnimationFrame(()=> t.classList.add('show'));
+        // animate out and remove
+        setTimeout(()=>{
+          try{ t.classList.add('leave'); t.classList.remove('show'); setTimeout(()=>{ try{ t.remove(); }catch(e){} }, 320); }catch(e){}
+        }, 1800);
       }catch(e){}
     }
     // Render welcome decks view when no deck is loaded
