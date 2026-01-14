@@ -30,7 +30,7 @@
       }catch(e){ console.warn('Firebase init failed', e); window.__fabanki_firestore = null; }
     })();
   </script>
-  <style>
+<style>
     :root{--bg:#f6f7fb;--fg:#111;--card:#fff;--muted:#666;--accent:#0066ff}
     [data-theme='dark']{--bg:#0f1115;--fg:#e6eef8;--card:#111319;--muted:#9aa4b2;--accent:#66a0ff}
     *{box-sizing:border-box}
@@ -77,9 +77,7 @@
     .card{
   padding-bottom: calc(20px + env(safe-area-inset-bottom));
 }
-    .buttons{
-  padding-bottom: env(safe-area-inset-bottom);
-}
+
 
     /* Histogram styles */
     .histogram{display:flex;gap:12px;margin-top:18px;align-items:flex-end}
@@ -107,8 +105,9 @@
       .app{max-width:100%;margin:0;padding:0;padding-top:66px;padding-left:12px;padding-right:12px}
       header{position:fixed;top:0;left:0;right:0;height:56px;padding:0 8px;display:flex;align-items:center;justify-content:space-around;background:var(--card);box-shadow:0 6px 18px rgba(0,0,0,0.08);z-index:60}
       h1{font-size:1rem;margin:0;text-align:center}
-      /* reduce height slightly so bottom buttons can appear above fold */
-      .card{border-radius:0;min-height:calc(100vh - 120px);padding:12px;display:flex;flex-direction:column;max-width:calc(100% - 24px);margin:0 auto}
+      /* reduce height slightly so bottom buttons can appear above fold
+        Use --vh to account for iOS dynamic toolbar (fix iOS 17+ where 100vh is unreliable) */
+      .card{border-radius:0;min-height:calc(var(--vh,1vh) * 100 - 120px);padding:12px;display:flex;flex-direction:column;max-width:calc(100% - 24px);margin:0 auto}
       section#stats{display:none}
       section#stats.visible{display:block;position:fixed;left:0;right:0;top:0;bottom:0;padding:12px;z-index:999;overflow:auto}
       .hist-viewport{height:140px}
@@ -272,7 +271,7 @@
       /* ensure progress container aligns at the right without being pushed off-screen */
       .progress-container{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
       /* When buttons wrap, center both rows to align with each other */
-      .buttons{justify-content:center}
+      .buttons{justify-content:center; top: 12px}
       .resp-buttons{justify-content:center}
      }
     /* Leaderboard table styles */
@@ -306,29 +305,33 @@
 
       <div style="margin-top:12px;display:flex;gap:12px;align-items:center">
         <div style="flex:1">
-          <div class="card" id="cardArea" aria-live="polite">
+          <div class="card" id="cardArea" aria-live="polite" style="position: relative;">
             <div class="card-content">
               <div id="front" class="front"></div>
               <div id="back" class="back" style="display:none"></div>
               <div id="always" class="muted small" style="margin-top:8px"></div>
             </div>
-            <div class="meta" id="meta"><span id="dueInline" class="muted small">Cartes prêtes : <strong id="dueCount">0</strong></span></div>
-            <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
-              <div class="buttons">
-                <button id="showAnswer">Afficher la réponse</button>
-                <div class="resp-buttons" id="respButtons" style="display:none;margin-left:12px">
-                  <button id="again" class="rate-ratte">Raté</button>
-                  <button id="hard" class="rate-difficile">Difficile</button>
-                  <button id="good" class="rate-bon">Bon</button>
-                  <button id="easy" class="rate-facile">Facile</button>
-                  <button id="passer" class="secondary" title="Passer cette carte">Passer</button>
-                </div>
+
+            <div class="buttons answer-bar">
+              <button id="showAnswer">Afficher la réponse</button>
+
+              <div class="resp-buttons" id="respButtons" style="display:none">
+                <button id="again" class="rate-ratte">Raté</button>
+                <button id="hard" class="rate-difficile">Difficile</button>
+                <button id="good" class="rate-bon">Bon</button>
+                <button id="easy" class="rate-facile">Facile</button>
+                <button id="passer" class="secondary">Passer</button>
               </div>
+            </div>
+
+            <!-- Progress bar reste en bas -->
+            <div style="display:flex; gap:8px; align-items:flex-start; justify-content:space-between; margin-top: auto;">
               <div class="progress-container">
                 <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
                 <div id="progressInfo" class="muted small" style="text-align:center;margin-top:6px">Révisées : 0 / 0</div>
               </div>
             </div>
+          </div>
           </div>
         </div>
         <!-- right panel removed: merged into main card -->
@@ -428,6 +431,16 @@
     var incLocal = function(key, n){ try{ const v = Number(localStorage.getItem(key) || 0) + (n||1); localStorage.setItem(key, String(v)); return v; }catch(e){ return 0 } };
     try{ window.incLocal = incLocal; }catch(e){}
   }
+
+  // Fix iOS 100vh issues: set CSS variable --vh using visualViewport / innerHeight
+  function updateVh(){
+    try{
+      const h = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty('--vh', (h * 0.01) + 'px');
+    }catch(e){}
+  }
+  // update on relevant events
+  try{ updateVh(); window.addEventListener('resize', updateVh); window.addEventListener('orientationchange', updateVh); if(window.visualViewport){ window.visualViewport.addEventListener('resize', updateVh); window.visualViewport.addEventListener('scroll', updateVh); } }catch(e){}
 
   // === Function: loadDeckFromURL ===
   async function loadDeckFromURL(url){
@@ -993,6 +1006,8 @@
       reviewedCount = (reviewedCount || 0) + 1; updateProgressDisplay();
       try{ incLocal('fabanki:pass_total', 1); resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = -6; const cur = Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta; localStorage.setItem('fabanki:score_mpsi_semaine', String(cur)); const curM = Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta; localStorage.setItem('fabanki:score_mpsi_mois', String(curM)); }catch(e){}
       try{ incLocal('fabanki:cards_since_streak_reset',1); }catch(e){}
+      // increment consecutive-without-pass counter (used for Noether)
+      try{ localStorage.setItem('fabanki:consec_no_pass','0'); }catch(e){}
       try{ localStorage.setItem('fabanki:consec_correct','0'); localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
       try{ const deltaToday = -6; const curD = Number(localStorage.getItem('fabanki:score_mpsi_today')||0) + deltaToday; localStorage.setItem('fabanki:score_mpsi_today', String(curD)); }catch(e){}
       // remove from due list and show next
@@ -1052,21 +1067,25 @@
         incLocal('fabanki:fail_total',1);
         try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
         try{ localStorage.setItem('fabanki:consec_correct','0'); }catch(e){}
+        try{ localStorage.setItem('fabanki:consec_no_pass','0'); }catch(e){}
         try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = -4; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
       } else if(q === 3){
         incLocal('fabanki:difficult_total',1);
         try{ const cd = incLocal('fabanki:consec_difficult',1); if(cd >= 100) localStorage.setItem('fabanki:objective_Feynman','1'); }catch(e){}
         try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
+        try{ const cnp = incLocal('fabanki:consec_no_pass',1); const maxnp = Math.max(Number(localStorage.getItem('fabanki:consec_no_pass_max')||0), cnp); localStorage.setItem('fabanki:consec_no_pass_max', String(maxnp)); }catch(e){}
         try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = 1; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
       } else if(q === 4){
         incLocal('fabanki:good_total',1);
         try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
         try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
+        try{ const cnp = incLocal('fabanki:consec_no_pass',1); const maxnp = Math.max(Number(localStorage.getItem('fabanki:consec_no_pass_max')||0), cnp); localStorage.setItem('fabanki:consec_no_pass_max', String(maxnp)); }catch(e){}
         try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = 2; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
       } else if(q === 5){
         incLocal('fabanki:good_total',1);
         try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
         try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
+        try{ const cnp = incLocal('fabanki:consec_no_pass',1); const maxnp = Math.max(Number(localStorage.getItem('fabanki:consec_no_pass_max')||0), cnp); localStorage.setItem('fabanki:consec_no_pass_max', String(maxnp)); }catch(e){}
         try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = 3; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
       }
     }catch(e){ console.warn('answerCurrent counters', e) }
@@ -1821,6 +1840,8 @@
         const passes = Number(localStorage.getItem('fabanki:pass_total') || 0);
         const mastered = Number(localStorage.getItem('fabanki:mastered_total') || countMasteredCards());
         const streakMax = Number(localStorage.getItem('fabanki:streak_max') || 0);
+        const consecCardMax = Number(localStorage.getItem('fabanki:consec_correct_max') || 0);
+        const consecNoPassMax = Number(localStorage.getItem('fabanki:consec_no_pass_max') || 0);
         const streakCurrent = Number(localStorage.getItem('fabanki:streak_current') || 0);
         const longCount = Number(localStorage.getItem('fabanki:long_answer_total') || 0);
 
@@ -1835,9 +1856,9 @@
           {nom:'Gauss', th:[100,300,600,1000,2000], val: bonnes},
           {nom:'Fourier', th:[200,600,1200,2500,5000], val: reviewed},
           {nom:'Euler', th:[200,500,1000,2000,4000], val: (reviewed>0? Math.round((bonnes/reviewed)*100):0), isPercent:true, percentDefs:[0.75,0.80,0.85,0.90,0.92]},
-          {nom:'Newton', th:[20,50,100,200,365], val: streakMax},
+          {nom:'Newton', th:[20,50,100,200,365], val: consecCardMax},
           {nom:'Maxwell', th:[3,7,21,60,120], val: streakCurrent},
-          {nom:'Noether', th:[50,150,400,1000,3000], val: Math.max(0, reviewed - passes)},
+          {nom:'Noether', th:[50,150,400,1000,3000], val: consecNoPassMax},
           {nom:'Hadamard', th:[50,150,400,1000,3000], val: longCount}
         ];
         for(const d of defs){
@@ -2128,7 +2149,7 @@
           'Euler': {th:[75,80,85,90,92], desc:'Pourcentage de bonnes réponses (sur un grand échantillon).', metric: ()=>{ const tot = Number(stats.totalReviewed||0); const good=Number(localStorage.getItem('fabanki:good_total')||0); return tot>0? Math.round((good/tot)*100):0 } },
           'Newton': {th:[20,50,100,200,365], desc:'Séquence de cartes consécutives sans "Raté" (cartes correctes d\'affilée).', metric: ()=> Number(localStorage.getItem('fabanki:consec_correct_max')||0) },
           'Maxwell': {th:[3,7,21,60,120], desc:'Jours consécutifs d\'activité.', metric: ()=> Number(localStorage.getItem('fabanki:streak_current')||0) },
-          'Noether': {th:[50,150,400,1000,3000], desc:'Cartes révisées sans "Passer".', metric: ()=> Math.max(0, Number(stats.totalReviewed||0) - Number(localStorage.getItem('fabanki:pass_total')||0)) },
+          'Noether': {th:[50,150,400,1000,3000], desc:'Cartes révisées sans "Passer".', metric: ()=> Number(localStorage.getItem('fabanki:consec_no_pass_max')||0) },
           'Hadamard': {th:[50,150,400,1000,3000], desc:'Cartes à réponses longues (>20s)', metric: ()=> Number(localStorage.getItem('fabanki:long_answer_total')||0) }
         };
         if(computed.titres && computed.titres.length){
@@ -2160,7 +2181,21 @@
                 const bar = document.createElement('div'); bar.style.flex='1'; bar.style.height='10px'; bar.style.background='#eee'; bar.style.borderRadius='6px';
                 const fill = document.createElement('div'); fill.style.height='100%'; fill.style.width = progress + '%'; fill.style.background = getLevelColor(Math.min(50, Math.max(1, curTier+1))); fill.style.borderRadius='6px'; bar.appendChild(fill);
                 const label = document.createElement('div'); label.className='muted small'; label.style.minWidth='140px';
-                label.textContent = (typeof def.metric === 'function' && t.nom === 'Euler') ? `${cur}%` : `${cur} / ${nextThreshold}`;
+                if(typeof def.metric === 'function' && t.nom === 'Euler'){
+                  // For Euler, show percentage and how many additional good answers are needed for next threshold
+                  const tot = Number(stats.totalReviewed||0);
+                  const good = Number(localStorage.getItem('fabanki:good_total')||0);
+                  const pct = cur;
+                  if(tot <= 0){ label.textContent = `${pct}%`; }
+                  else if(curTier >= maxTier){ label.textContent = `${pct}%`; }
+                  else {
+                    const targetPct = Number(nextThreshold) / 100;
+                    const needed = Math.max(0, Math.ceil((targetPct * tot - good) / (1 - targetPct)));
+                    label.textContent = `${pct}% — il faut ${needed} bonnes réponses supplémentaires`;
+                  }
+                } else {
+                  label.textContent = `${cur} / ${nextThreshold}`;
+                }
                 barWrap.appendChild(bar); barWrap.appendChild(label);
               }
               row.appendChild(barWrap);
@@ -2453,5 +2488,3 @@
   </script>
 </body>
 </html>
-
-
