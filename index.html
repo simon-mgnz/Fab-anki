@@ -30,7 +30,7 @@
       }catch(e){ console.warn('Firebase init failed', e); window.__fabanki_firestore = null; }
     })();
   </script>
-<style>
+  <style>
     :root{--bg:#f6f7fb;--fg:#111;--card:#fff;--muted:#666;--accent:#0066ff}
     [data-theme='dark']{--bg:#0f1115;--fg:#e6eef8;--card:#111319;--muted:#9aa4b2;--accent:#66a0ff}
     *{box-sizing:border-box}
@@ -74,10 +74,8 @@
     .rate-difficile{background:#f0ad4e}
     .rate-bon{background:#007bff}
     .rate-facile{background:#28a745}
-    .card{
-  padding-bottom: calc(20px + env(safe-area-inset-bottom));
-}
-
+    /* CSS variable for iOS viewport fix */
+    :root { --vh: 1vh; }
 
     /* Histogram styles */
     .histogram{display:flex;gap:12px;margin-top:18px;align-items:flex-end}
@@ -105,9 +103,8 @@
       .app{max-width:100%;margin:0;padding:0;padding-top:66px;padding-left:12px;padding-right:12px}
       header{position:fixed;top:0;left:0;right:0;height:56px;padding:0 8px;display:flex;align-items:center;justify-content:space-around;background:var(--card);box-shadow:0 6px 18px rgba(0,0,0,0.08);z-index:60}
       h1{font-size:1rem;margin:0;text-align:center}
-      /* reduce height slightly so bottom buttons can appear above fold
-        Use --vh to account for iOS dynamic toolbar (fix iOS 17+ where 100vh is unreliable) */
-      .card{border-radius:0;min-height:calc(var(--vh,1vh) * 100 - 120px);padding:12px;display:flex;flex-direction:column;max-width:calc(100% - 24px);margin:0 auto}
+      /* reduce height using --vh variable to account for iOS search bar (iOS 17+) */
+      .card{border-radius:0;min-height:calc(var(--vh, 1vh)*100 - 120px);padding:12px;display:flex;flex-direction:column;max-width:calc(100% - 24px);margin:0 auto}
       section#stats{display:none}
       section#stats.visible{display:block;position:fixed;left:0;right:0;top:0;bottom:0;padding:12px;z-index:999;overflow:auto}
       .hist-viewport{height:140px}
@@ -152,6 +149,19 @@
     @media (max-width:640px){
       #toggleStats{display:inline-block}
       #closeStatsMobile{display:inline-block}
+      /* Prevent scrolling on mobile - fit to viewport */
+      html, body {
+        height: 100%;
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+      }
+      body {
+        top: 0;
+        left: 0;
+      }
+      /* Hide footer on mobile to save space */
+      footer{display:none}
       /* Histogram vertical layout on mobile */
       .histogram{flex-direction:column;align-items:stretch}
       .hist-column{flex-direction:row;align-items:center;justify-content:space-between;padding:8px 6px}
@@ -169,7 +179,7 @@
       .modal{border-radius:0;max-width:100%;height:100vh;width:100%;margin:0;padding:12px;padding-top:66px;box-shadow:none;overflow:auto}
       .modal .secondary{min-width:96px}
       /* Make Charger buttons gray; keep primary actions visually accentuated where needed */
-      .modal .deck-entry button{margin-left:6px}
+      .modal .deck-entry button{margin-left:6px;padding:8px 10px;min-width:44px}
     }
 
     /* deck browser: due badge - big number with small label */
@@ -198,6 +208,12 @@
       .level-summary .level-num{font-size:1rem}
     }
     .deck-entry .deck-actions{display:flex;gap:8px;align-items:center}
+    /* Truncate long folder/file names in deck browser */
+    .deck-entry > div:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:480px}
+    /* Multi-deck name display on card area (matching deck browser style) */
+    #multiDeckName.deck-entry{margin:0 0 12px 0;padding:8px;font-weight:500;background:rgba(0,0,0,0.02);border-radius:8px}
+    #multiDeckName > div:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    #multiDeckName .due-badge{margin-left:8px}
     /* Footer full-bleed on desktop: make it span viewport width */
     @media (min-width:641px){
       footer{position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw;width:100vw;padding:12px 18px}
@@ -271,7 +287,7 @@
       /* ensure progress container aligns at the right without being pushed off-screen */
       .progress-container{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
       /* When buttons wrap, center both rows to align with each other */
-      .buttons{justify-content:center; top: 12px}
+      .buttons{justify-content:center}
       .resp-buttons{justify-content:center}
      }
     /* Leaderboard table styles */
@@ -305,33 +321,30 @@
 
       <div style="margin-top:12px;display:flex;gap:12px;align-items:center">
         <div style="flex:1">
-          <div class="card" id="cardArea" aria-live="polite" style="position: relative;">
+          <div class="card" id="cardArea" aria-live="polite">
             <div class="card-content">
+              <div id="multiDeckTitle" class="muted small" style="text-align:center;margin-bottom:8px;font-size:0.85em;color:#999;display:none"></div>
               <div id="front" class="front"></div>
               <div id="back" class="back" style="display:none"></div>
               <div id="always" class="muted small" style="margin-top:8px"></div>
             </div>
-
-            <div class="buttons answer-bar">
-              <button id="showAnswer">Afficher la réponse</button>
-
-              <div class="resp-buttons" id="respButtons" style="display:none">
-                <button id="again" class="rate-ratte">Raté</button>
-                <button id="hard" class="rate-difficile">Difficile</button>
-                <button id="good" class="rate-bon">Bon</button>
-                <button id="easy" class="rate-facile">Facile</button>
-                <button id="passer" class="secondary">Passer</button>
+            <div class="meta" id="meta"><span id="dueInline" class="muted small">Cartes prêtes : <strong id="dueCount">0</strong></span></div>
+            <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
+              <div class="buttons">
+                <button id="showAnswer">Afficher la réponse</button>
+                <div class="resp-buttons" id="respButtons" style="display:none;margin-left:12px">
+                  <button id="again" class="rate-ratte">Raté</button>
+                  <button id="hard" class="rate-difficile">Difficile</button>
+                  <button id="good" class="rate-bon">Bon</button>
+                  <button id="easy" class="rate-facile">Facile</button>
+                  <button id="passer" class="secondary" title="Passer cette carte">Passer</button>
+                </div>
               </div>
-            </div>
-
-            <!-- Progress bar reste en bas -->
-            <div style="display:flex; gap:8px; align-items:flex-start; justify-content:space-between; margin-top: auto;">
               <div class="progress-container">
                 <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
                 <div id="progressInfo" class="muted small" style="text-align:center;margin-top:6px">Révisées : 0 / 0</div>
               </div>
             </div>
-          </div>
           </div>
         </div>
         <!-- right panel removed: merged into main card -->
@@ -422,6 +435,7 @@
   let deckKey = null; // prefix for localStorage
   let tooltipShown = false;
   let cardShownAt = Date.now();
+  let showHintBox = false; // Toggle for hint box visibility
 
   // === FSRS storage key helpers ===
   function storageKey(s){ return `fabanki:${deckKey}:${s}` }
@@ -432,20 +446,23 @@
     try{ window.incLocal = incLocal; }catch(e){}
   }
 
-  // Fix iOS 100vh issues: set CSS variable --vh using visualViewport / innerHeight
-  function updateVh(){
-    try{
-      const h = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
-      document.documentElement.style.setProperty('--vh', (h * 0.01) + 'px');
-    }catch(e){}
-  }
-  // update on relevant events
-  try{ updateVh(); window.addEventListener('resize', updateVh); window.addEventListener('orientationchange', updateVh); if(window.visualViewport){ window.visualViewport.addEventListener('resize', updateVh); window.visualViewport.addEventListener('scroll', updateVh); } }catch(e){}
-
   // === Function: loadDeckFromURL ===
   async function loadDeckFromURL(url){
     updateStatus('Téléchargement du deck...');
     try{
+      // Make sure we're not in multi-deck mode
+      multiDeckMode = false;
+      
+      // Remove welcome page completely (both old and new welcome formats)
+      const welcome = document.getElementById('welcome');
+      if(welcome) welcome.remove();
+      const welcomeDecks = document.getElementById('welcomeDecks');
+      if(welcomeDecks) welcomeDecks.remove();
+      
+      // Show main content
+      const mainEl = document.querySelector('main');
+      if(mainEl) mainEl.style.display = 'block';
+      
       const res = await fetch(url);
       if(!res.ok) throw new Error('HTTP '+res.status);
       const text = await res.text();
@@ -455,7 +472,7 @@
       if(parsererror){
         // Fallback: some exported decks contain unescaped '<' inside TeX fields
         // which makes the file not well-formed XML. Try lenient HTML parsing.
-        updateStatus('XML invalide — tentative d\u00e9codage permissif (HTML)');
+        updateStatus('XML invalide — tentative décodage permissif (HTML)');
         xml = parser.parseFromString(text,'text/html');
         parsererror = null;
       }
@@ -469,6 +486,217 @@
       renderEmpty();
     }
   }
+
+  // === Multi-deck review mode ===
+  let multiDeckMode = false;
+  let multiDeckURLs = [];
+  let multiDeckCards = []; // array of {card, deckURL, deckName}
+  let cardFieldDefsMap = new Map(); // Map of cardId -> fieldDefs for multi-deck
+  
+  async function loadMultipleDeckCards(deckURLs){
+    try{
+      multiDeckMode = true;
+      multiDeckURLs = deckURLs;
+      multiDeckCards = [];
+      cardFieldDefsMap = new Map(); // Reset the map for new load
+      const allCards = [];
+      
+      // Load all decks and collect cards
+      for(const url of deckURLs){
+        try{
+          const res = await fetch(url);
+          if(!res.ok) continue;
+          const text = await res.text();
+          const parser = new DOMParser();
+          let xml = parser.parseFromString(text,'application/xml');
+          if(xml.querySelector('parsererror')) xml = parser.parseFromString(text,'text/html');
+          
+          // Parse deck with proper field definitions (like parseXMLDeck does)
+          const tempDeck = {title:'', cards:[], fieldDefs:[]};
+          const deckKey = fallbackSha1(url).slice(0,10);
+          
+          // Title
+          const titleEl = xml.querySelector('title') || xml.querySelector('name') || xml.documentElement.getAttribute('name');
+          if(titleEl) tempDeck.title = titleEl.textContent ? titleEl.textContent.trim() : (xml.documentElement.getAttribute('name')||'');
+          
+          // Parse field definitions
+          const fieldsContainer = xml.querySelector('fields');
+          if(fieldsContainer){
+            const defs = Array.from(fieldsContainer.children || []);
+            console.log('Loading field definitions for', deckName, '- found', defs.length, 'definitions');
+            for(const f of defs){
+              const type = (f.localName || f.tagName || '').toLowerCase();
+              const name = f.getAttribute('name') || type;
+              const sides = interpretSides(f.getAttribute('sides') || '11');
+              console.log('  Field def:', {name, type, sides});
+              tempDeck.fieldDefs.push({name, type, sides});
+            }
+          } else {
+            console.log('No field definitions container found for', deckName);
+          }
+          
+          // Parse cards with proper field mapping
+          const cardNodes = Array.from(xml.getElementsByTagName('card')).length ? Array.from(xml.getElementsByTagName('card')) : Array.from(xml.querySelectorAll('card, note, item, entry, record'));
+          let idx = 0;
+          for(const node of cardNodes){
+            try{
+              const id = node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idx++));
+              const fields = {};
+              
+              // Map card content to field definitions
+              const _fieldOrder = []; // preserve field order for multi-deck rendering
+              if(tempDeck.fieldDefs.length > 0){
+                // Use field definitions order - find matching elements for each definition
+                for(const def of tempDeck.fieldDefs){
+                  let fieldEl = null;
+                  // Try multiple strategies to find the field element:
+                  // 1) Direct child with matching name attribute
+                  fieldEl = Array.from(node.children).find(ch => (ch.getAttribute && ch.getAttribute('name') === def.name));
+                  // 2) Direct child with matching type
+                  if(!fieldEl) fieldEl = Array.from(node.children).find(ch => ((ch.localName || ch.tagName || '').toLowerCase() === def.type));
+                  // 3) Descendant with matching name attribute
+                  if(!fieldEl) fieldEl = node.querySelector(`[name="${def.name}"]`);
+                  // 4) Descendant with matching type  
+                  if(!fieldEl) fieldEl = node.querySelector(def.type);
+                  // 5) Any first child element if nothing else works
+                  if(!fieldEl && node.children && node.children.length > 0) fieldEl = node.children[0];
+                  
+                  if(fieldEl){
+                    fields[def.name] = {
+                      html: fieldEl.innerHTML,
+                      type: def.type,
+                      sides: def.sides
+                    };
+                    _fieldOrder.push(def.name);
+                  }
+                }
+              } else {
+                // No field definitions - look for rich-text or tex tags first (like parseXMLDeck does)
+                let richTexTags = Array.from(node.querySelectorAll('rich-text, tex'));
+                let fieldEls = richTexTags.length > 0 ? richTexTags : Array.from(node.children || []);
+                
+                // Filter to only element nodes (no text nodes, comments, etc)
+                const elementsOnly = fieldEls.filter(el => el.nodeType === 1 && (el.localName || el.tagName)); // nodeType 1 = ELEMENT_NODE
+                
+                // If we only got 1 element, try getting ALL children as fallback (some XMLs might wrap fields in containers)
+                let fieldsToProcess = elementsOnly;
+                if(elementsOnly.length <= 1){
+                  // Fallback: get all child elements, not just rich-text/tex
+                  fieldsToProcess = Array.from(node.children || []).filter(el => el.nodeType === 1 && (el.localName || el.tagName));
+                }
+                
+                for(let fi = 0; fi < fieldsToProcess.length; fi++){
+                  const f = fieldsToProcess[fi];
+                  const tag = (f.getAttribute && f.getAttribute('name')) || (f.localName || f.tagName || '').toLowerCase();
+                  // Keep all fields, don't skip any - we need the full structure
+                  if(!tag) continue;
+                  
+                  // First field is front, rest are back
+                  const isFront = (fi === 0);
+                  fields[tag] = {
+                    html: f.innerHTML || '',
+                    type: (f.localName || f.tagName || '').toLowerCase(),
+                    sides: {front: isFront, back: !isFront, always: false}
+                  };
+                  _fieldOrder.push(tag);
+                }
+              }
+              // Always create the card with _fieldOrder, even if empty
+              tempDeck.cards.push({id, fields, _fieldOrder: _fieldOrder.length > 0 ? _fieldOrder : Object.keys(fields)});
+            }catch(e){ continue }
+          }
+          
+          // Get due cards for this deck
+          const now = new Date();
+          const deckName = tempDeck.title || decodeURIComponent(url.split('/').pop()).replace(/\.xml$/i,'');
+          
+          // Debug: log field defs for this deck
+          if(tempDeck.fieldDefs.length > 0){
+            console.log('Loading multi-deck:', deckName, '- Field defs:', tempDeck.fieldDefs.map(d => d.name));
+          }
+          
+          for(const c of tempDeck.cards){
+            const key = `fabanki:${deckKey}:card:${c.id}`;
+            const st = JSON.parse(localStorage.getItem(key) || '{}');
+            const due = st && st.due ? new Date(st.due) : now;
+            // Card is new if: no state exists OR no last review but reps is 0/undefined
+            const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
+            // Only add cards that are due NOW (maintenant) or are NEW
+            if((due <= now && !isNew) || isNew){
+              // Store field definitions in map so renderBack can access them
+              cardFieldDefsMap.set(c.id, tempDeck.fieldDefs);
+              allCards.push({card: c, deckURL: url, deckName, deckKey, isNew});
+            }
+          }
+        }catch(e){ console.warn('Error loading deck:', url, e); }
+      }
+      
+      // Shuffle: separate by due status, shuffle each group, then concatenate
+      const now = new Date();
+      
+      // Separate into due status groups
+      const nowCards = [];
+      const futureCards = [];
+      for(const card of allCards){
+        if(card.isNew) continue; // Skip new - handle separately
+        const st = JSON.parse(localStorage.getItem(`fabanki:${card.deckKey}:card:${card.card.id}`) || '{}');
+        const due = st && st.due ? new Date(st.due) : now;
+        if(due <= now) {
+          nowCards.push(card); // Due now or in past
+        } else {
+          futureCards.push(card); // Due in future
+        }
+      }
+      
+      const newCards = allCards.filter(x => x.isNew);
+      
+      const shuffle = (arr)=>{ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] } };
+      shuffle(nowCards);
+      shuffle(futureCards);
+      shuffle(newCards);
+      
+      // Order: Maintenant (due now) first, then future, then new
+      multiDeckCards = nowCards.concat(futureCards).concat(newCards);
+      
+      if(multiDeckCards.length === 0){
+        updateStatus('Aucune carte à réviser');
+        renderEmpty();
+        return;
+      }
+      
+      console.log('Multi-deck loaded:', multiDeckCards.length, 'cards');
+      multiDeckCards.slice(0,3).forEach(c => {
+        console.log('  Card:', c.card.id, 'from:', c.deckName, 'has fieldDefs in map:', cardFieldDefsMap.has(c.card.id));
+      });
+      
+      // Set up pseudo-deck for display
+      deck = {title: 'Révision Multi-Deck', cards: multiDeckCards.map(x => x.card)};
+      deckKey = 'multideck';
+      dueCards = multiDeckCards;
+      sessionTotal = dueCards.length;
+      reviewedCount = 0;
+      currentIndex = 0;
+      
+      // Ensure progress info element is visible and initialized
+      const progressInfo = document.getElementById('progressInfo');
+      if(progressInfo) { progressInfo.textContent = `Revisées : 0 / ${sessionTotal}`; progressInfo.style.display = 'block'; }
+      
+      updateStatus('Multi-Deck chargé — prêt pour révision');
+      showNextCard();
+      updateProgressDisplay();
+      // Update histogram for the first deck in multi-deck mode
+      if(multiDeckCards.length > 0){
+        updateHistogramForDeck(multiDeckCards[0].deckKey);
+      } else {
+        updateHistogram();
+      }
+    }catch(err){
+      console.error('Multi-deck error:', err);
+      updateStatus('Erreur chargement multi-deck: '+err.message);
+      multiDeckMode = false;
+    }
+  }
+
 
   // === Function: parseXMLDeck ===
   // Parse the <fields> definition (name,type,sides) and build per-card `fields` objects.
@@ -581,6 +809,330 @@
     out.front=true; return out;
   }
 
+  // === Function: showDeckOverview ===
+  // Shows an intermediate view with ring chart, card grid, and stats before reviewing
+  async function showDeckOverview(url){
+    try{
+      // Find and remove the welcome element completely (both old and new formats)
+      const welcome = document.getElementById('welcome');
+      if(welcome) {
+        console.log('Removing welcome element');
+        welcome.remove();
+      }
+      const welcomeDecks = document.getElementById('welcomeDecks');
+      if(welcomeDecks) {
+        console.log('Removing welcomeDecks');
+        welcomeDecks.remove();
+      }
+      
+      // Hide main and stats
+      const mainEl = document.querySelector('main');
+      if(mainEl) {
+        mainEl.style.display = 'none';
+        mainEl.style.visibility = 'hidden';
+      }
+      const statsEl = document.getElementById('stats');
+      if(statsEl) {
+        statsEl.style.display = 'none';
+        statsEl.style.visibility = 'hidden';
+      }
+
+      // Hide and remove aria-hidden from any open overlays/modals
+      const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
+      if(deckBrowserOverlay) {
+        deckBrowserOverlay.style.display = 'none';
+        deckBrowserOverlay.classList.remove('open');
+        deckBrowserOverlay.removeAttribute('aria-hidden');
+      }
+      
+      const modals = document.querySelectorAll('.modal-overlay, .modal.open');
+      modals.forEach(m => { 
+        m.classList.remove('open'); 
+        m.style.display = 'none'; 
+        m.style.visibility = 'hidden';
+        m.removeAttribute('aria-hidden');
+      });
+
+      // Create overview container with high z-index to ensure visibility
+      const container = document.createElement('div');
+      container.id = 'deckOverviewContainer';
+      container.style.cssText = `
+        padding:20px;
+        overflow-y:auto;
+        max-height:90vh;
+        position:relative;
+        z-index:9999;
+        background:var(--bg);
+        width:100%;
+      `;
+
+      // Parse deck to get stats
+      const res = await fetch(url);
+      const text = await res.text();
+      const parser = new DOMParser();
+      let xml = parser.parseFromString(text,'application/xml');
+      if(xml.querySelector('parsererror')) xml = parser.parseFromString(text,'text/html');
+      
+      const tempDeck = {title:'', cards:[], fieldDefs:[]};
+      const deckKeyForStats = fallbackSha1(url).slice(0,10);
+      
+      const titleEl = xml.querySelector('title') || xml.querySelector('name');
+      if(titleEl) tempDeck.title = titleEl.textContent?.trim() || '';
+      
+      const cardNodes = Array.from(xml.getElementsByTagName('card')).length 
+        ? Array.from(xml.getElementsByTagName('card')) 
+        : Array.from(xml.querySelectorAll('card, note, item, entry, record'));
+      
+      // Count cards by due status
+      const now = new Date();
+      const counts = {new:0, now:0, h12:0, tomorrow:0, week:0, long:0};
+      const cardsList = [];
+      let reviewed = 0;
+      
+      console.log('Overview: deckKeyForStats=', deckKeyForStats, 'Looking for keys like: fabanki:' + deckKeyForStats + ':card:*');
+      
+      // Show all localStorage keys that match this deck (for debugging)
+      const allKeys = Object.keys(localStorage);
+      const deckKeys = allKeys.filter(k => k.includes(deckKeyForStats));
+      console.log('Found', deckKeys.length, 'localStorage keys for this deck:', deckKeys.slice(0, 5), '...');
+      
+      let idx = 0; // Counter for card IDs (same as parseXMLDeck)
+      
+      for(const cardNode of cardNodes){
+        try{
+          // USE SAME ID LOGIC AS parseXMLDeck to ensure consistency with localStorage keys
+          const cardId = cardNode.getAttribute('id') || cardNode.getAttribute('guid') || ('card-'+(idx++));
+          const key = `fabanki:${deckKeyForStats}:card:${cardId}`;
+          const storedData = localStorage.getItem(key);
+          
+          // Parse stored data - must handle null properly
+          let st = null;
+          if(storedData){
+            try{ st = JSON.parse(storedData); } catch(e){ st = null; }
+          }
+          
+          // Check if card has been reviewed (has a last review time)
+          const hasBeenReviewed = st !== null && st.last !== undefined && st.last !== null;
+          const due = (st && st.due) ? new Date(st.due) : now;
+          const isNew = !hasBeenReviewed; // Card is new only if it's never been reviewed
+          const reps = st?.reps || 0;
+          
+          // Debug logging for categorization
+          console.log('Overview card categorization:', {cardId, storedData: !!storedData, st, hasBeenReviewed, isNew, due, hrs: due ? (due - now) / (1000*60*60) : 'N/A'});
+          
+          // Count reviewed
+          if(hasBeenReviewed) reviewed++;
+          
+          // Get first field for card display
+          const firstField = cardNode.children[0]?.innerHTML || cardNode.textContent?.slice(0,60) || '...';
+          
+          // Categorize by review status first, then by due date
+          let category = 'long';
+          if(isNew) {
+            category = 'new';
+          } else if(hasBeenReviewed) {
+            // Only categorize by due date if card was already reviewed
+            if(due <= now) category = 'now';
+            else {
+              const hrs = (due - now) / (1000*60*60);
+              if(hrs <= 12) category = 'h12';
+              else if(hrs <= 24) category = 'tomorrow';
+              else if(hrs <= 24*7) category = 'week';
+              else category = 'long';
+            }
+          }
+          
+          counts[category]++;
+          cardsList.push({id:cardId, category, html:firstField, due, reps});
+        }catch(e){ console.warn('Error processing card in overview:', e); continue; }
+      }
+
+      // Color mapping
+      const colors = {new:'#a78bfa', now:'#ef4444', h12:'#f97316', tomorrow:'#eab308', week:'#22c55e', long:'#06b6d4'};
+      const labels = {new:'Nouveau', now:'Maintenant', h12:'< 12h', tomorrow:'Demain', week:'< 1 semaine', long:'Futur'};
+      
+      // Build header
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex;gap:20px;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;';
+      
+      // Ring chart
+      const chartDiv = document.createElement('div');
+      chartDiv.style.cssText = 'flex:0 0 200px;display:flex;flex-direction:column;align-items:center;';
+      const canvas = document.createElement('canvas');
+      canvas.width = 180;
+      canvas.height = 180;
+      chartDiv.appendChild(canvas);
+      
+      // Draw ring chart
+      const ctx = canvas.getContext('2d');
+      const total = Object.values(counts).reduce((a,b)=>a+b, 0);
+      let angle = 0;
+      const radius = 80;
+      const centerX = 90, centerY = 90;
+      
+      Object.entries(counts).forEach(([cat, cnt]) => {
+        if(cnt === 0) return;
+        const sliceAngle = (cnt / total) * 2 * Math.PI;
+        
+        // Draw ring segment
+        ctx.fillStyle = colors[cat];
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, angle, angle + sliceAngle);
+        ctx.arc(centerX, centerY, radius - 20, angle + sliceAngle, angle, true);
+        ctx.fill();
+        angle += sliceAngle;
+      });
+      
+      // Legend
+      const legend = document.createElement('div');
+      legend.style.cssText = 'font-size:0.85em;margin-top:12px;text-align:center;';
+      Object.entries(counts).forEach(([cat, cnt]) => {
+        if(cnt === 0) return;
+        const line = document.createElement('div');
+        line.style.cssText = `margin:4px 0;color:#666;`;
+        line.innerHTML = `<span style="display:inline-block;width:12px;height:12px;background:${colors[cat]};margin-right:6px;border-radius:2px;"></span>${labels[cat]}: ${cnt}`;
+        legend.appendChild(line);
+      });
+      chartDiv.appendChild(legend);
+      header.appendChild(chartDiv);
+      
+      // Stats and button
+      const rightPanel = document.createElement('div');
+      rightPanel.style.cssText = 'flex:1;min-width:200px;';
+      
+      // Back button to restore deck browser
+      const backBtn = document.createElement('button');
+      backBtn.textContent = '← Retour';
+      backBtn.className = 'secondary';
+      backBtn.style.cssText = 'width:100%;padding:8px;font-size:0.9em;margin-bottom:12px;';
+      backBtn.addEventListener('click', ()=>{
+        const overviewContainer = document.getElementById('deckOverviewContainer');
+        if(overviewContainer) overviewContainer.remove();
+        // Return to home by reloading without deck parameter
+        window.location.href = window.location.origin + window.location.pathname;
+      });
+      rightPanel.appendChild(backBtn);
+      
+      const title = document.createElement('h2');
+      title.textContent = tempDeck.title || 'Deck';
+      title.style.cssText = 'margin:0 0 16px 0;font-size:1.4em;';
+      rightPanel.appendChild(title);
+      
+      const stats = document.createElement('div');
+      stats.style.cssText = 'background:#f5f5f5;padding:12px;border-radius:8px;margin-bottom:16px;font-size:0.9em;line-height:1.6;';
+      
+      // Accuracy calculation
+      let accuracySum = 0, reviewedTotal = 0;
+      for(const c of cardsList){
+        if(c.category === 'now') { accuracySum += 0; reviewedTotal++; }
+        else if(c.category === 'h12') { accuracySum += 5; reviewedTotal++; }
+        else if(c.category === 'tomorrow') { accuracySum += 10; reviewedTotal++; }
+        else if(c.category === 'week') { accuracySum += 15; reviewedTotal++; }
+        else if(c.category === 'long') { accuracySum += 20; reviewedTotal++; }
+      }
+      const accuracy = reviewedTotal > 0 ? (accuracySum / reviewedTotal).toFixed(2) : 'N/A';
+      
+      stats.innerHTML = `
+        <div>Cartes révisées: <strong>${reviewed}</strong></div>
+        <div>Total: <strong>${total}</strong></div>
+        <div>Précision: <strong>${accuracy}</strong></div>
+      `;
+      rightPanel.appendChild(stats);
+      
+      const startBtn = document.createElement('button');
+      startBtn.textContent = 'Démarrer';
+      startBtn.className = 'primary';
+      startBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;';
+      startBtn.addEventListener('click', ()=>{ 
+        console.log('Démarrer clicked - starting review');
+        
+        // Hide the overview container completely
+        const overviewContainer = document.getElementById('deckOverviewContainer');
+        if(overviewContainer) {
+          overviewContainer.remove();
+          console.log('Overview removed');
+        }
+        
+        // Exit multi-deck mode
+        multiDeckMode = false;
+        
+        // Remove welcome page completely (both formats)
+        const welcome = document.getElementById('welcome');
+        if(welcome) {
+          welcome.remove();
+          console.log('Welcome removed');
+        }
+        const welcomeDecks = document.getElementById('welcomeDecks');
+        if(welcomeDecks) {
+          welcomeDecks.remove();
+          console.log('WelcomeDecks removed');
+        }
+        
+        // Show main content - be aggressive
+        const mainEl = document.querySelector('main');
+        if(mainEl) {
+          mainEl.style.display = 'block';
+          mainEl.style.visibility = 'visible';
+          console.log('Main shown');
+        }
+        
+        // Also hide stats
+        const statsEl = document.getElementById('stats');
+        if(statsEl) statsEl.style.display = 'none';
+        
+        // Load the deck (which will call showNextCard internally)
+        deckURL = url;
+        loadDeckFromURL(url);
+      });
+      rightPanel.appendChild(startBtn);
+      
+      header.appendChild(rightPanel);
+      container.appendChild(header);
+      
+      // Card grid
+      const gridTitle = document.createElement('h3');
+      gridTitle.textContent = 'Cartes';
+      gridTitle.style.cssText = 'margin:24px 0 12px 0;';
+      container.appendChild(gridTitle);
+      
+      const grid = document.createElement('div');
+      grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;';
+      
+      for(const card of cardsList){
+        const cardEl = document.createElement('div');
+        cardEl.style.cssText = `
+          background:${colors[card.category]};
+          color:white;
+          padding:12px;
+          border-radius:12px;
+          font-size:0.85em;
+          word-wrap:break-word;
+          opacity:0.9;
+        `;
+        const preview = card.html.replace(/<[^>]*>/g,'').slice(0,60);
+        cardEl.textContent = preview + (preview.length >= 60 ? '...' : '');
+        grid.appendChild(cardEl);
+      }
+      container.appendChild(grid);
+      
+      // Add to page with explicit styling to ensure visibility
+      // Remove any previous overview
+      const oldContainer = document.getElementById('deckOverviewContainer');
+      if(oldContainer) oldContainer.remove();
+      
+      // Append directly to body so it's on top of everything
+      document.body.appendChild(container);
+      
+      // Scroll to top
+      window.scrollTo(0, 0);
+      
+      updateStatus(`${tempDeck.title} - ${total} cartes`);
+    }catch(e){
+      console.error('Deck overview error:', e);
+      updateStatus('Erreur: ' + e.message);
+    }
+  }
+
   // === Function: renderFront ===
   // Render fields that are allowed on the front side according to their `sides`.
   // Each card now has `card.fields` where keys are field names and values are {html,type,sides}.
@@ -593,21 +1145,51 @@
     frontEl.innerHTML = '';
     alwaysEl.textContent = '';
 
-    // Build front content following the order in deck.fieldDefs (if present)
     const defs = deck.fieldDefs || [];
     let anyAlways = false;
-    for(const def of defs){
-      const f = card.fields && card.fields[def.name];
-      if(!f) continue;
-      if(f.sides.always || f.sides.front){
-        const node = buildFieldElement(def, f);
-        frontEl.appendChild(node);
+    
+    if(defs.length === 0){
+      // No field definitions: show first field on front (multi-deck fallback)
+      // Use _fieldOrder if available for correct ordering
+      if(card.fields && card._fieldOrder && card._fieldOrder.length > 0){
+        const fieldName = card._fieldOrder[0];
+        const f = card.fields[fieldName];
+        if(f){
+          const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: true, back: false}};
+          const node = buildFieldElement(def, f);
+          frontEl.appendChild(node);
+        }
+      } else if(card.fields){
+        // Fallback if _fieldOrder not available
+        let isFirst = true;
+        for(const fieldName in card.fields){
+          if(isFirst){
+            const f = card.fields[fieldName];
+            if(f){
+              const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: true, back: false}};
+              const node = buildFieldElement(def, f);
+              frontEl.appendChild(node);
+            }
+            isFirst = false;
+            break;
+          }
+        }
       }
-      if(f.sides.always) anyAlways = true;
+    } else {
+      // Use field definitions
+      for(const def of defs){
+        const f = card.fields && card.fields[def.name];
+        if(!f) continue;
+        // Get sides, defaulting to front if not specified
+        const sides = f.sides || def.sides || {front: true, back: false};
+        if(sides.always || sides.front){
+          const node = buildFieldElement(def, f);
+          frontEl.appendChild(node);
+        }
+        if(sides.always) anyAlways = true;
+      }
     }
 
-    // Simple indicator if some fields are always visible on both sides
-    // hide always-indicator (not shown per user preference)
     alwaysEl.textContent = '';
   }
 
@@ -618,20 +1200,134 @@
     if(!card){ backEl.innerHTML=''; return }
 
     backEl.innerHTML = '';
-    const defs = deck.fieldDefs || [];
+    // In multi-deck mode, get field defs from the map using card.id
+    let defs = [];
+    if(multiDeckMode && card && card.id){
+      defs = cardFieldDefsMap.get(card.id) || [];
+    }
+    if(!defs || defs.length === 0){
+      defs = deck.fieldDefs || [];
+    }
+    
+    // DEBUG: Always log to see what's happening
+    console.log('renderBack:', {
+      cardId: card?.id,
+      multiDeckMode,
+      defsCount: defs.length,
+      defsNames: defs.map(d => d.name),
+      cardFieldsKeys: card && card.fields ? Object.keys(card.fields) : [],
+      cardFieldsLength: card && card.fields ? Object.keys(card.fields).length : 0
+    });
+    
     let anyContent = false;
-    // detect whether front is currently visible (so we avoid duplicating 'always' fields)
     const frontVisible = (function(){ try{ const fe = document.getElementById('front'); return fe && fe.style.display !== 'none'; }catch(e){ return false } })();
-    for(const def of defs){
-      const f = card.fields && card.fields[def.name];
-      if(!f) continue;
-      // If the field is visible on the front and the front is currently shown, skip it
-      if(f.sides.front && frontVisible) continue;
-      // Otherwise show fields that are marked for back (or 'always' when front is hidden)
-      if(f.sides.back || (f.sides.always && !frontVisible)){
-        const node = buildFieldElement(def, f);
-        backEl.appendChild(node);
-        anyContent = true;
+    
+    if(defs.length === 0){
+      // No field definitions: show all fields except first on back (multi-deck)
+      // Use _fieldOrder if available to preserve XML order
+      if(card.fields && card._fieldOrder && card._fieldOrder.length > 1){
+        // Multiple fields - show all except first
+        for(let i = 1; i < card._fieldOrder.length; i++){
+          const fieldName = card._fieldOrder[i];
+          const f = card.fields[fieldName];
+          if(f){
+            const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
+            const node = buildFieldElement(def, f);
+            backEl.appendChild(node);
+            anyContent = true;
+          }
+        }
+      } else if(card.fields && card._fieldOrder && card._fieldOrder.length === 1){
+        // Only one field - nothing to show on back
+        anyContent = false;
+      } else if(card.fields){
+        // Fallback if _fieldOrder not available - try to find additional fields
+        let isFirst = true;
+        for(const fieldName in card.fields){
+          if(!isFirst){
+            const f = card.fields[fieldName];
+            if(f){
+              const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
+              const node = buildFieldElement(def, f);
+              backEl.appendChild(node);
+              anyContent = true;
+            }
+          } else {
+            isFirst = false;
+          }
+        }
+      }
+    } else {
+      // Use field definitions - show fields marked for back
+      // FIRST: Check if any field definitions actually match card fields
+      const cardFieldKeys = card.fields ? Object.keys(card.fields) : [];
+      const defsMatch = defs.some(d => card.fields && card.fields[d.name]);
+      
+      if(!defsMatch && cardFieldKeys.length > 0){
+        // Field definitions don't match card fields - use actual card field names instead
+        console.log('Field defs dont match card fields. Using actual card fields instead. Defs:', defs.map(d=>d.name), 'Card fields:', cardFieldKeys);
+        
+        // Show all fields except first
+        let isFirst = true;
+        for(const fieldName of cardFieldKeys){
+          if(isFirst){
+            isFirst = false;
+            continue;
+          }
+          const f = card.fields[fieldName];
+          if(f){
+            const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
+            const node = buildFieldElement(def, f);
+            backEl.appendChild(node);
+            anyContent = true;
+          }
+        }
+      } else {
+        // Field definitions match - use them
+        let foundAny = false;
+        let fieldsShown = 0;
+        
+        for(const def of defs){
+          const f = card.fields && card.fields[def.name];
+          if(!f) {
+            console.warn('Field not found for def:', def.name, 'available fields:', Object.keys(card.fields || {}));
+            continue;
+          }
+          foundAny = true;
+          // Get sides info, defaulting to {front:true,back:false} if not specified (don't show duplicates)
+          const sides = f.sides || def.sides || {front: true, back: false};
+          // Skip if only on front and front is visible
+          if(sides.front && !sides.back && frontVisible) {
+            continue;
+          }
+          // Show if marked for back, but NOT if 'always' (always fields go to alwaysEl, not back)
+          if(sides.back && !sides.always){
+            const node = buildFieldElement(def, f);
+            backEl.appendChild(node);
+            anyContent = true;
+            fieldsShown++;
+          }
+        }
+        
+        // Debug: if we have field definitions but didn't find any fields, log it
+        if(defs.length > 0 && !foundAny && card.fields){
+          console.error('ERROR: No matching fields in card. Expected defs:', defs.map(d=>d.name), 'Card has fields:', Object.keys(card.fields), 'Card:', card);
+        }
+      }
+      
+      // If field definitions path didn't work, fallback to _fieldOrder
+      if(!anyContent && card._fieldOrder && card._fieldOrder.length > 1){
+        console.log('Falling back to _fieldOrder approach for back content');
+        for(let i = 1; i < card._fieldOrder.length; i++){
+          const fieldName = card._fieldOrder[i];
+          const f = card.fields[fieldName];
+          if(f){
+            const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
+            const node = buildFieldElement(def, f);
+            backEl.appendChild(node);
+            anyContent = true;
+          }
+        }
       }
     }
 
@@ -792,6 +1488,54 @@
     const infoEl = document.getElementById('progressInfo');
     if(infoEl && sessionTotal === 0){ infoEl.textContent = `Révisées : ${reviewedCount} / ${sessionTotal}` }
   }
+  
+  // Update histogram for a specific deck (used in multi-deck mode)
+  function updateHistogramForDeck(deckKey){
+    const now = new Date();
+    const counts = {new:0, now:0, h12:0, tomorrow:0, week:0, long:0};
+    
+    // Get all cards from localStorage for this deck
+    const prefix = `fabanki:${deckKey}:card:`;
+    for(const k of Object.keys(localStorage)){
+      if(!k.startsWith(prefix)) continue;
+      try{
+        const st = JSON.parse(localStorage.getItem(k) || '{}');
+        if(!st || (!st.last && (st.reps===0 || st.reps===undefined))){ counts.new++; continue }
+        const due = st && st.due ? new Date(st.due) : now;
+        const hrs = (due - now) / (1000*60*60);
+        if(due <= now) counts.now++;
+        else if(hrs <= 12) counts.h12++;
+        else if(hrs <= 24) counts.tomorrow++;
+        else if(hrs <= 24*7) counts.week++;
+        else counts.long++;
+      }catch(e){ continue }
+    }
+    
+    // compute max for scaling
+    const max = Math.max(1, counts.new, counts.now, counts.h12, counts.tomorrow, counts.week, counts.long);
+    // set fills heights and counts above bars
+    const setCol = (fillId, countId, val) => {
+      const fill = document.getElementById(fillId);
+      const cnt = document.getElementById(countId);
+      if(cnt) cnt.textContent = val;
+      if(!fill) return;
+      const pct = Math.round((val / max) * 100);
+      if(window.innerWidth <= 640){
+        fill.style.width = pct + '%';
+        fill.style.height = '100%';
+      } else {
+        fill.style.height = pct + '%';
+        fill.style.width = '';
+      }
+      fill.title = val + ' cartes';
+    };
+    setCol('bar-new','count-new', counts.new);
+    setCol('bar-now','count-now', counts.now);
+    setCol('bar-12h','count-12h', counts.h12);
+    setCol('bar-tomorrow','count-tomorrow', counts.tomorrow);
+    setCol('bar-week','count-week', counts.week);
+    setCol('bar-long','count-long', counts.long);
+  }
 
   function updateProgressDisplay(){
     const infoEl = document.getElementById('progressInfo');
@@ -855,10 +1599,12 @@
     try{
       if(prevDue && prevDue > now && next <= now){ sessionTotal = (sessionTotal||0) + 1; updateProgressDisplay(); }
     }catch(e){}
-    // update due list and UI
-    dueCards = getDueCards();
-    const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
-    updateHistogram();
+    // update due list and UI - but NOT in multi-deck mode (we manage dueCards directly)
+    if(!multiDeckMode){
+      dueCards = getDueCards();
+      const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
+      updateHistogram();
+    }
   }
 
   // random integer helper
@@ -915,10 +1661,25 @@
   function showNextCard(){
     if(!dueCards || dueCards.length===0){ updateStatus('Aucune carte à réviser aujourd\'hui'); renderEmpty(); return }
     if(currentIndex >= dueCards.length) currentIndex = 0;
-    const c = dueCards[currentIndex];
+    const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
+    const cardData = multiDeckMode ? dueCards[currentIndex] : null;
     const sa = $('#showAnswer'); if(sa) sa.style.display = 'inline-block';
     const resp = $('#respButtons'); if(resp) resp.style.display = 'none';
     const backEl = $('#back'); if(backEl) backEl.style.display = 'none';
+    
+    // Display deck name if in multi-deck mode
+    if(multiDeckMode && cardData){
+      const deckTitle = document.getElementById('multiDeckTitle');
+      if(deckTitle){
+        deckTitle.textContent = cardData.deckName;
+        deckTitle.style.display = 'block';
+      }
+    } else {
+      const deckTitle = document.getElementById('multiDeckTitle');
+      if(deckTitle) deckTitle.style.display = 'none';
+    }
+
+    
     renderFront(c);
     // update card status box (Nouveau / Maintenant)
     try{ renderCardStatus(c); }catch(e){}
@@ -930,6 +1691,11 @@
     // progress
     const pct = Math.round(((currentIndex)/Math.max(1,dueCards.length))*100);
     const pb = $('#progressBar'); if(pb) pb.style.width = pct + '%';
+    
+    // Update histogram for current deck if in multi-deck mode
+    if(multiDeckMode && cardData){
+      updateHistogramForDeck(cardData.deckKey);
+    }
   }
 
   // Render or update the small persistent card status box
@@ -961,7 +1727,7 @@
 
   // Button handlers
     $('#showAnswer').addEventListener('click', ()=>{
-    const c = dueCards[currentIndex];
+    const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
     try{
       renderBack(c);
       const frontEl = $('#front');
@@ -994,7 +1760,18 @@
 
   function passCurrent(){
     try{
-      const c = dueCards[currentIndex]; if(!c) return;
+      const cardData = multiDeckMode ? dueCards[currentIndex] : null;
+      const c = cardData ? cardData.card : dueCards[currentIndex];
+      if(!c) return;
+      
+      const origStorageKey = storageKey; // save original
+      
+      // If in multi-deck mode, temporarily override storageKey
+      if(multiDeckMode && cardData){
+        const deckKeyLocal = cardData.deckKey;
+        storageKey = (s) => `fabanki:${deckKeyLocal}:${s}`;
+      }
+      
       // mark card as never due again by setting a far-future date
       const key = storageKey('card:'+c.id);
       const st = JSON.parse(localStorage.getItem(key) || '{}');
@@ -1006,16 +1783,20 @@
       reviewedCount = (reviewedCount || 0) + 1; updateProgressDisplay();
       try{ incLocal('fabanki:pass_total', 1); resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = -6; const cur = Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta; localStorage.setItem('fabanki:score_mpsi_semaine', String(cur)); const curM = Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta; localStorage.setItem('fabanki:score_mpsi_mois', String(curM)); }catch(e){}
       try{ incLocal('fabanki:cards_since_streak_reset',1); }catch(e){}
-      // increment consecutive-without-pass counter (used for Noether)
-      try{ localStorage.setItem('fabanki:consec_no_pass','0'); }catch(e){}
-      try{ localStorage.setItem('fabanki:consec_correct','0'); localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
+      try{ localStorage.setItem('fabanki:consec_correct','0'); localStorage.setItem('fabanki:consec_difficult','0'); localStorage.setItem('fabanki:consec_no_pass','0'); }catch(e){}
       try{ const deltaToday = -6; const curD = Number(localStorage.getItem('fabanki:score_mpsi_today')||0) + deltaToday; localStorage.setItem('fabanki:score_mpsi_today', String(curD)); }catch(e){}
       // remove from due list and show next
       dueCards.splice(currentIndex, 1);
       if(currentIndex >= dueCards.length){ updateStatus('Révision terminée pour aujourd\'hui'); renderEmpty(); }
       else { showNextCard(); }
       const dueEl2 = $('#dueCount'); if(dueEl2) dueEl2.textContent = dueCards.length;
-      updateHistogram();
+      // In multi-deck mode, update histogram for current deck after moving to next card
+      if(multiDeckMode && dueCards.length > 0){
+        const nextCardData = dueCards[currentIndex];
+        if(nextCardData) updateHistogramForDeck(nextCardData.deckKey);
+      } else {
+        updateHistogram();
+      }
       try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
       try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
       try{
@@ -1026,11 +1807,25 @@
         if(applied) { try{ window.showXpToast(applied); }catch(e){} }
         if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
       }catch(e){}
+      
+      // Restore original storageKey if it was overridden for multi-deck
+      if(multiDeckMode && cardData){
+        storageKey = origStorageKey;
+      }
     }catch(e){ console.warn('pass error', e); }
   }
 
   function answerCurrent(q){
-    const c = dueCards[currentIndex];
+    const cardData = multiDeckMode ? dueCards[currentIndex] : null;
+    const c = cardData ? cardData.card : dueCards[currentIndex];
+    const origStorageKey = storageKey; // save original
+    
+    // If in multi-deck mode, temporarily override storageKey
+    if(multiDeckMode && cardData){
+      const deckKey = cardData.deckKey;
+      storageKey = (s) => `fabanki:${deckKey}:${s}`;
+    }
+    
     // count this attempt for session progress
     reviewedCount = (reviewedCount || 0) + 1;
     updateProgressDisplay();
@@ -1067,25 +1862,21 @@
         incLocal('fabanki:fail_total',1);
         try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
         try{ localStorage.setItem('fabanki:consec_correct','0'); }catch(e){}
-        try{ localStorage.setItem('fabanki:consec_no_pass','0'); }catch(e){}
         try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = -4; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
       } else if(q === 3){
         incLocal('fabanki:difficult_total',1);
         try{ const cd = incLocal('fabanki:consec_difficult',1); if(cd >= 100) localStorage.setItem('fabanki:objective_Feynman','1'); }catch(e){}
         try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
-        try{ const cnp = incLocal('fabanki:consec_no_pass',1); const maxnp = Math.max(Number(localStorage.getItem('fabanki:consec_no_pass_max')||0), cnp); localStorage.setItem('fabanki:consec_no_pass_max', String(maxnp)); }catch(e){}
         try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = 1; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
       } else if(q === 4){
         incLocal('fabanki:good_total',1);
         try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
         try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
-        try{ const cnp = incLocal('fabanki:consec_no_pass',1); const maxnp = Math.max(Number(localStorage.getItem('fabanki:consec_no_pass_max')||0), cnp); localStorage.setItem('fabanki:consec_no_pass_max', String(maxnp)); }catch(e){}
         try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = 2; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
       } else if(q === 5){
         incLocal('fabanki:good_total',1);
         try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
         try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
-        try{ const cnp = incLocal('fabanki:consec_no_pass',1); const maxnp = Math.max(Number(localStorage.getItem('fabanki:consec_no_pass_max')||0), cnp); localStorage.setItem('fabanki:consec_no_pass_max', String(maxnp)); }catch(e){}
         try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = 3; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
       }
     }catch(e){ console.warn('answerCurrent counters', e) }
@@ -1096,7 +1887,9 @@
       // insert it after a random offset (5..20)
       const offset = randInt(5,20);
       const insertPos = Math.min(dueCards.length, currentIndex + offset);
-      dueCards.splice(insertPos, 0, c);
+      // In multi-deck mode, reinsert the full cardData object; otherwise just the card
+      const cardToReinsert = multiDeckMode ? cardData : c;
+      dueCards.splice(insertPos, 0, cardToReinsert);
       // don't advance index: currentIndex now points to the next card
       if(dueCards.length === 0){ updateStatus('Révision terminée pour aujourd\'hui'); renderEmpty(); }
       else { showNextCard(); }
@@ -1124,11 +1917,26 @@
       if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
       try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
     }catch(e){}
+    // Restore original storageKey if it was overridden for multi-deck
+    if(multiDeckMode && cardData){
+      storageKey = origStorageKey;
+    }
   }
 
   // Load deck from URL param on start
   function param(key){ const p = new URLSearchParams(location.search); return p.get(key) }
   window.addEventListener('load', async ()=>{
+  // Set CSS variable for iOS viewport fix
+  function updateVh(){
+    try{
+      const vh = window.visualViewport?.height ? (window.visualViewport.height / 100) : (window.innerHeight / 100);
+      document.documentElement.style.setProperty('--vh', vh + 'px');
+    }catch(e){ try{ document.documentElement.style.setProperty('--vh', (window.innerHeight / 100) + 'px'); }catch(e2){} }
+  }
+  updateVh();
+  window.addEventListener('resize', updateVh);
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', updateVh);
+  
   // wire UI
   try{ ensurePseudo(); resetWeeklyIfNeeded(); resetDailyIfNeeded(); }catch(e){}
     // Load button now opens file picker to add a local deck
@@ -1172,6 +1980,22 @@
       const prefix = `fabanki:${deckKey}:`;
       for(const k of Object.keys(localStorage)) if(k.startsWith(prefix)) localStorage.removeItem(k);
       alert('Données locales supprimées'); initFSRS(); }});
+    
+    // Toggle hint box visibility
+    const toggleHintBtn = $('#toggleHint');
+    if(toggleHintBtn){
+      toggleHintBtn.addEventListener('click', ()=>{
+        showHintBox = !showHintBox;
+        const hint = document.getElementById('histHint');
+        if(hint) {
+          hint.style.display = showHintBox ? 'block' : 'none';
+        }
+        const label = showHintBox ? 'Info' : 'Info (masquée)';
+        toggleHintBtn.setAttribute('data-label-text', label);
+        try{ if(typeof updateTopBarLabels === 'function') updateTopBarLabels(); }catch(e){}
+      });
+    }
+    
     const toggleBtn = $('#toggleTheme');
     if(toggleBtn){
       // ensure document root inherits initial theme
@@ -1314,14 +2138,46 @@
             b.addEventListener('click', ()=>{ const up = prefix.replace(/[^\/]+\/$/,''); renderPath(up); });
             act.appendChild(b); back.appendChild(nm); back.appendChild(act); deckList.appendChild(back);
           }
-          // folders
+          // folders with due counts and badge
           Array.from(folders).sort().forEach(folder=>{
             const row = document.createElement('div'); row.className='deck-entry';
-            const nm = document.createElement('div'); nm.textContent = decodeURIComponent((prefix+folder).replace(/\+/g,' ')).replace(/\/$/,'');
+            const nm = document.createElement('div'); 
+            const folderName = decodeURIComponent((prefix+folder).replace(/\+/g,' ')).replace(/\/$/,'');
+            nm.textContent = folderName;
+            
+            // Calculate folder due count with badge
+            const folderPath = prefix + folder;
+            const badge = document.createElement('span');
+            badge.className = 'due-badge';
+            badge.innerHTML = `<div class="due-num"></div><div class="due-label">à faire</div>`;
+            
             const act = document.createElement('div');
             const b = document.createElement('button'); b.className='secondary'; b.textContent='Ouvrir';
             b.addEventListener('click', ()=>{ renderPath(prefix+folder); });
-            act.appendChild(b); row.appendChild(nm); row.appendChild(act); deckList.appendChild(row);
+            act.appendChild(badge);
+            act.appendChild(b); 
+            row.appendChild(nm); 
+            row.appendChild(act); 
+            deckList.appendChild(row);
+            
+            // Asynchronously calculate total dues for all files in this folder
+            (async ()=>{
+              try{
+                let totalDue = 0;
+                for(const p of entries){
+                  if(!p.startsWith(folderPath) || !p.toLowerCase().endsWith('.xml')) continue;
+                  const n = await countDueNowForDeck('./decks/'+p);
+                  if(typeof n === 'number') totalDue += n;
+                }
+                if(totalDue > 0){
+                  badge.querySelector('.due-num').textContent = totalDue;
+                  badge.querySelector('.due-label').style.display = 'block';
+                } else {
+                  badge.querySelector('.due-num').textContent = '';
+                  badge.querySelector('.due-label').style.display = 'none';
+                }
+              }catch(e){ /* ignore */ }
+            })();
           });
           // files (limit to first 10)
           Array.from(files).sort().forEach(file=>{
@@ -1331,8 +2187,12 @@
             const act = document.createElement('div');
               if(file.toLowerCase().endsWith('.xml')){ const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
                 const b=document.createElement('button'); b.className='secondary';
-                b.textContent = (window.innerWidth <= 640) ? '▶️' : 'Charger';
-                b.addEventListener('click', async ()=>{ await removeWelcome(); overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); loadDeckFromURL('./decks/'+prefix+file); deckURL = './decks/'+prefix+file; });
+                b.textContent = (window.innerWidth <= 640) ? '▶️' : 'Accéder';
+                b.addEventListener('click', async ()=>{ 
+                  const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
+                  if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
+                  showDeckOverview('./decks/'+prefix+file);
+                });
                 act.appendChild(dueBadge); act.appendChild(b);
                 // asynchronously compute number of cards due now for this deck and display
                 (async ()=>{
@@ -1349,6 +2209,34 @@
               }
             row.appendChild(nm); row.appendChild(act); deckList.appendChild(row);
           });
+          
+          // Add "Review all decks in this folder" button if there are any XML files
+          const xmlFiles = Array.from(files).filter(f => f.toLowerCase().endsWith('.xml'));
+          if(xmlFiles.length > 0){
+            const allBtn = document.createElement('div'); allBtn.className = 'deck-entry'; allBtn.style.marginTop = '12px'; allBtn.style.borderTop = '1px solid rgba(0,0,0,0.06)'; allBtn.style.paddingTop = '12px';
+            const allBtnText = document.createElement('div'); allBtnText.textContent = '📚 Réviser tous les decks du dossier'; allBtnText.style.fontWeight = '600';
+            const allBtnAct = document.createElement('div');
+            const reviewAllBtn = document.createElement('button'); reviewAllBtn.className = 'secondary'; reviewAllBtn.textContent = 'Commencer';
+            reviewAllBtn.addEventListener('click', async ()=>{
+              try{
+                // Collect all XML files from this folder
+                const deckURLs = xmlFiles.map(f => './decks/' + prefix + f);
+                // Close modal
+                await removeWelcome();
+                overlay.querySelector('.modal')?.classList.remove('open');
+                overlay.classList.remove('open');
+                overlay.style.display='none';
+                overlay.setAttribute('aria-hidden','true');
+                // Start multi-deck review
+                await loadMultipleDeckCards(deckURLs);
+              }catch(e){ console.warn('Review all error:', e); }
+            });
+            allBtnAct.appendChild(reviewAllBtn);
+            allBtn.appendChild(allBtnText);
+            allBtn.appendChild(allBtnAct);
+            deckList.appendChild(allBtn);
+          }
+          
           deckMsg.textContent = '';
         }
 
@@ -1363,8 +2251,12 @@
             const actions = document.createElement('div');
             if(e.endsWith('.xml')){ const dueBadge2 = document.createElement('span'); dueBadge2.className = 'due-badge'; dueBadge2.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
               const btn = document.createElement('button'); btn.className='secondary';
-              btn.textContent = (window.innerWidth <= 640) ? '📂' : 'Charger';
-              btn.addEventListener('click', async ()=>{ await removeWelcome(); overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); loadDeckFromURL(base+e); deckURL = base+e; }); actions.appendChild(dueBadge2); actions.appendChild(btn);
+              btn.textContent = (window.innerWidth <= 640) ? '📂' : 'Accéder';
+              btn.addEventListener('click', async ()=>{ 
+                const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
+                if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
+                showDeckOverview(base+e);
+              }); actions.appendChild(dueBadge2); actions.appendChild(btn);
                 (async ()=>{ try{ const n = await countDueNowForDeck(base+e); if(typeof n === 'number' && n>=0){ dueBadge2.querySelector('.due-num').textContent = n>0? n : ''; dueBadge2.querySelector('.due-label').style.display = n>0? 'block' : 'none'; }else{ dueBadge2.querySelector('.due-num').textContent=''; dueBadge2.querySelector('.due-label').style.display='none'; } }catch(err){} })();
             }
             else { const btn = document.createElement('button'); btn.className='secondary'; btn.textContent='Ouvrir'; btn.addEventListener('click', async ()=>{ deckMsg.textContent = 'Exploration de '+base+e+' ...'; try{ const sub = await fetchDirectory(base+e); renderList(sub, base+e); }catch(err){ deckMsg.textContent = 'Impossible d\'explorer le dossier: '+err.message } }); actions.appendChild(btn); }
@@ -1584,7 +2476,7 @@
         const pWrap = document.createElement('div'); pWrap.style.display='flex'; pWrap.style.alignItems='center'; pWrap.appendChild(p0); pWrap.appendChild(editBtn); m.appendChild(pWrap);
         const p1 = document.createElement('div'); p1.className='muted small profile-total'; p1.textContent = `Cartes lues: ${stats.totalReviewed}`; m.appendChild(p1);
         const p2 = document.createElement('div'); p2.className='muted small profile-today'; p2.textContent = `Cartes lues aujourd'hui: ${stats.todayReviewed}`; m.appendChild(p2);
-        
+        const p3 = document.createElement('div'); p3.className='muted small profile-xp'; p3.style.marginTop='8px'; p3.innerHTML = `<strong>XP:</strong> ${stats.xpTotal}`; m.appendChild(p3);
         const p4 = document.createElement('div'); p4.className='muted small profile-streak'; p4.style.marginTop='6px'; p4.textContent = `Jours consécutifs: ${Number(localStorage.getItem('fabanki:streak_current')||0)}`; m.appendChild(p4);
 
         // Classement button
@@ -1597,7 +2489,7 @@
         titlesBtn.addEventListener('click', ()=>{ try{ showTitlesPopup(); }catch(e){ console.warn(e) } });
         rankBtnWrap.appendChild(titlesBtn);
         m.appendChild(rankBtnWrap);
-        const p3 = document.createElement('div'); p3.className='muted small profile-xp'; p3.style.marginTop='8px'; p3.innerHTML = `<strong>XP:</strong> ${stats.xpTotal}`; m.appendChild(p3);
+
         // Level box: ring + info
         try{
           const lvl = computeLevelAndProgress(stats.xpTotal || 0);
@@ -1840,10 +2732,12 @@
         const passes = Number(localStorage.getItem('fabanki:pass_total') || 0);
         const mastered = Number(localStorage.getItem('fabanki:mastered_total') || countMasteredCards());
         const streakMax = Number(localStorage.getItem('fabanki:streak_max') || 0);
-        const consecCardMax = Number(localStorage.getItem('fabanki:consec_correct_max') || 0);
-        const consecNoPassMax = Number(localStorage.getItem('fabanki:consec_no_pass_max') || 0);
         const streakCurrent = Number(localStorage.getItem('fabanki:streak_current') || 0);
         const longCount = Number(localStorage.getItem('fabanki:long_answer_total') || 0);
+        
+        // Get consec counters for Newton and Noether
+        const consecCorrectMax = Number(localStorage.getItem('fabanki:consec_correct_max') || 0);
+        const consecNoPassMax = Number(localStorage.getItem('fabanki:consec_no_pass_max') || 0);
 
         // Helper to compute highest tier from thresholds array
         const highestTier = (value, thresholds)=>{
@@ -1856,7 +2750,7 @@
           {nom:'Gauss', th:[100,300,600,1000,2000], val: bonnes},
           {nom:'Fourier', th:[200,600,1200,2500,5000], val: reviewed},
           {nom:'Euler', th:[200,500,1000,2000,4000], val: (reviewed>0? Math.round((bonnes/reviewed)*100):0), isPercent:true, percentDefs:[0.75,0.80,0.85,0.90,0.92]},
-          {nom:'Newton', th:[20,50,100,200,365], val: consecCardMax},
+          {nom:'Newton', th:[20,50,100,200,365], val: consecCorrectMax},
           {nom:'Maxwell', th:[3,7,21,60,120], val: streakCurrent},
           {nom:'Noether', th:[50,150,400,1000,3000], val: consecNoPassMax},
           {nom:'Hadamard', th:[50,150,400,1000,3000], val: longCount}
@@ -2144,13 +3038,13 @@
         const tbox = document.createElement('div'); tbox.style.marginTop='6px';
         // definitions for titles: thresholds and descriptions
         const defs = {
-          'Gauss': {th:[100,300,600,1000,2000], desc:'Nombre total de bonnes réponses.' , metric: ()=> Number(localStorage.getItem('fabanki:good_total')||0) },
-          'Fourier': {th:[200,600,1200,2500,5000], desc:'Cartes révisées au total.', metric: ()=> Number(stats.totalReviewed||0) },
-          'Euler': {th:[75,80,85,90,92], desc:'Pourcentage de bonnes réponses (sur un grand échantillon).', metric: ()=>{ const tot = Number(stats.totalReviewed||0); const good=Number(localStorage.getItem('fabanki:good_total')||0); return tot>0? Math.round((good/tot)*100):0 } },
+          'Gauss': {th:[100,300,600,1000,2000], desc:'Rigueur — nombre total de bonnes réponses.' , metric: ()=> Number(localStorage.getItem('fabanki:good_total')||0) },
+          'Fourier': {th:[200,600,1200,2500,5000], desc:'Travail massif — cartes révisées au total.', metric: ()=> Number(stats.totalReviewed||0) },
+          'Euler': {th:[75,80,85,90,92], desc:'Précision — pourcentage de bonnes réponses (sur un grand échantillon).', metric: ()=>{ const tot = Number(stats.totalReviewed||0); const good=Number(localStorage.getItem('fabanki:good_total')||0); return tot>0? Math.round((good/tot)*100):0 }, requiredCards: [200,500,1000,2000,4000] },
           'Newton': {th:[20,50,100,200,365], desc:'Séquence de cartes consécutives sans "Raté" (cartes correctes d\'affilée).', metric: ()=> Number(localStorage.getItem('fabanki:consec_correct_max')||0) },
-          'Maxwell': {th:[3,7,21,60,120], desc:'Jours consécutifs d\'activité.', metric: ()=> Number(localStorage.getItem('fabanki:streak_current')||0) },
-          'Noether': {th:[50,150,400,1000,3000], desc:'Cartes révisées sans "Passer".', metric: ()=> Number(localStorage.getItem('fabanki:consec_no_pass_max')||0) },
-          'Hadamard': {th:[50,150,400,1000,3000], desc:'Cartes à réponses longues (>20s)', metric: ()=> Number(localStorage.getItem('fabanki:long_answer_total')||0) }
+          'Maxwell': {th:[3,7,21,60,120], desc:'Endurance — jours consécutifs d\'activité.', metric: ()=> Number(localStorage.getItem('fabanki:streak_current')||0) },
+          'Noether': {th:[50,150,400,1000,3000], desc:'Zéro gaspillage — cartes révisées sans "Passer".', metric: ()=> Number(localStorage.getItem('fabanki:consec_no_pass_max')||0) },
+          'Hadamard': {th:[50,150,400,1000,3000], desc:'Réponses longues (>20s) — temps passé par réponse.', metric: ()=> Number(localStorage.getItem('fabanki:long_answer_total')||0) }
         };
         if(computed.titres && computed.titres.length){
           computed.titres.forEach(t=>{
@@ -2182,17 +3076,9 @@
                 const fill = document.createElement('div'); fill.style.height='100%'; fill.style.width = progress + '%'; fill.style.background = getLevelColor(Math.min(50, Math.max(1, curTier+1))); fill.style.borderRadius='6px'; bar.appendChild(fill);
                 const label = document.createElement('div'); label.className='muted small'; label.style.minWidth='140px';
                 if(typeof def.metric === 'function' && t.nom === 'Euler'){
-                  // For Euler, show percentage and how many additional good answers are needed for next threshold
-                  const tot = Number(stats.totalReviewed||0);
-                  const good = Number(localStorage.getItem('fabanki:good_total')||0);
-                  const pct = cur;
-                  if(tot <= 0){ label.textContent = `${pct}%`; }
-                  else if(curTier >= maxTier){ label.textContent = `${pct}%`; }
-                  else {
-                    const targetPct = Number(nextThreshold) / 100;
-                    const needed = Math.max(0, Math.ceil((targetPct * tot - good) / (1 - targetPct)));
-                    label.textContent = `${pct}% — il faut ${needed} bonnes réponses supplémentaires`;
-                  }
+                  // For Euler, show percentage and required cards for next tier
+                  const requiredCards = def.requiredCards ? def.requiredCards[curTier] : nextThreshold;
+                  label.textContent = `${cur}% — besoin de ${requiredCards} cartes vues`;
                 } else {
                   label.textContent = `${cur} / ${nextThreshold}`;
                 }
