@@ -31,10 +31,10 @@
     })();
   </script>
   <style>
-    :root{--bg:#f6f7fb;--fg:#111;--card:#fff;--muted:#666;--accent:#0066ff}
+    :root{--bg:#f6f7fb;--fg:#111;--card:#fff;--muted:#666;--accent:#0066ff;--font:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;--font-size:1rem}
     [data-theme='dark']{--bg:#0f1115;--fg:#e6eef8;--card:#111319;--muted:#9aa4b2;--accent:#66a0ff}
     *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:var(--font-size)}
     .app{max-width:900px;margin:18px auto;padding:18px}
     header{display:flex;gap:8px;align-items:center;justify-content:space-between}
     h1{font-size:1rem;margin:0}
@@ -54,6 +54,29 @@
     .muted{color:var(--muted)}
     footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-items:center}
     @media (max-width:640px){.deck-input{width:100%}}
+    /* Popup animations by level */
+    @keyframes popupFade { from{opacity:0;transform:scale(0.9)} to{opacity:1;transform:scale(1)} }
+    @keyframes popupSlideDown { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes popupSlideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes popupBounce { 0%{transform:scale(0.95)} 50%{transform:scale(1.02)} 100%{transform:scale(1)} }
+    @keyframes popupRotate { from{opacity:0;transform:rotate(-5deg) scale(0.9)} to{opacity:1;transform:rotate(0) scale(1)} }
+    @keyframes popupSpring { 0%{transform:scale(0.8)} 60%{transform:scale(1.1)} 100%{transform:scale(1)} }
+    .modal[data-animation='fade']{animation:popupFade 0.3s ease-out}
+    .modal[data-animation='slidedown']{animation:popupSlideDown 0.4s ease-out}
+    .modal[data-animation='slideup']{animation:popupSlideUp 0.4s ease-out}
+    .modal[data-animation='bounce']{animation:popupBounce 0.5s ease-out}
+    .modal[data-animation='rotate']{animation:popupRotate 0.4s ease-out}
+    .modal[data-animation='spring']{animation:popupSpring 0.5s cubic-bezier(0.34,1.56,0.64,1)}
+    
+    /* Dark theme card styles */
+    [data-theme='dark'] .card{background-image:var(--card-pattern, none);background-color:var(--card);color:var(--fg)}
+    
+    /* Super transparent card patterns (50% transparency of regular patterns) */
+    .card-pattern-dots { background-image: radial-gradient(circle, rgba(0,0,0,0.025) 1px, transparent 1px) }
+    .card-pattern-grid { background-image: linear-gradient(0deg, rgba(0,0,0,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.015) 1px, transparent 1px) }
+    .card-pattern-stripes { background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.01) 10px, rgba(0,0,0,0.01) 20px) }
+    .card-pattern-zigzag { background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.015) 0px, rgba(0,0,0,0.015) 2px, transparent 2px, transparent 8px) }
+    .card-pattern-waves { background-image: repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.01) 0, rgba(0,0,0,0.01) 2px, transparent 2px, transparent 40px) }
     /* Make KaTeX output wrap responsively instead of forcing no-wrap */
     .katex{white-space:normal;word-break:break-word;overflow-wrap:anywhere}
     .katex .katex-html{white-space:normal}
@@ -199,14 +222,48 @@
     .level-info .next{font-size:0.9rem;color:var(--muted)}
     .level-info .progress-remaining{font-weight:700}
     /* Compact level summary card used on welcome page */
-    .level-summary{max-width:720px;margin:0 auto 12px;padding:12px;display:flex;align-items:center;gap:12px;min-height:0 !important}
+    .level-summary{max-width:720px;margin:0 auto 12px;padding:12px;display:flex;align-items:center;gap:20px;justify-content:space-between;min-height:0 !important}
     .level-summary .level-ring{width:64px;height:64px;flex:0 0 64px}
     .level-summary .level-num{font-size:1.1rem}
+    .level-summary .level-content{display:flex;align-items:center;gap:20px;flex:1}
+    .level-summary .streak-box{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:8px;background:rgba(255,127,0,0.08)}
+    .level-summary .streak-flame{font-size:2rem;line-height:1}
+    .level-summary .streak-label{font-size:0.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+    .level-summary .streak-count{font-size:1.2rem;font-weight:700;color:#ff7f00}
     @media (max-width:640px){
-      .level-summary{padding:10px;margin-bottom:10px}
+      .level-summary{padding:10px;margin-bottom:10px;flex-direction:row;align-items:center;gap:8px}
       .level-summary .level-ring{width:56px;height:56px;flex:0 0 56px}
       .level-summary .level-num{font-size:1rem}
+      .level-summary .level-content{flex-direction:row;align-items:center;width:auto;gap:12px}
+      .level-summary .streak-box{padding:4px 8px}
+      .level-summary .streak-flame{font-size:1.5rem}
+      .level-summary .streak-label{font-size:0.65rem}
+      .level-summary .streak-count{font-size:1rem}
     }
+    
+    /* Customization modal styles */
+    .customization-overlay{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,0.4);display:none;align-items:center;justify-content:center;z-index:2400}
+    .customization-modal{background:var(--card);color:var(--fg);border-radius:12px;max-width:520px;width:94%;max-height:85vh;overflow:auto;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,0.25)}
+    .customization-modal h3{margin:0 0 16px 0;font-size:1.2rem}
+    .customization-section{margin-bottom:16px}
+    .customization-section-title{font-weight:700;margin-bottom:8px;font-size:0.95rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted)}
+    .color-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(50px,1fr));gap:8px;margin-top:8px}
+    .color-option{width:50px;height:50px;border-radius:8px;cursor:pointer;border:3px solid transparent;transition:all 0.2s}
+    .color-option:hover{transform:scale(1.08)}
+    .color-option.selected{border-color:var(--accent);box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--accent)}
+    .pattern-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-top:8px}
+    .pattern-option{width:80px;height:80px;border-radius:8px;cursor:pointer;border:2px solid transparent;background-size:4px 4px;transition:all 0.2s;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:0.75rem;text-align:center;padding:4px}
+    .pattern-option:hover{transform:scale(1.05)}
+    .pattern-option.selected{border-color:var(--accent)}
+    .font-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px}
+    .font-option{padding:12px;border-radius:8px;cursor:pointer;border:2px solid transparent;text-align:center;transition:all 0.2s;font-weight:600;background:rgba(0,0,0,0.02)}
+    .font-option:hover{transform:translateY(-2px)}
+    .font-option.selected{border-color:var(--accent);background:rgba(102,160,255,0.1)}
+    .customization-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+    .customization-actions button{padding:8px 16px;border-radius:8px;border:0;cursor:pointer;font-weight:600}
+    .customization-actions .reset-btn{background:#f0ad4e;color:white}
+    .customization-actions .close-btn{background:transparent;color:var(--fg);border:1px solid rgba(0,0,0,0.1)}
+    
     .deck-entry .deck-actions{display:flex;gap:8px;align-items:center}
     /* Truncate long folder/file names in deck browser */
     .deck-entry > div:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:480px}
@@ -1165,29 +1222,30 @@
         // Get stored data for this card
         const storedKey = `fabanki:${deckKeyForStats}:card:${card.id}`;
         const storedData = localStorage.getItem(storedKey);
-        let tooltipText = '';
+        let tooltipText = 'Aucune donnée';
         if(storedData){
           try{
             const st = JSON.parse(storedData);
+            tooltipText = '';
             if(st.due) tooltipText = `Prochain: ${formatRelativeTime(new Date(st.due))}`;
             if(st.last) tooltipText += (tooltipText ? ' | ' : '') + `Dernier: ${formatRelativeTime(new Date(st.last))}`;
-          }catch(e){}
+            if(!tooltipText) tooltipText = 'Aucune donnée';
+          }catch(e){ tooltipText = 'Erreur'; }
         }
         
-        if(tooltipText){
-          tooltip.textContent = tooltipText;
-          cardEl.appendChild(tooltip);
-          
-          // Show tooltip on hover
-          cardEl.addEventListener('mouseenter', () => {
-            tooltip.style.opacity = '1';
-            // Auto-hide after 3 seconds
-            setTimeout(() => { tooltip.style.opacity = '0'; }, 3000);
-          });
-          cardEl.addEventListener('mouseleave', () => {
-            tooltip.style.opacity = '0';
-          });
-        }
+        tooltip.textContent = tooltipText;
+        cardEl.appendChild(tooltip);
+        
+        // Show tooltip on hover
+        cardEl.addEventListener('mouseenter', () => {
+          tooltip.style.opacity = '1';
+          // Auto-hide after 3 seconds
+          setTimeout(() => { tooltip.style.opacity = '0'; }, 3000);
+        });
+        cardEl.addEventListener('mouseleave', () => {
+          tooltip.style.opacity = '0';
+        });
+        
         
         grid.appendChild(cardEl);
       }
@@ -2086,8 +2144,76 @@
         // set on root so CSS variables apply globally, and on app for scoped selectors
         document.documentElement.setAttribute('data-theme', t);
         appEl.setAttribute('data-theme', t);
+        localStorage.setItem('fabanki:theme', t);
         const themeLabel = t==='dark' ? 'Mode clair' : 'Mode sombre';
         toggleBtn.setAttribute('data-label-text', themeLabel);
+        
+        // Auto-switch color to matching theme variant
+        const currentColorName = localStorage.getItem('fabanki:current_color_name');
+        if (currentColorName) {
+          const colors = [
+            { name: 'Clair (défaut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
+            { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
+            { name: 'Vert', light: '#e8f5e9', dark: '#0d2818', level: 5 },
+            { name: 'Rose', light: '#fce4ec', dark: '#2a0e1f', level: 10 },
+            { name: 'Jaune', light: '#fffde7', dark: '#332d00', level: 10 },
+            { name: 'Pourpre', light: '#f3e5f5', dark: '#25071a', level: 15 },
+            { name: 'Cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 20 },
+            { name: 'Orange', light: '#ffe0b2', dark: '#2d1b0a', level: 20 },
+            { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 25 },
+            { name: 'Corail', light: '#ffebee', dark: '#2d0a0a', level: 25 },
+            { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 30 },
+            { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 30 },
+            { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 35 },
+            { name: 'Gradient Doré', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35 },
+            { name: 'Gradient Rose-Vert', light: 'linear-gradient(135deg, #f8bbd0 0%, #a5d6a7 100%)', dark: 'linear-gradient(135deg, #4a0e2a 0%, #1d3a1f 100%)', level: 40 },
+            { name: 'Gradient Prisma', light: 'linear-gradient(135deg, #e8f4f8 0%, #fce4ec 50%, #f3e5f5 100%)', dark: 'linear-gradient(135deg, #0a1a2e 0%, #2a0e1f 50%, #25071a 100%)', level: 45 },
+            { name: 'Gradient Bleu Royal', light: 'linear-gradient(135deg, #64b5f6 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0a2558 0%, #1a2a3a 100%)', level: 45 },
+            { name: 'Gradient Aurora', light: 'linear-gradient(135deg, #e0f2f1 0%, #fffde7 50%, #ffebee 100%)', dark: 'linear-gradient(135deg, #0d1816 0%, #332d00 50%, #2d0a0a 100%)', level: 48 },
+            { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
+            { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
+          ];
+          const color = colors.find(c => c.name === currentColorName);
+          if (color) {
+            const newColorValue = t === 'dark' ? color.dark : color.light;
+            localStorage.setItem('fabanki:bg_color', newColorValue);
+          }
+        }
+        
+        // Auto-switch card color to matching theme variant
+        const currentCardColorName = localStorage.getItem('fabanki:current_card_color_name');
+        if (currentCardColorName) {
+          const cardColors = [
+            { name: 'Défaut', id: 'default', light: '#fff', dark: '#111319', level: 0 },
+            { name: 'Bleu clair', id: 'lightblue', light: '#e3f2fd', dark: '#1a2a3a', level: 5 },
+            { name: 'Vert clair', id: 'lightgreen', light: '#e8f5e9', dark: '#1b2d1f', level: 10 },
+            { name: 'Rose clair', id: 'lightpink', light: '#fce4ec', dark: '#3a1f2e', level: 15 },
+            { name: 'Amber', id: 'amber', light: '#fff8e1', dark: '#3a3000', level: 20 },
+            { name: 'Indigo', id: 'indigo', light: '#e8eaf6', dark: '#1a1535', level: 25 },
+            { name: 'Cyan', id: 'cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 28 },
+            { name: 'Orange pâle', id: 'pale_orange', light: '#ffe0b2', dark: '#2d1b0a', level: 22 },
+            { name: 'Menthe', id: 'mint', light: '#e0f2f1', dark: '#0d1816', level: 30 },
+            { name: 'Lavande', id: 'lavender', light: '#f3e5f5', dark: '#2a0e3a', level: 32 },
+            { name: 'Pêche', id: 'peach', light: '#ffd7a8', dark: '#3a1f0a', level: 35 },
+            { name: 'Ciel', id: 'sky', light: '#b3e5fc', dark: '#0a3a4a', level: 38 },
+            { name: 'Turquoise', id: 'turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 40 },
+            { name: 'Or pâle', id: 'gold', light: '#ffecb3', dark: '#3d2d00', level: 42 },
+            { name: 'Vert sapin', id: 'fir', light: '#a5d6a7', dark: '#1d3a1f', level: 45 },
+            { name: 'Rose vif', id: 'hotpink', light: '#f8bbd0', dark: '#4a0e2a', level: 45 },
+            { name: 'Bleu royal', id: 'royal', light: '#64b5f6', dark: '#0a2558', level: 48 },
+            { name: 'Sunrise', id: 'sunrise', light: '#ffcc80', dark: '#4d2600', level: 50 },
+            { name: 'Gradient Océan', id: 'gradient_ocean', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 55 },
+            { name: 'Gradient Forêt', id: 'gradient_forest', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 55 }
+          ];
+          const cardColor = cardColors.find(c => c.name === currentCardColorName);
+          if (cardColor) {
+            const newCardColorValue = t === 'dark' ? cardColor.dark : cardColor.light;
+            localStorage.setItem('fabanki:card_color', newCardColorValue);
+          }
+        }
+        
+        // Update card color when theme changes to ensure gradient colors adapt
+        try{ if(typeof applyCustomization === 'function') applyCustomization(); }catch(e){}
         try{ if(typeof updateTopBarLabels === 'function') updateTopBarLabels(); }catch(e){}
       });
 
@@ -2566,6 +2692,10 @@
         const titlesBtn = document.createElement('button'); titlesBtn.className='secondary'; titlesBtn.textContent = 'Titres';
         titlesBtn.addEventListener('click', ()=>{ try{ showTitlesPopup(); }catch(e){ console.warn(e) } });
         rankBtnWrap.appendChild(titlesBtn);
+        // Customization button
+        const customizeBtn = document.createElement('button'); customizeBtn.className='secondary'; customizeBtn.textContent = '⚙️ Personnaliser';
+        customizeBtn.addEventListener('click', ()=>{ try{ showCustomizationModal(); }catch(e){ console.warn(e) } });
+        rankBtnWrap.appendChild(customizeBtn);
         m.appendChild(rankBtnWrap);
 
         // Level box: ring + info
@@ -2663,6 +2793,699 @@
         if(s.includes('fran')) return 'francais';
         return '';
       }catch(e){ return '' }
+    }
+
+    // --- CUSTOMIZATION MODAL ---
+    function showCustomizationModal() {
+      try {
+        if (document.getElementById('customizationOverlay')) return;
+        
+        const overlay = document.createElement('div');
+        overlay.id = 'customizationOverlay';
+        overlay.className = 'customization-overlay';
+        overlay.style.display = 'flex';
+        
+        const modal = document.createElement('div');
+        modal.className = 'customization-modal';
+        
+        // Get current level for unlocking features
+        const stats = getProfileStats();
+        const currentLevel = computeLevelAndProgress(stats.xpTotal || 0).level;
+        
+        // Apply animation based on level
+        const animations = ['fade', 'slidedown', 'slideup', 'bounce', 'rotate', 'spring'];
+        const animationIndex = Math.min(Math.floor(currentLevel / 10), animations.length - 1);
+        if (currentLevel >= 5) {
+          modal.setAttribute('data-animation', animations[animationIndex]);
+        }
+        
+        const title = document.createElement('h3');
+        title.textContent = 'Personnalisation du thème';
+        modal.appendChild(title);
+        
+        // Get current settings
+        const currentBgColor = localStorage.getItem('fabanki:bg_color') || '#f6f7fb';
+        const currentPattern = localStorage.getItem('fabanki:bg_pattern') || 'none';
+        const currentFont = localStorage.getItem('fabanki:font_family') || 'system';
+        const currentCardColor = localStorage.getItem('fabanki:card_color') || 'default';
+        const currentFontSize = localStorage.getItem('fabanki:font_size') || '1';
+        
+        // Background color section
+        const colorSection = document.createElement('div');
+        colorSection.className = 'customization-section';
+        const colorTitle = document.createElement('div');
+        colorTitle.className = 'customization-section-title';
+        colorTitle.textContent = 'Couleur de fond';
+        colorSection.appendChild(colorTitle);
+        
+        const colors = [
+          { name: 'Clair (défaut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
+          { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
+          { name: 'Vert', light: '#e8f5e9', dark: '#0d2818', level: 5 },
+          { name: 'Rose', light: '#fce4ec', dark: '#2a0e1f', level: 10 },
+          { name: 'Jaune', light: '#fffde7', dark: '#332d00', level: 10 },
+          { name: 'Pourpre', light: '#f3e5f5', dark: '#25071a', level: 15 },
+          { name: 'Cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 20 },
+          { name: 'Orange', light: '#ffe0b2', dark: '#2d1b0a', level: 20 },
+          { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 25 },
+          { name: 'Corail', light: '#ffebee', dark: '#2d0a0a', level: 25 },
+          { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 30 },
+          { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 30 },
+          { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 35 },
+          { name: 'Gradient Doré', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35 },
+          { name: 'Gradient Rose-Vert', light: 'linear-gradient(135deg, #f8bbd0 0%, #a5d6a7 100%)', dark: 'linear-gradient(135deg, #4a0e2a 0%, #1d3a1f 100%)', level: 40 },
+          { name: 'Gradient Prisma', light: 'linear-gradient(135deg, #e8f4f8 0%, #fce4ec 50%, #f3e5f5 100%)', dark: 'linear-gradient(135deg, #0a1a2e 0%, #2a0e1f 50%, #25071a 100%)', level: 45 },
+          { name: 'Gradient Bleu Royal', light: 'linear-gradient(135deg, #64b5f6 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0a2558 0%, #1a2a3a 100%)', level: 45 },
+          { name: 'Gradient Aurora', light: 'linear-gradient(135deg, #e0f2f1 0%, #fffde7 50%, #ffebee 100%)', dark: 'linear-gradient(135deg, #0d1816 0%, #332d00 50%, #2d0a0a 100%)', level: 48 },
+          { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
+          { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
+        ];
+        
+        const colorGrid = document.createElement('div');
+        colorGrid.className = 'color-grid';
+        
+        colors.forEach(color => {
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          const colorValue = isDark ? color.dark : color.light;
+          const isLocked = color.level > currentLevel;
+          
+          const colorOption = document.createElement('div');
+          colorOption.className = 'color-option';
+          colorOption.style.backgroundColor = colorValue;
+          colorOption.title = isLocked ? `${color.name} (Niveau ${color.level})` : color.name;
+          
+          if (isLocked) {
+            colorOption.style.opacity = '0.4';
+            colorOption.style.cursor = 'not-allowed';
+            colorOption.innerHTML = '<span style="font-size:1.5rem">🔒</span>';
+          }
+          
+          if (colorValue === currentBgColor) {
+            colorOption.classList.add('selected');
+          }
+          
+          if (!isLocked) {
+            colorOption.addEventListener('click', () => {
+              document.querySelectorAll('.color-option').forEach(c => c.classList.remove('selected'));
+              colorOption.classList.add('selected');
+              localStorage.setItem('fabanki:bg_color', colorValue);
+              localStorage.setItem('fabanki:current_color_name', color.name);
+              applyCustomization();
+            });
+          }
+          
+          colorGrid.appendChild(colorOption);
+        });
+        
+        colorSection.appendChild(colorGrid);
+        modal.appendChild(colorSection);
+        
+        // Background pattern section
+        const patternSection = document.createElement('div');
+        patternSection.className = 'customization-section';
+        const patternTitle = document.createElement('div');
+        patternTitle.className = 'customization-section-title';
+        patternTitle.textContent = 'Motif de fond';
+        patternSection.appendChild(patternTitle);
+        
+        const patterns = [
+          { name: 'Aucun', id: 'none', pattern: 'none', level: 0 },
+          { name: 'Points', id: 'dots', pattern: 'radial-gradient(circle, rgba(0,0,0,0.05) 1px, transparent 1px)', level: 5 },
+          { name: 'Grille', id: 'grid', pattern: 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)', level: 10 },
+          { name: 'Rayures', id: 'stripes', pattern: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.02) 10px, rgba(0,0,0,0.02) 20px)', level: 15 },
+          { name: 'Zigzag', id: 'zigzag', pattern: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 2px, transparent 2px, transparent 8px)', level: 20 },
+          { name: 'Vagues', id: 'waves', pattern: 'repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.02) 0, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 40px)', level: 30 },
+          { name: 'Hexagone', id: 'hexagon', pattern: 'radial-gradient(circle at 20px 20px, rgba(0,0,0,0.04) 8px, transparent 8px)', level: 25 },
+          { name: 'Carrés', id: 'squares', pattern: 'linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.03))', level: 35 },
+          { name: 'Croix', id: 'cross', pattern: 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)', level: 28 },
+          { name: 'Chevrons', id: 'chevron', pattern: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.02), rgba(0,0,0,0.02) 2px, transparent 2px, transparent 8px, rgba(0,0,0,0.02) 8px, rgba(0,0,0,0.02) 10px, transparent 10px, transparent 16px)', level: 32 },
+          { name: 'Cercles', id: 'circles', pattern: 'radial-gradient(circle, rgba(0,0,0,0.05) 2px, transparent 2px)', level: 38 },
+          { name: 'Mailles', id: 'mesh', pattern: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px), repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px)', level: 22 },
+          { name: 'Losange', id: 'diamond', pattern: 'repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(0,0,0,0.04) 35px, rgba(0,0,0,0.04) 70px)', level: 24 },
+          { name: 'Spirale', id: 'spiral', pattern: 'repeating-conic-gradient(from 0deg at 50% 50%, rgba(0,0,0,0.02) 0deg 10deg, transparent 10deg 20deg)', level: 26 },
+          { name: 'Cible', id: 'target', pattern: 'radial-gradient(circle, rgba(0,0,0,0.06) 3px, transparent 3px, transparent 12px, rgba(0,0,0,0.03) 12px, transparent 12px)', level: 29 },
+          { name: 'Écailles', id: 'scales', pattern: 'radial-gradient(ellipse 100% 50% at 50% 0%, rgba(0,0,0,0.04) 50%, transparent 51%)', level: 31 },
+          { name: 'Feuilles', id: 'leaves', pattern: 'radial-gradient(ellipse 30% 60% at 20% 50%, rgba(0,0,0,0.03) 50%, transparent 51%)', level: 33 },
+          { name: 'Triangles', id: 'triangles', pattern: 'linear-gradient(135deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(225deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(315deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%)', level: 36 },
+          { name: 'Nid d\'abeille', id: 'honeycomb', pattern: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 10px)', level: 37 },
+          { name: 'Pluie', id: 'rain', pattern: 'repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px), repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(0,0,0,0.01) 8px, rgba(0,0,0,0.01) 16px)', level: 39 },
+          { name: 'Toile d\'araignée', id: 'web', pattern: 'repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 5deg, rgba(0,0,0,0.02) 5deg 10deg)', level: 41 },
+          { name: '42', id: 'fortytwo', pattern: `
+    repeating-linear-gradient(
+      45deg,
+      rgba(102,160,255,0.18) 0,
+      rgba(102,160,255,0.18) 2px,
+      transparent 2px,
+      transparent 24px
+    )
+  `, level: 42 }
+        ];
+        
+        const patternGrid = document.createElement('div');
+        patternGrid.className = 'pattern-grid';
+        
+        patterns.forEach(p => {
+          const isLocked = p.level > currentLevel;
+          const patternOption = document.createElement('div');
+          patternOption.className = 'pattern-option';
+          patternOption.title = isLocked ? `${p.name} (Niveau ${p.level})` : p.name;
+          
+          if (isLocked) {
+            patternOption.style.opacity = '0.4';
+            patternOption.style.cursor = 'not-allowed';
+            patternOption.innerHTML = '<span style="font-size:1.5rem">🔒</span>';
+          } else {
+            if (p.pattern !== 'none') {
+              const bgColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#0f1115' : '#f6f7fb';
+              patternOption.style.backgroundImage = p.pattern;
+              patternOption.style.backgroundColor = bgColor;
+            }
+            patternOption.textContent = p.name;
+          }
+          
+          if (p.id === currentPattern) {
+            patternOption.classList.add('selected');
+          }
+          
+          if (!isLocked) {
+            patternOption.addEventListener('click', () => {
+              document.querySelectorAll('.pattern-option').forEach(c => c.classList.remove('selected'));
+              patternOption.classList.add('selected');
+              localStorage.setItem('fabanki:bg_pattern', p.id);
+              applyCustomization();
+            });
+          }
+          
+          patternGrid.appendChild(patternOption);
+        });
+        
+        patternSection.appendChild(patternGrid);
+        modal.appendChild(patternSection);
+        
+        // Font section
+        const fontSection = document.createElement('div');
+        fontSection.className = 'customization-section';
+        const fontTitle = document.createElement('div');
+        fontTitle.className = 'customization-section-title';
+        fontTitle.textContent = 'Police de caractère';
+        fontSection.appendChild(fontTitle);
+        
+        const fonts = [
+          { name: 'Classique (défaut)', id: 'system', stack: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial', level: 0 },
+          { name: 'Élégant', id: 'elegant', stack: '"Georgia", "Times New Roman", serif', level: 5 },
+          { name: 'Moderne', id: 'modern', stack: '"Inter", "Helvetica", "Arial", sans-serif', level: 10 },
+          { name: 'Monospace', id: 'mono', stack: '"Courier New", "Monaco", monospace', level: 15 },
+          { name: 'Lisible', id: 'readable', stack: '"Trebuchet MS", sans-serif', level: 20 },
+          { name: 'Confortable', id: 'comfortable', stack: '"Segoe UI", "Tahoma", sans-serif', level: 25 },
+          { name: 'Minimaliste', id: 'minimal', stack: '"Helvetica Neue", "Arial", sans-serif', level: 30 },
+          { name: 'Littéraire', id: 'literary', stack: '"Cambria", "Palatino", serif', level: 35 },
+          { name: 'Futuriste', id: 'futuristic', stack: '"Trebuchet MS", "Lucida Grande", sans-serif', level: 40 },
+          { name: 'Manuscrit', id: 'script', stack: '"Comic Sans MS", "Brush Script MT", cursive', level: 45 }
+        ];
+        
+        const fontGrid = document.createElement('div');
+        fontGrid.className = 'font-grid';
+        
+        fonts.forEach(f => {
+          const isLocked = f.level > currentLevel;
+          const fontOption = document.createElement('div');
+          fontOption.className = 'font-option';
+          fontOption.title = isLocked ? `${f.name} (Niveau ${f.level})` : f.name;
+          fontOption.textContent = f.name;
+          fontOption.style.fontFamily = f.stack;
+          
+          if (isLocked) {
+            fontOption.style.opacity = '0.4';
+            fontOption.style.cursor = 'not-allowed';
+            fontOption.innerHTML = '<span style="font-size:1.5rem">🔒</span>';
+          }
+          
+          if (f.id === currentFont) {
+            fontOption.classList.add('selected');
+          }
+          
+          if (!isLocked) {
+            fontOption.addEventListener('click', () => {
+              document.querySelectorAll('.font-option').forEach(c => c.classList.remove('selected'));
+              fontOption.classList.add('selected');
+              localStorage.setItem('fabanki:font_family', f.id);
+              localStorage.setItem('fabanki:font_stack', f.stack);
+              applyCustomization();
+            });
+          }
+          
+          fontGrid.appendChild(fontOption);
+        });
+        
+        fontSection.appendChild(fontGrid);
+        modal.appendChild(fontSection);
+        
+        // Font size section
+        const fontSizeSection = document.createElement('div');
+        fontSizeSection.className = 'customization-section';
+        const fontSizeTitle = document.createElement('div');
+        fontSizeTitle.className = 'customization-section-title';
+        fontSizeTitle.textContent = `Taille de police (${Math.round(currentFontSize * 100)}%)`;
+        fontSizeSection.appendChild(fontSizeTitle);
+        
+        const fontSizeContainer = document.createElement('div');
+        fontSizeContainer.style.display = 'flex';
+        fontSizeContainer.style.gap = '10px';
+        fontSizeContainer.style.alignItems = 'center';
+        fontSizeContainer.style.padding = '10px 0';
+        
+        const fontSizeSlider = document.createElement('input');
+        fontSizeSlider.type = 'range';
+        fontSizeSlider.min = '0.8';
+        fontSizeSlider.max = '1.5';
+        fontSizeSlider.step = '0.05';
+        fontSizeSlider.value = currentFontSize;
+        fontSizeSlider.style.flex = '1';
+        fontSizeSlider.style.cursor = 'pointer';
+        
+        const fontSizeValue = document.createElement('span');
+        fontSizeValue.textContent = `${Math.round(currentFontSize * 100)}%`;
+        fontSizeValue.style.minWidth = '50px';
+        fontSizeValue.style.textAlign = 'right';
+        
+        fontSizeSlider.addEventListener('input', (e) => {
+          const size = parseFloat(e.target.value);
+          localStorage.setItem('fabanki:font_size', size);
+          document.documentElement.style.setProperty('--font-size', size + 'rem');
+          fontSizeValue.textContent = `${Math.round(size * 100)}%`;
+          fontSizeTitle.textContent = `Taille de police (${Math.round(size * 100)}%)`;
+        });
+        
+        fontSizeContainer.appendChild(fontSizeSlider);
+        fontSizeContainer.appendChild(fontSizeValue);
+        fontSizeSection.appendChild(fontSizeContainer);
+        modal.appendChild(fontSizeSection);
+        
+        // Card color section
+        const cardColorSection = document.createElement('div');
+        cardColorSection.className = 'customization-section';
+        const cardColorTitle = document.createElement('div');
+        cardColorTitle.className = 'customization-section-title';
+        cardColorTitle.textContent = 'Couleur des cartes';
+        cardColorSection.appendChild(cardColorTitle);
+        
+        const cardColors = [
+          { name: 'Défaut', id: 'default', light: '#fff', dark: '#111319', level: 0 },
+          { name: 'Bleu clair', id: 'lightblue', light: '#e3f2fd', dark: '#1a2a3a', level: 5 },
+          { name: 'Vert clair', id: 'lightgreen', light: '#e8f5e9', dark: '#1b2d1f', level: 10 },
+          { name: 'Rose clair', id: 'lightpink', light: '#fce4ec', dark: '#3a1f2e', level: 15 },
+          { name: 'Amber', id: 'amber', light: '#fff8e1', dark: '#3a3000', level: 20 },
+          { name: 'Indigo', id: 'indigo', light: '#e8eaf6', dark: '#1a1535', level: 25 },
+          { name: 'Cyan', id: 'cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 28 },
+          { name: 'Orange pâle', id: 'pale_orange', light: '#ffe0b2', dark: '#2d1b0a', level: 22 },
+          { name: 'Menthe', id: 'mint', light: '#e0f2f1', dark: '#0d1816', level: 30 },
+          { name: 'Lavande', id: 'lavender', light: '#f3e5f5', dark: '#2a0e3a', level: 32 },
+          { name: 'Pêche', id: 'peach', light: '#ffd7a8', dark: '#3a1f0a', level: 35 },
+          { name: 'Ciel', id: 'sky', light: '#b3e5fc', dark: '#0a3a4a', level: 38 },
+          { name: 'Turquoise', id: 'turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 40 },
+          { name: 'Or pâle', id: 'gold', light: '#ffecb3', dark: '#3d2d00', level: 42 },
+          { name: 'Vert sapin', id: 'fir', light: '#a5d6a7', dark: '#1d3a1f', level: 45 },
+          { name: 'Rose vif', id: 'hotpink', light: '#f8bbd0', dark: '#4a0e2a', level: 45 },
+          { name: 'Bleu royal', id: 'royal', light: '#64b5f6', dark: '#0a2558', level: 48 },
+          { name: 'Sunrise', id: 'sunrise', light: '#ffcc80', dark: '#4d2600', level: 50 },
+          { name: 'Gradient Océan', id: 'gradient_ocean', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 55 },
+          { name: 'Gradient Forêt', id: 'gradient_forest', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 55 }
+        ];
+        
+        const cardColorGrid = document.createElement('div');
+        cardColorGrid.className = 'color-grid';
+        
+        cardColors.forEach(color => {
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          const colorValue = isDark ? color.dark : color.light;
+          const isLocked = color.level > currentLevel;
+          
+          const cardColorOption = document.createElement('div');
+          cardColorOption.className = 'color-option';
+          cardColorOption.setAttribute('data-card-color-option', '1');
+          
+          // Handle gradient colors
+          if (colorValue.includes('gradient')) {
+            cardColorOption.style.backgroundImage = colorValue;
+            cardColorOption.style.backgroundColor = 'transparent';
+          } else {
+            cardColorOption.style.backgroundColor = colorValue;
+          }
+          
+          cardColorOption.title = isLocked ? `${color.name} (Niveau ${color.level})` : color.name;
+          
+          if (isLocked) {
+            cardColorOption.style.opacity = '0.4';
+            cardColorOption.style.cursor = 'not-allowed';
+            cardColorOption.innerHTML = '<span style="font-size:1.5rem">🔒</span>';
+          }
+          
+          if (colorValue === currentCardColor) {
+            cardColorOption.classList.add('selected');
+          }
+          
+          if (!isLocked) {
+            cardColorOption.addEventListener('click', () => {
+              document.querySelectorAll('[data-card-color-option]').forEach(c => c.classList.remove('selected'));
+              cardColorOption.classList.add('selected');
+              // Store the actual color value (light or dark depending on current theme)
+              localStorage.setItem('fabanki:card_color', colorValue);
+              localStorage.setItem('fabanki:current_card_color_name', color.name);
+              applyCustomization();
+            });
+          }
+          
+          cardColorOption.setAttribute('data-card-color-option', 'true');
+          cardColorGrid.appendChild(cardColorOption);
+        });
+        
+        cardColorSection.appendChild(cardColorGrid);
+        modal.appendChild(cardColorSection);
+        
+        // Card pattern section (super transparent patterns)
+        const cardPatternSection = document.createElement('div');
+        cardPatternSection.className = 'customization-section';
+        const cardPatternTitle = document.createElement('div');
+        cardPatternTitle.className = 'customization-section-title';
+        cardPatternTitle.textContent = 'Motif des cartes (très transparent)';
+        cardPatternSection.appendChild(cardPatternTitle);
+        
+        const cardPatterns = [
+          { name: 'Aucun', id: 'none', class: '', level: 0 },
+          { name: 'Points', id: 'dots', class: 'card-pattern-dots', level: 10 },
+          { name: 'Grille', id: 'grid', class: 'card-pattern-grid', level: 20 },
+          { name: 'Rayures', id: 'stripes', class: 'card-pattern-stripes', level: 30 },
+          { name: 'Zigzag', id: 'zigzag', class: 'card-pattern-zigzag', level: 40 },
+          { name: 'Vagues', id: 'waves', class: 'card-pattern-waves', level: 50 }
+        ];
+        
+        const cardPatternGrid = document.createElement('div');
+        cardPatternGrid.className = 'pattern-grid';
+        
+        cardPatterns.forEach(p => {
+          const isLocked = p.level > currentLevel;
+          const patternOption = document.createElement('div');
+          patternOption.className = 'pattern-option ' + p.class;
+          patternOption.title = isLocked ? `${p.name} (Niveau ${p.level})` : p.name;
+          
+          if (isLocked) {
+            patternOption.style.opacity = '0.4';
+            patternOption.style.cursor = 'not-allowed';
+            patternOption.innerHTML = '<span style="font-size:1.5rem">🔒</span>';
+          } else {
+            patternOption.textContent = p.name;
+            patternOption.style.backgroundColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#111319' : '#fff';
+          }
+          
+          const currentCardPattern = localStorage.getItem('fabanki:card_pattern') || 'none';
+          if (p.id === currentCardPattern) {
+            patternOption.classList.add('selected');
+          }
+          
+          if (!isLocked) {
+            patternOption.addEventListener('click', () => {
+              document.querySelectorAll('.pattern-grid .pattern-option').forEach(c => c.classList.remove('selected'));
+              patternOption.classList.add('selected');
+              localStorage.setItem('fabanki:card_pattern', p.id);
+              applyCardPattern();
+            });
+          }
+          
+          cardPatternGrid.appendChild(patternOption);
+        });
+        
+        cardPatternSection.appendChild(cardPatternGrid);
+        modal.appendChild(cardPatternSection);
+        
+        // Action buttons
+        const actions = document.createElement('div');
+        actions.className = 'customization-actions';
+        
+        const resetBtn = document.createElement('button');
+        resetBtn.className = 'reset-btn';
+        resetBtn.textContent = 'Réinitialiser';
+        resetBtn.addEventListener('click', () => {
+          localStorage.removeItem('fabanki:bg_color');
+          localStorage.removeItem('fabanki:bg_pattern');
+          localStorage.removeItem('fabanki:font_family');
+          localStorage.removeItem('fabanki:font_stack');
+          applyCustomization();
+          overlay.remove();
+        });
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'close-btn';
+        closeBtn.textContent = 'Fermer';
+        closeBtn.addEventListener('click', () => overlay.remove());
+        
+        actions.appendChild(resetBtn);
+        actions.appendChild(closeBtn);
+        modal.appendChild(actions);
+        
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        
+        // Allow click outside to close
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) overlay.remove();
+        });
+        
+      } catch (e) {
+        console.warn('showCustomizationModal error:', e);
+      }
+    }
+    
+    function applyCustomization() {
+      try {
+        const root = document.documentElement;
+        const bgColor = localStorage.getItem('fabanki:bg_color');
+        const bgPattern = localStorage.getItem('fabanki:bg_pattern') || 'dots';
+        const fontFamily = localStorage.getItem('fabanki:font_stack');
+        
+        if (bgColor) {
+          root.style.setProperty('--bg', bgColor);
+        }
+        
+        // Apply background pattern
+        const patterns = {
+          'none': 'none',
+          'dots': 'radial-gradient(circle, rgba(0,0,0,0.05) 1px, transparent 1px)',
+          'grid': 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)',
+          'stripes': 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.02) 10px, rgba(0,0,0,0.02) 20px)',
+          'zigzag': 'repeating-linear-gradient(45deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 2px, transparent 2px, transparent 8px)',
+          'waves': 'repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.02) 0, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 40px)',
+          'hexagon': 'radial-gradient(circle at 20px 20px, rgba(0,0,0,0.04) 8px, transparent 8px)',
+          'squares': 'linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.03))',
+          'cross': 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)',
+          'chevron': 'repeating-linear-gradient(45deg, rgba(0,0,0,0.02), rgba(0,0,0,0.02) 2px, transparent 2px, transparent 8px, rgba(0,0,0,0.02) 8px, rgba(0,0,0,0.02) 10px, transparent 10px, transparent 16px)',
+          'circles': 'radial-gradient(circle, rgba(0,0,0,0.05) 2px, transparent 2px)',
+          'mesh': 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px), repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px)',
+          'diamond': 'repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(0,0,0,0.04) 35px, rgba(0,0,0,0.04) 70px)',
+          'spiral': 'repeating-conic-gradient(from 0deg at 50% 50%, rgba(0,0,0,0.02) 0deg 10deg, transparent 10deg 20deg)',
+          'target': 'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.04) 5px, transparent 5px, transparent 15px, rgba(0,0,0,0.02) 15px, transparent 15px)',
+          'scales': 'radial-gradient(ellipse 100% 50% at 50% 0%, rgba(0,0,0,0.04) 50%, transparent 51%)',
+          'leaves': 'radial-gradient(ellipse 30% 60% at 20% 50%, rgba(0,0,0,0.03) 50%, transparent 51%)',
+          'triangles': 'linear-gradient(135deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(225deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(315deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%)',
+          'honeycomb': 'repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 10px)',
+          'rain': 'repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px), repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(0,0,0,0.01) 8px, rgba(0,0,0,0.01) 16px)',
+          'web': 'repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 5deg, rgba(0,0,0,0.02) 5deg 10deg)',
+          'target': 'radial-gradient(circle, rgba(0,0,0,0.06) 3px, transparent 3px, transparent 12px, rgba(0,0,0,0.03) 12px, transparent 12px)',
+          'fortytwo': 'repeating-linear-gradient(45deg, transparent 0, transparent calc(50% - 8px), rgba(102,160,255,0.12) calc(50% - 8px), rgba(102,160,255,0.12) calc(50% + 8px), transparent calc(50% + 8px), transparent 100%)'
+        };
+        
+        const body = document.body;
+        body.style.backgroundImage = patterns[bgPattern] || patterns['dots'];
+        
+        if (bgPattern !== 'none') {
+          body.style.backgroundSize = bgPattern === 'grid' ? '4px 4px' : 
+                                      bgPattern === 'dots' ? '4px 4px' :
+                                      bgPattern === 'stripes' ? 'auto' :
+                                      bgPattern === 'zigzag' ? 'auto' :
+                                      bgPattern === 'waves' ? 'auto' :
+                                      bgPattern === 'fortytwo' ? 'auto' :
+                                      'auto';
+        }
+        
+        if (fontFamily) {
+          root.style.setProperty('--font', fontFamily);
+          document.body.style.fontFamily = fontFamily;
+        }
+        
+        // Apply font size
+        const fontSize = localStorage.getItem('fabanki:font_size') || '1';
+        root.style.setProperty('--font-size', fontSize + 'rem');
+        
+        // Apply card color - handle gradient and theme-aware colors
+        const cardColor = localStorage.getItem('fabanki:card_color');
+        if (cardColor) {
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          
+          // Check if it's a gradient (contains 'linear-gradient' or similar)
+          if (cardColor.includes('gradient')) {
+            // Gradient colors are theme-aware (light gradient at start, dark at end)
+            // Split by )/ pattern for dual gradients, otherwise use as-is
+            let appliedGradient = cardColor;
+            if (cardColor.includes(', light:') || cardColor.includes('), dark:')) {
+              // Parse light/dark gradient pairs if stored that way
+              const parts = cardColor.split('), ');
+              if (parts.length >= 2) {
+                appliedGradient = isDark ? parts[1] : parts[0];
+              }
+            }
+            root.style.setProperty('--card', appliedGradient);
+            document.querySelectorAll('.card').forEach(card => {
+              card.style.backgroundImage = appliedGradient;
+              card.style.backgroundColor = 'transparent';
+            });
+          } else {
+            // Solid color
+            root.style.setProperty('--card', cardColor);
+            document.querySelectorAll('.card').forEach(card => {
+              card.style.backgroundColor = cardColor;
+              card.style.backgroundImage = 'none';
+            });
+          }
+        }
+        
+        // Apply card patterns
+        applyCardPattern();
+        
+      } catch (e) {
+        console.warn('applyCustomization error:', e);
+      }
+    }
+    
+    // Load customization on page load and initialize theme properly
+    try {
+      // First ensure theme is properly set based on localStorage or user preference
+      const savedTheme = localStorage.getItem('fabanki:theme') || 'light';
+      const prefersLight = !window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = localStorage.getItem('fabanki:theme') || (prefersLight ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', theme);
+      const appEl = document.getElementById('app');
+      if (appEl) appEl.setAttribute('data-theme', theme);
+      
+      // Then apply customization
+      applyCustomization();
+      window.applyCustomization = applyCustomization;
+      window.showCustomizationModal = showCustomizationModal;
+    } catch (e) {}
+    
+    // Apply card pattern styling
+    function applyCardPattern() {
+      try {
+        const cardPattern = localStorage.getItem('fabanki:card_pattern') || 'none';
+        const cards = document.querySelectorAll('.card');
+        const patternClasses = ['card-pattern-dots', 'card-pattern-grid', 'card-pattern-stripes', 'card-pattern-zigzag', 'card-pattern-waves'];
+        
+        cards.forEach(card => {
+          // Remove all pattern classes
+          patternClasses.forEach(cls => card.classList.remove(cls));
+          
+          // Add the new pattern class
+          if (cardPattern !== 'none') {
+            const patternMap = {
+              'dots': 'card-pattern-dots',
+              'grid': 'card-pattern-grid',
+              'stripes': 'card-pattern-stripes',
+              'zigzag': 'card-pattern-zigzag',
+              'waves': 'card-pattern-waves'
+            };
+            if (patternMap[cardPattern]) {
+              card.classList.add(patternMap[cardPattern]);
+            }
+          }
+        });
+      } catch (e) {
+        console.warn('applyCardPattern error:', e);
+      }
+    }
+    window.applyCardPattern = applyCardPattern;
+
+    // --- SECURITY: Anti-cheat validation and data sanitization ---
+    // This prevents console-based injection attacks by validating all user data
+    // before storing to Firestore. Validates against reasonable game limits.
+    function sanitizeAndValidateUserData(rawData) {
+      try {
+        // Reasonable limits based on normal gameplay:
+        // - Max level ~60 (would require ~150k+ XP over months)
+        // - Max MPSI score ~5000 (computed from reasonable stats)
+        // - Max streak ~400 days (over a year)
+        // - Max cards reviewed ~50k (very active player over months)
+        
+        const MAX_LEVEL = 60;
+        const MAX_MPSI_SCORE = 5000;
+        const MAX_STREAK = 400;
+        const MAX_CARDS_REVIEWED = 50000;
+        const MAX_MASTERED = 50000;
+        const MAX_GOOD_ANSWERS = 100000;
+        const MAX_XP = 500000;
+        const MAX_XP_WEEK = 50000;
+        const MAX_XP_SCORE_WEEK = 5000;
+        const MAX_CONSECUTIVE_CORRECT = 1000;
+        const MAX_CONSECUTIVE_NO_PASS = 1000;
+        
+        const sanitized = {};
+        
+        // String fields: validate type and length
+        sanitized.Pseudo = String(rawData.Pseudo || 'Anonyme').slice(0, 50);
+        sanitized['Niveau Prépa'] = String(rawData['Niveau Prépa'] || 'Débutant').slice(0, 50);
+        
+        // Numeric fields: coerce to number, validate range, cap at max
+        const getValidNumber = (val, min = 0, max = Infinity) => {
+          let n = Number(val) || 0;
+          if (isNaN(n) || !isFinite(n)) n = 0;
+          return Math.max(min, Math.min(max, n));
+        };
+        
+        sanitized.XP = getValidNumber(rawData.XP, 0, MAX_XP);
+        sanitized.Niveau = getValidNumber(rawData.Niveau, 1, MAX_LEVEL);
+        sanitized['Cartes révisées'] = getValidNumber(rawData['Cartes révisées'], 0, MAX_CARDS_REVIEWED);
+        sanitized['Bonnes réponses'] = getValidNumber(rawData['Bonnes réponses'], 0, MAX_GOOD_ANSWERS);
+        sanitized['Ratés'] = getValidNumber(rawData['Ratés'], -1000, 100000);
+        sanitized['Passer'] = getValidNumber(rawData['Passer'], -1000, 100000);
+        sanitized['Streak_max'] = getValidNumber(rawData['Streak_max'], 0, MAX_STREAK);
+        sanitized['Cartes maîtrisées'] = getValidNumber(rawData['Cartes maîtrisées'], 0, MAX_MASTERED);
+        sanitized.Score_MPSI = getValidNumber(rawData.Score_MPSI, -10000, MAX_MPSI_SCORE);
+        sanitized.XP_semaine = getValidNumber(rawData.XP_semaine, 0, MAX_XP_WEEK);
+        sanitized.Score_MPSI_semaine = getValidNumber(rawData.Score_MPSI_semaine, -1000, MAX_XP_SCORE_WEEK);
+        sanitized.Score_MPSI_mois = getValidNumber(rawData.Score_MPSI_mois, -1000, MAX_XP_SCORE_WEEK);
+        
+        // Arrays: validate and sanitize
+        if (Array.isArray(rawData.Titres)) {
+          sanitized.Titres = rawData.Titres.slice(0, 50).filter(t => t && typeof t === 'object').map(t => ({
+            nom: String(t.nom || '').slice(0, 50),
+            tier: getValidNumber(t.tier, 0, 5)
+          }));
+        } else {
+          sanitized.Titres = [];
+        }
+        
+        if (Array.isArray(rawData.Objectifs)) {
+          sanitized.Objectifs = rawData.Objectifs.slice(0, 50).filter(o => typeof o === 'string').map(o => String(o).slice(0, 50));
+        } else {
+          sanitized.Objectifs = [];
+        }
+        
+        if (Array.isArray(rawData.Badges)) {
+          sanitized.Badges = rawData.Badges.slice(0, 10).filter(b => typeof b === 'string' && !b.toLowerCase().includes('cheat')).map(b => String(b).slice(0, 50));
+        } else {
+          sanitized.Badges = [];
+        }
+        
+        // ISO timestamp validation
+        sanitized['Dernière mise à jour'] = String(rawData['Dernière mise à jour'] || new Date().toISOString());
+        sanitized['Dernière synchronisation'] = String(rawData['Dernière synchronisation'] || new Date().toISOString());
+        
+        // IDs
+        sanitized.Semaine_ID = String(rawData.Semaine_ID || '');
+        sanitized.Mois_ID = String(rawData.Mois_ID || '');
+        
+        return sanitized;
+      } catch (e) {
+        console.warn('sanitizeAndValidateUserData error:', e);
+        return rawData; // fallback
+      }
     }
 
     // --- Pseudo & Leaderboard (cloud sync) ---
@@ -2979,6 +3802,9 @@
           ['Niveau Prépa']: niveauPrep
         };
 
+        // Anti-cheat: Validate all data before sending to Firestore
+        const validatedDoc = sanitizeAndValidateUserData(doc);
+        
         // Anti-cheat: fetch previous doc and compare deltas
         try{
           const ref = db.collection('Classement').doc(userId);
@@ -3015,7 +3841,7 @@
             try{ localStorage.setItem('fabanki:titles_cache', JSON.stringify(newCache)); }catch(e){}
           }catch(e){ /* ignore cache errors */ }
         }catch(e){}
-        await db.collection('Classement').doc(userId).set(doc, {merge:true});
+        await db.collection('Classement').doc(userId).set(validatedDoc, {merge:true});
         return true;
       }catch(e){ console.warn('syncClassement', e); return false }
     }
@@ -3044,6 +3870,28 @@
         try{ m.classList.add('open'); ov.classList.add('open'); }catch(e){}
         if(!db){ tbody.innerHTML = '<tr><td colspan="6">Le service Classement n\'est pas configuré. Ajoutez la configuration Firebase dans index.html.</td></tr>'; return; }
         let unsubGlobal = null, unsubWeek = null;
+        
+        // SECURITY: Filter function to remove suspicious entries from leaderboard
+        function isValidLeaderboardEntry(d) {
+          try {
+            const level = Number(d.Niveau || 0);
+            const score = Number(d.Score_MPSI || 0);
+            const scoreMonth = Number(d.Score_MPSI_mois || 0);
+            const scoreWeek = Number(d.Score_MPSI_semaine || 0);
+            
+            // Block entries with unrealistic stats
+            if (level > 60) return false;              // Max reasonable level ~60
+            if (score > 5000) return false;           // Max reasonable MPSI score ~5000
+            if (scoreMonth > 5000) return false;      // Monthly score cap
+            if (scoreWeek > 5000) return false;       // Weekly score cap
+            if (score < -10000) return false;         // Negative score injection
+            
+            return true;
+          } catch (e) {
+            return false;
+          }
+        }
+        
         function renderRow(d, rank){
           const tr = document.createElement('tr');
           const tdRank = document.createElement('td'); tdRank.textContent = String(rank);
@@ -3078,7 +3926,7 @@
           if(unsubGlobal) return;
           const qg = db.collection('Classement').orderBy('Score_MPSI','desc');
           unsubGlobal = qg.onSnapshot(snapshot=>{
-            try{ tbody.innerHTML=''; let r=1; snapshot.forEach(doc=>{ const d=doc.data()||{}; tbody.appendChild(renderRow(d, r++)); }); }catch(e){ console.warn('leaderboard render', e); }
+            try{ tbody.innerHTML=''; let r=1; snapshot.forEach(doc=>{ const d=doc.data()||{}; if(isValidLeaderboardEntry(d)) { tbody.appendChild(renderRow(d, r)); r++; } }); }catch(e){ console.warn('leaderboard render', e); }
           }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="8">Erreur lecture du classement</td></tr>'; });
         }
 
@@ -3087,7 +3935,7 @@
           const m = getMonthId();
           const qw = db.collection('Classement').where('Mois_ID','==', m).orderBy('Score_MPSI_mois','desc');
           unsubWeek = qw.onSnapshot(snapshot=>{
-            try{ tbody.innerHTML=''; let r=1; snapshot.forEach(doc=>{ const d=doc.data()||{}; tbody.appendChild(renderRow(d, r++)); }); }catch(e){ console.warn('leaderboard render', e); }
+            try{ tbody.innerHTML=''; let r=1; snapshot.forEach(doc=>{ const d=doc.data()||{}; if(isValidLeaderboardEntry(d)) { tbody.appendChild(renderRow(d, r)); r++; } }); }catch(e){ console.warn('leaderboard render', e); }
           }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="6">Erreur lecture du classement</td></tr>'; });
         }
 
@@ -3368,12 +4216,31 @@
           const circ = 2 * Math.PI * 28;
           const offset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct))/100));
           const color = getLevelColor(lvlStats.level);
-          const ringHtml = `<div class="level-ring" style="flex:0 0 64px"><svg viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"28\" stroke=\"#eee\" stroke-width=\"8\" fill=\"none\"></circle><circle class=\"ring-fill\" cx=\"50\" cy=\"50\" r=\"28\" stroke=\"${color}\" stroke-width=\"8\" fill=\"none\" stroke-linecap=\"round\" stroke-dasharray=\"${circ}\" stroke-dashoffset=\"${offset}\"></circle></svg><div class=\"level-num\">${lvlStats.level}</div></div>`;
+          const ringHtml = `<div class="level-ring" style="flex:0 0 64px"><svg viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"28\" stroke=\"#eee\" stroke-width=\"8\" fill=\"none\"></circle><circle class="ring-fill" cx=\"50\" cy=\"50\" r=\"28\" stroke=\"${color}\" stroke-width=\"8\" fill=\"none\" stroke-linecap=\"round\" stroke-dasharray=\"${circ}\" stroke-dashoffset=\"${offset}\"></circle></svg><div class=\"level-num\">${lvlStats.level}</div></div>`;
           const info = document.createElement('div'); info.style.display='flex'; info.style.flexDirection='column';
           const t = document.createElement('div'); t.style.fontWeight='700'; t.textContent = `Level ${lvlStats.level}`;
           const s = document.createElement('div'); s.className='muted small'; s.textContent = `${lvlStats.progress}/${lvlStats.need} XP avant le prochain niveau`;
           info.appendChild(t); info.appendChild(s);
-          lvlBox.innerHTML = ringHtml; lvlBox.appendChild(info); levelCard.appendChild(lvlBox);
+          lvlBox.innerHTML = ringHtml; lvlBox.appendChild(info);
+          
+          // Create main content wrapper
+          const levelContent = document.createElement('div'); levelContent.className = 'level-content';
+          levelContent.appendChild(lvlBox);
+          
+          // Add streak display
+          const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
+          const streakBox = document.createElement('div'); streakBox.className = 'streak-box';
+          const streakFlame = document.createElement('div'); streakFlame.className = 'streak-flame'; streakFlame.textContent = '🔥';
+          const streakLabel = document.createElement('div'); streakLabel.className = 'streak-label'; streakLabel.textContent = 'Streak';
+          const streakNum = document.createElement('div'); streakNum.className = 'streak-count'; streakNum.textContent = streakCount;
+          streakBox.appendChild(streakFlame); streakBox.appendChild(streakLabel); streakBox.appendChild(streakNum);
+          levelContent.appendChild(streakBox);
+          
+          // Add customize button
+          const customizeBtn = document.createElement('button'); customizeBtn.className = 'customize-btn'; customizeBtn.textContent = '⚙️ Personnaliser';
+          customizeBtn.addEventListener('click', ()=>{ showCustomizationModal(); });
+          
+          levelCard.appendChild(levelContent);
           container.appendChild(levelCard);
         }catch(e){ /* ignore level rendering on welcome if error */ }
 
