@@ -435,7 +435,7 @@
   let deckKey = null; // prefix for localStorage
   let tooltipShown = false;
   let cardShownAt = Date.now();
-  let showHintBox = false; // Toggle for hint box visibility
+  let showHintBox = true; // Toggle for hint box visibility
 
   // === FSRS storage key helpers ===
   function storageKey(s){ return `fabanki:${deckKey}:${s}` }
@@ -518,6 +518,7 @@
           // Title
           const titleEl = xml.querySelector('title') || xml.querySelector('name') || xml.documentElement.getAttribute('name');
           if(titleEl) tempDeck.title = titleEl.textContent ? titleEl.textContent.trim() : (xml.documentElement.getAttribute('name')||'');
+          const deckName = tempDeck.title || decodeURIComponent(url.split('/').pop()).replace(/\.xml$/i,'');
           
           // Parse field definitions
           const fieldsContainer = xml.querySelector('fields');
@@ -608,7 +609,6 @@
           
           // Get due cards for this deck
           const now = new Date();
-          const deckName = tempDeck.title || decodeURIComponent(url.split('/').pop()).replace(/\.xml$/i,'');
           
           // Debug: log field defs for this deck
           if(tempDeck.fieldDefs.length > 0){
@@ -617,16 +617,18 @@
           
           for(const c of tempDeck.cards){
             const key = `fabanki:${deckKey}:card:${c.id}`;
-            const st = JSON.parse(localStorage.getItem(key) || '{}');
+            const storedData = localStorage.getItem(key);
+            let st = null;
+            if(storedData){
+              try{ st = JSON.parse(storedData); } catch(e){ st = null; }
+            }
             const due = st && st.due ? new Date(st.due) : now;
             // Card is new if: no state exists OR no last review but reps is 0/undefined
             const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
-            // Only add cards that are due NOW (maintenant) or are NEW
-            if((due <= now && !isNew) || isNew){
-              // Store field definitions in map so renderBack can access them
-              cardFieldDefsMap.set(c.id, tempDeck.fieldDefs);
-              allCards.push({card: c, deckURL: url, deckName, deckKey, isNew});
-            }
+            // Store field definitions in map so renderBack can access them
+            cardFieldDefsMap.set(c.id, tempDeck.fieldDefs);
+            // Add all cards to allCards - filtering will happen later
+            allCards.push({card: c, deckURL: url, deckName, deckKey, isNew});
           }
         }catch(e){ console.warn('Error loading deck:', url, e); }
       }
@@ -835,6 +837,11 @@
       if(statsEl) {
         statsEl.style.display = 'none';
         statsEl.style.visibility = 'hidden';
+      }
+      // Hide footer during overview
+      const footerEl = document.querySelector('footer');
+      if(footerEl) {
+        footerEl.style.display = 'none';
       }
 
       // Hide and remove aria-hidden from any open overlays/modals
@@ -1095,6 +1102,10 @@
       gridTitle.style.cssText = 'margin:24px 0 12px 0;';
       container.appendChild(gridTitle);
       
+      // Sort cardsList by category in the specified order
+      const categoryOrder = {now: 0, h12: 1, tomorrow: 2, week: 3, long: 4, new: 5};
+      cardsList.sort((a, b) => categoryOrder[a.category] - categoryOrder[b.category]);
+      
       const grid = document.createElement('div');
       grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;';
       
@@ -1108,9 +1119,76 @@
           font-size:0.85em;
           word-wrap:break-word;
           opacity:0.9;
+          position:relative;
+          cursor:pointer;
         `;
         const preview = card.html.replace(/<[^>]*>/g,'').slice(0,60);
         cardEl.textContent = preview + (preview.length >= 60 ? '...' : '');
+        
+        // Add tooltip on hover
+        const tooltip = document.createElement('div');
+        tooltip.style.cssText = `
+          position:absolute;
+          bottom:100%;
+          left:50%;
+          transform:translateX(-50%);
+          background:#333;
+          color:#fff;
+          padding:8px 12px;
+          border-radius:6px;
+          font-size:0.75em;
+          white-space:nowrap;
+          z-index:10000;
+          pointer-events:none;
+          opacity:0;
+          transition:opacity 0.2s;
+          margin-bottom:8px;
+        `;
+        
+        // Calculate relative time strings
+        const now = new Date();
+        const formatRelativeTime = (date) => {
+          const diff = date - now;
+          if(diff < 0) return 'maintenant';
+          
+          const ms = diff;
+          const mins = Math.floor(ms / (1000*60));
+          const hrs = Math.floor(ms / (1000*60*60));
+          const days = Math.floor(ms / (1000*60*60*24));
+          
+          if(days > 0) return days + 'j';
+          if(hrs > 0) return hrs + 'h';
+          if(mins > 0) return mins + 'min';
+          return 'maintenant';
+        };
+        
+        // Get stored data for this card
+        const storedKey = `fabanki:${deckKeyForStats}:card:${card.id}`;
+        const storedData = localStorage.getItem(storedKey);
+        let tooltipText = '';
+        if(storedData){
+          try{
+            const st = JSON.parse(storedData);
+            if(st.due) tooltipText = `Prochain: ${formatRelativeTime(new Date(st.due))}`;
+            if(st.last) tooltipText += (tooltipText ? ' | ' : '') + `Dernier: ${formatRelativeTime(new Date(st.last))}`;
+          }catch(e){}
+        }
+        
+        if(tooltipText){
+          tooltip.textContent = tooltipText;
+          cardEl.appendChild(tooltip);
+          
+          // Show tooltip on hover
+          cardEl.addEventListener('mouseenter', () => {
+            tooltip.style.opacity = '1';
+            // Auto-hide after 3 seconds
+            setTimeout(() => { tooltip.style.opacity = '0'; }, 3000);
+          });
+          cardEl.addEventListener('mouseleave', () => {
+            tooltip.style.opacity = '0';
+          });
+        }
+        
         grid.appendChild(cardEl);
       }
       container.appendChild(grid);
