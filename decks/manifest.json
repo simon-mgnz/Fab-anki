@@ -1,7 +1,7 @@
 [
 	{ "path": "Anglais/Voc de Cours (avec Mme Martin).xml", "tags": [] },
-	{ "path": "Anglais//Livre de vocabulaire/Social protection P140.xml", "tags": [] },
-	{ "path": "Anglais//Livre de vocabulaire/The World of Work P132.xml", "tags": [] },
+	{ "path": "Anglais//Livre de vocabulaire/Social protection P140.xml", "tags": ["featured"] },
+	{ "path": "Anglais//Livre de vocabulaire/The World of Work P132.xml", "tags": ["featured"] },
 	{ "path": "Anglais/Voc de Colle.xml", "tags": [] },
 	{ "path": "Anglais/Synthèse de document.xml", "tags": [] },
 	{ "path": "Anglais/Idiomatiques en anglais (ajout perso).xml", "tags": [] },
@@ -22,7 +22,7 @@
 	{ "path": "Maths/Cours/Chapitre 11 - Structures algébriques.xml", "tags": [] },
 	{ "path": "Maths/Cours/Chapitre 12 - Dérivabilité, convexité.xml", "tags": [] },
 	{ "path": "Maths/Cours/Chapitre 13 - Calcul matriciel, systèmes linéaires.xml", "tags": [] },
-	{ "path": "Maths/Cours/Chapitre 14 - Polynômes et fractions rationnelles.xml", "tags": [] },
+	{ "path": "Maths/Cours/Chapitre 14 - Polynômes et fractions rationnelles.xml", "tags": ["featured"] },
 	{ "path": "Maths/LCI et caractéristiques.xml", "tags": [] },
 	{ "path": "Physique/Unité (SI).xml", "tags": [] },
 	{ "path": "Physique/Formulaire.xml", "tags": [] },
@@ -30,10 +30,11 @@
 	{ "path": "Physique/Constantes.xml", "tags": [] },
 	{ "path": "Physique/Molécules et ions courants.xml", "tags": [] },
 	{ "path": "Physique/Cours/Chapitre 13 - Particules chargées dans un champ électromagnétique.xml", "tags": [] },
-	{ "path": "Physique/Cours/Chapitre 14 - Relations structure microscoptique - propriétés macroscopiques.xml", "tags": [] },
-	{ "path": "Physique/Contrôle de cours/Chapitre 13 - Particules chargées dans un champ électromagnétique.xml", "tags": [] },
-	{ "path": "Physique/Contrôle de cours/Chapitre 14 - Relations structure microscoptique - propriétés macroscopiques.xml", "tags": [] },
+	{ "path": "Physique/Cours/Chapitre 14 - Relations structure microscoptique - propriétés macroscopiques.xml", "tags": ["featured"] },
+	{ "path": "Physique/Contrôle de cours/Chapitre 13 - Particules chargées dans un champ électromagnétique.xml", "tags": ["featured"] },
+	{ "path": "Physique/Contrôle de cours/Chapitre 14 - Relations structure microscoptique - propriétés macroscopiques.xml", "tags": ["featured"] },
 	{ "path": "Sciences industrielles/Chapitre 1 - SysML et blabla de SI.xml", "tags": [] },
 	{ "path": "Sciences industrielles/Chapitre 2 - Vecteurs, Référentiels, changement de bases, liaisons, et la totale.xml", "tags": [] },
 	{ "path": "Sciences industrielles/Chapitre 3 - Simuler la vie avec un modèle de connaissance.xml", "tags": [] }
 ]
+
