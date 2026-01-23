@@ -61,6 +61,11 @@
     @keyframes popupBounce { 0%{transform:scale(0.95)} 50%{transform:scale(1.02)} 100%{transform:scale(1)} }
     @keyframes popupRotate { from{opacity:0;transform:rotate(-5deg) scale(0.9)} to{opacity:1;transform:rotate(0) scale(1)} }
     @keyframes popupSpring { 0%{transform:scale(0.8)} 60%{transform:scale(1.1)} 100%{transform:scale(1)} }
+    @keyframes popupZoom { from{opacity:0;transform:scale(0)} to{opacity:1;transform:scale(1)} }
+    @keyframes popupFlip { from{opacity:0;transform:perspective(400px) rotateY(90deg)} to{opacity:1;transform:perspective(400px) rotateY(0)} }
+    @keyframes popupPulse { 0%{transform:scale(1)} 50%{transform:scale(1.05)} 100%{transform:scale(1)} }
+    @keyframes popupWobble { 0%{transform:translateX(0)} 15%{transform:translateX(-5px) rotate(-2deg)} 30%{transform:translateX(5px) rotate(2deg)} 45%{transform:translateX(-5px) rotate(-2deg)} 60%{transform:translateX(3px) rotate(1deg)} 75%{transform:translateX(-2px)} 100%{transform:translateX(0)} }
+    @keyframes popupShake { 0%{transform:translateX(0)} 10%{transform:translateX(-3px)} 20%{transform:translateX(3px)} 30%{transform:translateX(-3px)} 40%{transform:translateX(3px)} 50%{transform:translateX(-2px)} 60%{transform:translateX(2px)} 100%{transform:translateX(0)} }
     .modal[data-animation='fade']{animation:popupFade 0.3s ease-out}
     .modal[data-animation='slidedown']{animation:popupSlideDown 0.4s ease-out}
     .modal[data-animation='slideup']{animation:popupSlideUp 0.4s ease-out}
@@ -68,15 +73,31 @@
     .modal[data-animation='rotate']{animation:popupRotate 0.4s ease-out}
     .modal[data-animation='spring']{animation:popupSpring 0.5s cubic-bezier(0.34,1.56,0.64,1)}
     
+    /* Toast animations */
+    @keyframes toastSlideIn { from{opacity:0;transform:translateX(100%)} to{opacity:1;transform:translateX(0)} }
+    @keyframes toastPop { 0%{opacity:0;transform:scale(0.8)} 50%{transform:scale(1.1)} 100%{opacity:1;transform:scale(1)} }
+    @keyframes toastFade { from{opacity:0} to{opacity:1} }
+    .xp-toast{animation:toastPop 0.45s ease both}
+    .level-up-notify{animation:popupSlideDown 0.5s ease-out}
+    
+    /* Notification animations */
+    @keyframes notificationSlide { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes statusPulse { 0%{opacity:1} 50%{opacity:0.7} 100%{opacity:1} }
+    
+    /* Overlay animations */
+    .modal-overlay.open{animation:fadeIn 0.2s ease-out}
+    .customization-overlay{animation:fadeIn 0.2s ease-out}
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    
     /* Dark theme card styles */
     [data-theme='dark'] .card{background-image:var(--card-pattern, none);background-color:var(--card);color:var(--fg)}
     
     /* Super transparent card patterns (50% transparency of regular patterns) */
-    .card-pattern-dots { background-image: radial-gradient(circle, rgba(0,0,0,0.025) 1px, transparent 1px) }
-    .card-pattern-grid { background-image: linear-gradient(0deg, rgba(0,0,0,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.015) 1px, transparent 1px) }
-    .card-pattern-stripes { background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.01) 10px, rgba(0,0,0,0.01) 20px) }
-    .card-pattern-zigzag { background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.015) 0px, rgba(0,0,0,0.015) 2px, transparent 2px, transparent 8px) }
-    .card-pattern-waves { background-image: repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.01) 0, rgba(0,0,0,0.01) 2px, transparent 2px, transparent 40px) }
+    .card-pattern-dots { background-image: radial-gradient(circle, rgba(0,0,0,0.025) 1px, transparent 1px); background-attachment: fixed }
+    .card-pattern-grid { background-image: linear-gradient(0deg, rgba(0,0,0,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.015) 1px, transparent 1px); background-attachment: fixed }
+    .card-pattern-stripes { background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.01) 10px, rgba(0,0,0,0.01) 20px); background-attachment: fixed }
+    .card-pattern-zigzag { background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.015) 0px, rgba(0,0,0,0.015) 2px, transparent 2px, transparent 8px); background-attachment: fixed }
+    .card-pattern-waves { background-image: repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.01) 0, rgba(0,0,0,0.01) 2px, transparent 2px, transparent 40px); background-attachment: fixed }
     /* Make KaTeX output wrap responsively instead of forcing no-wrap */
     .katex{white-space:normal;word-break:break-word;overflow-wrap:anywhere}
     .katex .katex-html{white-space:normal}
@@ -227,22 +248,32 @@
     .level-summary .level-num{font-size:1.1rem}
     .level-summary .level-content{display:flex;align-items:center;gap:20px;flex:1}
     .level-summary .streak-box{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:8px;background:rgba(255,127,0,0.08)}
+    .level-summary .credit-box{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:8px;background:rgba(0,102,255,0.08)}
     .level-summary .streak-flame{font-size:2rem;line-height:1}
+    .level-summary .credit-coin{font-size:2rem;line-height:1}
     .level-summary .streak-label{font-size:0.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+    .level-summary .credit-label{font-size:0.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
     .level-summary .streak-count{font-size:1.2rem;font-weight:700;color:#ff7f00}
+    .level-summary .credit-count{font-size:1.2rem;font-weight:700;color:#0066ff}
+    .level-summary .customize-btn,.level-summary .maintenant-btn{padding:8px 12px;border-radius:8px;border:0;cursor:pointer;font-weight:600;font-size:0.9rem;background:var(--accent);color:white}
+    .level-summary .customize-btn:hover,.level-summary .maintenant-btn:hover{opacity:0.9;transform:translateY(-1px)}
     @media (max-width:640px){
       .level-summary{padding:10px;margin-bottom:10px;flex-direction:row;align-items:center;gap:8px}
       .level-summary .level-ring{width:56px;height:56px;flex:0 0 56px}
       .level-summary .level-num{font-size:1rem}
       .level-summary .level-content{flex-direction:row;align-items:center;width:auto;gap:12px}
       .level-summary .streak-box{padding:4px 8px}
+      .level-summary .credit-box{padding:4px 8px}
       .level-summary .streak-flame{font-size:1.5rem}
+      .level-summary .credit-coin{font-size:1.5rem}
       .level-summary .streak-label{font-size:0.65rem}
+      .level-summary .credit-label{font-size:0.65rem}
       .level-summary .streak-count{font-size:1rem}
+      .level-summary .credit-count{font-size:1rem}
     }
     
     /* Customization modal styles */
-    .customization-overlay{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,0.4);display:none;align-items:center;justify-content:center;z-index:2400}
+    .customization-overlay{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:2400}
     .customization-modal{background:var(--card);color:var(--fg);border-radius:12px;max-width:520px;width:94%;max-height:85vh;overflow:auto;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,0.25)}
     .customization-modal h3{margin:0 0 16px 0;font-size:1.2rem}
     .customization-section{margin-bottom:16px}
@@ -380,7 +411,7 @@
         <div style="flex:1">
           <div class="card" id="cardArea" aria-live="polite">
             <div class="card-content">
-              <div id="multiDeckTitle" class="muted small" style="text-align:center;margin-bottom:8px;font-size:0.85em;color:#999;display:none"></div>
+              <div id="multiDeckTitle" class="muted small" style="text-align:center;margin-bottom:12px;font-size:0.9em;color:#999;display:none;width:100%;word-break:break-word;font-weight:600"></div>
               <div id="front" class="front"></div>
               <div id="back" class="back" style="display:none"></div>
               <div id="always" class="muted small" style="margin-top:8px"></div>
@@ -509,6 +540,7 @@
     try{
       // Make sure we're not in multi-deck mode
       multiDeckMode = false;
+      onlyNowMode = false;
       
       // Remove welcome page completely (both old and new welcome formats)
       const welcome = document.getElementById('welcome');
@@ -549,9 +581,12 @@
   let multiDeckURLs = [];
   let multiDeckCards = []; // array of {card, deckURL, deckName}
   let cardFieldDefsMap = new Map(); // Map of cardId -> fieldDefs for multi-deck
+  let onlyNowMode = false; // when true, sessions show only due-now cards
   
-  async function loadMultipleDeckCards(deckURLs){
+  async function loadMultipleDeckCards(deckURLs, options = {}){
     try{
+      const onlyNow = options.onlyNow === true;
+      onlyNowMode = onlyNow;
       multiDeckMode = true;
       multiDeckURLs = deckURLs;
       multiDeckCards = [];
@@ -697,17 +732,20 @@
       const nowCards = [];
       const futureCards = [];
       for(const card of allCards){
-        if(card.isNew) continue; // Skip new - handle separately
+        if(card.isNew){
+          if(!onlyNow) continue; // new cards are excluded in only-now mode
+          else continue; // explicit for clarity
+        }
         const st = JSON.parse(localStorage.getItem(`fabanki:${card.deckKey}:card:${card.card.id}`) || '{}');
         const due = st && st.due ? new Date(st.due) : now;
         if(due <= now) {
           nowCards.push(card); // Due now or in past
-        } else {
-          futureCards.push(card); // Due in future
+        } else if(!onlyNow) {
+          futureCards.push(card); // Due in future (only if not only-now mode)
         }
       }
       
-      const newCards = allCards.filter(x => x.isNew);
+      const newCards = onlyNow ? [] : allCards.filter(x => x.isNew);
       
       const shuffle = (arr)=>{ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] } };
       shuffle(nowCards);
@@ -715,10 +753,10 @@
       shuffle(newCards);
       
       // Order: Maintenant (due now) first, then future, then new
-      multiDeckCards = nowCards.concat(futureCards).concat(newCards);
+      multiDeckCards = onlyNow ? nowCards : nowCards.concat(futureCards).concat(newCards);
       
       if(multiDeckCards.length === 0){
-        updateStatus('Aucune carte à réviser');
+        updateStatus(onlyNow ? 'Aucune carte à réviser maintenant' : 'Aucune carte à réviser');
         renderEmpty();
         return;
       }
@@ -753,6 +791,7 @@
       console.error('Multi-deck error:', err);
       updateStatus('Erreur chargement multi-deck: '+err.message);
       multiDeckMode = false;
+      onlyNowMode = false;
     }
   }
 
@@ -872,6 +911,13 @@
   // Shows an intermediate view with ring chart, card grid, and stats before reviewing
   async function showDeckOverview(url){
     try{
+      // Show contextual onboarding on first open
+      setTimeout(() => {
+        if(typeof showOverviewOnboarding === 'function'){
+          showOverviewOnboarding();
+        }
+      }, 500);
+      
       // Find and remove the welcome element completely (both old and new formats)
       const welcome = document.getElementById('welcome');
       if(welcome) {
@@ -1795,6 +1841,14 @@
 
   // === UI flow ===
   function showNextCard(){
+    // Show contextual onboarding on first card
+    if(!window.__reviewOnboardingShown && typeof showReviewOnboarding === 'function'){
+      window.__reviewOnboardingShown = true;
+      setTimeout(() => {
+        showReviewOnboarding();
+      }, 300);
+    }
+    
     if(!dueCards || dueCards.length===0){ updateStatus('Aucune carte à réviser aujourd\'hui'); renderEmpty(); return }
     if(currentIndex >= dueCards.length) currentIndex = 0;
     const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
@@ -1847,7 +1901,9 @@
       let txt = '';
       let cls = 'status-upcoming';
       const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
-      if(isNew){ txt = 'Nouveau'; cls = 'status-new'; }
+      if(onlyNowMode){
+        txt = 'Maintenant'; cls = 'status-now';
+      } else if(isNew){ txt = 'Nouveau'; cls = 'status-new'; }
       else {
         const due = st && st.due ? new Date(st.due) : now;
         const hrs = (due - now) / (1000*60*60);
@@ -2271,7 +2327,10 @@
         const manifestRes = await fetch((path.replace(/\/$/, '') + '/manifest.json'));
         if(manifestRes && manifestRes.ok){
           const list = await manifestRes.json();
-          if(Array.isArray(list)) return list;
+          if(Array.isArray(list)){
+            // Support both old format (strings) and new format (objects with path and tags)
+            return list.map(item => typeof item === 'string' ? item : item.path);
+          }
         }
       }catch(e){ /* manifest not found — continue to try HTML listing */ }
       try{
@@ -2301,6 +2360,14 @@
 
     async function openDeckBrowser(){
       if(!overlay) return;
+      
+      // Show contextual onboarding on first open
+      setTimeout(() => {
+        if(typeof showBrowseOnboarding === 'function'){
+          showBrowseOnboarding();
+        }
+      }, 300);
+      
       overlay.style.display = 'flex'; overlay.setAttribute('aria-hidden','false'); overlay.classList.add('open');
       overlay.querySelector('.modal')?.classList.add('open');
       deckList.innerHTML = '';
@@ -2657,6 +2724,14 @@
       try{
         // prevent duplicates
         if(document.getElementById('profileOverlay')) return;
+        
+        // Show contextual onboarding on first open
+        setTimeout(() => {
+          if(typeof showProfileOnboarding === 'function'){
+            showProfileOnboarding();
+          }
+        }, 300);
+        
         const stats = getProfileStats();
         const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='1200';
         const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='420px'; m.style.width='90%';
@@ -2684,7 +2759,11 @@
         const p4 = document.createElement('div'); p4.className='muted small profile-streak'; p4.style.marginTop='6px'; p4.textContent = `Jours consécutifs: ${Number(localStorage.getItem('fabanki:streak_current')||0)}`; m.appendChild(p4);
 
         // Classement button
-        const rankBtnWrap = document.createElement('div'); rankBtnWrap.style.marginTop = '10px'; rankBtnWrap.style.display = 'flex'; rankBtnWrap.style.gap = '8px';
+        const rankBtnWrap = document.createElement('div'); 
+        rankBtnWrap.style.marginTop = '10px'; 
+        rankBtnWrap.style.display = 'flex'; 
+        rankBtnWrap.style.gap = '8px';
+        rankBtnWrap.style.flexWrap = 'wrap';
         const rankBtn = document.createElement('button'); rankBtn.className = 'secondary'; rankBtn.textContent = 'Classement';
         rankBtn.addEventListener('click', ()=>{ try{ showLeaderboardPopup(); }catch(e){ console.warn(e) } });
         rankBtnWrap.appendChild(rankBtn);
@@ -2692,9 +2771,33 @@
         const titlesBtn = document.createElement('button'); titlesBtn.className='secondary'; titlesBtn.textContent = 'Titres';
         titlesBtn.addEventListener('click', ()=>{ try{ showTitlesPopup(); }catch(e){ console.warn(e) } });
         rankBtnWrap.appendChild(titlesBtn);
+        // Tutorial button
+        const tutorialBtn = document.createElement('button'); tutorialBtn.className='secondary'; tutorialBtn.textContent='📖';
+        tutorialBtn.title = 'Tutoriel';
+        tutorialBtn.addEventListener('click', ()=>{
+          try{
+            // Close profile popup first
+            const profileOverlay = document.getElementById('profileOverlay');
+            if(profileOverlay) profileOverlay.remove();
+            // Start tutorial after a short delay
+            setTimeout(() => {
+              if(typeof showOnboarding === 'function'){
+                showOnboarding();
+              }
+            }, 200);
+          }catch(e){ console.warn('tutorial error', e) }
+        });
+        rankBtnWrap.appendChild(tutorialBtn);
         // Customization button
-        const customizeBtn = document.createElement('button'); customizeBtn.className='secondary'; customizeBtn.textContent = '⚙️ Personnaliser';
-        customizeBtn.addEventListener('click', ()=>{ try{ showCustomizationModal(); }catch(e){ console.warn(e) } });
+        const customizeBtn = document.createElement('button'); customizeBtn.className='secondary'; customizeBtn.textContent='⚙️';
+        customizeBtn.title = 'Personnaliser';
+        customizeBtn.addEventListener('click', ()=>{
+          try{
+            if(typeof showCustomizationModal === 'function'){
+              showCustomizationModal();
+            }
+          }catch(e){ console.warn('customize error', e) }
+        });
         rankBtnWrap.appendChild(customizeBtn);
         m.appendChild(rankBtnWrap);
 
@@ -2721,7 +2824,10 @@
         m.appendChild(close);
         ov.appendChild(m); document.body.appendChild(ov);
         // mark overlay open so CSS fade can run, then animate modal open
-        try{ ov.classList.add('open'); ov.setAttribute('aria-hidden','false'); m.classList.add('open'); }catch(e){}
+        try{ ov.classList.add('open'); ov.setAttribute('aria-hidden','false'); m.classList.add('open');
+          const anim = localStorage.getItem('fabanki:popup_animation') || 'none';
+          if(anim !== 'none') m.setAttribute('data-animation', anim);
+        }catch(e){}
         ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
       }catch(e){ console.warn('profile popup error', e); }
     }
@@ -2795,10 +2901,202 @@
       }catch(e){ return '' }
     }
 
+    // === CREDIT SYSTEM ===
+    function getCredits(){ return Number(localStorage.getItem('fabanki:credits') || 0); }
+    function addCredits(amount){
+      try{
+        if(amount <= 0) return 0;
+        let total = getCredits() + amount;
+        localStorage.setItem('fabanki:credits', String(total));
+        return amount;
+      }catch(e){ return 0 }
+    }
+    
+    // === MISSIONS SYSTEM ===
+    const missionsData = {
+      daily: [
+        { id: 'study_20', name: 'Réviser 20 cartes aujourd\'hui', type: 'cards', target: 20, goal: 20, reward: { xp: 50, credits: 5 }, difficulty: 'easy' },
+        { id: 'session_1', name: 'Compléter une session d\'étude', type: 'sessions', target: 1, goal: 1, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
+        { id: 'accuracy_70', name: 'Atteindre 70% de précision', type: 'accuracy', target: 70, goal: 70, reward: { xp: 50, credits: 5 }, difficulty: 'easy' },
+        { id: 'study_10m', name: 'Réviser au moins 10 minutes', type: 'time', target: 10, goal: 10, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
+        { id: 'review_1', name: 'Réviser au moins un deck', type: 'decks', target: 1, goal: 1, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
+        { id: 'study_50', name: 'Réviser 50 cartes aujourd\'hui', type: 'cards', target: 50, goal: 50, reward: { xp: 100, credits: 10 }, difficulty: 'medium' },
+        { id: 'accuracy_80', name: 'Atteindre 80% de précision', type: 'accuracy', target: 80, goal: 80, reward: { xp: 120, credits: 12 }, difficulty: 'medium' },
+        { id: 'no_overdue', name: 'Terminer sans cartes en retard', type: 'overdue', target: 0, goal: 1, reward: { xp: 130, credits: 15 }, difficulty: 'medium' },
+        { id: 'session_2', name: 'Faire deux sessions séparées', type: 'sessions', target: 2, goal: 2, reward: { xp: 100, credits: 10 }, difficulty: 'medium' },
+        { id: 'backlog_20', name: 'Réduire le retard de 20%', type: 'backlog', target: 20, goal: 20, reward: { xp: 140, credits: 16 }, difficulty: 'medium' },
+        { id: 'study_100', name: 'Réviser 100 cartes aujourd\'hui', type: 'cards', target: 100, goal: 100, reward: { xp: 200, credits: 25 }, difficulty: 'hard' },
+        { id: 'accuracy_90', name: 'Atteindre 90% de précision', type: 'accuracy_high', target: 90, goal: 90, reward: { xp: 220, credits: 28 }, difficulty: 'hard' },
+        { id: 'perfect_day', name: 'Journée parfaite: 0 retard + 80%', type: 'perfect', target: 80, goal: 100, reward: { xp: 250, credits: 30 }, difficulty: 'hard' },
+        { id: 'study_45m', name: 'Réviser au moins 45 minutes', type: 'time', target: 45, goal: 45, reward: { xp: 220, credits: 25 }, difficulty: 'hard' },
+        { id: 'backlog_50', name: 'Réduire le retard de 50%', type: 'backlog', target: 50, goal: 50, reward: { xp: 260, credits: 32 }, difficulty: 'hard' }
+      ],
+      weekly: [
+        { id: 'study_4days', name: 'Réviser 4 jours différents', type: 'days_active', target: 4, goal: 4, reward: { xp: 300, credits: 30 }, difficulty: 'easy' },
+        { id: 'study_300', name: 'Réviser 300 cartes cette semaine', type: 'cards', target: 300, goal: 300, reward: { xp: 320, credits: 35 }, difficulty: 'easy' },
+        { id: 'accuracy_75w', name: 'Atteindre 75% de précision moyenne', type: 'avg_accuracy', target: 75, goal: 75, reward: { xp: 300, credits: 30 }, difficulty: 'easy' },
+        { id: 'no_overdue_3', name: 'Terminer 3 jours sans retard', type: 'perfect_days', target: 3, goal: 3, reward: { xp: 350, credits: 40 }, difficulty: 'easy' },
+        { id: 'study_6days', name: 'Réviser 6 jours différents', type: 'days_active', target: 6, goal: 6, reward: { xp: 500, credits: 60 }, difficulty: 'medium' },
+        { id: 'study_600', name: 'Réviser 600 cartes cette semaine', type: 'cards', target: 600, goal: 600, reward: { xp: 520, credits: 65 }, difficulty: 'medium' },
+        { id: 'accuracy_85w', name: 'Atteindre 85% de précision moyenne', type: 'avg_accuracy', target: 85, goal: 85, reward: { xp: 550, credits: 70 }, difficulty: 'medium' },
+        { id: 'backlog_50w', name: 'Réduire le retard de 50%', type: 'backlog', target: 50, goal: 50, reward: { xp: 580, credits: 75 }, difficulty: 'medium' },
+        { id: 'week_no_overdue', name: 'Terminer la semaine sans retard', type: 'overdue', target: 0, goal: 1, reward: { xp: 600, credits: 80 }, difficulty: 'medium' },
+        { id: 'study_7days', name: 'Réviser tous les jours', type: 'days_active', target: 7, goal: 7, reward: { xp: 700, credits: 100 }, difficulty: 'hard' },
+        { id: 'study_1000', name: 'Réviser 1 000 cartes', type: 'cards', target: 1000, goal: 1000, reward: { xp: 750, credits: 110 }, difficulty: 'hard' },
+        { id: 'accuracy_90w', name: 'Atteindre 90% de précision', type: 'avg_accuracy', target: 90, goal: 90, reward: { xp: 800, credits: 120 }, difficulty: 'hard' },
+        { id: 'consecutive_7', name: 'Zéro retard pendant 7 jours', type: 'consecutive_perfect', target: 7, goal: 7, reward: { xp: 850, credits: 130 }, difficulty: 'hard' },
+        { id: 'study_5h', name: 'Réviser au moins 5 heures', type: 'time', target: 300, goal: 300, reward: { xp: 780, credits: 115 }, difficulty: 'hard' }
+      ]
+    };
+    
+    function initializeMissions(){
+      try{
+        const today = new Date().toISOString().split('T')[0];
+        const savedDate = localStorage.getItem('fabanki:missions_date');
+        
+        // Reset daily missions if date changed
+        if(savedDate !== today){
+          localStorage.setItem('fabanki:missions_date', today);
+          localStorage.setItem('fabanki:daily_missions', JSON.stringify(
+            missionsData.daily.map(m => ({ id: m.id, completed: false, progress: 0 }))
+          ));
+          // Reset daily selected missions
+          localStorage.removeItem('fabanki:daily_selected_missions');
+        }
+        
+        // Initialize weekly missions if needed
+        if(!localStorage.getItem('fabanki:weekly_missions')){
+          localStorage.setItem('fabanki:weekly_missions', JSON.stringify(
+            missionsData.weekly.map(m => ({ id: m.id, completed: false, progress: 0 }))
+          ));
+          // Reset weekly selected missions
+          localStorage.removeItem('fabanki:weekly_selected_missions');
+        }
+      }catch(e){ console.warn('initializeMissions error:', e) }
+    }
+    
+    function updateMissionProgress(){
+      try{
+        const stats = getProfileStats();
+        const dailyKey = 'fabanki:daily_missions';
+        const weeklyKey = 'fabanki:weekly_missions';
+        const dailyMissions = JSON.parse(localStorage.getItem(dailyKey) || '[]');
+        const weeklyMissions = JSON.parse(localStorage.getItem(weeklyKey) || '[]');
+        
+        // Helper to update a mission's progress
+        const updateMission = (missions, missionId, progress) => {
+          const mission = missions.find(m => m.id === missionId);
+          if(!mission) return false;
+          mission.progress = progress;
+          // Auto-complete if target reached
+          const missionData = [...missionsData.daily, ...missionsData.weekly].find(m => m.id === missionId);
+          if(missionData && progress >= missionData.target && !mission.completed){
+            mission.completed = true;
+            // Grant rewards
+            if(!mission.rewards_given){
+              applyXp(missionData.reward.xp);
+              addCredits(missionData.reward.credits);
+              mission.rewards_given = true;
+              // Show toast
+              const toast = document.createElement('div');
+              toast.style.position = 'fixed';
+              toast.style.top = '50%';
+              toast.style.left = '50%';
+              toast.style.transform = 'translate(-50%, -50%)';
+              toast.style.background = '#22c55e';
+              toast.style.color = 'white';
+              toast.style.padding = '16px 32px';
+              toast.style.borderRadius = '8px';
+              toast.style.fontWeight = '600';
+              toast.style.zIndex = '9999';
+              toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+              toast.textContent = '✅ Quête remplie: ' + missionData.name;
+              document.body.appendChild(toast);
+              setTimeout(() => toast.remove(), 3000);
+            }
+          }
+          return true;
+        };
+        
+        // Update daily missions
+        const todayCards = stats.todayReviewed || 0;
+        updateMission(dailyMissions, 'study_20', todayCards);
+        updateMission(dailyMissions, 'study_50', todayCards);
+        updateMission(dailyMissions, 'study_100', todayCards);
+        
+        // Update weekly missions (use total reviewed for now - can be improved)
+        const totalCards = stats.totalReviewed || 0;
+        updateMission(weeklyMissions, 'study_300', totalCards);
+        updateMission(weeklyMissions, 'study_600', totalCards);
+        updateMission(weeklyMissions, 'study_1000', totalCards);
+        
+        // Save updated missions
+        localStorage.setItem(dailyKey, JSON.stringify(dailyMissions));
+        localStorage.setItem(weeklyKey, JSON.stringify(weeklyMissions));
+      }catch(e){ console.warn('updateMissionProgress error:', e) }
+    }
+    
+    function getMissions(type = 'daily'){
+      try{
+        initializeMissions();
+        updateMissionProgress(); // Auto-update progress based on stats
+        const key = type === 'daily' ? 'fabanki:daily_missions' : 'fabanki:weekly_missions';
+        const saved = JSON.parse(localStorage.getItem(key) || '[]');
+        const data = type === 'daily' ? missionsData.daily : missionsData.weekly;
+        
+        return data.map(mission => {
+          const completedData = saved.find(s => s.id === mission.id);
+          return { ...mission, completed: completedData?.completed || false, progress: completedData?.progress || 0 };
+        });
+      }catch(e){ return [] }
+    }
+    
+    function completeMission(missionId, type = 'daily'){
+      try{
+        const key = type === 'daily' ? 'fabanki:daily_missions' : 'fabanki:weekly_missions';
+        const missions = JSON.parse(localStorage.getItem(key) || '[]');
+        const mission = missions.find(m => m.id === missionId);
+        if(!mission) return;
+        
+        mission.completed = true;
+        localStorage.setItem(key, JSON.stringify(missions));
+        
+        // Grant rewards
+        const missionData = missionsData[type].find(m => m.id === missionId);
+        if(missionData && !mission.rewards_given){
+          applyXp(missionData.reward.xp);
+          addCredits(missionData.reward.credits);
+          mission.rewards_given = true;
+          localStorage.setItem(key, JSON.stringify(missions));
+        }
+      }catch(e){ console.warn('completeMission error:', e) }
+    }
+    
+    function getMissionCompletionStats(type = 'daily'){
+      try{
+        const missions = getMissions(type);
+        const difficulties = { easy: 0, medium: 0, hard: 0 };
+        const completed = { easy: 0, medium: 0, hard: 0 };
+        
+        missions.forEach(m => {
+          difficulties[m.difficulty]++;
+          if(m.completed) completed[m.difficulty]++;
+        });
+        
+        return {
+          easy: { completed: completed.easy, total: difficulties.easy, pct: difficulties.easy > 0 ? Math.round((completed.easy / difficulties.easy) * 100) : 0 },
+          medium: { completed: completed.medium, total: difficulties.medium, pct: difficulties.medium > 0 ? Math.round((completed.medium / difficulties.medium) * 100) : 0 },
+          hard: { completed: completed.hard, total: difficulties.hard, pct: difficulties.hard > 0 ? Math.round((completed.hard / difficulties.hard) * 100) : 0 }
+        };
+      }catch(e){ return { easy: { completed: 0, total: 0, pct: 0 }, medium: { completed: 0, total: 0, pct: 0 }, hard: { completed: 0, total: 0, pct: 0 } } }
+    }
+
     // --- CUSTOMIZATION MODAL ---
     function showCustomizationModal() {
       try {
-        if (document.getElementById('customizationOverlay')) return;
+        // Remove any existing overlay first
+        const existing = document.getElementById('customizationOverlay');
+        if (existing) existing.remove();
         
         const overlay = document.createElement('div');
         overlay.id = 'customizationOverlay';
@@ -2812,13 +3110,6 @@
         const stats = getProfileStats();
         const currentLevel = computeLevelAndProgress(stats.xpTotal || 0).level;
         
-        // Apply animation based on level
-        const animations = ['fade', 'slidedown', 'slideup', 'bounce', 'rotate', 'spring'];
-        const animationIndex = Math.min(Math.floor(currentLevel / 10), animations.length - 1);
-        if (currentLevel >= 5) {
-          modal.setAttribute('data-animation', animations[animationIndex]);
-        }
-        
         const title = document.createElement('h3');
         title.textContent = 'Personnalisation du thème';
         modal.appendChild(title);
@@ -2829,6 +3120,7 @@
         const currentFont = localStorage.getItem('fabanki:font_family') || 'system';
         const currentCardColor = localStorage.getItem('fabanki:card_color') || 'default';
         const currentFontSize = localStorage.getItem('fabanki:font_size') || '1';
+        const currentAnimation = localStorage.getItem('fabanki:popup_animation') || 'none';
         
         // Background color section
         const colorSection = document.createElement('div');
@@ -2842,17 +3134,17 @@
           { name: 'Clair (défaut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
           { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
           { name: 'Vert', light: '#e8f5e9', dark: '#0d2818', level: 5 },
-          { name: 'Rose', light: '#fce4ec', dark: '#2a0e1f', level: 10 },
+          { name: 'Rose', light: '#fce4ec', dark: '#2a0e1f', level: 10, credit: 30 },
           { name: 'Jaune', light: '#fffde7', dark: '#332d00', level: 10 },
           { name: 'Pourpre', light: '#f3e5f5', dark: '#25071a', level: 15 },
-          { name: 'Cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 20 },
+          { name: 'Cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 20, credit: 40 },
           { name: 'Orange', light: '#ffe0b2', dark: '#2d1b0a', level: 20 },
-          { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 25 },
+          { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 25, credit: 50 },
           { name: 'Corail', light: '#ffebee', dark: '#2d0a0a', level: 25 },
           { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 30 },
-          { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 30 },
+          { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 30, credit: 60 },
           { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 35 },
-          { name: 'Gradient Doré', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35 },
+          { name: 'Gradient Doré', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35, credit: 80 },
           { name: 'Gradient Rose-Vert', light: 'linear-gradient(135deg, #f8bbd0 0%, #a5d6a7 100%)', dark: 'linear-gradient(135deg, #4a0e2a 0%, #1d3a1f 100%)', level: 40 },
           { name: 'Gradient Prisma', light: 'linear-gradient(135deg, #e8f4f8 0%, #fce4ec 50%, #f3e5f5 100%)', dark: 'linear-gradient(135deg, #0a1a2e 0%, #2a0e1f 50%, #25071a 100%)', level: 45 },
           { name: 'Gradient Bleu Royal', light: 'linear-gradient(135deg, #64b5f6 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0a2558 0%, #1a2a3a 100%)', level: 45 },
@@ -2867,17 +3159,35 @@
         colors.forEach(color => {
           const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
           const colorValue = isDark ? color.dark : color.light;
-          const isLocked = color.level > currentLevel;
+          const currentCredits = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          
+          // Check if locked by level or credit
+          const isLockedByLevel = color.level > currentLevel;
+          const isLockedByCredit = color.credit && color.credit > currentCredits;
+          const isLocked = isLockedByLevel || isLockedByCredit;
           
           const colorOption = document.createElement('div');
           colorOption.className = 'color-option';
           colorOption.style.backgroundColor = colorValue;
-          colorOption.title = isLocked ? `${color.name} (Niveau ${color.level})` : color.name;
+          
+          // Set title with unlock requirement
+          if (isLocked) {
+            if (isLockedByLevel) {
+              colorOption.title = `${color.name} (Niveau ${color.level})`;
+            } else if (isLockedByCredit) {
+              colorOption.title = `${color.name} (${color.credit} Credits)`;
+            }
+          } else {
+            colorOption.title = color.name;
+          }
           
           if (isLocked) {
             colorOption.style.opacity = '0.4';
             colorOption.style.cursor = 'not-allowed';
-            colorOption.innerHTML = '<span style="font-size:1.5rem">🔒</span>';
+            // Show lock with cost below
+            const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
+            const costHTML = isLockedByCredit ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${color.credit}💳</div>` : '';
+            colorOption.innerHTML = lockHTML + costHTML;
           }
           
           if (colorValue === currentBgColor) {
@@ -2888,6 +3198,12 @@
             colorOption.addEventListener('click', () => {
               document.querySelectorAll('.color-option').forEach(c => c.classList.remove('selected'));
               colorOption.classList.add('selected');
+              
+              // Deduct credits if needed
+              if (color.credit && currentCredits > 0) {
+                addCredits(-color.credit);
+              }
+              
               localStorage.setItem('fabanki:bg_color', colorValue);
               localStorage.setItem('fabanki:current_color_name', color.name);
               applyCustomization();
@@ -2911,14 +3227,14 @@
         const patterns = [
           { name: 'Aucun', id: 'none', pattern: 'none', level: 0 },
           { name: 'Points', id: 'dots', pattern: 'radial-gradient(circle, rgba(0,0,0,0.05) 1px, transparent 1px)', level: 5 },
-          { name: 'Grille', id: 'grid', pattern: 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)', level: 10 },
+          { name: 'Grille', id: 'grid', pattern: 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)', level: 10, credit: 25 },
           { name: 'Rayures', id: 'stripes', pattern: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.02) 10px, rgba(0,0,0,0.02) 20px)', level: 15 },
           { name: 'Zigzag', id: 'zigzag', pattern: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 2px, transparent 2px, transparent 8px)', level: 20 },
-          { name: 'Vagues', id: 'waves', pattern: 'repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.02) 0, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 40px)', level: 30 },
+          { name: 'Vagues', id: 'waves', pattern: 'repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.02) 0, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 40px)', level: 30, credit: 35 },
           { name: 'Hexagone', id: 'hexagon', pattern: 'radial-gradient(circle at 20px 20px, rgba(0,0,0,0.04) 8px, transparent 8px)', level: 25 },
-          { name: 'Carrés', id: 'squares', pattern: 'linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.03))', level: 35 },
+          { name: 'Carrés', id: 'squares', pattern: 'linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.03))', level: 35, credit: 45 },
           { name: 'Croix', id: 'cross', pattern: 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)', level: 28 },
-          { name: 'Chevrons', id: 'chevron', pattern: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.02), rgba(0,0,0,0.02) 2px, transparent 2px, transparent 8px, rgba(0,0,0,0.02) 8px, rgba(0,0,0,0.02) 10px, transparent 10px, transparent 16px)', level: 32 },
+          { name: 'Chevrons', id: 'chevron', pattern: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.02), rgba(0,0,0,0.02) 2px, transparent 2px, transparent 8px, rgba(0,0,0,0.02) 8px, rgba(0,0,0,0.02) 10px, transparent 10px, transparent 16px)', level: 32, credit: 40 },
           { name: 'Cercles', id: 'circles', pattern: 'radial-gradient(circle, rgba(0,0,0,0.05) 2px, transparent 2px)', level: 38 },
           { name: 'Mailles', id: 'mesh', pattern: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px), repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px)', level: 22 },
           { name: 'Losange', id: 'diamond', pattern: 'repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(0,0,0,0.04) 35px, rgba(0,0,0,0.04) 70px)', level: 24 },
@@ -2945,15 +3261,32 @@
         patternGrid.className = 'pattern-grid';
         
         patterns.forEach(p => {
-          const isLocked = p.level > currentLevel;
+          const currentCredits = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          const isLockedByLevel = p.level > currentLevel;
+          const isLockedByCredit = p.credit && p.credit > currentCredits;
+          const isLocked = isLockedByLevel || isLockedByCredit;
+          
           const patternOption = document.createElement('div');
           patternOption.className = 'pattern-option';
-          patternOption.title = isLocked ? `${p.name} (Niveau ${p.level})` : p.name;
+          
+          // Set title with unlock requirement
+          if (isLocked) {
+            if (isLockedByLevel) {
+              patternOption.title = `${p.name} (Niveau ${p.level})`;
+            } else if (isLockedByCredit) {
+              patternOption.title = `${p.name} (${p.credit} Credits)`;
+            }
+          } else {
+            patternOption.title = p.name;
+          }
           
           if (isLocked) {
             patternOption.style.opacity = '0.4';
             patternOption.style.cursor = 'not-allowed';
-            patternOption.innerHTML = '<span style="font-size:1.5rem">🔒</span>';
+            // Show lock with cost below
+            const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
+            const costHTML = isLockedByCredit ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${p.credit}💳</div>` : '';
+            patternOption.innerHTML = lockHTML + costHTML;
           } else {
             if (p.pattern !== 'none') {
               const bgColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#0f1115' : '#f6f7fb';
@@ -2971,6 +3304,12 @@
             patternOption.addEventListener('click', () => {
               document.querySelectorAll('.pattern-option').forEach(c => c.classList.remove('selected'));
               patternOption.classList.add('selected');
+              
+              // Deduct credits if needed
+              if (p.credit && currentCredits > 0) {
+                addCredits(-p.credit);
+              }
+              
               localStorage.setItem('fabanki:bg_pattern', p.id);
               applyCustomization();
             });
@@ -2993,13 +3332,13 @@
         const fonts = [
           { name: 'Classique (défaut)', id: 'system', stack: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial', level: 0 },
           { name: 'Élégant', id: 'elegant', stack: '"Georgia", "Times New Roman", serif', level: 5 },
-          { name: 'Moderne', id: 'modern', stack: '"Inter", "Helvetica", "Arial", sans-serif', level: 10 },
+          { name: 'Moderne', id: 'modern', stack: '"Inter", "Helvetica", "Arial", sans-serif', level: 10, credit: 30 },
           { name: 'Monospace', id: 'mono', stack: '"Courier New", "Monaco", monospace', level: 15 },
           { name: 'Lisible', id: 'readable', stack: '"Trebuchet MS", sans-serif', level: 20 },
-          { name: 'Confortable', id: 'comfortable', stack: '"Segoe UI", "Tahoma", sans-serif', level: 25 },
+          { name: 'Confortable', id: 'comfortable', stack: '"Segoe UI", "Tahoma", sans-serif', level: 25, credit: 35 },
           { name: 'Minimaliste', id: 'minimal', stack: '"Helvetica Neue", "Arial", sans-serif', level: 30 },
           { name: 'Littéraire', id: 'literary', stack: '"Cambria", "Palatino", serif', level: 35 },
-          { name: 'Futuriste', id: 'futuristic', stack: '"Trebuchet MS", "Lucida Grande", sans-serif', level: 40 },
+          { name: 'Futuriste', id: 'futuristic', stack: '"Trebuchet MS", "Lucida Grande", sans-serif', level: 40, credit: 50 },
           { name: 'Manuscrit', id: 'script', stack: '"Comic Sans MS", "Brush Script MT", cursive', level: 45 }
         ];
         
@@ -3007,17 +3346,35 @@
         fontGrid.className = 'font-grid';
         
         fonts.forEach(f => {
-          const isLocked = f.level > currentLevel;
+          const currentCredits = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          const isLockedByLevel = f.level > currentLevel;
+          const isLockedByCredit = f.credit && f.credit > currentCredits;
+          const isLocked = isLockedByLevel || isLockedByCredit;
+          
           const fontOption = document.createElement('div');
           fontOption.className = 'font-option';
-          fontOption.title = isLocked ? `${f.name} (Niveau ${f.level})` : f.name;
+          
+          // Set title with unlock requirement
+          if (isLocked) {
+            if (isLockedByLevel) {
+              fontOption.title = `${f.name} (Niveau ${f.level})`;
+            } else if (isLockedByCredit) {
+              fontOption.title = `${f.name} (${f.credit} Credits)`;
+            }
+          } else {
+            fontOption.title = f.name;
+          }
+          
           fontOption.textContent = f.name;
           fontOption.style.fontFamily = f.stack;
           
           if (isLocked) {
             fontOption.style.opacity = '0.4';
             fontOption.style.cursor = 'not-allowed';
-            fontOption.innerHTML = '<span style="font-size:1.5rem">🔒</span>';
+            // Show lock with cost below
+            const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
+            const costHTML = isLockedByCredit ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${f.credit}💳</div>` : '';
+            fontOption.innerHTML = lockHTML + costHTML;
           }
           
           if (f.id === currentFont) {
@@ -3028,6 +3385,12 @@
             fontOption.addEventListener('click', () => {
               document.querySelectorAll('.font-option').forEach(c => c.classList.remove('selected'));
               fontOption.classList.add('selected');
+              
+              // Deduct credits if needed
+              if (f.credit && currentCredits > 0) {
+                addCredits(-f.credit);
+              }
+              
               localStorage.setItem('fabanki:font_family', f.id);
               localStorage.setItem('fabanki:font_stack', f.stack);
               applyCustomization();
@@ -3217,6 +3580,92 @@
         cardPatternSection.appendChild(cardPatternGrid);
         modal.appendChild(cardPatternSection);
         
+        // Animations section
+        const animationSection = document.createElement('div');
+        animationSection.className = 'customization-section';
+        const animationTitle = document.createElement('div');
+        animationTitle.className = 'customization-section-title';
+        animationTitle.textContent = 'Style d\'animations';
+        animationSection.appendChild(animationTitle);
+        
+        const animations = [
+          { name: 'Aucune', id: 'none', level: 0 },
+          { name: 'Fondu', id: 'fade', level: 5 },
+          { name: 'Glissade Bas', id: 'slidedown', level: 10 },
+          { name: 'Glissade Haut', id: 'slideup', level: 15 },
+          { name: 'Rebond', id: 'bounce', level: 20, credit: 25 },
+          { name: 'Rotation', id: 'rotate', level: 25 },
+          { name: 'Ressort', id: 'spring', level: 30, credit: 30 }
+        ];
+        
+        const animationGrid = document.createElement('div');
+        animationGrid.className = 'animation-grid';
+        animationGrid.style.display = 'grid';
+        animationGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(100px, 1fr))';
+        animationGrid.style.gap = '8px';
+        animationGrid.style.marginTop = '8px';
+        
+        animations.forEach(anim => {
+          const currentCredits = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          const isLockedByLevel = anim.level > currentLevel;
+          const isLockedByCredit = anim.credit && anim.credit > currentCredits;
+          const isLocked = isLockedByLevel || isLockedByCredit;
+          
+          const animOption = document.createElement('div');
+          animOption.className = 'animation-option';
+          animOption.style.padding = '8px';
+          animOption.style.borderRadius = '6px';
+          animOption.style.cursor = isLocked ? 'not-allowed' : 'pointer';
+          animOption.style.border = '2px solid transparent';
+          animOption.style.textAlign = 'center';
+          animOption.style.background = 'rgba(0,0,0,0.02)';
+          animOption.style.transition = 'all 0.2s';
+          
+          animOption.title = isLocked ? (isLockedByLevel ? `${anim.name} (Niveau ${anim.level})` : `${anim.name} (${anim.credit} Credits)`) : anim.name;
+          animOption.textContent = anim.name;
+          
+          if (isLocked) {
+            animOption.style.opacity = '0.4';
+            animOption.innerHTML = '<div style="font-size:1.5rem">🔒</div><div style="font-size:0.6rem;color:var(--muted);margin-top:2px">' + (isLockedByCredit ? anim.credit + '💳' : '') + '</div>';
+          }
+          
+          if (anim.id === currentAnimation) {
+            animOption.style.borderColor = 'var(--accent)';
+            animOption.style.background = 'rgba(102, 160, 255, 0.1)';
+          }
+          
+          if (!isLocked) {
+            animOption.addEventListener('click', () => {
+              document.querySelectorAll('.animation-option').forEach(opt => {
+                opt.style.borderColor = 'transparent';
+                opt.style.background = 'rgba(0,0,0,0.02)';
+              });
+              animOption.style.borderColor = 'var(--accent)';
+              animOption.style.background = 'rgba(102, 160, 255, 0.1)';
+              
+              // Deduct credits if needed
+              if (anim.credit && currentCredits > 0) {
+                addCredits(-anim.credit);
+              }
+              
+              localStorage.setItem('fabanki:popup_animation', anim.id);
+            });
+            animOption.addEventListener('mouseover', () => {
+              if (anim.id !== currentAnimation) {
+                animOption.style.opacity = '0.8';
+              }
+            });
+            animOption.addEventListener('mouseout', () => {
+              animOption.style.opacity = '1';
+            });
+          }
+          
+          animationGrid.appendChild(animOption);
+        });
+        
+        animationSection.appendChild(animationGrid);
+        modal.appendChild(animationSection);
+        
         // Action buttons
         const actions = document.createElement('div');
         actions.className = 'customization-actions';
@@ -3244,6 +3693,12 @@
         
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
+        
+        // Apply popup animation
+        try {
+          const anim = localStorage.getItem('fabanki:popup_animation') || 'none';
+          if(anim !== 'none') modal.setAttribute('data-animation', anim);
+        } catch(e) {}
         
         // Allow click outside to close
         overlay.addEventListener('click', (e) => {
@@ -3294,16 +3749,22 @@
         };
         
         const body = document.body;
+        const html = document.documentElement;
         body.style.backgroundImage = patterns[bgPattern] || patterns['dots'];
+        html.style.backgroundImage = patterns[bgPattern] || patterns['dots'];
         
         if (bgPattern !== 'none') {
-          body.style.backgroundSize = bgPattern === 'grid' ? '4px 4px' : 
-                                      bgPattern === 'dots' ? '4px 4px' :
-                                      bgPattern === 'stripes' ? 'auto' :
-                                      bgPattern === 'zigzag' ? 'auto' :
-                                      bgPattern === 'waves' ? 'auto' :
-                                      bgPattern === 'fortytwo' ? 'auto' :
-                                      'auto';
+          const bgSize = bgPattern === 'grid' ? '4px 4px' : 
+                         bgPattern === 'dots' ? '4px 4px' :
+                         bgPattern === 'stripes' ? 'auto' :
+                         bgPattern === 'zigzag' ? 'auto' :
+                         bgPattern === 'waves' ? 'auto' :
+                         bgPattern === 'fortytwo' ? 'auto' :
+                         'auto';
+          body.style.backgroundSize = bgSize;
+          html.style.backgroundSize = bgSize;
+          body.style.backgroundAttachment = 'fixed';
+          html.style.backgroundAttachment = 'fixed';
         }
         
         if (fontFamily) {
@@ -3364,6 +3825,9 @@
       document.documentElement.setAttribute('data-theme', theme);
       const appEl = document.getElementById('app');
       if (appEl) appEl.setAttribute('data-theme', theme);
+      
+      // Initialize missions system
+      initializeMissions();
       
       // Then apply customization
       applyCustomization();
@@ -3496,6 +3960,20 @@
 
     function ensurePseudo(){
       try{
+        // Detect if app is opened in external/embedded browser
+        const ua = navigator.userAgent || '';
+        const isEmbedded = ua.includes('Instagram') || ua.includes('FBAN') || ua.includes('FBAV') || 
+                          ua.includes('Snapchat') || ua.includes('Twitter') || ua.includes('Line');
+        
+        if(isEmbedded){
+          // Try to open in default browser
+          try{
+            window.open(window.location.href, '_system');
+          }catch(e){}
+          // Skip pseudo requirement for embedded browsers
+          return true;
+        }
+        
         let p = localStorage.getItem('pseudo');
         let uid = localStorage.getItem('userId');
         if(!uid){ uid = generateUserId(); localStorage.setItem('userId', uid); }
@@ -3776,6 +4254,13 @@
         const nowIso = (new Date()).toISOString();
         const weekId = getWeekId();
         const monthId = getMonthId();
+        // Calculate daily quest completion count
+        let dailyQuestsCompleted = 0;
+        try{
+          const missions = JSON.parse(localStorage.getItem('fabanki:daily_missions') || '[]');
+          dailyQuestsCompleted = missions.filter(m => m.completed).length;
+        }catch(e){}
+        
         const doc = {
           Pseudo: pseudo,
           XP: xp,
@@ -3783,7 +4268,7 @@
           ['Cartes révisées']: cartes,
           ['Dernière mise à jour']: nowIso,
           ['Dernière synchronisation']: nowIso,
-          Score_MPSI: scoreMPSI,
+          Score_MPSI: Math.max(0, scoreMPSI),
           ['Bonnes réponses']: bonnes,
           ['Ratés']: rates,
           ['Passer']: passes,
@@ -3795,11 +4280,12 @@
           Titres: titres,
           Objectifs: objectifs,
           XP_semaine: xpS,
-          Score_MPSI_semaine: scoreWeekLocal,
+          Score_MPSI_semaine: Math.max(0, scoreWeekLocal),
           Semaine_ID: weekId,
-          Score_MPSI_mois: scoreMonthLocal,
+          Score_MPSI_mois: Math.max(0, scoreMonthLocal),
           Mois_ID: monthId,
-          ['Niveau Prépa']: niveauPrep
+          ['Niveau Prépa']: niveauPrep,
+          ['Quêtes_quotidiennes']: dailyQuestsCompleted
         };
 
         // Anti-cheat: Validate all data before sending to Firestore
@@ -3860,14 +4346,17 @@
         const tabWeek = document.createElement('button'); tabWeek.className='secondary'; tabWeek.textContent='Classement du mois';
         tabs.appendChild(tabGlobal); tabs.appendChild(tabWeek); m.appendChild(tabs);
         const table = document.createElement('table'); table.className = 'leaderboard-table'; table.style.width='100%'; table.style.borderCollapse='collapse';
-        const thead = document.createElement('thead'); thead.innerHTML = '<tr><th>Rang</th><th>Pseudo</th><th>Niveau</th><th>Titres</th><th>Score MPSI</th><th>Cartes</th></tr>';
+        const thead = document.createElement('thead'); thead.innerHTML = '<tr><th>Rang</th><th>Pseudo</th><th>Niveau</th><th>Titres</th><th>Score MPSI</th><th>Cartes</th><th>Quêtes quotidiennes</th></tr>';
         table.appendChild(thead);
         const tbody = document.createElement('tbody'); table.appendChild(tbody);
         m.appendChild(table);
         const closeDiv = document.createElement('div'); closeDiv.style.display='flex'; closeDiv.style.justifyContent='flex-end'; closeDiv.style.marginTop='8px';
         const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='Fermer'; cb.addEventListener('click', ()=>{ try{ if(typeof unsubGlobal === 'function') unsubGlobal(); if(typeof unsubWeek === 'function') unsubWeek(); }catch(e){} ov.remove(); }); closeDiv.appendChild(cb); m.appendChild(closeDiv);
         ov.appendChild(m); document.body.appendChild(ov);
-        try{ m.classList.add('open'); ov.classList.add('open'); }catch(e){}
+        try{ m.classList.add('open'); ov.classList.add('open');
+          const anim = localStorage.getItem('fabanki:popup_animation') || 'none';
+          if(anim !== 'none') m.setAttribute('data-animation', anim);
+        }catch(e){}
         if(!db){ tbody.innerHTML = '<tr><td colspan="6">Le service Classement n\'est pas configuré. Ajoutez la configuration Firebase dans index.html.</td></tr>'; return; }
         let unsubGlobal = null, unsubWeek = null;
         
@@ -3918,7 +4407,8 @@
             }catch(e){}
           }catch(e){}
           const tdCartes = document.createElement('td'); tdCartes.textContent = d['Cartes révisées'] || 0;
-          tr.appendChild(tdRank); tr.appendChild(tdPseudo); tr.appendChild(tdNiv); tr.appendChild(tdBadges); tr.appendChild(tdScore); tr.appendChild(tdCartes);
+          const tdQuests = document.createElement('td'); tdQuests.textContent = d['Quêtes_quotidiennes'] || 0;
+          tr.appendChild(tdRank); tr.appendChild(tdPseudo); tr.appendChild(tdNiv); tr.appendChild(tdBadges); tr.appendChild(tdScore); tr.appendChild(tdCartes); tr.appendChild(tdQuests);
           return tr;
         }
 
@@ -3927,16 +4417,22 @@
           const qg = db.collection('Classement').orderBy('Score_MPSI','desc');
           unsubGlobal = qg.onSnapshot(snapshot=>{
             try{ tbody.innerHTML=''; let r=1; snapshot.forEach(doc=>{ const d=doc.data()||{}; if(isValidLeaderboardEntry(d)) { tbody.appendChild(renderRow(d, r)); r++; } }); }catch(e){ console.warn('leaderboard render', e); }
-          }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="8">Erreur lecture du classement</td></tr>'; });
+          }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="7">Erreur lecture du classement</td></tr>'; });
         }
 
         function attachWeek(){
           if(unsubWeek) return;
           const m = getMonthId();
-          const qw = db.collection('Classement').where('Mois_ID','==', m).orderBy('Score_MPSI_mois','desc');
+          const qw = db.collection('Classement').orderBy('Score_MPSI_mois','desc');
           unsubWeek = qw.onSnapshot(snapshot=>{
-            try{ tbody.innerHTML=''; let r=1; snapshot.forEach(doc=>{ const d=doc.data()||{}; if(isValidLeaderboardEntry(d)) { tbody.appendChild(renderRow(d, r)); r++; } }); }catch(e){ console.warn('leaderboard render', e); }
-          }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="6">Erreur lecture du classement</td></tr>'; });
+            try{ 
+              const allData = [];
+              snapshot.forEach(doc=>{ const d=doc.data()||{}; if(isValidLeaderboardEntry(d) && d.Mois_ID === m) { allData.push(d); } });
+              // Sort by Score_MPSI_mois descending to ensure proper ranking
+              allData.sort((a,b) => (Number(b.Score_MPSI_mois || 0) - Number(a.Score_MPSI_mois || 0)));
+              tbody.innerHTML=''; let r=1; allData.forEach(d=>{ tbody.appendChild(renderRow(d, r)); r++; });
+            }catch(e){ console.warn('leaderboard render', e); }
+          }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="7">Erreur lecture du classement</td></tr>'; });
         }
 
         tabGlobal.addEventListener('click', ()=>{ try{ if(unsubWeek){ unsubWeek(); unsubWeek = null; } if(!unsubGlobal) attachGlobal(); tabGlobal.disabled=true; tabWeek.disabled=false; }catch(e){} });
@@ -4029,7 +4525,10 @@
         const closeDiv = document.createElement('div'); closeDiv.style.display='flex'; closeDiv.style.justifyContent='flex-end'; closeDiv.style.marginTop='12px';
         const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='Fermer'; cb.addEventListener('click', ()=>{ ov.remove(); }); closeDiv.appendChild(cb); m.appendChild(closeDiv);
         ov.appendChild(m); document.body.appendChild(ov);
-        try{ ov.classList.add('open'); m.classList.add('open'); ov.setAttribute('aria-hidden','false'); }catch(e){}
+        try{ ov.classList.add('open'); m.classList.add('open'); ov.setAttribute('aria-hidden','false');
+          const anim = localStorage.getItem('fabanki:popup_animation') || 'none';
+          if(anim !== 'none') m.setAttribute('data-animation', anim);
+        }catch(e){}
         ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
       }catch(e){ console.warn('showTitlesPopup', e); }
     }
@@ -4118,6 +4617,8 @@
         const h = document.createElement('div'); h.style.fontWeight='700'; h.style.fontSize='1.05rem'; h.style.textAlign='center'; h.textContent = `Niveau ${newLevel} !`;
         const sub = document.createElement('div'); sub.className='muted small'; sub.style.textAlign='center'; sub.textContent = oldLevel? `Félicitations — vous êtes passé de ${oldLevel} à ${newLevel}` : `Nouveau niveau : ${newLevel}`;
         ov.appendChild(icon); ov.appendChild(h); ov.appendChild(sub);
+        // Apply animation
+        try { const anim = localStorage.getItem('fabanki:popup_animation') || 'none'; if(anim !== 'none') ov.setAttribute('data-animation', anim); }catch(e){}
         document.body.appendChild(ov);
         // animate in
         requestAnimationFrame(()=> ov.classList.add('show'));
@@ -4138,6 +4639,8 @@
         const h = document.createElement('div'); h.style.fontWeight='700'; h.style.fontSize='0.98rem'; h.style.textAlign='center'; h.textContent = `${name} ${tierToRoman(newTier)}`;
         const sub = document.createElement('div'); sub.className='muted small'; sub.style.textAlign='center'; sub.textContent = oldTier? `Amélioration : ${tierToRoman(oldTier)} → ${tierToRoman(newTier)}` : `Titre débloqué : ${tierToRoman(newTier)}`;
         ov.appendChild(icon); ov.appendChild(h); ov.appendChild(sub);
+        // Apply animation
+        try { const anim = localStorage.getItem('fabanki:popup_animation') || 'none'; if(anim !== 'none') ov.setAttribute('data-animation', anim); }catch(e){}
         document.body.appendChild(ov);
         requestAnimationFrame(()=> ov.classList.add('show'));
         setTimeout(()=>{ try{ ov.classList.remove('show'); setTimeout(()=>{ try{ ov.remove(); }catch(e){} }, 360); }catch(e){} }, 3800);
@@ -4156,6 +4659,8 @@
         t.style.position = 'absolute'; t.style.right = '14px'; t.style.top = '14px'; t.style.zIndex = '1500';
         if(delta>0){ t.style.background = 'rgba(30,160,80,0.12)'; t.style.color = 'green'; t.textContent = `+${delta} XP`; }
         else { t.style.background = 'rgba(255,80,80,0.08)'; t.style.color = 'crimson'; t.textContent = `${delta} XP`; }
+        // Apply animation
+        try { const anim = localStorage.getItem('fabanki:popup_animation') || 'none'; if(anim !== 'none') t.setAttribute('data-animation', anim); }catch(e){}
         card.style.position = card.style.position || 'relative'; card.appendChild(t);
         // animate in
         requestAnimationFrame(()=> t.classList.add('show'));
@@ -4211,7 +4716,7 @@
             }
           }catch(e){}
           const lvlStats = computeLevelAndProgress(getXpTotal());
-          const levelCard = document.createElement('div'); levelCard.className = 'card level-summary'; levelCard.style.marginBottom = '12px';
+          const levelCard = document.createElement('div'); levelCard.className = 'card level-summary'; levelCard.style.marginBottom = '12px'; levelCard.style.padding = '16px';
           const lvlBox = document.createElement('div'); lvlBox.style.display='flex'; lvlBox.style.alignItems='center'; lvlBox.style.gap='12px';
           const circ = 2 * Math.PI * 28;
           const offset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct))/100));
@@ -4236,14 +4741,91 @@
           streakBox.appendChild(streakFlame); streakBox.appendChild(streakLabel); streakBox.appendChild(streakNum);
           levelContent.appendChild(streakBox);
           
-          // Add customize button
-          const customizeBtn = document.createElement('button'); customizeBtn.className = 'customize-btn'; customizeBtn.textContent = '⚙️ Personnaliser';
-          customizeBtn.addEventListener('click', ()=>{ showCustomizationModal(); });
+          // Add credits box
+          const creditCount = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          const creditBox = document.createElement('div'); creditBox.className = 'credit-box';
+          const creditCoin = document.createElement('div'); creditCoin.className = 'credit-coin'; creditCoin.textContent = '💳';
+          const creditLabel = document.createElement('div'); creditLabel.className = 'credit-label'; creditLabel.textContent = 'Credits';
+          const creditNum = document.createElement('div'); creditNum.className = 'credit-count'; creditNum.textContent = creditCount;
+          creditBox.appendChild(creditCoin); creditBox.appendChild(creditLabel); creditBox.appendChild(creditNum);
+          levelContent.appendChild(creditBox);
+          
+          // Add Maintenant (now) button for quick review
+          const maintenantBtn = document.createElement('button'); maintenantBtn.className = 'maintenant-btn'; maintenantBtn.textContent = '📚 Maintenant';
+          maintenantBtn.addEventListener('click', async ()=>{
+            try{
+              console.log('🔍 Maintenant button clicked - loading all decks with cards due now');
+              updateStatus('Recherche des cartes à réviser maintenant...');
+              
+              // Get all deck files
+              let entries = [];
+              try{ entries = await fetchDirectory('./decks/'); console.log('📂 Found', entries.length, 'files in decks folder'); }catch(e){ console.error('❌ Error fetching directory:', e); entries = []; }
+              const allFiles = (Array.isArray(entries) ? entries : []).filter(e=> typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
+              console.log('📄 XML files found:', allFiles.length);
+              
+              // Collect all decks that have cards due now
+              const decksWithDueCards = [];
+              let totalDueCount = 0;
+              
+              updateStatus('Analyse des decks...');
+              for(const f of allFiles){
+                const url = './decks/' + f;
+                const cnt = await countDueNowForDeck(url);
+                if(cnt > 0){
+                  decksWithDueCards.push(url);
+                  totalDueCount += cnt;
+                  console.log('  ✓', f, '→', cnt, 'cartes à faire');
+                }
+              }
+              
+              console.log('📊 Total:', decksWithDueCards.length, 'decks with', totalDueCount, 'cards due now');
+              
+              if(decksWithDueCards.length > 0){
+                console.log('📚 Loading', decksWithDueCards.length, 'decks for review');
+                updateStatus(`Chargement de ${totalDueCount} cartes...`);
+                
+                // Remove welcome screen and load all decks with due cards
+                await removeWelcome();
+                console.log('🗑️ Welcome screen removed');
+                
+                await loadMultipleDeckCards(decksWithDueCards, { onlyNow: true });
+                console.log('✅ Decks loaded, total cards:', multiDeckCards.length);
+                
+                if(typeof showNextCard === 'function'){
+                  console.log('▶️ Showing first card');
+                  showNextCard();
+                } else {
+                  console.error('❌ showNextCard function not available!');
+                  updateStatus('Erreur: fonction showNextCard introuvable');
+                }
+              } else {
+                console.warn('⚠️ No cards due now in any deck');
+                updateStatus('Aucune carte à réviser maintenant 🎉');
+              }
+            }catch(e){
+              console.error('❌ Error loading Maintenant cards:', e);
+              console.error('Stack trace:', e.stack);
+              updateStatus('Erreur: ' + e.message);
+            }
+          });
           
           levelCard.appendChild(levelContent);
+          
+          // Create button container for Maintenant button - integrated into level content
+          const buttonContainer = document.createElement('div');
+          buttonContainer.style.display = 'flex';
+          buttonContainer.style.flexDirection = 'column';
+          buttonContainer.style.gap = '8px';
+          buttonContainer.style.marginTop = '12px';
+          buttonContainer.style.justifyContent = 'center';
+          buttonContainer.style.width = '100%';
+          buttonContainer.appendChild(maintenantBtn);
+          levelContent.appendChild(buttonContainer);
+          
           container.appendChild(levelCard);
         }catch(e){ /* ignore level rendering on welcome if error */ }
 
+        // Create main decks card first (will be appended after level card)
         const card = document.createElement('div'); card.className='card';
         const title = document.createElement('h2'); title.textContent = "Decks disponibles"; title.style.margin='6px 0 12px 0'; title.style.color='var(--muted)';
         card.appendChild(title);
@@ -4257,7 +4839,6 @@
         // compute limit: desktop -> 10; mobile -> depends on available vertical space
         function computeWelcomeLimit(){
           try{
-            if(window.innerWidth >= 641) return 10;
             const headerHeight = 66; // fixed header
             const reserved = headerHeight + 160; // approximate space for title and actions
             const rowH = 64; // estimated per-row height
@@ -4293,7 +4874,307 @@
           act.appendChild(badge); act.appendChild(b);
           row.appendChild(left); row.appendChild(act); list.appendChild(row);
         }
-        card.appendChild(list); container.appendChild(card);
+        card.appendChild(list);
+        
+        // Append main decks card right after level card
+        container.appendChild(card);
+
+        // Add missions card
+        try{
+          const missionsCard = document.createElement('div');
+          missionsCard.className = 'card missions-card';
+          missionsCard.style.marginBottom = '12px';
+          missionsCard.style.padding = '16px';
+          missionsCard.style.flexShrink = '0';
+          missionsCard.style.display = 'flex';
+          missionsCard.style.flexDirection = 'column';
+          missionsCard.style.maxHeight = '400px';
+          
+          const missionsTitle = document.createElement('h2');
+          missionsTitle.textContent = 'Missions Quotidiennes & Hebdomadaires';
+          missionsTitle.style.margin = '6px 0 12px 0';
+          missionsTitle.style.color = 'var(--muted)';
+          missionsCard.appendChild(missionsTitle);
+          
+          // Get missions
+          const dailyMissions = getMissions('daily');
+          const weeklyMissions = getMissions('weekly');
+          
+          // Create tabs for daily and weekly (tabs moved here, no rings above)
+          const tabContainer = document.createElement('div');
+          tabContainer.style.display = 'flex';
+          tabContainer.style.gap = '8px';
+          tabContainer.style.marginBottom = '12px';
+          
+          const dailyTab = document.createElement('button');
+          dailyTab.className = 'mission-tab active';
+          dailyTab.textContent = '📅 Quotidienne';
+          dailyTab.style.flex = '1';
+          dailyTab.style.padding = '8px';
+          dailyTab.style.borderRadius = '6px';
+          dailyTab.style.border = '1px solid rgba(0,0,0,0.06)';
+          dailyTab.style.background = 'var(--accent)';
+          dailyTab.style.color = 'white';
+          dailyTab.style.cursor = 'pointer';
+          
+          const weeklyTab = document.createElement('button');
+          weeklyTab.className = 'mission-tab';
+          weeklyTab.textContent = '📊 Hebdomadaire';
+          weeklyTab.style.flex = '1';
+          weeklyTab.style.padding = '8px';
+          weeklyTab.style.borderRadius = '6px';
+          weeklyTab.style.border = '1px solid rgba(0,0,0,0.06)';
+          weeklyTab.style.background = 'transparent';
+          weeklyTab.style.color = 'var(--fg)';
+          weeklyTab.style.cursor = 'pointer';
+          
+          tabContainer.appendChild(dailyTab);
+          tabContainer.appendChild(weeklyTab);
+          missionsCard.appendChild(tabContainer);
+          
+          const missionsContent = document.createElement('div');
+          missionsContent.className = 'missions-content';
+          missionsContent.id = 'missionsContent';
+          missionsContent.style.maxHeight = '300px';
+          missionsContent.style.overflowY = 'auto';
+          missionsContent.style.paddingRight = '8px';
+          
+          // Render daily missions by difficulty - one per difficulty with progress bar
+          const renderMissions = (missions, type) => {
+            missionsContent.innerHTML = '';
+            const colors = { easy: '#22c55e', medium: '#eab308', hard: '#ef4444' };
+            const stat = getMissionCompletionStats(type);
+            
+            // Calculate overall progress
+            const totalCompleted = stat.easy.completed + stat.medium.completed + stat.hard.completed;
+            const totalMissions = stat.easy.total + stat.medium.total + stat.hard.total;
+            const overallPct = totalMissions > 0 ? Math.round((totalCompleted / totalMissions) * 100) : 0;
+            
+            // Add overall progress bar AT TOP OF CONTENT
+            const progressBarContainer = document.createElement('div');
+            progressBarContainer.style.marginBottom = '12px';
+            progressBarContainer.style.display = 'flex';
+            progressBarContainer.style.alignItems = 'center';
+            progressBarContainer.style.gap = '8px';
+            
+            const progressLabel = document.createElement('div');
+            progressLabel.style.fontSize = '0.8rem';
+            progressLabel.style.fontWeight = '600';
+            progressLabel.style.color = 'var(--muted)';
+            progressLabel.textContent = 'Progression';
+            
+            const barWrapper = document.createElement('div');
+            barWrapper.style.flex = '1';
+            barWrapper.style.height = '8px';
+            barWrapper.style.background = '#eee';
+            barWrapper.style.borderRadius = '4px';
+            barWrapper.style.overflow = 'hidden';
+            
+            const barFill = document.createElement('div');
+            barFill.style.height = '100%';
+            barFill.style.width = overallPct + '%';
+            barFill.style.background = 'var(--accent)';
+            barFill.style.borderRadius = '4px';
+            barFill.style.transition = 'width 0.3s ease';
+            barWrapper.appendChild(barFill);
+            
+            const progressText = document.createElement('div');
+            progressText.style.fontSize = '0.75rem';
+            progressText.style.fontWeight = '600';
+            progressText.style.minWidth = '35px';
+            progressText.style.textAlign = 'right';
+            progressText.textContent = totalCompleted + '/' + totalMissions;
+            
+            progressBarContainer.appendChild(progressLabel);
+            progressBarContainer.appendChild(barWrapper);
+            progressBarContainer.appendChild(progressText);
+            missionsContent.appendChild(progressBarContainer);
+            
+            // Get or create persistent quest selection for the day/week
+            const selectionKey = 'fabanki:' + type + '_selected_missions';
+            let selectedIds = JSON.parse(localStorage.getItem(selectionKey) || 'null');
+            
+            if(!selectedIds){
+              // First time today/week - randomly select one per difficulty
+              selectedIds = { easy: null, medium: null, hard: null };
+              for(const difficulty of ['easy', 'medium', 'hard']){
+                const diffMissions = missions.filter(m => m.difficulty === difficulty);
+                if(diffMissions.length > 0){
+                  const selected = diffMissions[Math.floor(Math.random() * diffMissions.length)];
+                  selectedIds[difficulty] = selected.id;
+                }
+              }
+              localStorage.setItem(selectionKey, JSON.stringify(selectedIds));
+            }
+            
+            for(const difficulty of ['easy', 'medium', 'hard']){
+              const diffMissions = missions.filter(m => m.difficulty === difficulty);
+              if(diffMissions.length === 0) continue;
+              
+              // Use the pre-selected mission for this difficulty
+              const mission = diffMissions.find(m => m.id === selectedIds[difficulty]) || diffMissions[0];
+              const diffStat = stat[difficulty];
+              
+              const missionEl = document.createElement('div');
+              missionEl.style.padding = '8px';
+              missionEl.style.background = 'rgba(0,0,0,0.02)';
+              missionEl.style.borderRadius = '6px';
+              missionEl.style.marginBottom = '8px';
+              missionEl.style.fontSize = '0.85rem';
+              
+              // Check if mission is completed
+              if(mission.completed){
+                missionEl.innerHTML = `<div style="color:#22c55e;font-weight:600;text-align:center">✅ Quête remplie</div>`;
+              } else {
+                missionEl.style.display = 'flex';
+                missionEl.style.gap = '10px';
+                missionEl.style.alignItems = 'center';
+                
+                const content = document.createElement('div');
+                content.style.flex = '1';
+                const nameEl = document.createElement('div');
+                nameEl.style.fontWeight = '600';
+                nameEl.style.marginBottom = '6px';
+                nameEl.textContent = mission.name;
+                
+                // Individual mission progress bar
+                const missionProgress = mission.progress || 0;
+                const missionGoal = mission.goal || 100;
+                const missionPct = Math.min(100, Math.round((missionProgress / missionGoal) * 100));
+                
+                const progressBarWrapper = document.createElement('div');
+                progressBarWrapper.style.marginBottom = '4px';
+                const progressBar = document.createElement('div');
+                progressBar.style.height = '6px';
+                progressBar.style.background = '#eee';
+                progressBar.style.borderRadius = '3px';
+                progressBar.style.overflow = 'hidden';
+                const progressFill = document.createElement('div');
+                progressFill.style.height = '100%';
+                progressFill.style.width = missionPct + '%';
+                progressFill.style.background = colors[difficulty];
+                progressFill.style.borderRadius = '3px';
+                progressBar.appendChild(progressFill);
+                progressBarWrapper.appendChild(progressBar);
+                
+                const rewardEl = document.createElement('div');
+                rewardEl.style.color = 'var(--muted)';
+                rewardEl.style.fontSize = '0.75rem';
+                rewardEl.innerHTML = `${missionProgress}/${missionGoal} • +${mission.reward.xp} XP, +${mission.reward.credits} 💳`;
+                
+                content.appendChild(nameEl);
+                content.appendChild(progressBarWrapper);
+                content.appendChild(rewardEl);
+                
+                missionEl.appendChild(content);
+              }
+              
+              missionsContent.appendChild(missionEl);
+            }
+          };
+          
+          dailyTab.addEventListener('click', () => {
+            dailyTab.style.background = 'var(--accent)';
+            dailyTab.style.color = 'white';
+            weeklyTab.style.background = 'transparent';
+            weeklyTab.style.color = 'var(--fg)';
+            renderMissions(dailyMissions, 'daily');
+          });
+          
+          weeklyTab.addEventListener('click', () => {
+            weeklyTab.style.background = 'var(--accent)';
+            weeklyTab.style.color = 'white';
+            dailyTab.style.background = 'transparent';
+            dailyTab.style.color = 'var(--fg)';
+            renderMissions(weeklyMissions, 'weekly');
+          });
+          
+          renderMissions(dailyMissions, 'daily');
+          missionsCard.appendChild(missionsContent);
+          
+          container.appendChild(missionsCard);
+        }catch(e){ console.warn('missions card error:', e) }
+
+        // Add last recently added deck card (if tagged to display)
+        try{
+          const manifestRes = await fetch('./decks/manifest.json?v=' + Date.now());
+          let manifestData = [];
+          if(manifestRes && manifestRes.ok){
+            manifestData = await manifestRes.json();
+          }
+          
+          // Find decks with "featured" or "last" tag to display
+          let deckToDisplay = null;
+          for(const item of manifestData){
+            const itemPath = typeof item === 'string' ? item : item.path;
+            const itemTags = typeof item === 'string' ? [] : (item.tags || []);
+            if(itemTags.includes('featured') || itemTags.includes('last')){
+              deckToDisplay = itemPath;
+              break;
+            }
+          }
+          
+          if(deckToDisplay){
+            const lastDeckFile = deckToDisplay;
+            const lastDeckName = decodeURIComponent(lastDeckFile.replace(/\+/g,'')).replace(/\.xml$/i,'');
+            const lastDeckUrl = './decks/' + lastDeckFile;
+            const lastDeckCount = await countDueNowForDeck(lastDeckUrl);
+            
+            const lastCard = document.createElement('div');
+            lastCard.className = 'card';
+            lastCard.id = 'featuredDeckCard';
+            lastCard.style.marginBottom = '12px';
+            lastCard.style.padding = '16px';
+            lastCard.style.display = 'flex';
+            lastCard.style.flexDirection = 'column';
+            lastCard.style.height = 'auto';
+            
+            const lastTitle = document.createElement('h2');
+            lastTitle.textContent = '✨ Nouveaux decks ajoutés';
+            lastTitle.style.margin = '6px 0 12px 0';
+            lastTitle.style.color = 'var(--muted)';
+            lastCard.appendChild(lastTitle);
+            
+            const lastRow = document.createElement('div');
+            lastRow.style.display = 'flex';
+            lastRow.style.justifyContent = 'space-between';
+            lastRow.style.alignItems = 'center';
+            lastRow.style.gap = '8px';
+            
+            const lastLeft = document.createElement('div');
+            lastLeft.style.display = 'flex';
+            lastLeft.style.alignItems = 'center';
+            lastLeft.style.gap = '12px';
+            
+            const lastNm = document.createElement('div');
+            lastNm.textContent = lastDeckName;
+            lastNm.style.fontWeight = '600';
+            lastNm.style.fontSize = '1.1rem';
+            lastLeft.appendChild(lastNm);
+            
+            const lastAct = document.createElement('div');
+            lastAct.style.display = 'flex';
+            lastAct.style.alignItems = 'center';
+            lastAct.style.gap = '8px';
+            
+            const lastBadge = document.createElement('span');
+            lastBadge.className = 'due-badge';
+            lastBadge.innerHTML = `<div class="due-num">${lastDeckCount>0? lastDeckCount : ''}</div><div class="due-label" style="display:${lastDeckCount>0?'block':'none'}">à faire</div>`;
+            
+            const lastBtn = document.createElement('button');
+            lastBtn.className = 'secondary';
+            lastBtn.textContent = (window.innerWidth <= 640) ? '📂' : 'Charger';
+            lastBtn.addEventListener('click', async ()=>{ await removeWelcome(); loadDeckFromURL(lastDeckUrl); deckURL = lastDeckUrl; });
+            
+            lastAct.appendChild(lastBadge);
+            lastAct.appendChild(lastBtn);
+            lastRow.appendChild(lastLeft);
+            lastRow.appendChild(lastAct);
+            lastCard.appendChild(lastRow);
+            container.appendChild(lastCard);
+          }
+        }catch(e){ console.warn('featured deck card error:', e) }
+        
         const host = document.querySelector('.app') || document.body;
         const footer = host.querySelector('footer') || document.querySelector('footer') || null;
         if(footer) host.insertBefore(container, footer);
@@ -4303,7 +5184,456 @@
 
     if(pdeck){ deckURL = pdeck; loadDeckFromURL(pdeck); }
     else { renderWelcomeDecks(); }
+    
+    // Show onboarding for first-time users
+    setTimeout(() => {
+      if(!localStorage.getItem('fabanki:onboarding_completed')){
+        showOnboarding();
+      }
+    }, 500);
   });
+  
+  // --- ONBOARDING SYSTEM ---
+  function showOnboarding(){
+    try{
+      if(document.getElementById('onboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: 'Bienvenue sur Fab\'Anki !',
+          text: 'Fab\'Anki est votre compagnon d\'apprentissage intelligent. Découvrez comment maximiser votre révision avec notre système de répétition espacée.',
+          position: 'center'
+        },
+        {
+          title: 'Choisissez un deck',
+          text: 'Commencez par sélectionner un deck à réviser. Le nombre en rouge indique les cartes à faire aujourd\'hui.',
+          target: '#featuredDeckCard',
+          position: 'top'
+        },
+        {
+          title: 'Complétez vos missions',
+          text: 'Gagnez des XP et des crédits en complétant vos missions quotidiennes et hebdomadaires. Les barres de progression se mettent à jour automatiquement !',
+          target: '.missions-card',
+          position: 'top'
+        },
+        {
+          title: 'Consultez votre profil',
+          text: 'Cliquez sur votre niveau pour voir vos statistiques, titres, et accéder aux options de personnalisation.',
+          target: '.level-summary',
+          position: 'bottom'
+        },
+        {
+          title: 'Personnalisez l\'interface',
+          text: 'Dans le profil, utilisez le bouton ⚙️ pour changer les couleurs, animations et polices. Débloquez plus d\'options en montant de niveau !',
+          position: 'center'
+        },
+        {
+          title: 'C\'est parti !',
+          text: 'Vous êtes prêt à commencer ! Choisissez un deck et lancez-vous dans vos révisions. Bon courage ! 💪',
+          position: 'center'
+        }
+      ];
+      
+      let currentStep = 0;
+      
+      const overlay = document.createElement('div');
+      overlay.id = 'onboardingOverlay';
+      overlay.style.position = 'fixed';
+      overlay.style.top = '0';
+      overlay.style.left = '0';
+      overlay.style.right = '0';
+      overlay.style.bottom = '0';
+      overlay.style.background = 'rgba(0, 0, 0, 0.6)';
+      overlay.style.zIndex = '10000';
+      overlay.style.display = 'flex';
+      overlay.style.alignItems = 'flex-start';
+      overlay.style.justifyContent = 'center';
+      overlay.style.paddingTop = '20px';
+      overlay.style.overflowY = 'auto';
+      
+      const tooltip = document.createElement('div');
+      tooltip.style.background = 'var(--card)';
+      tooltip.style.color = 'var(--fg)';
+      tooltip.style.padding = '24px';
+      tooltip.style.borderRadius = '12px';
+      tooltip.style.maxWidth = '500px';
+      tooltip.style.width = '90%';
+      tooltip.style.boxShadow = '0 10px 40px rgba(0,0,0,0.3)';
+      tooltip.style.position = 'relative';
+      tooltip.style.animation = 'fadeIn 0.3s ease-out';
+      tooltip.style.margin = 'auto';
+      tooltip.style.flexShrink = '0';
+      
+      const renderStep = () => {
+        const step = steps[currentStep];
+        tooltip.innerHTML = '';
+        
+        const title = document.createElement('h3');
+        title.textContent = step.title;
+        title.style.margin = '0 0 12px 0';
+        title.style.fontSize = '1.3rem';
+        title.style.color = 'var(--accent)';
+        tooltip.appendChild(title);
+        
+        const text = document.createElement('p');
+        text.textContent = step.text;
+        text.style.margin = '0 0 20px 0';
+        text.style.lineHeight = '1.6';
+        text.style.color = 'var(--fg)';
+        tooltip.appendChild(text);
+        
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.justifyContent = 'space-between';
+        actions.style.alignItems = 'center';
+        actions.style.gap = '12px';
+        
+        const progress = document.createElement('div');
+        progress.textContent = `${currentStep + 1} / ${steps.length}`;
+        progress.style.fontSize = '0.85rem';
+        progress.style.color = 'var(--muted)';
+        actions.appendChild(progress);
+        
+        const btnGroup = document.createElement('div');
+        btnGroup.style.display = 'flex';
+        btnGroup.style.gap = '8px';
+        
+        if(currentStep > 0){
+          const prevBtn = document.createElement('button');
+          prevBtn.className = 'secondary';
+          prevBtn.textContent = '← Précédent';
+          prevBtn.addEventListener('click', () => {
+            currentStep--;
+            renderStep();
+          });
+          btnGroup.appendChild(prevBtn);
+        }
+        
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'secondary';
+        skipBtn.textContent = 'Passer';
+        skipBtn.addEventListener('click', () => {
+          localStorage.setItem('fabanki:onboarding_completed', 'true');
+          overlay.remove();
+        });
+        btnGroup.appendChild(skipBtn);
+        
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = currentStep === steps.length - 1 ? 'Terminer ✓' : 'Suivant →';
+        nextBtn.addEventListener('click', () => {
+          if(currentStep === steps.length - 1){
+            localStorage.setItem('fabanki:onboarding_completed', 'true');
+            overlay.remove();
+          } else {
+            currentStep++;
+            renderStep();
+          }
+        });
+        btnGroup.appendChild(nextBtn);
+        
+        actions.appendChild(btnGroup);
+        tooltip.appendChild(actions);
+        
+        // Position tooltip based on target
+        if(step.target){
+          const target = document.querySelector(step.target);
+          if(target){
+            // Scroll target into view smoothly
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Wait a bit for scroll to complete before positioning tooltip
+            setTimeout(() => {
+              const rect = target.getBoundingClientRect();
+              tooltip.style.position = 'absolute';
+              
+              if(step.position === 'bottom'){
+                tooltip.style.top = (rect.bottom + 20) + 'px';
+                tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                tooltip.style.transform = 'translateX(-50%)';
+              } else if(step.position === 'top'){
+                tooltip.style.top = (rect.top - 20) + 'px';
+                tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                tooltip.style.transform = 'translate(-50%, -100%)';
+              }
+            }, 300);
+            
+            // Highlight target element
+            target.style.position = 'relative';
+            target.style.zIndex = '10001';
+            target.style.boxShadow = '0 0 0 4px var(--accent)';
+            target.style.borderRadius = '8px';
+            
+            // Remove highlight from previous target
+            document.querySelectorAll('[data-onboarding-highlight]').forEach(el => {
+              el.style.boxShadow = '';
+              el.style.zIndex = '';
+              el.removeAttribute('data-onboarding-highlight');
+            });
+            target.setAttribute('data-onboarding-highlight', 'true');
+          }
+        } else {
+          // Center position
+          tooltip.style.position = 'relative';
+          tooltip.style.transform = 'none';
+          tooltip.style.top = 'auto';
+          tooltip.style.left = 'auto';
+        }
+      };
+      
+      overlay.appendChild(tooltip);
+      document.body.appendChild(overlay);
+      renderStep();
+      
+      // Clean up highlights on close
+      overlay.addEventListener('remove', () => {
+        document.querySelectorAll('[data-onboarding-highlight]').forEach(el => {
+          el.style.boxShadow = '';
+          el.style.zIndex = '';
+          el.removeAttribute('data-onboarding-highlight');
+        });
+      });
+      
+    }catch(e){ console.warn('onboarding error:', e) }
+  }
+  
+  // --- CONTEXTUAL ONBOARDING FOR PROFILE ---
+  function showProfileOnboarding(){
+    try{
+      if(localStorage.getItem('fabanki:profile_onboarding_completed')) return;
+      if(document.getElementById('onboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: '📊 Votre profil',
+          text: 'Ici vous pouvez voir toutes vos statistiques : cartes révisées, XP total, et jours consécutifs d\'étude.',
+          position: 'center'
+        },
+        {
+          title: '🏆 Classement',
+          text: 'Comparez-vous avec d\'autres utilisateurs et montez dans le classement en gagnant des points MPSI.',
+          position: 'center'
+        },
+        {
+          title: '🎖️ Titres et objectifs',
+          text: 'Débloquez des titres prestigieux en accomplissant des objectifs spécifiques. Chaque titre a plusieurs niveaux !',
+          position: 'center'
+        },
+        {
+          title: '🎨 Personnalisation',
+          text: 'Cliquez sur ⚙️ pour personnaliser les couleurs, polices et animations. Plus vous montez de niveau, plus vous débloquez d\'options !',
+          position: 'center'
+        }
+      ];
+      
+      createContextualOnboarding(steps, 'fabanki:profile_onboarding_completed');
+    }catch(e){ console.warn('profile onboarding error:', e) }
+  }
+  
+  // --- CONTEXTUAL ONBOARDING FOR DECK BROWSER ---
+  function showBrowseOnboarding(){
+    try{
+      if(localStorage.getItem('fabanki:browse_onboarding_completed')) return;
+      if(document.getElementById('onboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: '📚 Parcourir les decks',
+          text: 'Explorez tous vos decks disponibles. Vous pouvez naviguer dans les dossiers et charger n\'importe quel deck.',
+          position: 'center'
+        },
+        {
+          title: '🔍 Organisation',
+          text: 'Les decks sont organisés par matière : Maths, Physique, Anglais, etc. Cliquez sur un dossier pour voir son contenu.',
+          position: 'center'
+        },
+        {
+          title: '📂 Chargement rapide',
+          text: 'Cliquez sur un deck pour le charger directement et commencer à réviser !',
+          position: 'center'
+        }
+      ];
+      
+      createContextualOnboarding(steps, 'fabanki:browse_onboarding_completed');
+    }catch(e){ console.warn('browse onboarding error:', e) }
+  }
+  
+  // --- CONTEXTUAL ONBOARDING FOR OVERVIEW PAGE ---
+  function showOverviewOnboarding(){
+    try{
+      if(localStorage.getItem('fabanki:overview_onboarding_completed')) return;
+      if(document.getElementById('onboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: '📋 Vue d\'ensemble',
+          text: 'Cette page vous montre un aperçu complet de votre deck avant de commencer la révision.',
+          position: 'center'
+        },
+        {
+          title: '🎯 Statistiques du deck',
+          text: 'Voyez combien de cartes vous avez maîtrisées, en apprentissage, ou à réviser. Le graphique montre votre progression.',
+          position: 'center'
+        },
+        {
+          title: '🎴 Aperçu des cartes',
+          text: 'Toutes vos cartes sont affichées avec leur statut. Les nouvelles cartes sont en gris, celles à réviser en couleur.',
+          position: 'center'
+        },
+        {
+          title: '▶️ Commencer',
+          text: 'Cliquez sur "Commencer" pour lancer votre session de révision !',
+          position: 'center'
+        }
+      ];
+      
+      createContextualOnboarding(steps, 'fabanki:overview_onboarding_completed');
+    }catch(e){ console.warn('overview onboarding error:', e) }
+  }
+  
+  // --- CONTEXTUAL ONBOARDING FOR REVIEW PAGE ---
+  function showReviewOnboarding(){
+    try{
+      if(localStorage.getItem('fabanki:review_onboarding_completed')) return;
+      if(document.getElementById('onboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: '🎴 Session de révision',
+          text: 'Vous êtes en mode révision ! Lisez la question et essayez de répondre avant de cliquer sur "Montrer la réponse".',
+          position: 'center'
+        },
+        {
+          title: '⏱️ Répétition espacée',
+          text: 'Fab\'Anki utilise un algorithme intelligent (FSRS) pour déterminer quand vous devez réviser chaque carte. Plus vous répondez correctement, plus l\'intervalle augmente.',
+          position: 'center'
+        },
+        {
+          title: '✅ Évaluez-vous honnêtement',
+          text: 'Après avoir vu la réponse, choisissez : Raté (rouge), Difficile (orange), Bon (vert), ou Facile (bleu). Soyez honnête pour un apprentissage optimal !',
+          position: 'center'
+        },
+        {
+          title: '⌨️ Raccourcis clavier',
+          text: 'Gagnez du temps : Espace = Montrer réponse, 1/2/3/4 = Raté/Difficile/Bon/Facile. Vous pouvez aussi utiliser les flèches.',
+          position: 'center'
+        },
+        {
+          title: '🎯 Objectif',
+          text: 'Révisez régulièrement pour maximiser votre mémorisation. Chaque carte correcte vous rapporte des XP et fait progresser vos missions !',
+          position: 'center'
+        }
+      ];
+      
+      createContextualOnboarding(steps, 'fabanki:review_onboarding_completed');
+    }catch(e){ console.warn('review onboarding error:', e) }
+  }
+  
+  // --- GENERIC CONTEXTUAL ONBOARDING CREATOR ---
+  function createContextualOnboarding(steps, completionFlag){
+    try{
+      let currentStep = 0;
+      
+      const overlay = document.createElement('div');
+      overlay.id = 'onboardingOverlay';
+      overlay.style.position = 'fixed';
+      overlay.style.top = '0';
+      overlay.style.left = '0';
+      overlay.style.right = '0';
+      overlay.style.bottom = '0';
+      overlay.style.background = 'rgba(0, 0, 0, 0.6)';
+      overlay.style.zIndex = '10000';
+      overlay.style.display = 'flex';
+      overlay.style.alignItems = 'center';
+      overlay.style.justifyContent = 'center';
+      
+      const tooltip = document.createElement('div');
+      tooltip.style.background = 'var(--card)';
+      tooltip.style.color = 'var(--fg)';
+      tooltip.style.padding = '24px';
+      tooltip.style.borderRadius = '12px';
+      tooltip.style.maxWidth = '500px';
+      tooltip.style.width = '90%';
+      tooltip.style.boxShadow = '0 10px 40px rgba(0,0,0,0.3)';
+      tooltip.style.position = 'relative';
+      tooltip.style.animation = 'fadeIn 0.3s ease-out';
+      
+      const renderStep = () => {
+        const step = steps[currentStep];
+        tooltip.innerHTML = '';
+        
+        const title = document.createElement('h3');
+        title.textContent = step.title;
+        title.style.margin = '0 0 12px 0';
+        title.style.fontSize = '1.3rem';
+        title.style.color = 'var(--accent)';
+        tooltip.appendChild(title);
+        
+        const text = document.createElement('p');
+        text.textContent = step.text;
+        text.style.margin = '0 0 20px 0';
+        text.style.lineHeight = '1.6';
+        text.style.color = 'var(--fg)';
+        tooltip.appendChild(text);
+        
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.justifyContent = 'space-between';
+        actions.style.alignItems = 'center';
+        actions.style.gap = '12px';
+        
+        const progress = document.createElement('div');
+        progress.textContent = `${currentStep + 1} / ${steps.length}`;
+        progress.style.fontSize = '0.85rem';
+        progress.style.color = 'var(--muted)';
+        actions.appendChild(progress);
+        
+        const btnGroup = document.createElement('div');
+        btnGroup.style.display = 'flex';
+        btnGroup.style.gap = '8px';
+        
+        if(currentStep > 0){
+          const prevBtn = document.createElement('button');
+          prevBtn.className = 'secondary';
+          prevBtn.textContent = '← Précédent';
+          prevBtn.addEventListener('click', () => {
+            currentStep--;
+            renderStep();
+          });
+          btnGroup.appendChild(prevBtn);
+        }
+        
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'secondary';
+        skipBtn.textContent = 'Passer';
+        skipBtn.addEventListener('click', () => {
+          localStorage.setItem(completionFlag, 'true');
+          overlay.remove();
+        });
+        btnGroup.appendChild(skipBtn);
+        
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = currentStep === steps.length - 1 ? 'Compris ✓' : 'Suivant →';
+        nextBtn.addEventListener('click', () => {
+          if(currentStep === steps.length - 1){
+            localStorage.setItem(completionFlag, 'true');
+            overlay.remove();
+          } else {
+            currentStep++;
+            renderStep();
+          }
+        });
+        btnGroup.appendChild(nextBtn);
+        
+        actions.appendChild(btnGroup);
+        tooltip.appendChild(actions);
+      };
+      
+      overlay.appendChild(tooltip);
+      document.body.appendChild(overlay);
+      renderStep();
+      
+    }catch(e){ console.warn('contextual onboarding error:', e) }
+  }
 
   // Expose functions as required (so they're available globally)
   window.loadDeckFromURL = loadDeckFromURL;
