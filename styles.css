@@ -1,0 +1,709 @@
+:root{--bg:#f6f7fb;--fg:#111;--card:#fff;--muted:#666;--accent:#0066ff;--font:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;--font-size:1rem}
+
+[data-theme='dark']{--bg:#0f1115;--fg:#e6eef8;--card:#111319;--muted:#9aa4b2;--accent:#66a0ff}
+
+*{box-sizing:border-box}
+
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:var(--font-size)}
+
+.app{max-width:900px;margin:18px auto;padding:18px}
+
+header{display:flex;gap:8px;align-items:center;justify-content:space-between}
+
+h1{font-size:1rem;margin:0}
+
+.controls{display:flex;gap:8px;align-items:center}
+
+.deck-input{width:420px;max-width:40vw}
+
+.card{background:var(--card);border-radius:10px;padding:20px;box-shadow:0 6px 20px rgba(2,6,23,0.08);min-height:220px;display:flex;flex-direction:column;gap:12px}
+
+.card-content{flex:1;overflow:auto}
+
+.meta{font-size:0.9rem;color:var(--muted)}
+
+.buttons{display:flex;gap:8px;flex-wrap:wrap}
+
+button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+
+button.secondary{background:transparent;color:var(--fg);border:1px solid rgba(0,0,0,0.06)}
+
+.resp-buttons{display:flex;gap:8px}
+
+.resp-buttons button{flex:1}
+
+.progress{height:8px;background:linear-gradient(90deg,#e6eef8 0%,#e6eef8 100%);border-radius:8px;overflow:hidden}
+
+.progress > i{display:block;height:100%;background:var(--accent);width:0%}
+
+.small{font-size:0.9rem}
+
+.muted{color:var(--muted)}
+
+footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+
+@media (max-width:640px){.deck-input{width:100%}}
+
+/* Popup animations by level */
+
+@keyframes popupFade { from{opacity:0;transform:scale(0.9)} to{opacity:1;transform:scale(1)} }
+
+@keyframes popupSlideDown { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+
+@keyframes popupSlideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+@keyframes popupBounce { 0%{transform:scale(0.95)} 50%{transform:scale(1.02)} 100%{transform:scale(1)} }
+
+@keyframes popupRotate { from{opacity:0;transform:rotate(-5deg) scale(0.9)} to{opacity:1;transform:rotate(0) scale(1)} }
+
+@keyframes popupSpring { 0%{transform:scale(0.8)} 60%{transform:scale(1.1)} 100%{transform:scale(1)} }
+
+@keyframes popupZoom { from{opacity:0;transform:scale(0)} to{opacity:1;transform:scale(1)} }
+
+@keyframes popupFlip { from{opacity:0;transform:perspective(400px) rotateY(90deg)} to{opacity:1;transform:perspective(400px) rotateY(0)} }
+
+@keyframes popupPulse { 0%{transform:scale(1)} 50%{transform:scale(1.05)} 100%{transform:scale(1)} }
+
+@keyframes popupWobble { 0%{transform:translateX(0)} 15%{transform:translateX(-5px) rotate(-2deg)} 30%{transform:translateX(5px) rotate(2deg)} 45%{transform:translateX(-5px) rotate(-2deg)} 60%{transform:translateX(3px) rotate(1deg)} 75%{transform:translateX(-2px)} 100%{transform:translateX(0)} }
+
+@keyframes popupShake { 0%{transform:translateX(0)} 10%{transform:translateX(-3px)} 20%{transform:translateX(3px)} 30%{transform:translateX(-3px)} 40%{transform:translateX(3px)} 50%{transform:translateX(-2px)} 60%{transform:translateX(2px)} 100%{transform:translateX(0)} }
+
+.modal[data-animation='fade']{animation:popupFade 0.3s ease-out}
+
+.modal[data-animation='slidedown']{animation:popupSlideDown 0.4s ease-out}
+
+.modal[data-animation='slideup']{animation:popupSlideUp 0.4s ease-out}
+
+.modal[data-animation='bounce']{animation:popupBounce 0.5s ease-out}
+
+.modal[data-animation='rotate']{animation:popupRotate 0.4s ease-out}
+
+.modal[data-animation='spring']{animation:popupSpring 0.5s cubic-bezier(0.34,1.56,0.64,1)}
+
+
+
+/* Toast animations */
+
+@keyframes toastSlideIn { from{opacity:0;transform:translateX(100%)} to{opacity:1;transform:translateX(0)} }
+
+@keyframes toastPop { 0%{opacity:0;transform:scale(0.8)} 50%{transform:scale(1.1)} 100%{opacity:1;transform:scale(1)} }
+
+@keyframes toastFade { from{opacity:0} to{opacity:1} }
+
+.xp-toast{animation:toastPop 0.45s ease both}
+
+.level-up-notify{animation:popupSlideDown 0.5s ease-out}
+
+
+
+/* Notification animations */
+
+@keyframes notificationSlide { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+
+@keyframes statusPulse { 0%{opacity:1} 50%{opacity:0.7} 100%{opacity:1} }
+
+
+
+/* Overlay animations */
+
+.modal-overlay.open{animation:fadeIn 0.2s ease-out}
+
+.customization-overlay{animation:fadeIn 0.2s ease-out}
+
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+
+
+/* Dark theme card styles */
+
+[data-theme='dark'] .card{background-image:var(--card-pattern, none);background-color:var(--card);color:var(--fg)}
+
+
+
+/* Super transparent card patterns (50% transparency of regular patterns) */
+
+.card-pattern-dots { background-image: radial-gradient(circle, rgba(0,0,0,0.025) 1px, transparent 1px); background-attachment: fixed }
+
+.card-pattern-grid { background-image: linear-gradient(0deg, rgba(0,0,0,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.015) 1px, transparent 1px); background-attachment: fixed }
+
+.card-pattern-stripes { background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.01) 10px, rgba(0,0,0,0.01) 20px); background-attachment: fixed }
+
+.card-pattern-zigzag { background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.015) 0px, rgba(0,0,0,0.015) 2px, transparent 2px, transparent 8px); background-attachment: fixed }
+
+.card-pattern-waves { background-image: repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.01) 0, rgba(0,0,0,0.01) 2px, transparent 2px, transparent 40px); background-attachment: fixed }
+
+/* Make KaTeX output wrap responsively instead of forcing no-wrap */
+
+.katex{white-space:normal;word-break:break-word;overflow-wrap:anywhere}
+
+.katex .katex-html{white-space:normal}
+
+.katex .katex-mathml{white-space:normal}
+
+.katex-display{display:block; margin:0.6em 0}
+
+/* Dark theme detailed overrides */
+
+[data-theme='dark'] body{background:var(--bg);color:var(--fg)}
+
+[data-theme='dark'] .card{background:var(--card);color:var(--fg);box-shadow:0 6px 24px rgba(0,0,0,0.6)}
+
+[data-theme='dark'] header, [data-theme='dark'] footer{color:var(--muted)}
+
+[data-theme='dark'] input.deck-input{background:#0f1115;border:1px solid rgba(255,255,255,0.06);color:var(--fg)}
+
+[data-theme='dark'] button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--fg)}
+
+[data-theme='dark'] .muted{color:var(--muted)}
+
+[data-theme='dark'] .progress{background:#1b1d22}
+
+[data-theme='dark'] .progress > i{background:linear-gradient(90deg,#6f8cff,#b9bfff)}
+
+[data-theme='dark'] .hist-hint-box{background:#2b1a1a;border-left:4px solid #ff6b6b;color:#ffdede}
+
+/* Rating button colors (override in dark) */
+
+.rate-ratte{background:#d9534f}
+
+.rate-difficile{background:#f0ad4e}
+
+.rate-bon{background:#007bff}
+
+.rate-facile{background:#28a745}
+
+/* CSS variable for iOS viewport fix */
+
+:root { --vh: 1vh; }
+
+
+
+/* Histogram styles */
+
+.histogram{display:flex;gap:12px;margin-top:18px;align-items:flex-end}
+
+.hist-column{flex:1;display:flex;flex-direction:column;align-items:center}
+
+.hist-count{font-weight:600;margin-bottom:6px;color:var(--muted)}
+
+.hist-viewport{width:100%;height:120px;background:transparent;display:flex;align-items:flex-end;justify-content:center}
+
+.hist-fill{width:70%;border-radius:6px 6px 0 0;box-shadow:inset 0 -4px 8px rgba(0,0,0,0.06)}
+
+.hist-label{font-size:0.85rem;margin-top:8px;text-align:center;color:var(--muted)}
+
+.hist-count{width:100%;text-align:center}
+
+
+
+/* Deck browser modal */
+
+.modal-overlay{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,0.4);display:none;align-items:flex-start;padding:48px;z-index:1000}
+
+.modal{background:var(--card);color:var(--fg);border-radius:12px;max-width:900px;width:100%;margin:0 auto;padding:12px;box-shadow:0 10px 40px rgba(0,0,0,0.25);}
+
+.modal{transform:translateY(-6px) scale(0.99);opacity:0;transition:transform .18s ease,opacity .18s ease}
+
+.modal.open{transform:translateY(0) scale(1);opacity:1}
+
+.tooltip{position:fixed;background:var(--card);color:var(--fg);padding:8px 10px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.12);font-size:0.9rem;z-index:1100}
+
+.modal h3{margin:6px 0}
+
+.deck-list{max-height:60vh;overflow:auto;padding:6px}
+
+.deck-entry{padding:8px;border-radius:8px;display:flex;justify-content:space-between;align-items:center}
+
+.deck-entry:hover{background:rgba(0,0,0,0.03)}
+
+
+
+/* Mobile full-screen card and swipe-to-show histogram */
+
+@media (max-width:640px){
+
+  body,html{height:100%;overflow:hidden}
+
+  .app{max-width:100%;margin:0;padding:0;padding-top:66px;padding-left:12px;padding-right:12px}
+
+  header{position:fixed;top:0;left:0;right:0;height:56px;padding:0 8px;display:flex;align-items:center;justify-content:space-around;background:var(--card);box-shadow:0 6px 18px rgba(0,0,0,0.08);z-index:60}
+
+  h1{font-size:1rem;margin:0;text-align:center}
+
+  /* reduce height using --vh variable to account for iOS search bar (iOS 17+) */
+
+  .card{border-radius:0;min-height:calc(var(--vh, 1vh)*100 - 120px);padding:12px;display:flex;flex-direction:column;max-width:calc(100% - 24px);margin:0 auto}
+
+  section#stats{display:none}
+
+  section#stats.visible{display:block;position:fixed;left:0;right:0;top:0;bottom:0;padding:12px;z-index:999;overflow:auto}
+
+  .hist-viewport{height:140px}
+
+  .hist-fill{width:40%}
+
+  .hist-count{width:100%;text-align:center}
+
+  /* Larger, centered card text and buttons */
+
+  /* center main content both horizontally and vertically */
+
+  .card-content{display:flex;align-items:center;justify-content:center;text-align:center;font-size:1.05rem;padding:12px 6px 6px 6px;min-height:40vh}
+
+  /* keep response buttons on a single line and compact */
+
+  .resp-buttons{flex-wrap:nowrap;gap:6px;overflow:auto}
+
+  .resp-buttons button{flex:0 1 auto;padding:8px 8px;font-size:0.92rem;min-width:56px}
+
+  .buttons button{font-size:1.0rem;padding:8px 12px}
+
+  /* make passer smaller on mobile so it doesn't force layout */
+
+  .resp-buttons #passer{min-width:56px;padding:8px 8px;font-size:0.9rem}
+
+}
+
+/* Rating button colors */
+
+.rate-ratte{background:#d9534f}
+
+.rate-difficile{background:#f0ad4e}
+
+.rate-bon{background:#007bff}
+
+.rate-facile{background:#28a745}
+
+/* Passer button: outlined, keep to the right of easy and don't flex-grow */
+
+.resp-buttons #passer{flex:0 0 auto;min-width:84px;padding:10px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:transparent;color:var(--fg)}
+
+/* Hide histogram toggle on desktop; show only on mobile */
+
+#toggleStats{display:none}
+
+/* Close button for mobile stats (hidden by default) */
+
+#closeStatsMobile{display:none}
+
+/* Desktop uniform button/card sizes */
+
+@media (min-width:641px){
+
+  .buttons button, .resp-buttons button, button.secondary{min-width:120px;padding:10px 14px}
+
+  /* Standardize top-bar buttons on desktop */
+
+  header .controls button{min-width:120px;padding:10px 14px}
+
+  .card{min-height:260px}
+
+  /* Disable page scrolling on desktop */
+
+  body{overflow:hidden}
+
+}
+
+
+
+/* Center front content on desktop */
+
+@media (min-width:641px){
+
+  .card-content > #front{display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center}
+
+}
+
+/* Mobile-specific rules */
+
+@media (max-width:640px){
+
+  #toggleStats{display:inline-block}
+
+  #closeStatsMobile{display:inline-block}
+
+  /* Prevent scrolling on mobile - fit to viewport */
+
+  html, body {
+
+    height: 100%;
+
+    overflow: hidden;
+
+    position: fixed;
+
+    width: 100%;
+
+  }
+
+  body {
+
+    top: 0;
+
+    left: 0;
+
+  }
+
+  /* Hide footer on mobile to save space */
+
+  footer{display:none}
+
+  /* Histogram vertical layout on mobile */
+
+  .histogram{flex-direction:column;align-items:stretch}
+
+  .hist-column{flex-direction:row;align-items:center;justify-content:space-between;padding:8px 6px}
+
+  .hist-viewport{width:60%;height:24px}
+
+  .hist-fill{height:100%;width:0%;border-radius:6px}
+
+  .hist-count{width:30%;text-align:left;margin-right:6px}
+
+  .hist-label{width:40%;text-align:right}
+
+  /* Footer stacked vertically on mobile */
+
+  footer{flex-direction:column;align-items:center;gap:6px}
+
+}
+
+/* Make deck browser modal full-screen on mobile like the stats overlay */
+
+@media (max-width:640px){
+
+  .modal-overlay{padding:0;align-items:flex-start}
+
+  .modal-overlay[aria-hidden="false"]{display:flex}
+
+  .modal{border-radius:0;max-width:100%;height:100vh;width:100%;margin:0;padding:12px;padding-top:66px;box-shadow:none;overflow:auto}
+
+  .modal .secondary{min-width:96px}
+
+  /* Make Charger buttons gray; keep primary actions visually accentuated where needed */
+
+  .modal .deck-entry button{margin-left:6px;padding:8px 10px;min-width:44px}
+
+}
+
+
+
+/* deck browser: due badge - big number with small label */
+
+/* due-badge: make available globally (welcome + deck browser) */
+
+.due-badge{color:#d9534f;font-weight:600;margin-left:8px;font-size:0.95rem;display:inline-block;text-align:center}
+
+.due-badge .due-num{font-size:1.25rem;font-weight:700;line-height:1}
+
+.due-badge .due-label{font-size:0.75rem;color:var(--muted)}
+
+.due-badge{margin-right:8px}
+
+.deck-entry .due-badge{margin-left:0}
+
+
+
+/* Level ring in profile popup */
+
+.level-box{display:flex;gap:12px;align-items:center;margin-top:10px}
+
+.level-ring{width:88px;height:88px;position:relative;flex:0 0 88px}
+
+.level-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+
+.level-ring .level-num{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.2rem}
+
+.level-info{display:flex;flex-direction:column}
+
+.level-info .next{font-size:0.9rem;color:var(--muted)}
+
+.level-info .progress-remaining{font-weight:700}
+
+/* Compact level summary card used on welcome page */
+
+.level-summary{max-width:720px;margin:0 auto 12px;padding:12px;display:flex;align-items:center;gap:20px;justify-content:space-between;min-height:0 !important}
+
+.level-summary .level-ring{width:64px;height:64px;flex:0 0 64px}
+
+.level-summary .level-num{font-size:1.1rem}
+
+.level-summary .level-content{display:flex;align-items:center;gap:20px;flex:1}
+
+.level-summary .streak-box{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:8px;background:rgba(255,127,0,0.08)}
+
+.level-summary .credit-box{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:8px;background:rgba(0,102,255,0.08)}
+
+.level-summary .streak-flame{font-size:2rem;line-height:1}
+
+.level-summary .credit-coin{font-size:2rem;line-height:1}
+
+.level-summary .streak-label{font-size:0.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+
+.level-summary .credit-label{font-size:0.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+
+.level-summary .streak-count{font-size:1.2rem;font-weight:700;color:#ff7f00}
+
+.level-summary .credit-count{font-size:1.2rem;font-weight:700;color:#0066ff}
+
+.level-summary .customize-btn,.level-summary .maintenant-btn{padding:8px 12px;border-radius:8px;border:0;cursor:pointer;font-weight:600;font-size:0.9rem;background:var(--accent);color:white}
+
+.level-summary .customize-btn:hover,.level-summary .maintenant-btn:hover{opacity:0.9;transform:translateY(-1px)}
+
+@media (max-width:640px){
+
+  .level-summary{padding:10px;margin-bottom:10px;flex-direction:row;align-items:center;gap:8px}
+
+  .level-summary .level-ring{width:56px;height:56px;flex:0 0 56px}
+
+  .level-summary .level-num{font-size:1rem}
+
+  .level-summary .level-content{flex-direction:row;align-items:center;width:auto;gap:12px}
+
+  .level-summary .streak-box{padding:4px 8px}
+
+  .level-summary .credit-box{padding:4px 8px}
+
+  .level-summary .streak-flame{font-size:1.5rem}
+
+  .level-summary .credit-coin{font-size:1.5rem}
+
+  .level-summary .streak-label{font-size:0.65rem}
+
+  .level-summary .credit-label{font-size:0.65rem}
+
+  .level-summary .streak-count{font-size:1rem}
+
+  .level-summary .credit-count{font-size:1rem}
+
+}
+
+
+
+/* Customization modal styles */
+
+.customization-overlay{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:2400}
+
+.customization-modal{background:var(--card);color:var(--fg);border-radius:12px;max-width:520px;width:94%;max-height:85vh;overflow:auto;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,0.25)}
+
+.customization-modal h3{margin:0 0 16px 0;font-size:1.2rem}
+
+.customization-section{margin-bottom:16px}
+
+.customization-section-title{font-weight:700;margin-bottom:8px;font-size:0.95rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted)}
+
+.color-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(50px,1fr));gap:8px;margin-top:8px}
+
+.color-option{width:50px;height:50px;border-radius:8px;cursor:pointer;border:3px solid transparent;transition:all 0.2s}
+
+.color-option:hover{transform:scale(1.08)}
+
+.color-option.selected{border-color:var(--accent);box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--accent)}
+
+.pattern-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-top:8px}
+
+.pattern-option{width:80px;height:80px;border-radius:8px;cursor:pointer;border:2px solid transparent;background-size:4px 4px;transition:all 0.2s;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:0.75rem;text-align:center;padding:4px}
+
+.pattern-option:hover{transform:scale(1.05)}
+
+.pattern-option.selected{border-color:var(--accent)}
+
+.font-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px}
+
+.font-option{padding:12px;border-radius:8px;cursor:pointer;border:2px solid transparent;text-align:center;transition:all 0.2s;font-weight:600;background:rgba(0,0,0,0.02)}
+
+.font-option:hover{transform:translateY(-2px)}
+
+.font-option.selected{border-color:var(--accent);background:rgba(102,160,255,0.1)}
+
+.customization-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+.customization-actions button{padding:8px 16px;border-radius:8px;border:0;cursor:pointer;font-weight:600}
+
+.customization-actions .reset-btn{background:#f0ad4e;color:white}
+
+.customization-actions .close-btn{background:transparent;color:var(--fg);border:1px solid rgba(0,0,0,0.1)}
+
+
+
+.deck-entry .deck-actions{display:flex;gap:8px;align-items:center}
+
+/* Truncate long folder/file names in deck browser */
+
+.deck-entry > div:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:480px}
+
+/* Multi-deck name display on card area (matching deck browser style) */
+
+#multiDeckName.deck-entry{margin:0 0 12px 0;padding:8px;font-weight:500;background:rgba(0,0,0,0.02);border-radius:8px}
+
+#multiDeckName > div:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+#multiDeckName .due-badge{margin-left:8px}
+
+/* Footer full-bleed on desktop: make it span viewport width */
+
+@media (min-width:641px){
+
+  footer{position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw;width:100vw;padding:12px 18px}
+
+}
+
+/* Center card on desktop */
+
+@media (min-width:641px){
+
+  main > div { display:flex; justify-content:center; }
+
+  .card{max-width:760px;margin-left:auto;margin-right:auto}
+
+}
+
+/* TTS play button */
+
+.tts-play{margin-left:8px;padding:6px 8px;border-radius:8px;border:0;background:rgba(0,0,0,0.06);cursor:pointer}
+
+.tts-play:active{transform:scale(0.98)}
+
+/* Card status small box (persistent) */
+
+.card-status{position:absolute;left:14px;top:14px;padding:6px 10px;border-radius:8px;font-weight:600;z-index:1400;background:rgba(0,0,0,0.04);color:var(--fg)}
+
+/* Use same colors as histogram bars */
+
+.card-status.status-new{background:linear-gradient(180deg,#e9d8ff,#d6b8ff);color:#6f2fff}
+
+.card-status.status-now{background:rgba(217,83,79,0.12);color:#d9534f}
+
+.card-status.status-12h{background:rgba(255,155,155,0.12);color:#ff6b6b}
+
+.card-status.status-tomorrow{background:rgba(255,217,102,0.12);color:#b88600}
+
+.card-status.status-week{background:rgba(111,140,255,0.12);color:#2f6fff}
+
+.card-status.status-long{background:rgba(40,167,69,0.12);color:#1f7a2f}
+
+.card-status.status-upcoming{background:rgba(0,0,0,0.04);color:var(--muted)}
+
+
+
+/* XP toast animation */
+
+.xp-toast{animation:xp-pop .45s ease both}
+
+@keyframes xp-pop{0%{transform:translateY(-6px) scale(.92);opacity:0}50%{transform:translateY(-2px) scale(1.03);opacity:1}100%{transform:translateY(0) scale(1);opacity:1}}
+
+
+
+/* Level ring transitions */
+
+.level-ring .ring-fill{transition:stroke-dashoffset .9s cubic-bezier(.2,.9,.2,1), stroke .4s ease}
+
+/* Level up notification: animate in/out */
+
+.level-up-notify{position:fixed;left:50%;top:20%;transform:translateX(-50%) scale(.98);background:var(--card);padding:14px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:2000;opacity:0;transform-origin:center center;transition:opacity .32s ease,transform .32s ease}
+
+.level-up-notify.show{opacity:1;transform:translateX(-50%) scale(1)}
+
+@keyframes level-up-in{0%{opacity:0;transform:translateX(-50%) scale(.9)}60%{opacity:1;transform:translateX(-50%) scale(1.05)}100%{opacity:1;transform:translateX(-50%) scale(1)} }
+
+/* XP toast animations */
+
+.xp-toast{opacity:0;transform:translateY(-6px) scale(.98);transition:opacity .28s ease,transform .28s cubic-bezier(.2,.9,.2,1);border-radius:8px;padding:6px 10px;font-weight:600;box-shadow:0 6px 18px rgba(0,0,0,0.08)}
+
+.xp-toast.show{opacity:1;transform:translateY(0) scale(1)}
+
+.xp-toast.leave{opacity:0;transform:translateY(-8px) scale(.98)}
+
+/* Modal overlay fade when opened */
+
+.modal-overlay{opacity:0;transition:opacity .18s ease}
+
+.modal-overlay.open{opacity:1}
+
+.modal-overlay[aria-hidden="false"]{opacity:1}
+
+/* Hint box styling (red) */
+
+.hist-hint-box{background:#ffecec;border-left:4px solid #d9534f;color:#681214;padding:8px;border-radius:6px}
+
+@media (max-width:640px){
+
+  /* On mobile, pin hint under top bar */
+
+  .hist-hint-box{position:fixed;top:66px;left:12px;right:12px;z-index:1001;margin-top:0}
+
+  /* Mobile modal & deck browser adjustments: remove unexpected left gutter, keep full-bleed */
+
+  .modal-overlay{padding:0;left:0;right:0}
+
+  .modal{box-sizing:border-box;padding-left:12px;padding-right:12px;margin-left:0 !important;margin-right:0 !important;left:0;right:0}
+
+  .deck-list{padding-left:6px;padding-right:6px}
+
+  .deck-entry{padding-left:6px;padding-right:6px}
+
+  /* Ensure back element is centered like front on mobile */
+
+  #back{display:none}
+
+  .card-content #back{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:12px 6px 6px 6px;box-sizing:border-box;width:100%}
+
+  /* Ensure all nested field content centers within the back element (mobile only) and respects card padding */
+
+  .card-content #back .field{width:100%;max-width:760px;text-align:center;margin-left:auto;margin-right:auto}
+
+  .card-content #back .field *{text-align:center}
+
+  /* Remove left margin on due-badges on mobile to prevent odd gutter next to Charger */
+
+  .deck-entry .due-badge{margin-left:0;margin-right:6px}
+
+  /* Ensure both front and back occupy the .card-content flex space and center their content */
+
+  .card-content > #front, .card-content > #back { width:100%; display:flex; flex:1 1 auto; flex-direction:column; align-items:center; justify-content:center }
+
+}
+
+/* Tight mobile tweaks for very narrow screens to prevent button overflow */
+
+@media (max-width:500px){
+
+  .progress-container{flex:0 0 110px;min-width:90px;max-width:140px}
+
+  .buttons{flex:1 1 auto;min-width:0}
+
+  .resp-buttons{flex-wrap:wrap;gap:6px}
+
+  .resp-buttons button{min-width:48px;padding:6px 8px;font-size:0.86rem}
+
+  .buttons button{font-size:0.95rem;padding:8px 10px}
+
+  .progress{height:6px}
+
+  /* ensure progress container aligns at the right without being pushed off-screen */
+
+  .progress-container{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+
+  /* When buttons wrap, center both rows to align with each other */
+
+  .buttons{justify-content:center}
+
+  .resp-buttons{justify-content:center}
+
+ }
+
+/* Leaderboard table styles */
+
+.leaderboard-table th{background:var(--card);text-align:left;padding:8px;border-bottom:1px solid rgba(0,0,0,0.06);font-weight:700}
+
+.leaderboard-table td{padding:8px;border-bottom:1px solid rgba(0,0,0,0.04)}
+
+.leaderboard-table tr:nth-child(even){background:rgba(0,0,0,0.02)}
+
+.badge-chip{background:rgba(0,0,0,0.04);padding:4px 6px;border-radius:6px;font-size:0.8rem}
+
+ /* Small helper for popup open animation (profile uses .open class on modal and .open on overlay)
+
+   showProfilePopup now toggles overlay.open when inserting the modal */
+
+

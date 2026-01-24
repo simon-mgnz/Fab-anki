@@ -1,0 +1,34 @@
+// Firebase project configuration
+// Replace with your Firebase project's config from Firebase Console
+// To disable cloud sync, set this to {}
+window.__fabanki_firebaseConfig = window.__fabanki_firebaseConfig || {
+  apiKey: "AIzaSyCHt0J--9GuXCE5PaU2vkdWVWTWRu5phBM",
+  authDomain: "fab-anki-classement.firebaseapp.com",
+  projectId: "fab-anki-classement",
+  storageBucket: "fab-anki-classement.firebasestorage.app",
+  messagingSenderId: "469715316592",
+  appId: "1:469715316592:web:c737c247abed9199e0a9b5"
+};
+
+
+// Initialize Firebase if config provided
+(function(){
+  try{
+    const cfg = window.__fabanki_firebaseConfig || {};
+    if(cfg && cfg.apiKey){
+      // Initialize Firebase app
+      const fbApp = firebase.initializeApp(cfg);
+      
+      // Set up Firestore and Auth
+      window.__fabanki_firestore = firebase.firestore();
+      window.__fabanki_auth = firebase.auth();
+    } else { 
+      window.__fabanki_firestore = null;
+      window.__fabanki_auth = null;
+    }
+  }catch(e){ 
+    console.error('Firebase initialization failed:', e?.message);
+    window.__fabanki_firestore = null;
+    window.__fabanki_auth = null;
+  }
+})();
