@@ -39,7 +39,7 @@
 	{ "path": "Physique/Molécules et ions courants.xml", "tags": [], "level": 10, "cost": 10 },
 	{ "path": "Physique/Cours/Chapitre 12 - Etude énergétique du mouvement d'un point.xml", "tags": [] },
 	{ "path": "Physique/Cours/Chapitre 13 - Particules chargées dans un champ électromagnétique.xml", "tags": [] },
-	{ "path": "Physique/Cours/Chapitre 14 - Relations structure microscoptique - propriétés macroscopiques.xml", "tags": [] },
+	{ "path": "Physique/Cours/Chapitre 14 - Relations structure microscopique - propriétés macroscropiques.xml", "tags": [] },
 	{ "path": "Physique/Cours/Chapitre 15 - Moment cinétique d'un point matériel.xml", "tags": [] },
 	{ "path": "Physique/Contrôle de cours/Chapitre 13 - Particules chargées dans un champ électromagnétique.xml", "tags": [] },
 	{ "path": "Physique/Contrôle de cours/Chapitre 14 - Relations structure microscoptique - propriétés macroscopiques.xml", "tags": [] },
@@ -47,4 +47,5 @@
 	{ "path": "Sciences industrielles/Chapitre 2 - Vecteurs, Référentiels, changement de bases, liaisons, et la totale.xml", "tags": [] },
 	{ "path": "Sciences industrielles/Chapitre 3 - Simuler la vie avec un modèle de connaissance.xml", "tags": [] }
 ]
+
 
