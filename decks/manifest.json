@@ -1,5 +1,6 @@
 [
 	{ "path": "Anglais/Voc de Cours (avec Mme Martin).xml", "tags": [] },
+	{ "path": "Anglais/Irregular verbs.xml", "tags": [], "level":25, "cost" : 50 },
 	{ "path": "Anglais/Livre de vocabulaire/The World's population P12.xml", "tags": [], "cost": 10  },
 	{ "path": "Anglais/Livre de vocabulaire/Poverty P14.xml", "tags": [], "cost": 10  },
 	{ "path": "Anglais/Livre de vocabulaire/Global inequalitiess P16.xml", "tags": [], "cost": 10  },
@@ -31,6 +32,10 @@
 	{ "path": "Maths/Cours/Chapitre 12 - Dérivabilité, convexité.xml", "tags": [] },
 	{ "path": "Maths/Cours/Chapitre 13 - Calcul matriciel, systèmes linéaires.xml", "tags": [] },
 	{ "path": "Maths/Cours/Chapitre 14 - Polynômes et fractions rationnelles.xml", "tags": [] },
+	{ "path": "Maths/Calcul mental/Puissances et Calcul littéral - Calcul mental.xml", "tags": [], "level" :5, "cost":20 },
+	{ "path": "Maths/Calcul mental/Trigonométrie - Calcul mental.xml", "tags": [], "level" :5, "cost":20 },
+	{ "path": "Maths/Calcul mental/Fractions - Calcul mental.xml", "tags": [], "level" :5, "cost":20 },
+	{ "path": "Maths/Calcul mental/Dérivées et primitives - Calcul mental.xml", "tags": [], "level" :5, "cost":20 },
 	{ "path": "Maths/LCI et caractéristiques.xml", "tags": [] },
 	{ "path": "Physique/Unité (SI).xml", "tags": [],"level": 20, "cost": 20  },
 	{ "path": "Physique/Formulaire.xml", "tags": [] },
@@ -47,5 +52,6 @@
 	{ "path": "Sciences industrielles/Chapitre 2 - Vecteurs, Référentiels, changement de bases, liaisons, et la totale.xml", "tags": [] },
 	{ "path": "Sciences industrielles/Chapitre 3 - Simuler la vie avec un modèle de connaissance.xml", "tags": [] }
 ]
+
 
 
