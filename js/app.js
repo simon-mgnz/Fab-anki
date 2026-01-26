@@ -38,14 +38,11 @@
   function evaluateDeckLock(path){
     try{
       const entry = getManifestEntryForPath(path);
-      console.log('evaluateDeckLock - entry:', entry);
       if(!entry) return { locked:false };
       const levelReq = Number(entry.level||0);
       const cost = Number(entry.cost||0);
-      console.log('levelReq:', levelReq, 'cost:', cost);
       if(levelReq === 0 && cost === 0) return { locked:false };
       const unlocked = isDeckUnlocked(path);
-      console.log('unlocked:', unlocked);
       let currentLevel = 0;
       let currentCredits = 0;
       try{
@@ -56,10 +53,8 @@
       try{
         currentCredits = typeof getCredits === 'function' ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
       }catch(e){ console.warn('Credits check error:', e); }
-      console.log('currentLevel:', currentLevel, 'currentCredits:', currentCredits);
       const lockedByLevel = levelReq > 0 && currentLevel < levelReq;
       const lockedByCost = cost > 0 && !unlocked && !lockedByLevel;
-      console.log('lockedByLevel:', lockedByLevel, 'lockedByCost:', lockedByCost);
       return {
         locked: lockedByLevel || lockedByCost,
         lockedByLevel,
@@ -381,7 +376,19 @@
     if(deck.fieldDefs.length === 0){
       // Find any explicit field-like tags to infer names
       const inferred = Array.from(xml.querySelectorAll('rich-text,tex')).map(n=>({name:n.getAttribute('name')||'Front', type:n.tagName.toLowerCase(), sides:{front:true,back:false,always:false}}));
+      // If we have field definitions from <fields>, use them; otherwise create default Front/Back split
       deck.fieldDefs = inferred.length ? inferred : [{name:'Front', type:'rich-text', sides:{front:true,back:false,always:false}},{name:'Back', type:'rich-text', sides:{front:false,back:true,always:false}}];
+      console.log('parseXMLDeck: Using fallback field definitions:', deck.fieldDefs);
+    } else {
+      // Validate that we have proper sides for each field definition
+      // If a field has no sides specified, assign based on position (first = front only, rest = back only)
+      for(let i = 0; i < deck.fieldDefs.length; i++){
+        const def = deck.fieldDefs[i];
+        if(!def.sides || Object.keys(def.sides).length === 0){
+          def.sides = i === 0 ? {front:true,back:false,always:false} : {front:false,back:true,always:false};
+        }
+      }
+      console.log('parseXMLDeck: Final field definitions:', deck.fieldDefs);
     }
 
     // --- Build cards from <cards><card> ---
@@ -393,20 +400,43 @@
     for(const node of candidates){
       try{
         const cardObj = { id: node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idx++)), fields: {} };
+        const usedElements = new Set(); // Track which elements we've already assigned
 
         // For each fieldDef, attempt to read the corresponding element inside this <card>
         for(const def of deck.fieldDefs){
           let el = null;
-          // 1) any child element with attribute name equal to field name
-          el = Array.from(node.children).find(ch => (ch.getAttribute && ch.getAttribute('name') === def.name));
-          // 2) any child element whose localName/tag matches the expected type and (optional) name
-          if(!el) el = Array.from(node.children).find(ch => ((ch.localName || ch.tagName || '').toLowerCase() === def.type));
+          // 1) any child element with attribute name equal to field name (highest priority)
+          const byName = Array.from(node.children).find(ch => (ch.getAttribute && ch.getAttribute('name') === def.name && !usedElements.has(ch)));
+          if(byName) {
+            console.log(`  Field "${def.name}": found by name match`);
+            el = byName;
+          }
+          // 2) any child element whose localName/tag matches the expected type, but ONLY if it has no name attribute
+          // (elements with name attributes should only be matched by exact name match)
+          if(!el) {
+            const byType = Array.from(node.children).find(ch => {
+              const hasName = ch.getAttribute && ch.getAttribute('name');
+              const matchesType = (ch.localName || ch.tagName || '').toLowerCase() === def.type;
+              return matchesType && !hasName && !usedElements.has(ch);
+            });
+            if(byType) {
+              console.log(`  Field "${def.name}": found by type match (${def.type}), element has no name attribute`);
+              el = byType;
+            }
+          }
           // 3) fallback: any descendant with name attribute matching
-          if(!el) el = node.querySelector(`[name="${def.name}"]`);
-          // 4) last resort: first child element
-          if(!el && node.children && node.children.length>0) el = node.children[0];
+          if(!el) {
+            el = node.querySelector(`[name="${def.name}"]`);
+            if(el && usedElements.has(el)) el = null;
+            if(el) console.log(`  Field "${def.name}": found by querySelector`);
+          }
+          // 4) No last resort fallback - if not found, leave empty
+          if(!el) {
+            console.log(`  Field "${def.name}": not found in card`);
+          }
 
           if(el){
+            usedElements.add(el); // Mark this element as used
             // For <tts> fields, preserve textContent (treat like <p>) to avoid raw HTML parsing
             let html = '';
             if((def.type||'').toLowerCase() === 'tts'){
@@ -416,11 +446,16 @@
             }
             const fldLang = el.getAttribute && (el.getAttribute('lang') || el.getAttribute('xml:lang')) || def.lang || '';
             cardObj.fields[def.name] = { html, type: def.type, sides: def.sides, lang: fldLang };
+          } else {
+            // Field not found in card - add empty field so rendering logic can handle it
+            console.log(`  Field "${def.name}": not found in card, adding empty field`);
+            cardObj.fields[def.name] = { html: '', type: def.type, sides: def.sides, lang: def.lang || '' };
           }
         }
 
-        // Only include card if it has at least one field
-        if(Object.keys(cardObj.fields).length>0) deck.cards.push(cardObj);
+        // Only include card if it has at least one non-empty field
+        const hasContent = Object.values(cardObj.fields).some(f => f.html && f.html.trim().length > 0);
+        if(hasContent) deck.cards.push(cardObj);
         }catch(e){ console.warn('ignored malformed card', e); continue }
       }
     // If still empty, try to parse table rows as last fallback
@@ -519,21 +554,15 @@
           const manifestRes = await fetch('./decks/manifest.json');
           if(manifestRes && manifestRes.ok){
             const list = await manifestRes.json();
-            console.log('Loaded manifest list:', list);
             if(Array.isArray(list)){
               manifestMeta = {};
               list.forEach(item => {
-                console.log('Processing manifest item:', item);
                 if(typeof item === 'string') manifestMeta[item] = { path:item };
-                else if(item && item.path) {
-                  console.log('Storing manifest entry for', item.path, ':', item);
-                  manifestMeta[item.path] = item;
-                }
+                else if(item && item.path) manifestMeta[item.path] = item;
               });
-              console.log('Final manifestMeta:', manifestMeta);
             }
           }
-        }catch(e){console.log('Manifest fetch error:', e);}
+        }catch(e){}
       }
 
       // Lock check is now handled in the overview page button display
@@ -953,9 +982,14 @@
     const alwaysEl = $('#always');
     if(!card) { frontEl.innerHTML=''; alwaysEl.textContent=''; return }
 
-    // Clear previous content
+    // Clear previous content AGGRESSIVELY
     frontEl.innerHTML = '';
-    alwaysEl.textContent = '';
+    alwaysEl.innerHTML = '';
+    // Also remove all child nodes to be absolutely sure
+    while(frontEl.firstChild) frontEl.removeChild(frontEl.firstChild);
+    while(alwaysEl.firstChild) alwaysEl.removeChild(alwaysEl.firstChild);
+    
+    console.log('renderFront: Cleared DOM, starting fresh');
 
     const defs = deck.fieldDefs || [];
     let anyAlways = false;
@@ -988,18 +1022,50 @@
         }
       }
     } else {
-      // Use field definitions
+      // Use field definitions - ONLY show fields that are marked for front
+        console.log('renderFront: Processing field definitions. Card fields:', Object.keys(card.fields), 'Defs:', defs.map(d => d.name));
+      
       for(const def of defs){
         const f = card.fields && card.fields[def.name];
-        if(!f) continue;
-        // Get sides, defaulting to front if not specified
-        const sides = f.sides || def.sides || {front: true, back: false};
-        if(sides.always || sides.front){
+        if(!f) {
+          console.log(`  Field "${def.name}" not found in card, skipping`);
+          continue;
+        }
+        
+        // Skip empty fields
+        if(!f.html || f.html.trim().length === 0) {
+          continue;
+        }
+        
+        // Get sides from field or definition
+        const sides = f.sides || def.sides;
+        
+        console.log(`Front Field "${def.name}": sides=`, sides);
+        
+        // Skip if no sides specified and not first field
+        if(!sides){
+          const isFirstField = Object.keys(card.fields).findIndex(k => k === def.name) === 0;
+          if(!isFirstField) {
+            console.log(`  -> Skipping "${def.name}" (no sides, not first)`);
+            continue;
+          }
+          // First field with no sides - render it
+          console.log(`  -> Rendering "${def.name}" (first field, no sides)`);
           const node = buildFieldElement(def, f);
           frontEl.appendChild(node);
+        } 
+        // Show if field is marked for front (always or front)
+        else if(sides.always || sides.front){
+          console.log(`  -> Rendering "${def.name}" (always=${sides.always}, front=${sides.front})`);
+          const node = buildFieldElement(def, f);
+          frontEl.appendChild(node);
+          if(sides.always) anyAlways = true;
+        } else {
+          console.log(`  -> Skipping "${def.name}" (back-only: front=${sides.front}, back=${sides.back})`);
         }
-        if(sides.always) anyAlways = true;
+        // Otherwise skip (back-only field)
       }
+      console.log('renderFront: Done');
     }
 
     alwaysEl.textContent = '';
@@ -1020,16 +1086,6 @@
     if(!defs || defs.length === 0){
       defs = deck.fieldDefs || [];
     }
-    
-    // DEBUG: Always log to see what's happening
-    console.log('renderBack:', {
-      cardId: card?.id,
-      multiDeckMode,
-      defsCount: defs.length,
-      defsNames: defs.map(d => d.name),
-      cardFieldsKeys: card && card.fields ? Object.keys(card.fields) : [],
-      cardFieldsLength: card && card.fields ? Object.keys(card.fields).length : 0
-    });
     
     let anyContent = false;
     const frontVisible = (function(){ try{ const fe = document.getElementById('front'); return fe && fe.style.display !== 'none'; }catch(e){ return false } })();
@@ -1077,7 +1133,6 @@
       
       if(!defsMatch && cardFieldKeys.length > 0){
         // Field definitions don't match card fields - use actual card field names instead
-        console.log('Field defs dont match card fields. Using actual card fields instead. Defs:', defs.map(d=>d.name), 'Card fields:', cardFieldKeys);
         
         // Show all fields except first
         let isFirst = true;
@@ -1099,47 +1154,44 @@
         let foundAny = false;
         let fieldsShown = 0;
         
+        console.log('renderBack: Processing field definitions. Card fields:', Object.keys(card.fields), 'Defs:', defs.map(d => d.name));
+        
         for(const def of defs){
           const f = card.fields && card.fields[def.name];
           if(!f) {
             console.warn('Field not found for def:', def.name, 'available fields:', Object.keys(card.fields || {}));
             continue;
           }
+          
+          // Skip empty fields
+          if(!f.html || f.html.trim().length === 0) {
+            continue;
+          }
+          
           foundAny = true;
           // Get sides info, defaulting to {front:true,back:false} if not specified (don't show duplicates)
           const sides = f.sides || def.sides || {front: true, back: false};
+          
+          console.log(`Field "${def.name}": sides=`, sides, 'frontVisible=', frontVisible);
+          
           // Skip if only on front and front is visible
           if(sides.front && !sides.back && frontVisible) {
+            console.log(`  -> Skipping "${def.name}" (front-only, front is visible)`);
             continue;
           }
           // Show if marked for back, but NOT if 'always' (always fields go to alwaysEl, not back)
           if(sides.back && !sides.always){
+            console.log(`  -> Rendering "${def.name}" on back`);
             const node = buildFieldElement(def, f);
             backEl.appendChild(node);
             anyContent = true;
             fieldsShown++;
+          } else {
+            console.log(`  -> Skipping "${def.name}" (sides.back=${sides.back}, sides.always=${sides.always})`);
           }
         }
         
-        // Debug: if we have field definitions but didn't find any fields, log it
-        if(defs.length > 0 && !foundAny && card.fields){
-          console.error('ERROR: No matching fields in card. Expected defs:', defs.map(d=>d.name), 'Card has fields:', Object.keys(card.fields), 'Card:', card);
-        }
-      }
-      
-      // If field definitions path didn't work, fallback to _fieldOrder
-      if(!anyContent && card._fieldOrder && card._fieldOrder.length > 1){
-        console.log('Falling back to _fieldOrder approach for back content');
-        for(let i = 1; i < card._fieldOrder.length; i++){
-          const fieldName = card._fieldOrder[i];
-          const f = card.fields[fieldName];
-          if(f){
-            const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
-            const node = buildFieldElement(def, f);
-            backEl.appendChild(node);
-            anyContent = true;
-          }
-        }
+        console.log(`renderBack: Rendered ${fieldsShown} fields`);
       }
     }
 
@@ -1147,6 +1199,15 @@
   }
 
   // Helper: buildFieldElement(def, f)
+  // === Function: decodeHTMLEntities ===
+  // Decodes HTML entities like &lt;, &gt;, &amp;, &quot;, &#39; to their actual characters
+  function decodeHTMLEntities(text){
+    if(!text || typeof text !== 'string') return text;
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+  }
+
   // Returns an HTMLElement for a given field definition and card field value.
   function buildFieldElement(def, f){
     const wrapper = document.createElement('div');
@@ -1156,7 +1217,11 @@
     const isTexType = ['tex','math','latex'].includes(ttype);
     const isTTS = (ttype === 'tts');
     const isPlainText = (ttype === 'text');
-    const containsBlockTags = /<(p|div|ul|ol|li|table|tr|td|br|h[1-6])\b/i.test(f.html||'');
+    
+    // Decode HTML entities first (needed for proper KaTeX rendering)
+    const decodedHtml = decodeHTMLEntities(f.html || '');
+    const containsBlockTags = /<(p|div|ul|ol|li|table|tr|td|br|h[1-6])\b/i.test(decodedHtml);
+    
     if(isTTS){
       // Render <tts> as a paragraph with plain text and add a play button
       const p = document.createElement('p');
@@ -1188,10 +1253,10 @@
       wrapper.appendChild(btn);
     } else if(isPlainText){
       // Render explicit <text> fields as plain text (do not attempt KaTeX)
-      const p = document.createElement('p'); p.textContent = f.html || ''; wrapper.appendChild(p);
+      const p = document.createElement('p'); p.textContent = decodedHtml || ''; wrapper.appendChild(p);
     } else if(isTexType && !containsBlockTags){
       // Safe to render with KaTeX (no block HTML inside)
-      const texSrc = (f.html||'').trim();
+      const texSrc = decodedHtml.trim();
       const span = document.createElement('div');
       try{
         if(window.katex && typeof katex.render === 'function'){
@@ -1201,8 +1266,8 @@
       }catch(e){ span.textContent = texSrc }
       wrapper.appendChild(span);
     } else {
-      // Render as HTML (rich-text) — do NOT run KaTeX here
-      wrapper.innerHTML = f.html || '';
+      // Render as HTML (rich-text) — decode entities first
+      wrapper.innerHTML = decodedHtml || '';
     }
     return wrapper;
   }
@@ -1568,6 +1633,12 @@
     st.due = next.toISOString();
     st.last = (new Date()).toISOString();
     localStorage.setItem(key, JSON.stringify(st));
+    
+    // Auto-sync after card review
+    setTimeout(() => {
+      if(typeof autoSync === 'function') autoSync().catch(e => console.warn('autoSync failed:', e));
+    }, 100);
+    
     // If this card moved from future to 'now' during the session, include it in session total
     try{
       if(prevDue && prevDue > now && next <= now){ sessionTotal = (sessionTotal||0) + 1; updateProgressDisplay(); }
@@ -1712,7 +1783,9 @@
     $('#showAnswer').addEventListener('click', ()=>{
     const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
     try{
+      console.log('showAnswer clicked - renderBack will be called once');
       renderBack(c);
+      console.log('renderBack completed');
       const frontEl = $('#front');
       const backEl = $('#back');
       const respBtn = $('#respButtons');
@@ -2139,19 +2212,15 @@
         const manifestRes = await fetch((path.replace(/\/$/, '') + '/manifest.json'));
         if(manifestRes && manifestRes.ok){
           const list = await manifestRes.json();
-          console.log('[fetchDirectory] Loaded manifest:', list);
           if(Array.isArray(list)){
             manifestMeta = {};
             list.forEach(item => {
-              console.log('[fetchDirectory] Processing item:', item);
               if(typeof item === 'string'){
                 manifestMeta[item] = { path: item };
               } else if(item && item.path){
-                console.log('[fetchDirectory] Storing entry for', item.path, '- full item:', JSON.stringify(item));
                 manifestMeta[item.path] = item;
               }
             });
-            console.log('[fetchDirectory] Final manifestMeta:', manifestMeta);
             // Support both old format (strings) and new format (objects with path/tags/cost/level)
             return list.map(item => typeof item === 'string' ? item : item.path);
           }
@@ -2443,18 +2512,30 @@
         const keyPrefix = 'fabanki:' + fallbackSha1(url).slice(0,10) + ':';
         const now = new Date();
         let cnt = 0;
+        let debugInfo = {total: ids.length, new: 0, reviewed: 0, dueNow: 0, dueLater: 0};
         for(const id of ids){
           try{
             const key = keyPrefix + 'card:' + id;
             const st = JSON.parse(localStorage.getItem(key) || '{}');
             const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
-            if(isNew) continue;
+            // Skip new cards - only count "Maintenant" category (reviewed cards that are due now)
+            if(isNew) {
+              debugInfo.new++;
+              continue;
+            }
+            debugInfo.reviewed++;
             const due = st && st.due ? new Date(st.due) : now;
-            if(due <= now) cnt++;
+            if(due <= now) {
+              cnt++;
+              debugInfo.dueNow++;
+            } else {
+              debugInfo.dueLater++;
+            }
           }catch(e){ continue }
         }
+        console.log('countDueNowForDeck:', url.split('/').pop(), 'result:', cnt, 'breakdown:', debugInfo);
         return cnt;
-      }catch(e){ return 0 }
+      }catch(e){ console.error('countDueNowForDeck error:', e); return 0 }
     }
     // toggle histogram button (mobile: overlay, desktop: scroll)
     const toggleStatsBtn = document.getElementById('toggleStats');
@@ -2850,6 +2931,80 @@
         }
       }catch(e){ console.warn('saveState', e) }
     }
+    
+    // Auto-sync current data to cloud (called after card review, xp, credits changes)
+    async function autoSync(){
+      try{
+        const mode = localStorage.getItem('fabanki:mode');
+        if(mode !== 'synced') return; // Only sync if in synced mode
+        
+        const userId = localStorage.getItem('fabanki:user_id');
+        if(!userId || !window.__fabanki_firestore) return;
+        
+        const pseudo = localStorage.getItem('pseudo') || 'Anonyme';
+        if(pseudo === 'Anonyme' || !pseudo || pseudo.trim() === ''){
+          console.log('Skipping auto-sync for anonymous user');
+          return;
+        }
+        
+        // Build current state from localStorage
+        const st = defaultUserState();
+        st.mode = 'synced';
+        st.userId = userId;
+        st.pseudo = pseudo;
+        st.xp = Number(localStorage.getItem('fabanki:xp_total') || 0);
+        st.credits = Number(localStorage.getItem('fabanki:credits') || 0);
+        st.quests = collectQuestState();
+        st.decks = collectDeckProgress();
+        
+        await saveState(st);
+        console.log('Auto-sync completed');
+      }catch(e){ console.warn('autoSync error:', e) }
+    }
+    
+    // Restore data from cloud on page load
+    async function restoreFromCloud(){
+      try{
+        const auth = firebase?.auth?.();
+        const db = window.__fabanki_firestore;
+        if(!auth || !db) return;
+        
+        // Wait for auth state
+        const user = await new Promise((resolve) => {
+          const unsub = auth.onAuthStateChanged((u) => {
+            unsub();
+            resolve(u);
+          });
+        });
+        
+        if(!user) return; // Not logged in
+        
+        const localMode = localStorage.getItem('fabanki:mode');
+        if(localMode !== 'synced') return; // Only restore if in synced mode
+        
+        const uid = user.uid;
+        const docRef = db.collection('users').doc(uid);
+        const snap = await docRef.get();
+        
+        if(!snap.exists) return; // No cloud data
+        
+        const remoteSt = snap.data();
+        const localLastUpdated = Number(localStorage.getItem('fabanki:user_state') ? JSON.parse(localStorage.getItem('fabanki:user_state')).lastUpdated : 0);
+        const remoteLastUpdated = Number(remoteSt.lastUpdated || 0);
+        
+        // Only restore if remote is newer
+        if(remoteLastUpdated > localLastUpdated){
+          console.log('Restoring from cloud (remote is newer)');
+          applyStateToLocalStorage(remoteSt);
+          localStorage.setItem('fabanki:user_state', JSON.stringify(remoteSt));
+          localStorage.setItem('fabanki:mode', 'synced');
+          localStorage.setItem('fabanki:user_id', uid);
+          
+          // Reload page to apply changes
+          if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
+        }
+      }catch(e){ console.warn('restoreFromCloud error:', e) }
+    }
 
     async function createAccountAndSync(emailArg, passwordArg){
       try{
@@ -2861,10 +3016,18 @@
         const password = passwordArg ?? prompt('Mot de passe');
         if(!password) return;
         const { user } = await auth.createUserWithEmailAndPassword(email, password);
-        // Switch to synced mode and push current state
+        
+        // Collect current local data
         const st = defaultUserState();
         st.mode = 'synced';
         st.userId = user.uid;
+        st.pseudo = localStorage.getItem('pseudo') || 'Anonyme';
+        st.xp = Number(localStorage.getItem('fabanki:xp_total') || 0);
+        st.credits = Number(localStorage.getItem('fabanki:credits') || 0);
+        st.quests = collectQuestState();
+        st.decks = collectDeckProgress();
+        
+        // Upload to cloud
         await saveState(st);
         alert('✅ Compte créé et progrès synchronisés.');
       }catch(e){ 
@@ -3214,6 +3377,8 @@
 
     // Initialize on startup
     initUserState();
+    // Restore from cloud if logged in
+    restoreFromCloud().catch(e => console.warn('restoreFromCloud failed:', e));
     // refresh periodically
     setInterval(()=>{ try{ updateProfilePopupIfOpen(); }catch(e){} }, 30*1000);
 
@@ -3223,12 +3388,18 @@
       try{
         let total = getXpTotal();
         const prevLevel = computeLevelAndProgress(total).level;
-        if(delta < 0){ if(total <= 0) return 0; const remove = Math.min(total, Math.abs(delta)); total -= remove; localStorage.setItem('fabanki:xp_total', total); return -remove; }
+        if(delta < 0){ if(total <= 0) return 0; const remove = Math.min(total, Math.abs(delta)); total -= remove; localStorage.setItem('fabanki:xp_total', total); 
+          // Auto-sync after XP change
+          setTimeout(() => autoSync().catch(e => console.warn('autoSync failed:', e)), 100);
+          return -remove; 
+        }
         total += delta; localStorage.setItem('fabanki:xp_total', total);
         try{ resetWeeklyIfNeeded(); const curWeekXp = Number(localStorage.getItem('fabanki:xp_semaine') || 0) + Math.max(0, delta); localStorage.setItem('fabanki:xp_semaine', String(curWeekXp)); }catch(e){}
         const newLevel = computeLevelAndProgress(total).level;
         // If level increased, show notification
         if(newLevel > prevLevel){ try{ showLevelUpNotification(newLevel, prevLevel); }catch(e){} }
+        // Auto-sync after XP change
+        setTimeout(() => autoSync().catch(e => console.warn('autoSync failed:', e)), 100);
         return delta;
       }catch(e){ return 0 }
     }
@@ -3255,6 +3426,8 @@
         if(amount <= 0) return 0;
         let total = getCredits() + amount;
         localStorage.setItem('fabanki:credits', String(total));
+        // Auto-sync after credits change
+        setTimeout(() => autoSync().catch(e => console.warn('autoSync failed:', e)), 100);
         return amount;
       }catch(e){ return 0 }
     }
@@ -3330,36 +3503,54 @@
         const dailyMissions = JSON.parse(localStorage.getItem(dailyKey) || '[]');
         const weeklyMissions = JSON.parse(localStorage.getItem(weeklyKey) || '[]');
         
+        // Get the currently selected/displayed missions
+        const dailySelectedIds = JSON.parse(localStorage.getItem('fabanki:daily_selected_missions') || 'null');
+        const weeklySelectedIds = JSON.parse(localStorage.getItem('fabanki:weekly_selected_missions') || 'null');
+        
+        // Helper to check if a mission is currently displayed
+        const isMissionDisplayed = (missionId, type) => {
+          const selectedIds = type === 'daily' ? dailySelectedIds : weeklySelectedIds;
+          if(!selectedIds) return false; // No missions selected yet
+          return Object.values(selectedIds).includes(missionId);
+        };
+        
         // Helper to update a mission's progress
-        const updateMission = (missions, missionId, progress) => {
+        const updateMission = (missions, missionId, progress, type) => {
           const mission = missions.find(m => m.id === missionId);
           if(!mission) return false;
           mission.progress = progress;
-          // Auto-complete if target reached
+          // Auto-complete if target reached AND mission is currently displayed
           const missionData = [...missionsData.daily, ...missionsData.weekly].find(m => m.id === missionId);
           if(missionData && progress >= missionData.target && !mission.completed){
-            mission.completed = true;
-            // Grant rewards
-            if(!mission.rewards_given){
-              applyXp(missionData.reward.xp);
-              addCredits(missionData.reward.credits);
-              mission.rewards_given = true;
-              // Show toast
-              const toast = document.createElement('div');
-              toast.style.position = 'fixed';
-              toast.style.top = '50%';
-              toast.style.left = '50%';
-              toast.style.transform = 'translate(-50%, -50%)';
-              toast.style.background = '#22c55e';
-              toast.style.color = 'white';
-              toast.style.padding = '16px 32px';
-              toast.style.borderRadius = '8px';
-              toast.style.fontWeight = '600';
-              toast.style.zIndex = '9999';
-              toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-              toast.textContent = '✅ Quête remplie: ' + missionData.name;
-              document.body.appendChild(toast);
-              setTimeout(() => toast.remove(), 3000);
+            // Only award credits if this mission is currently displayed
+            if(isMissionDisplayed(missionId, type)){
+              mission.completed = true;
+              // Grant rewards
+              if(!mission.rewards_given){
+                applyXp(missionData.reward.xp);
+                addCredits(missionData.reward.credits);
+                mission.rewards_given = true;
+                // Show toast
+                const toast = document.createElement('div');
+                toast.style.position = 'fixed';
+                toast.style.top = '50%';
+                toast.style.left = '50%';
+                toast.style.transform = 'translate(-50%, -50%)';
+                toast.style.background = '#22c55e';
+                toast.style.color = 'white';
+                toast.style.padding = '16px 32px';
+                toast.style.borderRadius = '8px';
+                toast.style.fontWeight = '600';
+                toast.style.zIndex = '9999';
+                toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                toast.textContent = 'Quête remplie: ' + missionData.name;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+              }
+            } else {
+              // Track completion but don't give rewards for hidden missions
+              mission.completed = true;
+              console.log('Mission completed but not displayed, no rewards:', missionId);
             }
           }
           return true;
@@ -3384,28 +3575,28 @@
         }
         
         // Update daily missions with today's cards
-        updateMission(dailyMissions, 'study_20', todayCards);
-        updateMission(dailyMissions, 'study_50', todayCards);
-        updateMission(dailyMissions, 'study_100', todayCards);
+        updateMission(dailyMissions, 'study_20', todayCards, 'daily');
+        updateMission(dailyMissions, 'study_50', todayCards, 'daily');
+        updateMission(dailyMissions, 'study_100', todayCards, 'daily');
         
         // Update weekly missions with this week's cards
-        updateMission(weeklyMissions, 'study_300', weekCards);
-        updateMission(weeklyMissions, 'study_600', weekCards);
-        updateMission(weeklyMissions, 'study_1000', weekCards);
+        updateMission(weeklyMissions, 'study_300', weekCards, 'weekly');
+        updateMission(weeklyMissions, 'study_600', weekCards, 'weekly');
+        updateMission(weeklyMissions, 'study_1000', weekCards, 'weekly');
         
         // Update streak mission
         const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
-        updateMission(dailyMissions, 'streak_7', Math.min(streakCount, 7));
-        updateMission(weeklyMissions, 'consecutive_7', Math.min(streakCount, 7));
+        updateMission(dailyMissions, 'streak_7', Math.min(streakCount, 7), 'daily');
+        updateMission(weeklyMissions, 'consecutive_7', Math.min(streakCount, 7), 'weekly');
         
         // For time spent - track from review sessions
         try{
           const timeSpent = Number(localStorage.getItem('fabanki:time_spent_today') || 0);
-          updateMission(dailyMissions, 'study_10m', timeSpent);
-          updateMission(dailyMissions, 'study_45m', timeSpent);
+          updateMission(dailyMissions, 'study_10m', timeSpent, 'daily');
+          updateMission(dailyMissions, 'study_45m', timeSpent, 'daily');
           
           const timeSpentWeek = Number(localStorage.getItem('fabanki:time_spent_week') || 0);
-          updateMission(weeklyMissions, 'study_5h', timeSpentWeek);
+          updateMission(weeklyMissions, 'study_5h', timeSpentWeek, 'weekly');
         
                 // For backlog reduction missions
                 try{
@@ -3439,9 +3630,9 @@
                   const reductionPercent = initialOverdue > 0 ? Math.round(((initialOverdue - currentOverdue) / initialOverdue) * 100) : 0;
           
                   // Update backlog missions with the reduction percentage
-                  updateMission(dailyMissions, 'backlog_20', Math.max(0, reductionPercent));
-                  updateMission(dailyMissions, 'backlog_50', Math.max(0, reductionPercent));
-                  updateMission(weeklyMissions, 'backlog_50w', Math.max(0, reductionPercent));
+                  updateMission(dailyMissions, 'backlog_20', Math.max(0, reductionPercent), 'daily');
+                  updateMission(dailyMissions, 'backlog_50', Math.max(0, reductionPercent), 'daily');
+                  updateMission(weeklyMissions, 'backlog_50w', Math.max(0, reductionPercent), 'weekly');
                 }catch(e){ console.warn('backlog tracking error:', e) }
         }catch(e){}
         
@@ -4582,6 +4773,13 @@
         if(!db) return false;
         const userId = localStorage.getItem('userId') || generateUserId();
         const pseudo = localStorage.getItem('pseudo') || 'Anonyme';
+        
+        // Don't sync if user is anonymous
+        if(pseudo === 'Anonyme' || !pseudo || pseudo.trim() === ''){
+          console.log('Skipping sync for anonymous user');
+          return false;
+        }
+        
         const xp = Number(localStorage.getItem('fabanki:xp_total') || 0);
         const lvl = (typeof computeLevelAndProgress === 'function') ? computeLevelAndProgress(xp).level : 1;
         // ensure weekly counters are current
@@ -4796,16 +4994,20 @@
           }
         }
         
-        function renderRow(d, rank){
+        function renderRow(d, rank, scoreField = 'Score_MPSI'){
           // Skip users with 0 cards seen
           const cardsReviewed = Number(d['Cartes révisées'] || 0);
           if(cardsReviewed === 0) return null;
           
+          // Skip anonymous users
+          const pseudo = d.Pseudo || '';
+          if(pseudo === 'Anonyme' || !pseudo || pseudo.trim() === '') return null;
+          
           const tr = document.createElement('tr');
           const tdRank = document.createElement('td'); tdRank.textContent = String(rank);
-          const tdPseudo = document.createElement('td'); tdPseudo.textContent = d.Pseudo || '';
+          const tdPseudo = document.createElement('td'); tdPseudo.textContent = pseudo;
           const tdNiv = document.createElement('td'); tdNiv.textContent = d['Niveau'] || d['Niveau Prépa'] || '';
-          const tdScore = document.createElement('td'); tdScore.textContent = d.Score_MPSI || d.Score_MPSI || 0;
+          const tdScore = document.createElement('td'); tdScore.textContent = d[scoreField] || 0;
           const tdBadges = document.createElement('td'); tdBadges.style.display='flex'; tdBadges.style.gap='6px';
           try{
             const t = d.Titres || d.titres || [];
@@ -4849,7 +5051,7 @@
               snapshot.forEach(doc=>{ const d=doc.data()||{}; if(isValidLeaderboardEntry(d) && d.Mois_ID === m) { allData.push(d); } });
               // Sort by Score_MPSI_mois descending to ensure proper ranking
               allData.sort((a,b) => (Number(b.Score_MPSI_mois || 0) - Number(a.Score_MPSI_mois || 0)));
-              tbody.innerHTML=''; let r=1; allData.forEach(d=>{ const row = renderRow(d, r); if(row) { tbody.appendChild(row); r++; } });
+              tbody.innerHTML=''; let r=1; allData.forEach(d=>{ const row = renderRow(d, r, 'Score_MPSI_mois'); if(row) { tbody.appendChild(row); r++; } });
             }catch(e){ console.warn('leaderboard render', e); }
           }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="7">Erreur lecture du classement</td></tr>'; });
         }
@@ -5249,8 +5451,21 @@
         let entries = [];
         try{ entries = await fetchDirectory('./decks/'); }catch(e){ entries = []; }
         if(!entries || entries.length===0){ const msg = document.createElement('div'); msg.textContent='Aucun deck trouvé'; card.appendChild(msg); container.appendChild(card); document.body.appendChild(container); return }
-        // normalize to simple file list and limit based on viewport height
+        // normalize to simple file list
         const allFiles = (Array.isArray(entries) ? entries : []).filter(e=> typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
+        
+        // compute counts for ALL decks first
+        const rows = [];
+        for(const f of allFiles){
+          const url = './decks/' + f;
+          const name = decodeURIComponent(f.replace(/\+/g,'')).replace(/\.xml$/i,'');
+          const cnt = await countDueNowForDeck(url);
+          rows.push({name, url, cnt});
+        }
+        
+        // sort by due count (descending)
+        rows.sort((a,b)=> (b.cnt||0) - (a.cnt||0));
+        
         // compute limit: desktop -> 10; mobile -> depends on available vertical space
         function computeWelcomeLimit(){
           try{
@@ -5263,19 +5478,14 @@
           }catch(e){ return 6 }
         }
         const limit = computeWelcomeLimit();
-        const files = allFiles.slice(0, limit);
-        // compute counts
-        const rows = [];
-        for(const f of files){
-          const url = './decks/' + f;
-          const name = decodeURIComponent(f.replace(/\+/g,'')).replace(/\.xml$/i,'');
-          const cnt = await countDueNowForDeck(url);
-          rows.push({name, url, cnt});
-        }
-        rows.sort((a,b)=> (b.cnt||0) - (a.cnt||0));
+        
+        // take top decks by due count
+        const topRows = rows.slice(0, limit);
+        
         // show total due count next to title in red
         try{ const totalDue = rows.reduce((s,x)=> s + (x.cnt||0), 0); title.innerHTML = `Decks disponibles <span style="color:#d9534f;margin-left:8px">(${totalDue} à faire)</span>`; }catch(e){}
-        for(const r of rows){
+        
+        for(const r of topRows){
           const row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center'; row.style.gap='8px';
           const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='12px';
           const nm = document.createElement('div'); nm.textContent = r.name; nm.style.fontWeight = '600';
@@ -6204,11 +6414,18 @@
         {
           title: 'Personnalisez l\'interface',
           text: 'Dans le profil, utilisez le bouton ⚙️ pour changer les couleurs, animations et polices. Débloquez plus d\'options en montant de niveau !',
+          target: '.button.settings-button',
           position: 'center'
+        },
+                {
+          title: 'Plus sur le projet',
+          text: 'Fab\'Anki est un projet open-source et collaboratif. Si vous voyez une erreur/bug ou souhaitez proposer une fonctionnalité, demandez moi en privé. Projet fait avec ia, je ne vais pas m\'en cacher :)',
+          position: 'bottom'
         },
         {
           title: 'C\'est parti !',
           text: 'Vous êtes prêt à commencer ! Choisissez un deck et lancez-vous dans vos révisions, je vous guiderais tout au long du chemin. Bon courage !',
+          target: '.start-button',
           position: 'center'
         }
       ];
@@ -6670,3 +6887,4 @@
   window.scheduleCard = scheduleCard;
   window.getDueCards = getDueCards;
 
+// Fab'Anki, open-source spaced repetition software made with Copilot.
