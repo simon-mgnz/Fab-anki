@@ -1864,6 +1864,9 @@
         if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
       }catch(e){}
       
+      // Sync card review progress to cloud
+      if(typeof autoSync === 'function') autoSync().catch(e => syncLog('autoSync in passCurrent failed:', e));
+      
       // Restore original storageKey if it was overridden for multi-deck
       if(multiDeckMode && cardData){
         storageKey = origStorageKey;
@@ -1912,13 +1915,8 @@
       let timeSec = 0;
       try{ timeSec = Math.max(0, (Date.now() - (cardShownAt||Date.now())) / 1000); }catch(e){}
       
-            // Accumulate time spent for mission tracking
-            try{
-              const currentTimeToday = Number(localStorage.getItem('fabanki:time_spent_today') || 0);
-              const currentTimeWeek = Number(localStorage.getItem('fabanki:time_spent_week') || 0);
-              localStorage.setItem('fabanki:time_spent_today', String(currentTimeToday + Math.floor(timeSec / 60))); // Store in minutes
-              localStorage.setItem('fabanki:time_spent_week', String(currentTimeWeek + Math.floor(timeSec / 60)));
-            }catch(e){ console.warn('time accumulation error:', e) }
+            // Accumulate time spent for mission tracking (seconds-based)
+            try{ accumulateTimeSpent(timeSec); }catch(e){}
       
       try{ if(timeSec > 20) incLocal('fabanki:long_answer_total', 1); }catch(e){}
 
@@ -1944,6 +1942,12 @@
         try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
         try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = 3; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
       }
+      // Noether: consecutive reviews without using "Passer"
+      try{
+        const consecNoPass = incLocal('fabanki:consec_no_pass',1);
+        const maxNoPass = Math.max(Number(localStorage.getItem('fabanki:consec_no_pass_max')||0), consecNoPass);
+        localStorage.setItem('fabanki:consec_no_pass_max', String(maxNoPass));
+      }catch(e){}
     }catch(e){ console.warn('answerCurrent counters', e) }
     // Anki-like behaviour: on Fail (q<3) reinsert this card later in the session
     if(q < 3){
@@ -1972,13 +1976,7 @@
         try{
           const timeSec = Math.max(0, (Date.now() - (cardShownAt||Date.now())) / 1000);
           
-                    // Accumulate time spent for mission tracking (also here for quality 3/4/5)
-                    try{
-                      const currentTimeToday = Number(localStorage.getItem('fabanki:time_spent_today') || 0);
-                      const currentTimeWeek = Number(localStorage.getItem('fabanki:time_spent_week') || 0);
-                      localStorage.setItem('fabanki:time_spent_today', String(currentTimeToday + Math.floor(timeSec / 60))); // Store in minutes
-                      localStorage.setItem('fabanki:time_spent_week', String(currentTimeWeek + Math.floor(timeSec / 60)));
-                    }catch(e){}
+                    // Time already accumulated above
           
           // track long answers (>20s) for Hadamard titre
           try{ if(timeSec > 20) incLocal('fabanki:long_answer_total', 1); }catch(e){}
@@ -1991,6 +1989,10 @@
       if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
       try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
     }catch(e){}
+    
+    // Sync card review progress to cloud
+    if(typeof autoSync === 'function') autoSync().catch(e => syncLog('autoSync in answerCurrent failed:', e));
+    
     // Restore original storageKey if it was overridden for multi-deck
     if(multiDeckMode && cardData){
       storageKey = origStorageKey;
@@ -2126,7 +2128,7 @@
         if (currentCardColorName) {
           const cardColors = [
             { name: 'Défaut', id: 'default', light: '#fff', dark: '#111319', level: 0 },
-            { name: 'Bleu clair', id: 'lightblue', light: '#e3f2fd', dark: '#1a2a3a', level: 5 },
+            { name: 'Bleu clair', id: 'lightblue', light: '#e4f1fa', dark: '#1a2a3a', level: 5 },
             { name: 'Vert clair', id: 'lightgreen', light: '#e8f5e9', dark: '#1b2d1f', level: 10 },
             { name: 'Rose clair', id: 'lightpink', light: '#fce4ec', dark: '#3a1f2e', level: 15 },
             { name: 'Amber', id: 'amber', light: '#fff8e1', dark: '#3a3000', level: 20 },
@@ -2857,6 +2859,11 @@
       return decks;
     }
 
+    // Backwards-compatible alias used by sync code
+    function collectDeckProgress(){
+      try{ return collectDeckStates(); }catch(e){ return {}; }
+    }
+
     function collectQuestState(){
       try{
         const daily = JSON.parse(localStorage.getItem('fabanki:daily_missions') || '[]');
@@ -2894,10 +2901,15 @@
     function initUserState(){
       try{
         const saved = loadState();
-        if(saved){ window.userState = saved; }
-        else { window.userState = defaultUserState(); }
-        // Persist baseline
-        saveState(window.userState);
+        if(saved){ 
+          window.userState = saved; 
+          // Don't call saveState here - preserve existing timestamp for proper sync comparison
+        }
+        else { 
+          window.userState = defaultUserState(); 
+          // Only save if no existing state (first run)
+          saveState(window.userState);
+        }
       }catch(e){ console.warn('initUserState', e) }
     }
 
@@ -2912,6 +2924,96 @@
       }catch(e){ return null }
     }
 
+    // Merge two deck states by combining all cards and keeping the most up-to-date card state
+    function mergeDeckStates(localDecks, remoteDecks){
+      const merged = { ...remoteDecks };
+      
+      for(const dKey of Object.keys(localDecks || {})){
+        if(!merged[dKey]){
+          merged[dKey] = { cards: {} };
+        }
+        // Merge cards: take the card state with the most recent 'last' timestamp
+        for(const cId of Object.keys(localDecks[dKey]?.cards || {})){
+          const localCard = localDecks[dKey].cards[cId];
+          const remoteCard = merged[dKey].cards?.[cId];
+          
+          if(!remoteCard){
+            // Card only in local: keep it
+            if(!merged[dKey].cards) merged[dKey].cards = {};
+            merged[dKey].cards[cId] = localCard;
+          } else {
+            // Card in both: take the one with more recent 'last' review
+            const localLast = new Date(localCard.last || 0).getTime();
+            const remoteLast = new Date(remoteCard.last || 0).getTime();
+            if(localLast > remoteLast){
+              merged[dKey].cards[cId] = localCard;
+            }
+            // else keep remote (already in merged)
+          }
+        }
+      }
+      
+      return merged;
+    }
+
+    // Sync helpers (status + debug)
+    function syncDebugEnabled(){
+      try{ return (window.__fabanki_sync_debug === true) || (localStorage.getItem('fabanki:sync_debug') === '1'); }catch(e){ return false }
+    }
+    function syncLog(...args){ if(syncDebugEnabled()) console.log('[SYNC]', ...args); }
+    function ensureSyncStatusEl(){
+      try{
+        let el = document.getElementById('syncStatus');
+        if(el) return el;
+        el = document.createElement('div');
+        el.id = 'syncStatus';
+        el.setAttribute('aria-live', 'polite');
+        el.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:3000;background:rgba(15,23,42,0.92);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;box-shadow:0 6px 16px rgba(0,0,0,0.25);display:none;';
+        document.body.appendChild(el);
+        return el;
+      }catch(e){ return null }
+    }
+    function setSyncStatus(text, active){
+      try{
+        const el = ensureSyncStatusEl();
+        if(!el) return;
+        if(active){
+          el.textContent = text || 'Synchronisation en cours…';
+          el.style.display = 'block';
+        } else {
+          el.textContent = '';
+          el.style.display = 'none';
+        }
+      }catch(e){}
+    }
+    
+    // Expose debug functions for console testing
+    window.__fabanki_testSync = async function(){
+      console.log('=== FABANKI SYNC TEST ===');
+      console.log('Mode:', localStorage.getItem('fabanki:mode'));
+      console.log('User ID:', localStorage.getItem('fabanki:user_id'));
+      console.log('Pseudo:', localStorage.getItem('pseudo'));
+      console.log('Firestore available:', !!window.__fabanki_firestore);
+      console.log('---');
+      if(typeof autoSync === 'function'){
+        console.log('Running autoSync()...');
+        await autoSync();
+        console.log('autoSync completed');
+      } else {
+        console.log('autoSync not available');
+      }
+    };
+    window.__fabanki_enableDebug = function(){
+      localStorage.setItem('fabanki:sync_debug', '1');
+      window.__fabanki_sync_debug = true;
+      console.log('Sync debug enabled - check console for [SYNC] messages');
+    };
+    window.__fabanki_disableDebug = function(){
+      localStorage.removeItem('fabanki:sync_debug');
+      window.__fabanki_sync_debug = false;
+      console.log('Sync debug disabled');
+    };
+
     async function saveState(state){
       try{
         const toSave = { ...state, lastUpdated: Date.now() };
@@ -2925,7 +3027,15 @@
           try{
             const uid = toSave.userId;
             if(uid){
-              await window.__fabanki_firestore.collection('users').doc(uid).set(toSave, { merge: true });
+              const deckCount = toSave.decks ? Object.keys(toSave.decks).length : 0;
+              const cardCount = toSave.decks ? Object.values(toSave.decks).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0) : 0;
+              syncLog('Preparing upload', { userId: uid, decks: deckCount, cards: cardCount, xp: toSave.xp, credits: toSave.credits, lastUpdated: toSave.lastUpdated });
+              const dryRun = (window.__fabanki_sync_dry_run === true) || (localStorage.getItem('fabanki:sync_dry_run') === '1');
+              if(dryRun){
+                syncLog('Dry run enabled: skipping upload');
+              } else {
+                await window.__fabanki_firestore.collection('users').doc(uid).set(toSave, { merge: true });
+              }
             }
           }catch(e){ console.warn('saveState cloud', e) }
         }
@@ -2936,18 +3046,56 @@
     async function autoSync(){
       try{
         const mode = localStorage.getItem('fabanki:mode');
-        if(mode !== 'synced') return; // Only sync if in synced mode
-        
-        const userId = localStorage.getItem('fabanki:user_id');
-        if(!userId || !window.__fabanki_firestore) return;
-        
-        const pseudo = localStorage.getItem('pseudo') || 'Anonyme';
-        if(pseudo === 'Anonyme' || !pseudo || pseudo.trim() === ''){
-          console.log('Skipping auto-sync for anonymous user');
+        syncLog('autoSync: mode =', mode);
+        if(mode !== 'synced') {
+          syncLog('autoSync: skipping - not in synced mode');
           return;
         }
         
-        // Build current state from localStorage
+        const userId = localStorage.getItem('fabanki:user_id');
+        syncLog('autoSync: userId =', userId, 'firestore available =', !!window.__fabanki_firestore);
+        if(!userId || !window.__fabanki_firestore) {
+          syncLog('autoSync: skipping - missing userId or firestore');
+          return;
+        }
+        
+        const pseudo = localStorage.getItem('pseudo') || 'Anonyme';
+        if(pseudo === 'Anonyme' || !pseudo || pseudo.trim() === ''){
+          syncLog('autoSync: skipping - anonymous user');
+          return;
+        }
+        
+        syncLog('autoSync: starting sync for user', pseudo);
+        setSyncStatus('Synchronisation en cours…', true);
+        
+        // PULL-BEFORE-PUSH: Check cloud for any newer updates before uploading
+        try{
+          const db = window.__fabanki_firestore;
+          const docRef = db.collection('users').doc(userId);
+          const snap = await docRef.get();
+          
+          if(snap.exists){
+            const remoteSt = snap.data();
+            const localStateRaw = localStorage.getItem('fabanki:user_state');
+            const localState = localStateRaw ? JSON.parse(localStateRaw) : null;
+            const localLastUpdated = Number(localState?.lastUpdated || 0);
+            const remoteLastUpdated = Number(remoteSt.lastUpdated || 0);
+            
+            syncLog('autoSync: checking for remote updates', { localTime: localLastUpdated, remoteTime: remoteLastUpdated });
+            
+            // If remote is newer, pull it first
+            if(remoteLastUpdated > localLastUpdated){
+              syncLog('autoSync: remote is newer, pulling updates before push');
+              applyStateToLocalStorage(remoteSt);
+              localStorage.setItem('fabanki:user_state', JSON.stringify(remoteSt));
+            }
+          }
+        }catch(e){
+          syncLog('autoSync: error checking remote updates', e);
+          // Continue with push anyway
+        }
+        
+        // Build current state from localStorage (now merged with any remote updates)
         const st = defaultUserState();
         st.mode = 'synced';
         st.userId = userId;
@@ -2957,9 +3105,15 @@
         st.quests = collectQuestState();
         st.decks = collectDeckProgress();
         
+        syncLog('autoSync: collected state', { xp: st.xp, credits: st.credits, decks: Object.keys(st.decks || {}).length });
+        
         await saveState(st);
-        console.log('Auto-sync completed');
-      }catch(e){ console.warn('autoSync error:', e) }
+        syncLog('Auto-sync completed successfully');
+      }catch(e){ 
+        syncLog('autoSync ERROR:', e);
+        console.warn('autoSync error:', e);
+      }
+      finally { setSyncStatus('', false); }
     }
     
     // Restore data from cloud on page load
@@ -2969,18 +3123,33 @@
         const db = window.__fabanki_firestore;
         if(!auth || !db) return;
         
-        // Wait for auth state
-        const user = await new Promise((resolve) => {
-          const unsub = auth.onAuthStateChanged((u) => {
-            unsub();
-            resolve(u);
-          });
-        });
-        
-        if(!user) return; // Not logged in
-        
         const localMode = localStorage.getItem('fabanki:mode');
         if(localMode !== 'synced') return; // Only restore if in synced mode
+        setSyncStatus('Synchronisation en cours…', true);
+        
+        // Fast path: use current user if already available
+        let user = auth.currentUser;
+        if(!user){
+          // Wait briefly for auth state, then give up to avoid long startup delay
+          user = await new Promise((resolve) => {
+            let settled = false;
+            const timeoutId = setTimeout(() => {
+              if(settled) return;
+              settled = true;
+              if(unsub) unsub();
+              resolve(null);
+            }, 1500);
+            const unsub = auth.onAuthStateChanged((u) => {
+              if(settled) return;
+              settled = true;
+              clearTimeout(timeoutId);
+              unsub();
+              resolve(u);
+            });
+          });
+        }
+        
+        if(!user) return; // Not logged in
         
         const uid = user.uid;
         const docRef = db.collection('users').doc(uid);
@@ -2989,21 +3158,97 @@
         if(!snap.exists) return; // No cloud data
         
         const remoteSt = snap.data();
-        const localLastUpdated = Number(localStorage.getItem('fabanki:user_state') ? JSON.parse(localStorage.getItem('fabanki:user_state')).lastUpdated : 0);
+        const localStateRaw = localStorage.getItem('fabanki:user_state');
+        const localState = localStateRaw ? JSON.parse(localStateRaw) : null;
+        const localLastUpdated = Number(localState?.lastUpdated || 0);
         const remoteLastUpdated = Number(remoteSt.lastUpdated || 0);
+        syncLog('Restore compare', { localLastUpdated, remoteLastUpdated });
         
-        // Only restore if remote is newer
+        // Conflict resolution: prefer remote if newer, otherwise merge intelligently
+        let shouldRestore = false;
+        let mergedState = null;
+        
         if(remoteLastUpdated > localLastUpdated){
-          console.log('Restoring from cloud (remote is newer)');
-          applyStateToLocalStorage(remoteSt);
-          localStorage.setItem('fabanki:user_state', JSON.stringify(remoteSt));
+          // Remote is newer: use it directly
+          syncLog('Remote is newer, restoring from cloud');
+          shouldRestore = true;
+          mergedState = remoteSt;
+        } else if(remoteLastUpdated === localLastUpdated && !localState){
+          // No local state yet: always restore from cloud
+          syncLog('No local state, restoring from cloud');
+          shouldRestore = true;
+          mergedState = remoteSt;
+        } else if(remoteLastUpdated === localLastUpdated && localState && remoteSt){
+          // Timestamps equal: check if data actually differs
+          const localDeckCount = Object.keys(localState.decks || {}).length;
+          const remoteDeckCount = Object.keys(remoteSt.decks || {}).length;
+          const localCardCount = Object.values(localState.decks || {}).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
+          const remoteCardCount = Object.values(remoteSt.decks || {}).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
+          const dataDiffers = (localDeckCount !== remoteDeckCount) || (localCardCount !== remoteCardCount) || 
+                              (Number(localState.xp || 0) !== Number(remoteSt.xp || 0));
+          
+          if(dataDiffers){
+            // Data differs: deep merge decks (combine all cards from both)
+            syncLog('Timestamps equal but data differs - deep merging', { 
+              localDecks: localDeckCount, remoteDecks: remoteDeckCount,
+              localCards: localCardCount, remoteCards: remoteCardCount,
+              localXp: localState.xp, remoteXp: remoteSt.xp
+            });
+            const mergedDecks = mergeDeckStates(localState.decks || {}, remoteSt.decks || {});
+            mergedState = {
+              ...remoteSt,
+              decks: mergedDecks,
+              // Take the higher XP value (indicates more practice completed)
+              xp: Math.max(Number(remoteSt.xp || 0), Number(localState.xp || 0)),
+              // Merge quests: prefer the set with more missions completed or later date
+              quests: {
+                daily: remoteSt.quests?.daily || localState.quests?.daily || [],
+                weekly: remoteSt.quests?.weekly || localState.quests?.weekly || [],
+                missions_date: Math.max(
+                  new Date(remoteSt.quests?.missions_date || 0).getTime(),
+                  new Date(localState.quests?.missions_date || 0).getTime()
+                ) > 0 ? new Date(Math.max(
+                  new Date(remoteSt.quests?.missions_date || 0).getTime(),
+                  new Date(localState.quests?.missions_date || 0).getTime()
+                )).toISOString() : null
+              },
+              // Increment timestamp to ensure other browsers see the merge
+              lastUpdated: Date.now()
+            };
+            shouldRestore = true;
+          } else {
+            syncLog('Timestamps and data are equal - no merge needed');
+          }
+        }
+        
+        if(shouldRestore && mergedState){
+          syncLog('Applying merged/restored state', { 
+            decks: Object.keys(mergedState.decks || {}).length, 
+            xp: mergedState.xp 
+          });
+          applyStateToLocalStorage(mergedState);
+          localStorage.setItem('fabanki:user_state', JSON.stringify(mergedState));
           localStorage.setItem('fabanki:mode', 'synced');
           localStorage.setItem('fabanki:user_id', uid);
           
-          // Reload page to apply changes
-          if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
+          // After restoring, push the merged state back to cloud if it was a merge
+          if(remoteLastUpdated === localLastUpdated && localState && remoteSt){
+            syncLog('Pushing merged state back to cloud');
+            await saveState(mergedState);
+          }
+          
+          // Refresh UI to reflect restored data
+          syncLog('Refreshing UI after restore');
+          try{
+            if(typeof updateMissionProgress === 'function') updateMissionProgress();
+            if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
+            // Note: deck reinitialization happens when deck loads after restore completes
+          }catch(e){ syncLog('Error refreshing UI:', e); }
+        } else {
+          syncLog('Keeping local state (local is newer or merge not needed)');
         }
       }catch(e){ console.warn('restoreFromCloud error:', e) }
+      finally { setSyncStatus('', false); }
     }
 
     async function createAccountAndSync(emailArg, passwordArg){
@@ -3045,6 +3290,22 @@
         const { user } = await auth.signInWithEmailAndPassword(email, password);
         const uid = user.uid;
 
+        // If switching accounts, delete previous leaderboard entry
+        try{
+          const prevAuthUid = localStorage.getItem('fabanki:classement_auth_uid');
+          const prevClassementId = localStorage.getItem('fabanki:classement_user_id');
+          if(prevAuthUid && prevAuthUid !== uid && prevClassementId){
+            await db.collection('Classement').doc(prevClassementId).delete();
+          }
+        }catch(e){ console.warn('delete old classement failed', e) }
+
+        // Ensure current leaderboard mapping
+        try{
+          if(!localStorage.getItem('userId')) localStorage.setItem('userId', generateUserId());
+          localStorage.setItem('fabanki:classement_auth_uid', uid);
+          localStorage.setItem('fabanki:classement_user_id', localStorage.getItem('userId'));
+        }catch(e){}
+
         const localSt = loadState() || defaultUserState();
         const docRef = db.collection('users').doc(uid);
         const snap = await docRef.get();
@@ -3061,6 +3322,9 @@
           chosen.userId = uid;
         }
         await saveState(chosen);
+        try{ applyStateToLocalStorage(chosen); }catch(e){}
+        try{ if(typeof updateMissionProgress === 'function') updateMissionProgress(); }catch(e){}
+        try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
         alert('✅ Connexion et synchronisation terminées.');
       }catch(e){ 
         alert('❌ Échec connexion:\n\n' + (e?.message || e));
@@ -3377,8 +3641,7 @@
 
     // Initialize on startup
     initUserState();
-    // Restore from cloud if logged in
-    restoreFromCloud().catch(e => console.warn('restoreFromCloud failed:', e));
+    // Note: restoreFromCloud() is now called by initializeDeckLoader() to ensure deck loads with restored data
     // refresh periodically
     setInterval(()=>{ try{ updateProfilePopupIfOpen(); }catch(e){} }, 30*1000);
 
@@ -3591,11 +3854,13 @@
         
         // For time spent - track from review sessions
         try{
-          const timeSpent = Number(localStorage.getItem('fabanki:time_spent_today') || 0);
+          const timeSpentSec = Number(localStorage.getItem('fabanki:time_spent_today_sec') || 0);
+          const timeSpent = timeSpentSec > 0 ? Math.floor(timeSpentSec / 60) : Number(localStorage.getItem('fabanki:time_spent_today') || 0);
           updateMission(dailyMissions, 'study_10m', timeSpent, 'daily');
           updateMission(dailyMissions, 'study_45m', timeSpent, 'daily');
           
-          const timeSpentWeek = Number(localStorage.getItem('fabanki:time_spent_week') || 0);
+          const timeSpentWeekSec = Number(localStorage.getItem('fabanki:time_spent_week_sec') || 0);
+          const timeSpentWeek = timeSpentWeekSec > 0 ? Math.floor(timeSpentWeekSec / 60) : Number(localStorage.getItem('fabanki:time_spent_week') || 0);
           updateMission(weeklyMissions, 'study_5h', timeSpentWeek, 'weekly');
         
                 // For backlog reduction missions
@@ -4633,6 +4898,8 @@
           localStorage.setItem('fabanki:week_id', currentWeek);
           localStorage.setItem('fabanki:xp_semaine', '0');
           localStorage.setItem('fabanki:score_mpsi_semaine', '0');
+          localStorage.setItem('fabanki:time_spent_week', '0');
+          localStorage.setItem('fabanki:time_spent_week_sec', '0');
         }
       }catch(e){}
     }
@@ -4646,6 +4913,8 @@
         if(stored !== currentDay){
           localStorage.setItem('fabanki:day_id', currentDay);
           localStorage.setItem('fabanki:score_mpsi_today', '0');
+          localStorage.setItem('fabanki:time_spent_today', '0');
+          localStorage.setItem('fabanki:time_spent_today_sec', '0');
         }
       }catch(e){}
     }
@@ -4666,6 +4935,21 @@
     function incLocal(key, n){ try{ const v = Number(localStorage.getItem(key) || 0) + (n||1); localStorage.setItem(key, String(v)); return v; }catch(e){ return 0 } }
 
     function getLocalNum(key){ return Number(localStorage.getItem(key) || 0) }
+
+    function accumulateTimeSpent(timeSec){
+      try{
+        const addSec = Math.max(0, Math.round(timeSec || 0));
+        if(addSec <= 0) return;
+        const curDaySec = Number(localStorage.getItem('fabanki:time_spent_today_sec') || 0);
+        const curWeekSec = Number(localStorage.getItem('fabanki:time_spent_week_sec') || 0);
+        const newDaySec = curDaySec + addSec;
+        const newWeekSec = curWeekSec + addSec;
+        localStorage.setItem('fabanki:time_spent_today_sec', String(newDaySec));
+        localStorage.setItem('fabanki:time_spent_week_sec', String(newWeekSec));
+        localStorage.setItem('fabanki:time_spent_today', String(Math.floor(newDaySec / 60)));
+        localStorage.setItem('fabanki:time_spent_week', String(Math.floor(newWeekSec / 60)));
+      }catch(e){ console.warn('time accumulation error:', e) }
+    }
 
     function countMasteredCards(){
       try{
@@ -6360,8 +6644,38 @@
       }catch(e){ updateStatus("Bienvenue sur Fab'Anki"); }
     }
 
-    if(pdeck){ deckURL = pdeck; loadDeckFromURL(pdeck); }
-    else { renderWelcomeDecks(); }
+    // Wait for restore before loading deck, but with timeout to avoid indefinite wait
+    async function initializeDeckLoader(){
+      try{
+        // Wait up to 3 seconds for cloud restore to complete
+        const restorePromise = new Promise((resolve) => {
+          restoreFromCloud().catch(e => {
+            syncLog('restoreFromCloud error (non-blocking):', e);
+          }).finally(() => resolve());
+        });
+        
+        await Promise.race([
+          restorePromise,
+          new Promise(resolve => setTimeout(resolve, 3000))
+        ]);
+        
+        syncLog('Cloud restore completed or timeout reached, loading deck');
+      }catch(e){ 
+        syncLog('initializeDeckLoader error:', e);
+      }
+      
+      // Now load deck with restored data
+      if(pdeck){ 
+        deckURL = pdeck; 
+        loadDeckFromURL(pdeck); 
+      }
+      else { 
+        renderWelcomeDecks(); 
+      }
+    }
+    
+    // Start deck loader initialization
+    initializeDeckLoader().catch(e => console.warn('Deck loader error:', e));
     
     // Show onboarding for first-time users
     setTimeout(() => {
