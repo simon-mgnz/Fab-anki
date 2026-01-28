@@ -2,6 +2,34 @@
 
 [data-theme='dark']{--bg:#0f1115;--fg:#e6eef8;--card:#111319;--muted:#9aa4b2;--accent:#66a0ff}
 
+/* Dark theme for level and goal boxes */
+[data-theme='dark'] .level-summary > div:first-child{background-color:rgba(148, 163, 184, 0.15) !important}
+
+[data-theme='dark'] .level-summary > div:first-child > div:nth-child(2) > div:first-child{color:#e6eef8 !important}
+
+[data-theme='dark'] .level-summary > div:first-child > div:nth-child(2) > div:nth-child(2){color:#9aa4b2 !important}
+
+[data-theme='dark'] .daily-goal-box{background-color:rgba(100, 116, 139, 0.15) !important}
+
+[data-theme='dark'] .daily-goal-box > div:first-child{color:#e6eef8 !important}
+
+[data-theme='dark'] .goal-bar-container{background-color:rgba(148, 163, 184, 0.3) !important}
+
+[data-theme='dark'] .goal-pct-text{color:#cbd5e1 !important}
+
+[data-theme='dark'] .goal-no-goal-text{color:#cbd5e1 !important}
+
+/* Dark theme for recap stat boxes */
+[data-theme='dark'] .recap-stat-box{background-color:rgba(148, 163, 184, 0.15) !important}
+
+[data-theme='dark'] .recap-stat-box > div:first-child{color:#9aa4b2 !important}
+
+[data-theme='dark'] .recap-stat-box > div:nth-child(2){color:#e6eef8 !important}
+
+[data-theme='dark'] #recap-distribution{background-color:rgba(148, 163, 184, 0.15) !important}
+
+[data-theme='dark'] #recap-distribution > div:first-child{color:#e6eef8 !important}
+
 *{box-sizing:border-box}
 
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:var(--font-size)}
@@ -442,6 +470,8 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
 
 .level-summary .credit-label{font-size:0.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
 
+.level-summary .level-label{font-size:0.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+
 .level-summary .streak-count{font-size:1.2rem;font-weight:700;color:#ff7f00}
 
 .level-summary .credit-count{font-size:1.2rem;font-weight:700;color:#0066ff}
@@ -471,6 +501,8 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
   .level-summary .streak-label{font-size:0.65rem}
 
   .level-summary .credit-label{font-size:0.65rem}
+
+  .level-summary .level-label{font-size:0.65rem}
 
   .level-summary .streak-count{font-size:1rem}
 
