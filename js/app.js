@@ -10,6 +10,8 @@
   let currentIndex = 0;
   let sessionTotal = 0;
   let reviewedCount = 0;
+    let sessionData = []; // Track per-card data for recap: {cardId, grade, timeSpent}
+  let answerLocked = false;
   let deckKey = null; // prefix for localStorage
   let manifestMeta = {}; // path (relative to decks/) -> manifest entry (cost/level/tags)
   let tooltipShown = false;
@@ -763,19 +765,19 @@
       
       if(lockState.locked && lockState.lockedByCost){
         // Show buy button
-        startBtn.textContent = `Acheter pour ${lockState.cost} 💳`;
+        startBtn.textContent = `Acheter pour ${lockState.cost} ℂ`;
         startBtn.className = lockState.currentCredits >= lockState.cost ? 'primary' : 'secondary';
         startBtn.disabled = lockState.currentCredits < lockState.cost;
         startBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;';
         startBtn.addEventListener('click', ()=>{
           const freshState = evaluateDeckLock(url);
           if(freshState.currentCredits < freshState.cost){
-            alert(`Crédits insuffisants. Vous avez ${freshState.currentCredits} 💳, il en faut ${freshState.cost} 💳`);
+            alert(`Crédits insuffisants. Vous avez ${freshState.currentCredits} ℂ, il en faut ${freshState.cost} ℂ`);
             return;
           }
           if(typeof addCredits === 'function') addCredits(-freshState.cost);
           setDeckUnlocked(url);
-          alert(`Deck débloqué ! Il vous reste ${freshState.currentCredits - freshState.cost} 💳`);
+          alert(`Deck débloqué ! Il vous reste ${freshState.currentCredits - freshState.cost} ℂ`);
           // Reload the overview to show the start button
           showDeckOverview(url);
         });
@@ -977,6 +979,22 @@
   // === Function: renderFront ===
   // Render fields that are allowed on the front side according to their `sides`.
   // Each card now has `card.fields` where keys are field names and values are {html,type,sides}.
+  function applyCardScroll(el){
+    if(!el) return;
+    requestAnimationFrame(() => {
+      const overflowX = el.scrollWidth > el.clientWidth + 2;
+      const overflowY = el.scrollHeight > el.clientHeight + 2;
+      if(overflowX || overflowY){
+        el.style.overflow = 'auto';
+        el.style.alignItems = 'flex-start';
+        el.style.justifyContent = 'flex-start';
+      } else {
+        el.style.overflow = 'hidden';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+      }
+    });
+  }
   function renderFront(card){
     const frontEl = $('#front');
     const alwaysEl = $('#always');
@@ -1069,6 +1087,7 @@
     }
 
     alwaysEl.textContent = '';
+    try{ applyCardScroll(frontEl); }catch(e){}
   }
 
   // === Function: renderBack ===
@@ -1196,6 +1215,7 @@
     }
 
     if(!anyContent){ backEl.innerHTML = '<em>Contenu masqué côté réponse</em>'; }
+    try{ applyCardScroll(backEl); }catch(e){}
   }
 
   // Helper: buildFieldElement(def, f)
@@ -1294,7 +1314,7 @@
     }
     dueCards = getDueCards();
     // sessionTotal should equal number of due cards at session start
-    sessionTotal = dueCards.length; reviewedCount = 0;
+    sessionTotal = dueCards.length; reviewedCount = 0; sessionData = [];
     const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
     currentIndex = 0;
     showNextCard();
@@ -1667,10 +1687,202 @@
     }catch(e){ try{ $('#status').textContent = t }catch(e){} }
   }
   function renderEmpty(){
-    const front = $('#front'); if(front) front.innerHTML='';
-    const back = $('#back'); if(back) back.innerHTML='';
+    const front = $('#front');
+    const back = $('#back');
     const resp = $('#respButtons'); if(resp) resp.style.display='none';
     const sa = $('#showAnswer'); if(sa) sa.style.display='none';
+    const multiTitle = document.getElementById('multiDeckTitle'); if(multiTitle) multiTitle.style.display = 'none';
+    // Hide elements that should not appear in recap
+    const cardStatus = document.getElementById('cardStatus'); if(cardStatus) cardStatus.style.display='none';
+    const progressContainer = document.getElementById('progressContainer'); if(progressContainer) progressContainer.style.display='none';
+    const dueInline = document.getElementById('dueInline'); if(dueInline) dueInline.style.display='none';
+    const status = document.getElementById('status'); if(status) { status.style.display='none'; status.style.padding=''; status.style.borderRadius=''; status.style.background=''; status.style.boxShadow=''; status.textContent=''; }
+    const hint = document.getElementById('histHint'); if(hint) { hint.style.display='none'; hint.style.position=''; hint.style.marginBottom=''; }
+    // Hide the "Répartition des cartes par échéance" section
+    try{
+      const allH3s = document.querySelectorAll('h3');
+      for(const h3 of allH3s){
+        if(h3.textContent.includes('Répartition des cartes par échéance')){
+          const parent = h3.parentElement;
+          if(parent) parent.style.display='none';
+          h3.style.display='none';
+        }
+      }
+    }catch(e){}
+    // Hide any lingering toasts
+    document.querySelectorAll('[style*="position: fixed"][style*="zIndex"]').forEach(el => {
+      if(el.id && (el.id.includes('toast') || el.textContent.includes('Objectif') || el.textContent.includes('Quête'))) el.style.display='none';
+    });
+    const deckTitle = multiDeckMode ? 'Multideck' : (deck && deck.title ? deck.title : 'Deck');
+
+    const totalReviewed = sessionData.length || reviewedCount || 0;
+    const totalTimeSec = sessionData.reduce((sum, it) => sum + (Number(it.timeSpent) || 0), 0);
+    const avgTimeSec = totalReviewed > 0 ? (totalTimeSec / totalReviewed) : 0;
+
+    let failCount = 0, hardCount = 0, goodCount = 0, easyCount = 0;
+    let scoreSum = 0;
+    let correctCount = 0;
+    for(const it of sessionData){
+      const q = Number(it.grade) || 0;
+      if(q < 3) failCount++;
+      else if(q === 3) hardCount++;
+      else if(q === 4) goodCount++;
+      else if(q === 5) easyCount++;
+
+      if(q >= 3) correctCount++;
+      const score = (q < 3) ? 0 : (q === 3 ? 1 : (q === 4 ? 2 : 3));
+      scoreSum += score;
+    }
+    const meanGrade = totalReviewed > 0 ? (scoreSum / totalReviewed) : 0;
+    const precision = totalReviewed > 0 ? Math.round((correctCount / totalReviewed) * 100) : 0;
+    const note20 = totalReviewed > 0 ? (meanGrade / 3) * 20 : 0;
+
+    // Memory duration: average interval or stability (days)
+    let memSum = 0, memCount = 0;
+    for(const it of sessionData){
+      try{
+        const key = it.deckKey ? `fabanki:${it.deckKey}:card:${it.cardId}` : storageKey('card:'+it.cardId);
+        const st = JSON.parse(localStorage.getItem(key) || '{}');
+        if(st && st.interval != null && !Number.isNaN(Number(st.interval))){
+          memSum += Number(st.interval);
+          memCount++;
+        } else if(st && st.stability != null && !Number.isNaN(Number(st.stability))){
+          memSum += Number(st.stability);
+          memCount++;
+        }
+      }catch(e){}
+    }
+    const memAvg = memCount > 0 ? (memSum / memCount) : 0;
+
+    // Stars based on mean grade thresholds
+    let starsFilled = 0;
+    if(meanGrade >= 2.5) starsFilled = 3;
+    else if(meanGrade >= 2.0) starsFilled = 2;
+    else if(meanGrade >= 1.5) starsFilled = 1;
+
+    const stars = '★'.repeat(starsFilled) + '☆'.repeat(3 - starsFilled);
+    const maxCount = Math.max(1, failCount, hardCount, goodCount, easyCount);
+
+    // Note difference vs last session
+    let noteDeltaText = 'N/A';
+    try{
+      const noteKey = multiDeckMode ? 'fabanki:last_note:multi' : `fabanki:last_note:${deckKey || 'default'}`;
+      const lastNote = Number(localStorage.getItem(noteKey));
+      if(!Number.isNaN(lastNote)){
+        const delta = note20 - lastNote;
+        const sign = delta > 0 ? '+' : '';
+        noteDeltaText = `${sign}${delta.toFixed(1)}/20`;
+      }
+      localStorage.setItem(noteKey, note20.toFixed(2));
+    }catch(e){}
+
+    const formatTime = (sec) => {
+      const s = Math.max(0, Math.round(sec || 0));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      if(m === 0) return `${r}s`;
+      if(m < 60) return `${m}m ${r}s`;
+      const h = Math.floor(m / 60);
+      const mm = m % 60;
+      return `${h}h ${mm}m`;
+    };
+
+    if(front){
+      front.style.display = 'flex';
+      front.style.alignItems = 'stretch';
+      front.style.justifyContent = 'flex-start';
+      front.innerHTML = `
+        <div style="width:100%;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <div>
+              <div style="font-size:0.95em;color:#6b7280;font-weight:600;">Récapitulatif</div>
+              <div style="font-size:1.4em;font-weight:700;">${deckTitle}</div>
+            </div>
+            <div style="font-size:1.4em;color:#fbbf24;letter-spacing:2px;">${stars}</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+            <div id="recap-stat-reviewed" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Cartes révisées</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${totalReviewed}</div>
+            </div>
+            <div id="recap-stat-time" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Temps total</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${formatTime(totalTimeSec)}</div>
+            </div>
+            <div id="recap-stat-avgtime" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Temps moyen / carte</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${formatTime(avgTimeSec)}</div>
+            </div>
+            <div id="recap-stat-precision" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Précision</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${precision}%</div>
+            </div>
+            <div id="recap-stat-note" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Note</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${note20.toFixed(1)}/20</div>
+            </div>
+            <div id="recap-stat-delta" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Δ Note</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${noteDeltaText}</div>
+            </div>
+            <div id="recap-stat-duration" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Durée mémoire</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${memAvg ? `${memAvg.toFixed(1)} j` : 'N/A'}</div>
+            </div>
+          </div>
+
+          <div id="recap-distribution" style="background:rgba(66, 133, 244, 0.08);border-radius:12px;padding:12px;cursor:pointer;">
+            <div style="font-weight:600;margin-bottom:8px;color:#111;">Répartition des réponses</div>
+            <div style="display:flex;gap:8px;align-items:flex-end;">
+              <div style="flex:1;text-align:center;">
+                <div style="height:${Math.round((failCount/maxCount)*80)}px;background:#fecaca;border-radius:6px;transition:height .2s;"></div>
+                <div style="font-size:0.75em;color:#dc2626;">Raté</div>
+                <div style="font-size:0.8em;font-weight:600;color:#111;">${failCount}</div>
+              </div>
+              <div style="flex:1;text-align:center;">
+                <div style="height:${Math.round((hardCount/maxCount)*80)}px;background:#fde68a;border-radius:6px;transition:height .2s;"></div>
+                <div style="font-size:0.75em;color:#d97706;">Difficile</div>
+                <div style="font-size:0.8em;font-weight:600;color:#111;">${hardCount}</div>
+              </div>
+              <div style="flex:1;text-align:center;">
+                <div style="height:${Math.round((goodCount/maxCount)*80)}px;background:#bfdbfe;border-radius:6px;transition:height .2s;"></div>
+                <div style="font-size:0.75em;color:#2563eb;">Bon</div>
+                <div style="font-size:0.8em;font-weight:600;color:#111;">${goodCount}</div>
+              </div>
+              <div style="flex:1;text-align:center;">
+                <div style="height:${Math.round((easyCount/maxCount)*80)}px;background:#bbf7d0;border-radius:6px;transition:height .2s;"></div>
+                <div style="font-size:0.75em;color:#059669;">Facile</div>
+                <div style="font-size:0.8em;font-weight:600;color:#111;">${easyCount}</div>
+              </div>
+            </div>
+          </div>
+
+          <button id="recapHomeBtn" class="secondary" style="width:100%;padding:12px;font-size:1em;">Accueil</button>
+        </div>
+      `;
+      const homeBtn = document.getElementById('recapHomeBtn');
+      if(homeBtn){
+        homeBtn.addEventListener('click', () => {
+          window.location.href = window.location.origin + window.location.pathname;
+        });
+      }
+      // Show recap onboarding on first completion
+      if(!localStorage.getItem('fabanki:recap_onboarding_completed') && typeof showRecapOnboarding === 'function'){
+        setTimeout(() => {
+          try{ showRecapOnboarding(); }catch(e){ console.warn('showRecapOnboarding error', e); }
+        }, 500);
+      }
+      
+      // Grant mission "Réviser au moins un deck"
+      try{
+        if(typeof completeMission === 'function'){
+          completeMission('review_one_deck', 'daily');
+        }
+      }catch(e){ console.warn('mission grant error', e); }
+    }
+
+    if(back){ back.innerHTML=''; back.style.display = 'none'; }
   }
   function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x }
   function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x }
@@ -1703,6 +1915,7 @@
 
   // === UI flow ===
   function showNextCard(){
+    answerLocked = false;
     // Show contextual onboarding on first card
     if(!window.__reviewOnboardingShown && typeof showReviewOnboarding === 'function'){
       window.__reviewOnboardingShown = true;
@@ -1802,6 +2015,11 @@
         try{ frontEl.querySelectorAll('.field').forEach(n=>n.style.textAlign='center'); }catch(e){}
         try{ backEl.querySelectorAll('.field').forEach(n=>n.style.textAlign='center'); }catch(e){}
       }
+      // Apply scroll after a short delay to ensure dimensions are calculated
+      setTimeout(() => {
+        try{ applyCardScroll(backEl); }catch(e){}
+        try{ applyCardScroll(frontEl); }catch(e){}
+      }, 50);
       if(respBtn) respBtn.style.display = 'flex';
       if(showBtn) showBtn.style.display = 'none';
     }catch(e){ console.warn('showAnswer error', e); }
@@ -1816,9 +2034,11 @@
 
   function passCurrent(){
     try{
+      if(answerLocked) return;
       const cardData = multiDeckMode ? dueCards[currentIndex] : null;
       const c = cardData ? cardData.card : dueCards[currentIndex];
       if(!c) return;
+      answerLocked = true;
       
       const origStorageKey = storageKey; // save original
       
@@ -1836,7 +2056,11 @@
       st.last = (new Date()).toISOString();
       localStorage.setItem(key, JSON.stringify(st));
       // count this as reviewed for session
-      reviewedCount = (reviewedCount || 0) + 1; updateProgressDisplay();
+      reviewedCount = (reviewedCount || 0) + 1; 
+      // Track for recap: passed cards get grade 0
+      const timeSec = Math.max(0, (Date.now() - (cardShownAt||Date.now())) / 1000);
+      sessionData.push({cardId: c.id, grade: 0, timeSpent: timeSec, deckKey: cardData ? cardData.deckKey : null});
+      updateProgressDisplay();
       try{ incLocal('fabanki:pass_total', 1); resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = -6; const cur = Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta; localStorage.setItem('fabanki:score_mpsi_semaine', String(cur)); const curM = Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta; localStorage.setItem('fabanki:score_mpsi_mois', String(curM)); }catch(e){}
       try{ incLocal('fabanki:cards_since_streak_reset',1); }catch(e){}
       try{ localStorage.setItem('fabanki:consec_correct','0'); localStorage.setItem('fabanki:consec_difficult','0'); localStorage.setItem('fabanki:consec_no_pass','0'); }catch(e){}
@@ -1877,6 +2101,9 @@
   function answerCurrent(q){
     const cardData = multiDeckMode ? dueCards[currentIndex] : null;
     const c = cardData ? cardData.card : dueCards[currentIndex];
+    if(answerLocked) return;
+    if(!c) return;
+    answerLocked = true;
     const origStorageKey = storageKey; // save original
     
     // If in multi-deck mode, temporarily override storageKey
@@ -1887,6 +2114,21 @@
     
     // count this attempt for session progress
     reviewedCount = (reviewedCount || 0) + 1;
+    // Track for recap
+    const timeSec = Math.max(0, (Date.now() - (cardShownAt||Date.now())) / 1000);
+    sessionData.push({cardId: c.id, grade: q, timeSpent: timeSec, deckKey: cardData ? cardData.deckKey : null});
+    
+    // Track daily goal progress and check for milestone
+    try{
+      if(q >= 3){  // only count correct answers
+        const reviewed = incrementTodayReviewedCount();
+        const goal = getDailyGoal();
+        if(goal > 0 && reviewed === goal){
+          showDailyGoalMilestoneToast(reviewed, goal);
+        }
+      }
+    }catch(e){ console.warn('daily goal tracking', e); }
+    
     updateProgressDisplay();
     // capture previous review time (hours since last review) to compute XP multiplier
     let prevReviewHours = null;
@@ -2428,7 +2670,7 @@
                     btn.disabled = true;
                     btn.title = 'Atteignez le niveau requis pour débloquer ce deck';
                   } else if(lockState.lockedByCost){
-                    btn.textContent = `Acheter ${lockState.cost}💳`;
+                    btn.textContent = `Acheter ${lockState.cost}ℂ`;
                     btn.disabled = lockState.currentCredits < lockState.cost;
                     btn.title = lockState.currentCredits < lockState.cost ? 'Crédits insuffisants' : 'Débloquer ce deck';
                     btn.addEventListener('click', ()=>{
@@ -2748,6 +2990,17 @@
           }catch(e){ console.warn('customize error', e) }
         });
         rankBtnWrap.appendChild(customizeBtn);
+        // Daily goal button
+        const dailyGoalBtn = document.createElement('button'); dailyGoalBtn.className='secondary'; dailyGoalBtn.textContent='🎯';
+        dailyGoalBtn.title = 'Objectif quotidien';
+        dailyGoalBtn.addEventListener('click', ()=>{
+          try{
+            if(typeof showDailyGoalDialog === 'function'){
+              showDailyGoalDialog();
+            }
+          }catch(e){ console.warn('daily goal error', e) }
+        });
+        rankBtnWrap.appendChild(dailyGoalBtn);
         m.appendChild(rankBtnWrap);
 
         // Level box: ring + info
@@ -2814,6 +3067,78 @@
     // expose leaderboard helpers
     try{ window.ensurePseudo = ensurePseudo; window.syncClassement = syncClassement; window.showLeaderboardPopup = showLeaderboardPopup; }catch(e){}
 
+    // === DAILY GOAL SYSTEM ===
+    function getDailyGoal(){ return Number(localStorage.getItem('fabanki:daily_goal') || 0); }
+    function setDailyGoal(goal){ localStorage.setItem('fabanki:daily_goal', String(Math.max(0, goal))); }
+    function getTodayReviewedCount(){
+      const today = new Date().toDateString();
+      const lastDate = localStorage.getItem('fabanki:daily_reviewed_date');
+      if(lastDate !== today) return 0;
+      return Number(localStorage.getItem('fabanki:daily_reviewed_count') || 0);
+    }
+    function incrementTodayReviewedCount(){
+      const today = new Date().toDateString();
+      const lastDate = localStorage.getItem('fabanki:daily_reviewed_date');
+      if(lastDate !== today){
+        localStorage.setItem('fabanki:daily_reviewed_date', today);
+        localStorage.setItem('fabanki:daily_reviewed_count', '1');
+        return 1;
+      } else {
+        const cur = Number(localStorage.getItem('fabanki:daily_reviewed_count') || 0) + 1;
+        localStorage.setItem('fabanki:daily_reviewed_count', String(cur));
+        return cur;
+      }
+    }
+    function showDailyGoalDialog(callback){
+      try{
+        const currentGoal = getDailyGoal();
+        const ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='9999';
+        const m = document.createElement('div'); m.className = 'modal'; m.style.maxWidth='400px';
+        const t = document.createElement('h3'); t.textContent = 'Objectif quotidien'; t.style.margin = '0 0 16px 0';
+        m.appendChild(t);
+        const desc = document.createElement('p'); desc.textContent = 'Combien de cartes voulez-vous réviser chaque jour ?'; desc.style.color = 'var(--muted)'; desc.style.marginBottom = '16px';
+        m.appendChild(desc);
+        const input = document.createElement('input'); input.type = 'number'; input.min = '1'; input.value = currentGoal || '20'; input.style.width = '100%'; input.style.padding = '10px'; input.style.borderRadius = '6px'; input.style.border = '1px solid var(--border)'; input.style.fontSize = '1em'; input.style.marginBottom = '16px';
+        m.appendChild(input);
+        const btnWrap = document.createElement('div'); btnWrap.style.display='flex'; btnWrap.style.gap='8px';
+        const saveBtn = document.createElement('button'); saveBtn.textContent = 'Enregistrer'; saveBtn.addEventListener('click', ()=>{
+          const val = Number(input.value) || 20;
+          setDailyGoal(val);
+          ov.remove();
+          if(callback) callback(val);
+        });
+        const cancelBtn = document.createElement('button'); cancelBtn.className = 'secondary'; cancelBtn.textContent = 'Annuler'; cancelBtn.addEventListener('click', ()=>{ ov.remove(); });
+        btnWrap.appendChild(saveBtn); btnWrap.appendChild(cancelBtn);
+        m.appendChild(btnWrap);
+        ov.appendChild(m); document.body.appendChild(ov);
+        ov.classList.add('open'); m.classList.add('open');
+        ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
+        setTimeout(()=>{ input.focus(); input.select(); }, 100);
+      }catch(e){ console.warn('daily goal dialog error', e); }
+    }
+    function showDailyGoalMilestoneToast(reviewed, goal){
+      try{
+        const toast = document.createElement('div');
+        toast.style.position = 'fixed';
+        toast.style.top = '50%';
+        toast.style.left = '50%';
+        toast.style.transform = 'translate(-50%, -50%)';
+        toast.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+        toast.style.color = 'white';
+        toast.style.padding = '20px 32px';
+        toast.style.borderRadius = '12px';
+        toast.style.fontWeight = '700';
+        toast.style.fontSize = '1.2em';
+        toast.style.zIndex = '9998';
+        toast.style.boxShadow = '0 8px 24px rgba(16, 185, 129, 0.4)';
+        toast.style.textAlign = 'center';
+        toast.textContent = '🎉 Objectif quotidien atteint !';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+      }catch(e){ console.warn('milestone toast error', e); }
+    }
+    try{ window.getDailyGoal = getDailyGoal; window.setDailyGoal = setDailyGoal; window.getTodayReviewedCount = getTodayReviewedCount; window.incrementTodayReviewedCount = incrementTodayReviewedCount; window.showDailyGoalDialog = showDailyGoalDialog; window.showDailyGoalMilestoneToast = showDailyGoalMilestoneToast; }catch(e){}
+
     const profileBtn = document.getElementById('profileBtn');
     if(profileBtn) profileBtn.addEventListener('click', ()=>{ showProfilePopup(); updateProfilePopupIfOpen(); });
 
@@ -2834,6 +3159,8 @@
         xp: xp,
         level: lvl,
         credits: getCredits(),
+        streakCurrent: Number(localStorage.getItem('fabanki:streak_current') || 0),
+        streakMax: Number(localStorage.getItem('fabanki:streak_max') || 0),
         decks: collectDeckStates(),
         quests: collectQuestState(),
         lastUpdated: Date.now()
@@ -2879,6 +3206,8 @@
         if(state.pseudo) localStorage.setItem('pseudo', state.pseudo);
         if(Number.isFinite(state.xp)) localStorage.setItem('fabanki:xp_total', String(state.xp));
         if(Number.isFinite(state.credits)) localStorage.setItem('fabanki:credits', String(state.credits));
+        if(Number.isFinite(state.streakCurrent)) localStorage.setItem('fabanki:streak_current', String(state.streakCurrent));
+        if(Number.isFinite(state.streakMax)) localStorage.setItem('fabanki:streak_max', String(state.streakMax));
         // Quests
         if(state.quests){
           localStorage.setItem('fabanki:daily_missions', JSON.stringify(state.quests.daily||[]));
@@ -3200,6 +3529,8 @@
               decks: mergedDecks,
               // Take the higher XP value (indicates more practice completed)
               xp: Math.max(Number(remoteSt.xp || 0), Number(localState.xp || 0)),
+              streakCurrent: Math.max(Number(remoteSt.streakCurrent || 0), Number(localState.streakCurrent || 0)),
+              streakMax: Math.max(Number(remoteSt.streakMax || 0), Number(localState.streakMax || 0)),
               // Merge quests: prefer the set with more missions completed or later date
               quests: {
                 daily: remoteSt.quests?.daily || localState.quests?.daily || [],
@@ -3641,6 +3972,12 @@
 
     // Initialize on startup
     initUserState();
+    // Check and ask for daily goal if not set
+    if(!getDailyGoal()){
+      setTimeout(() => {
+        try{ if(typeof showDailyGoalDialog === 'function') showDailyGoalDialog(); }catch(e){}
+      }, 1500);
+    }
     // Note: restoreFromCloud() is now called by initializeDeckLoader() to ensure deck loads with restored data
     // refresh periodically
     setInterval(()=>{ try{ updateProfilePopupIfOpen(); }catch(e){} }, 30*1000);
@@ -4046,7 +4383,7 @@
             if (isLockedByLevel) {
               colorOption.title = `${color.name} (Niveau ${color.level})`;
             } else if (isLockedByCredit) {
-              colorOption.title = `${color.name} (${color.credit} Credits)`;
+              colorOption.title = `${color.name} (${color.credit} ℂ)`;
             }
           } else {
             colorOption.title = color.name;
@@ -4057,7 +4394,7 @@
             colorOption.style.cursor = 'not-allowed';
             // Show lock with cost below
             const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
-            const costHTML = isLockedByCredit ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${color.credit}💳</div>` : '';
+            const costHTML = isLockedByCredit ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${color.credit}ℂ</div>` : '';
             colorOption.innerHTML = lockHTML + costHTML;
           }
           
@@ -4145,7 +4482,7 @@
             if (isLockedByLevel) {
               patternOption.title = `${p.name} (Niveau ${p.level})`;
             } else if (isLockedByCredit) {
-              patternOption.title = `${p.name} (${p.credit} Credits)`;
+              patternOption.title = `${p.name} (${p.credit} ℂ)`;
             }
           } else {
             patternOption.title = p.name;
@@ -4156,7 +4493,7 @@
             patternOption.style.cursor = 'not-allowed';
             // Show lock with cost below
             const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
-            const costHTML = isLockedByCredit ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${p.credit}💳</div>` : '';
+            const costHTML = isLockedByCredit ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${p.credit}ℂ</div>` : '';
             patternOption.innerHTML = lockHTML + costHTML;
           } else {
             if (p.pattern !== 'none') {
@@ -4230,7 +4567,7 @@
             if (isLockedByLevel) {
               fontOption.title = `${f.name} (Niveau ${f.level})`;
             } else if (isLockedByCredit) {
-              fontOption.title = `${f.name} (${f.credit} Credits)`;
+              fontOption.title = `${f.name} (${f.credit} ℂ)`;
             }
           } else {
             fontOption.title = f.name;
@@ -4244,7 +4581,7 @@
             fontOption.style.cursor = 'not-allowed';
             // Show lock with cost below
             const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
-            const costHTML = isLockedByCredit ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${f.credit}💳</div>` : '';
+            const costHTML = isLockedByCredit ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${f.credit}ℂ</div>` : '';
             fontOption.innerHTML = lockHTML + costHTML;
           }
           
@@ -4492,12 +4829,12 @@
           animOption.style.background = 'rgba(0,0,0,0.02)';
           animOption.style.transition = 'all 0.2s';
           
-          animOption.title = isLocked ? (isLockedByLevel ? `${anim.name} (Niveau ${anim.level})` : `${anim.name} (${anim.credit} Credits)`) : anim.name;
+          animOption.title = isLocked ? (isLockedByLevel ? `${anim.name} (Niveau ${anim.level})` : `${anim.name} (${anim.credit} ℂ)`) : anim.name;
           animOption.textContent = anim.name;
           
           if (isLocked) {
             animOption.style.opacity = '0.4';
-            animOption.innerHTML = '<div style="font-size:1.5rem">🔒</div><div style="font-size:0.6rem;color:var(--muted);margin-top:2px">' + (isLockedByCredit ? anim.credit + '💳' : '') + '</div>';
+            animOption.innerHTML = '<div style="font-size:1.5rem">🔒</div><div style="font-size:0.6rem;color:var(--muted);margin-top:2px">' + (isLockedByCredit ? anim.credit + 'ℂ' : '') + '</div>';
           }
           
           if (anim.id === currentAnimation) {
@@ -5068,12 +5405,15 @@
         const lvl = (typeof computeLevelAndProgress === 'function') ? computeLevelAndProgress(xp).level : 1;
         // ensure weekly counters are current
         resetWeeklyIfNeeded();
-        // update daily streak information
+        // update daily streak information - ONLY if daily goal is reached
         try{
+          const dailyGoal = getDailyGoal();
+          const reviewed = getTodayReviewedCount();
+          const goalReached = dailyGoal > 0 && reviewed >= dailyGoal;
           const today = (new Date()).toDateString();
           const last = localStorage.getItem('fabanki:last_active_date');
-          if(last === today){ /* already recorded today */ }
-          else {
+          if(goalReached && last !== today){
+            // Goal was reached today, update streak
             const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
             if(last === yesterday.toDateString()){
               const cur = Number(localStorage.getItem('fabanki:streak_current')||0) + 1; localStorage.setItem('fabanki:streak_current', String(cur));
@@ -5082,6 +5422,10 @@
               localStorage.setItem('fabanki:streak_current', '1');
               const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), 1); localStorage.setItem('fabanki:streak_max', String(maxi));
             }
+            localStorage.setItem('fabanki:last_active_date', today);
+          } else if(!goalReached && last !== today){
+            // Goal not reached, reset streak
+            localStorage.setItem('fabanki:streak_current', '0');
             localStorage.setItem('fabanki:last_active_date', today);
           }
         }catch(e){}
@@ -5154,6 +5498,7 @@
         // Calculate daily quest completion count
         let dailyQuestsCompleted = 0;
         try{
+          if(typeof updateMissionProgress === 'function') updateMissionProgress();
           const missions = JSON.parse(localStorage.getItem('fabanki:daily_missions') || '[]');
           dailyQuestsCompleted = missions.filter(m => m.completed).length;
         }catch(e){}
@@ -5476,7 +5821,7 @@
     // Level / XP helpers
     function xpForLevel(level){
       // exponential growth per level: base * mult^(level-1)
-      const base = 50; const mult = 1.1;
+      const base = 100; const mult = 1.07;
       return Math.floor(base * Math.pow(mult, Math.max(0, level-1)));
     }
 
@@ -5622,19 +5967,20 @@
           }catch(e){}
           const lvlStats = computeLevelAndProgress(getXpTotal());
           const levelCard = document.createElement('div'); levelCard.className = 'card level-summary'; levelCard.style.marginBottom = '12px'; levelCard.style.padding = '16px';
-          const lvlBox = document.createElement('div'); lvlBox.style.display='flex'; lvlBox.style.alignItems='center'; lvlBox.style.gap='12px';
+          const lvlBox = document.createElement('div'); lvlBox.style.display='flex'; lvlBox.style.alignItems='center'; lvlBox.style.gap='12px'; lvlBox.style.padding='12px'; lvlBox.style.borderRadius='10px'; lvlBox.style.backgroundColor='rgba(66, 133, 244, 0.08)'; lvlBox.style.flex='1';
           const circ = 2 * Math.PI * 28;
           const offset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct))/100));
           const color = getLevelColor(lvlStats.level);
           const ringHtml = `<div class="level-ring" style="flex:0 0 64px"><svg viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"28\" stroke=\"#eee\" stroke-width=\"8\" fill=\"none\"></circle><circle class="ring-fill" cx=\"50\" cy=\"50\" r=\"28\" stroke=\"${color}\" stroke-width=\"8\" fill=\"none\" stroke-linecap=\"round\" stroke-dasharray=\"${circ}\" stroke-dashoffset=\"${offset}\"></circle></svg><div class=\"level-num\">${lvlStats.level}</div></div>`;
           const info = document.createElement('div'); info.style.display='flex'; info.style.flexDirection='column';
           const t = document.createElement('div'); t.style.fontWeight='700'; t.textContent = `Level ${lvlStats.level}`;
-          const s = document.createElement('div'); s.className='muted small'; s.textContent = `${lvlStats.progress}/${lvlStats.need} XP avant le prochain niveau`;
+          const s = document.createElement('div'); s.className='muted small'; s.textContent = `${lvlStats.progress}/${lvlStats.need} XP`;
           info.appendChild(t); info.appendChild(s);
           lvlBox.innerHTML = ringHtml; lvlBox.appendChild(info);
           
           // Create main content wrapper
-          const levelContent = document.createElement('div'); levelContent.className = 'level-content';
+          const levelContent = document.createElement('div'); levelContent.className = 'level-content'; levelContent.style.display='flex'; levelContent.style.gap='12px';
+
           levelContent.appendChild(lvlBox);
           
           // Add streak display
@@ -5649,15 +5995,38 @@
           // Add credits box
           const creditCount = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
           const creditBox = document.createElement('div'); creditBox.className = 'credit-box';
-          const creditCoin = document.createElement('div'); creditCoin.className = 'credit-coin'; creditCoin.textContent = '💳';
+          const creditCoin = document.createElement('div'); creditCoin.className = 'credit-coin'; creditCoin.textContent = '💰';
           const creditLabel = document.createElement('div'); creditLabel.className = 'credit-label'; creditLabel.textContent = 'Credits';
           const creditNum = document.createElement('div'); creditNum.className = 'credit-count'; creditNum.textContent = creditCount;
           creditBox.appendChild(creditCoin); creditBox.appendChild(creditLabel); creditBox.appendChild(creditNum);
           levelContent.appendChild(creditBox);
           
-          // Create button container for Maintenant button - place AFTER stats
+          // Add daily goal progress bar
+          const dailyGoal = getDailyGoal();
+          const todayReviewed = getTodayReviewedCount();
+          const dailyGoalBox = document.createElement('div'); dailyGoalBox.className = 'daily-goal-box'; dailyGoalBox.style.cssText = 'padding:12px;background:#f8fafc;border-radius:10px;flex:1;';
+          const goalLabel = document.createElement('div'); goalLabel.style.cssText = 'font-size:0.8em;color:#64748b;font-weight:600;margin-bottom:6px;'; goalLabel.textContent = `Objectif: ${todayReviewed} / ${dailyGoal || '---'} cartes`;
+          dailyGoalBox.appendChild(goalLabel);
+          if(dailyGoal > 0){
+            const barContainer = document.createElement('div'); barContainer.style.cssText = 'width:100%;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;';
+            barContainer.className = 'goal-bar-container';
+            const barFill = document.createElement('div'); barFill.style.cssText = `width:${Math.min(100, (todayReviewed/dailyGoal)*100)}%;height:100%;background:linear-gradient(90deg, #10b981, #059669);transition:width 0.3s;`;
+            barContainer.appendChild(barFill);
+            dailyGoalBox.appendChild(barContainer);
+            const pctText = document.createElement('div'); pctText.className = 'goal-pct-text'; pctText.style.cssText = 'font-size:0.75em;color:#94a3b8;margin-top:4px;text-align:right;'; pctText.textContent = `${Math.round((todayReviewed/dailyGoal)*100)}%`;
+            dailyGoalBox.appendChild(pctText);
+          } else {
+            const noGoalText = document.createElement('div'); noGoalText.className = 'goal-no-goal-text'; noGoalText.style.cssText = 'font-size:0.8em;color:#94a3b8;text-align:center;'; noGoalText.textContent = 'Cliquez sur 🎯 pour définir un objectif';
+            dailyGoalBox.appendChild(noGoalText);
+          }
+          levelContent.appendChild(dailyGoalBox);
+          
+          levelCard.appendChild(levelContent);
+          container.appendChild(levelCard);
+          
+          // Create button container for Maintenant button - place AFTER level card, BEFORE decks card
           const buttonContainer = document.createElement('div');
-          buttonContainer.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:16px;width:100%;';
+          buttonContainer.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin:16px 0;width:100%;';
           
           // Add Maintenant (now) button for quick review
           const maintenantBtn = document.createElement('button'); maintenantBtn.className = 'maintenant-btn'; maintenantBtn.textContent = '📚 Maintenant';
@@ -5720,10 +6089,7 @@
           });
           
           buttonContainer.appendChild(maintenantBtn);
-          levelContent.appendChild(buttonContainer);
-          
-          levelCard.appendChild(levelContent);
-          container.appendChild(levelCard);
+          container.appendChild(buttonContainer);
         }catch(e){ /* ignore level rendering on welcome if error */ }
 
         // Create main decks card first (will be appended after level card)
@@ -5970,7 +6336,7 @@
                 const rewardEl = document.createElement('div');
                 rewardEl.style.color = 'var(--muted)';
                 rewardEl.style.fontSize = '0.75rem';
-                rewardEl.innerHTML = `${missionProgress}/${missionGoal} • +${mission.reward.xp} XP, +${mission.reward.credits} 💳`;
+                rewardEl.innerHTML = `${missionProgress}/${missionGoal} • +${mission.reward.xp} XP, +${mission.reward.credits} ℂ`;
                 
                 content.appendChild(nameEl);
                 content.appendChild(progressBarWrapper);
@@ -6685,6 +7051,262 @@
     }, 500);
   });
   
+  // --- RECAP ONBOARDING SYSTEM ---
+  function showRecapOnboarding(){
+    try{
+      if(document.getElementById('recapOnboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: 'Récapitulatif de votre session',
+          text: 'Vous avez complété une session de révision ! Voici une analyse détaillée de votre performance.',
+          position: 'center'
+        },
+        {
+          title: 'Cartes révisées',
+          text: 'Le nombre total de cartes que vous avez examinées pendant cette session.',
+          target: '#recap-stat-reviewed',
+          position: 'bottom'
+        },
+        {
+          title: 'Temps total',
+          text: 'La durée totale que vous avez consacrée à cette session de révision.',
+          target: '#recap-stat-time',
+          position: 'bottom'
+        },
+        {
+          title: 'Temps moyen par carte',
+          text: 'Le temps moyen dépensé pour réviser chaque carte.',
+          target: '#recap-stat-avgtime',
+          position: 'bottom'
+        },
+        {
+          title: 'Précision',
+          text: 'Le pourcentage de cartes répondues correctement. Plus c\'est élevé, plus vos réponses étaient précises !',
+          target: '#recap-stat-precision',
+          position: 'bottom'
+        },
+        {
+          title: 'Note sur 20',
+          text: 'Votre note globale pour cette session, calculée à partir de vos réponses.',
+          target: '#recap-stat-note',
+          position: 'bottom'
+        },
+        {
+          title: 'Δ Note (variation)',
+          text: 'La différence entre votre note actuelle et celle de votre dernière session. Un nombre positif indique une amélioration !',
+          target: '#recap-stat-delta',
+          position: 'bottom'
+        },
+        {
+          title: 'Durée mémoire (en jours)',
+          text: 'L\'intervalle moyen entre vos révisions. Plus il est long, mieux Fab\'Anki pense que vous mémoriserez les cartes.',
+          target: '#recap-stat-duration',
+          position: 'bottom'
+        },
+        {
+          title: 'Répartition des réponses',
+          text: 'Un graphique montrant combien de fois vous avez répondu : Raté (rouge), Difficile (jaune), Bon (bleu), Facile (vert).',
+          target: '#recap-distribution',
+          position: 'bottom'
+        },
+        {
+          title: 'Fin du récapitulatif',
+          text: 'Cliquez sur "Accueil" pour retourner à la sélection des decks, ou consultez votre profil pour voir vos statistiques globales. Excellent travail !',
+          target: 'none',
+          position: 'center'
+        }
+      ];
+      
+      let currentStep = 0;
+      
+      const overlay = document.createElement('div');
+      overlay.id = 'recapOnboardingOverlay';
+      overlay.style.position = 'fixed';
+      overlay.style.top = '0';
+      overlay.style.left = '0';
+      overlay.style.right = '0';
+      overlay.style.bottom = '0';
+      overlay.style.background = 'rgba(0, 0, 0, 0.6)';
+      overlay.style.zIndex = '10000';
+      overlay.style.display = 'flex';
+      overlay.style.alignItems = 'flex-start';
+      overlay.style.justifyContent = 'center';
+      overlay.style.paddingTop = '20px';
+      overlay.style.overflowY = 'auto';
+      
+      const tooltip = document.createElement('div');
+      tooltip.style.background = 'var(--card)';
+      tooltip.style.color = 'var(--fg)';
+      tooltip.style.padding = '24px';
+      tooltip.style.borderRadius = '12px';
+      tooltip.style.maxWidth = '500px';
+      tooltip.style.width = '90%';
+      tooltip.style.boxShadow = '0 10px 40px rgba(0,0,0,0.3)';
+      tooltip.style.position = 'relative';
+      tooltip.style.animation = 'fadeIn 0.3s ease-out';
+      tooltip.style.margin = 'auto';
+      tooltip.style.flexShrink = '0';
+      
+      const renderStep = () => {
+        const step = steps[currentStep];
+        tooltip.innerHTML = '';
+        
+        const title = document.createElement('h3');
+        title.textContent = step.title;
+        title.style.margin = '0 0 12px 0';
+        title.style.fontSize = '1.3rem';
+        title.style.color = 'var(--accent)';
+        tooltip.appendChild(title);
+        
+        const text = document.createElement('p');
+        text.textContent = step.text;
+        text.style.margin = '0 0 20px 0';
+        text.style.lineHeight = '1.6';
+        text.style.color = 'var(--fg)';
+        tooltip.appendChild(text);
+        
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.justifyContent = 'space-between';
+        actions.style.alignItems = 'center';
+        actions.style.gap = '12px';
+        
+        const progress = document.createElement('div');
+        progress.textContent = `${currentStep + 1} / ${steps.length}`;
+        progress.style.fontSize = '0.85rem';
+        progress.style.color = 'var(--muted)';
+        actions.appendChild(progress);
+        
+        const btnGroup = document.createElement('div');
+        btnGroup.style.display = 'flex';
+        btnGroup.style.gap = '8px';
+        
+        if(currentStep > 0){
+          const prevBtn = document.createElement('button');
+          prevBtn.className = 'secondary';
+          prevBtn.textContent = '← Précédent';
+          prevBtn.addEventListener('click', () => {
+            currentStep--;
+            renderStep();
+          });
+          btnGroup.appendChild(prevBtn);
+        }
+        
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'secondary';
+        skipBtn.textContent = 'Passer';
+        skipBtn.addEventListener('click', () => {
+          localStorage.setItem('fabanki:recap_onboarding_completed', 'true');
+          overlay.remove();
+        });
+        btnGroup.appendChild(skipBtn);
+        
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = currentStep === steps.length - 1 ? 'Terminer ✓' : 'Suivant →';
+        nextBtn.addEventListener('click', () => {
+          if(currentStep === steps.length - 1){
+            localStorage.setItem('fabanki:recap_onboarding_completed', 'true');
+            overlay.remove();
+          } else {
+            currentStep++;
+            renderStep();
+          }
+        });
+        btnGroup.appendChild(nextBtn);
+        
+        actions.appendChild(btnGroup);
+        tooltip.appendChild(actions);
+        
+        // Handle target highlighting
+        if(step.target === 'none'){
+          // Remove all highlights
+          document.querySelectorAll('[data-recap-onboarding-highlight]').forEach(el => {
+            el.style.boxShadow = '';
+            el.style.zIndex = '';
+            el.removeAttribute('data-recap-onboarding-highlight');
+          });
+          // Center the tooltip
+          tooltip.style.position = 'relative';
+          tooltip.style.transform = 'none';
+          tooltip.style.top = 'auto';
+          tooltip.style.left = 'auto';
+        } else if(step.target){
+          const target = document.querySelector(step.target);
+          if(target){
+            // Make target visible and scroll into view
+            target.style.visibility = 'visible';
+            target.style.display = '';
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            setTimeout(() => {
+              const rect = target.getBoundingClientRect();
+              const tooltipRect = tooltip.getBoundingClientRect();
+              tooltip.style.position = 'absolute';
+              
+              const viewportHeight = window.innerHeight;
+              const spaceBelow = viewportHeight - rect.bottom;
+              const spaceAbove = rect.top;
+              const tooltipHeight = tooltipRect.height || 300;
+              
+              const shouldPlaceAbove = step.position === 'top' || (spaceBelow < tooltipHeight + 40 && spaceAbove > tooltipHeight + 40);
+              
+              if(shouldPlaceAbove){
+                tooltip.style.top = (rect.top - 20) + 'px';
+                tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                tooltip.style.transform = 'translate(-50%, -100%)';
+              } else {
+                tooltip.style.top = (rect.bottom + 20) + 'px';
+                tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                tooltip.style.transform = 'translateX(-50%)';
+              }
+            }, 300);
+            
+            // Highlight target
+            target.style.position = 'relative';
+            target.style.zIndex = '10001';
+            target.style.boxShadow = '0 0 0 4px var(--accent)';
+            target.style.borderRadius = '8px';
+            
+            // Remove old highlights
+            document.querySelectorAll('[data-recap-onboarding-highlight]').forEach(el => {
+              el.style.boxShadow = '';
+              el.style.zIndex = '';
+              el.removeAttribute('data-recap-onboarding-highlight');
+            });
+            target.setAttribute('data-recap-onboarding-highlight', 'true');
+          } else {
+            // Target not found, center the tooltip
+            tooltip.style.position = 'relative';
+            tooltip.style.transform = 'none';
+            tooltip.style.top = 'auto';
+            tooltip.style.left = 'auto';
+          }
+        } else {
+          // Center position
+          tooltip.style.position = 'relative';
+          tooltip.style.transform = 'none';
+          tooltip.style.top = 'auto';
+          tooltip.style.left = 'auto';
+        }
+      };
+      
+      overlay.appendChild(tooltip);
+      document.body.appendChild(overlay);
+      renderStep();
+      
+      // Clean up highlights on close
+      overlay.addEventListener('remove', () => {
+        document.querySelectorAll('[data-recap-onboarding-highlight]').forEach(el => {
+          el.style.boxShadow = '';
+          el.style.zIndex = '';
+          el.removeAttribute('data-recap-onboarding-highlight');
+        });
+      });
+      
+    }catch(e){ console.warn('recap onboarding error:', e) }
+  }
+  
   // --- ONBOARDING SYSTEM ---
   function showOnboarding(){
     try{
@@ -6739,7 +7361,7 @@
         {
           title: 'C\'est parti !',
           text: 'Vous êtes prêt à commencer ! Choisissez un deck et lancez-vous dans vos révisions, je vous guiderais tout au long du chemin. Bon courage !',
-          target: '.start-button',
+          target: 'none',
           position: 'center'
         }
       ];
@@ -7200,5 +7822,6 @@
   window.initFSRS = initFSRS;
   window.scheduleCard = scheduleCard;
   window.getDueCards = getDueCards;
+  window.showRecapOnboarding = showRecapOnboarding;
 
 // Fab'Anki, open-source spaced repetition software made with Copilot.
