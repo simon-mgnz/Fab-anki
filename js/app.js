@@ -717,18 +717,39 @@
       const rightPanel = document.createElement('div');
       rightPanel.style.cssText = 'flex:1;min-width:200px;';
       
-      // Back button to restore deck browser
+      // Back button and reset button in a horizontal layout
+      const buttonRow = document.createElement('div');
+      buttonRow.style.cssText = 'display:flex;gap:8px;margin-bottom:12px;';
+      
       const backBtn = document.createElement('button');
       backBtn.textContent = '← Retour';
       backBtn.className = 'secondary';
-      backBtn.style.cssText = 'width:100%;padding:8px;font-size:0.9em;margin-bottom:12px;';
+      backBtn.style.cssText = 'flex:1;padding:8px;font-size:0.9em;';
       backBtn.addEventListener('click', ()=>{
         const overviewContainer = document.getElementById('deckOverviewContainer');
         if(overviewContainer) overviewContainer.remove();
         // Return to home by reloading without deck parameter
         window.location.href = window.location.origin + window.location.pathname;
       });
-      rightPanel.appendChild(backBtn);
+      buttonRow.appendChild(backBtn);
+      
+      const resetBtn = document.createElement('button');
+      resetBtn.textContent = '♻️ Réinitialiser';
+      resetBtn.className = 'secondary';
+      resetBtn.style.cssText = 'flex:1;padding:8px;font-size:0.9em;';
+      resetBtn.addEventListener('click', ()=>{
+        if(confirm('Supprimer toutes les données locales pour ce deck ?')){
+          if(!deckKey) { alert('Aucun deck chargé'); return }
+          const prefix = `fabanki:${deckKey}:`;
+          for(const k of Object.keys(localStorage)) if(k.startsWith(prefix)) localStorage.removeItem(k);
+          alert('Données locales supprimées');
+          // Reload the overview to show fresh stats
+          showDeckOverview(url);
+        }
+      });
+      buttonRow.appendChild(resetBtn);
+      
+      rightPanel.appendChild(buttonRow);
       
       const title = document.createElement('h2');
       title.textContent = tempDeck.title || 'Deck';
@@ -794,6 +815,20 @@
         startBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;';
         startBtn.addEventListener('click', ()=>{ 
           console.log('Démarrer clicked - starting review');
+        
+        // Replace sync button with home button during review
+        try{
+          const syncBtn = document.getElementById('syncBtn');
+          const homeBtn = document.getElementById('homeBtn');
+          if(syncBtn && homeBtn) {
+            // Swap the buttons in the DOM
+            const parent = syncBtn.parentNode;
+            const syncBtnNextSibling = syncBtn.nextSibling;
+            parent.removeChild(syncBtn);
+            parent.insertBefore(homeBtn, syncBtnNextSibling);
+            homeBtn.style.display = 'inline-block';
+          }
+        }catch(e){}
         
         // Hide the overview container completely
         const overviewContainer = document.getElementById('deckOverviewContainer');
@@ -1464,20 +1499,42 @@
   function getDueCards(){
     // use current time so cards scheduled for now are included
     const now = new Date();
-    const nowList = [], newList = [];
+    const nowList = [], newList = [], h12List = [], tomorrowList = [], weekList = [], longList = [];
+    
     for(const c of deck.cards){
       const key = storageKey('card:'+c.id);
       const st = JSON.parse(localStorage.getItem(key) || '{}');
-      const due = st && st.due ? new Date(st.due) : new Date();
       const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
-      if(due <= now && !isNew){ nowList.push(c); }
-      else if(isNew){ newList.push(c); }
+      const due = st && st.due ? new Date(st.due) : new Date();
+      
+      // Categorize cards
+      if(isNew){
+        newList.push(c);
+      } else if(due <= now){
+        // Card is due now (not new)
+        nowList.push(c);
+      } else {
+        // Cards due in the future - categorize by time
+        const hrs = (due - now) / (1000*60*60);
+        if(hrs <= 12) h12List.push(c);
+        else if(hrs <= 24) tomorrowList.push(c);
+        else if(hrs <= 24*7) weekList.push(c);
+        else longList.push(c);
+      }
     }
+    
     // shuffle within each bucket
     const shuffle = (arr)=>{ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] } };
-    shuffle(nowList); shuffle(newList);
-    // prioritize 'Maintenant' then 'Nouveau'
-    return nowList.concat(newList);
+    shuffle(nowList); shuffle(newList); shuffle(h12List); shuffle(tomorrowList); shuffle(weekList); shuffle(longList);
+    
+    // If there are any Maintenant or Nouveau cards, include all cards in time order
+    if(nowList.length > 0 || newList.length > 0){
+      // Return: Maintenant -> Nouveau -> <12h -> Demain -> <1 semaine -> Longtemps
+      return nowList.concat(newList, h12List, tomorrowList, weekList, longList);
+    } else {
+      // No urgent cards, just return empty (or could return future cards if desired)
+      return [];
+    }
   }
 
   // === Histogram helper ===
@@ -1652,6 +1709,7 @@
     }
     st.due = next.toISOString();
     st.last = (new Date()).toISOString();
+    st.lastQuality = quality;  // Store quality for accuracy tracking
     localStorage.setItem(key, JSON.stringify(st));
     
     // Auto-sync after card review
@@ -1687,6 +1745,24 @@
     }catch(e){ try{ $('#status').textContent = t }catch(e){} }
   }
   function renderEmpty(){
+    // Restore top bar buttons (swap home back to sync)
+    try{
+      const syncBtn = document.getElementById('syncBtn');
+      const homeBtn = document.getElementById('homeBtn');
+      
+      // If home button is visible (in DOM and displayed), swap it with sync
+      if(homeBtn && syncBtn && homeBtn.style.display !== 'none' && homeBtn.parentNode){
+        const parent = homeBtn.parentNode;
+        const homeBtnNextSibling = homeBtn.nextSibling;
+        parent.removeChild(homeBtn);
+        parent.insertBefore(syncBtn, homeBtnNextSibling);
+      }
+      
+      // Ensure correct visibility
+      if(syncBtn) syncBtn.style.display = 'inline-block';
+      if(homeBtn) homeBtn.style.display = 'none';
+    }catch(e){ console.warn('Button swap error in renderEmpty:', e); }
+    
     const front = $('#front');
     const back = $('#back');
     const resp = $('#respButtons'); if(resp) resp.style.display='none';
@@ -1916,6 +1992,20 @@
   // === UI flow ===
   function showNextCard(){
     answerLocked = false;
+    
+    // Ensure home button is visible during review (replace sync button)
+    try{
+      const syncBtn = document.getElementById('syncBtn');
+      const homeBtn = document.getElementById('homeBtn');
+      if(syncBtn && homeBtn && syncBtn.parentNode && syncBtn.style.display !== 'none'){
+        const parent = syncBtn.parentNode;
+        const syncBtnNextSibling = syncBtn.nextSibling;
+        parent.removeChild(syncBtn);
+        parent.insertBefore(homeBtn, syncBtnNextSibling);
+        homeBtn.style.display = 'inline-block';
+      }
+    }catch(e){}
+    
     // Show contextual onboarding on first card
     if(!window.__reviewOnboardingShown && typeof showReviewOnboarding === 'function'){
       window.__reviewOnboardingShown = true;
@@ -1993,9 +2083,11 @@
   }
 
   // Button handlers
-    $('#showAnswer').addEventListener('click', ()=>{
-    const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
-    try{
+    const showAnswerBtn = $('#showAnswer');
+  if(showAnswerBtn){
+    showAnswerBtn.addEventListener('click', ()=>{
+      const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
+      try{
       console.log('showAnswer clicked - renderBack will be called once');
       renderBack(c);
       console.log('renderBack completed');
@@ -2023,14 +2115,337 @@
       if(respBtn) respBtn.style.display = 'flex';
       if(showBtn) showBtn.style.display = 'none';
     }catch(e){ console.warn('showAnswer error', e); }
-  });
+    });
+  }
 
-  $('#again').addEventListener('click', ()=>{ answerCurrent(0) });
-  $('#hard').addEventListener('click', ()=>{ answerCurrent(3) });
-  $('#good').addEventListener('click', ()=>{ answerCurrent(4) });
-  $('#easy').addEventListener('click', ()=>{ answerCurrent(5) });
+  // Modification request button
+  const requestModBtn = document.getElementById('requestModBtn');
+  if(requestModBtn){
+    requestModBtn.addEventListener('click', ()=>{
+      const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
+      if(!c) return;
+      showModificationRequestModal(c);
+    });
+  }
+  
+  function showModificationRequestModal(card){
+    const overlay = document.getElementById('modRequestOverlay');
+    const fieldsContainer = document.getElementById('modRequestFields');
+    if(!overlay || !fieldsContainer) return;
+    
+    // Clear previous content
+    fieldsContainer.innerHTML = '';
+    
+    // Create editable fields for each field in the card
+    const fields = card.fields || {};
+    Object.keys(fields).forEach(fieldName => {
+      const field = fields[fieldName];
+      const fieldDiv = document.createElement('div');
+      fieldDiv.style.cssText = 'margin-bottom:16px;';
+      
+      const label = document.createElement('label');
+      label.textContent = fieldName;
+      label.style.cssText = 'display:block;font-weight:600;margin-bottom:4px;';
+      fieldDiv.appendChild(label);
+      
+      const textarea = document.createElement('textarea');
+      textarea.value = field.html || '';
+      textarea.style.cssText = 'width:100%;min-height:80px;padding:8px;border:1px solid var(--border-color);border-radius:4px;font-family:monospace;font-size:0.85em;background:var(--bg);color:var(--text);';
+      textarea.setAttribute('data-field-name', fieldName);
+      fieldDiv.appendChild(textarea);
+      
+      fieldsContainer.appendChild(fieldDiv);
+    });
+    
+    // Show overlay
+    overlay.style.display = 'block';
+  }
+  
+  // Cancel modification request
+  const cancelModBtn = document.getElementById('cancelModBtn');
+  if(cancelModBtn){
+    cancelModBtn.addEventListener('click', ()=>{
+      const overlay = document.getElementById('modRequestOverlay');
+      if(overlay) overlay.style.display = 'none';
+    });
+  }
+  
+  // Close modal button (back button in header)
+  const closeModModalBtn = document.getElementById('closeModModalBtn');
+  if(closeModModalBtn){
+    closeModModalBtn.addEventListener('click', ()=>{
+      const overlay = document.getElementById('modRequestOverlay');
+      if(overlay) overlay.style.display = 'none';
+    });
+  }
+  
+  // Submit modification request
+  const submitModBtn = document.getElementById('submitModBtn');
+  if(submitModBtn){
+    submitModBtn.addEventListener('click', async ()=>{
+      const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
+      if(!c) return;
+      
+      const fieldsContainer = document.getElementById('modRequestFields');
+      if(!fieldsContainer) return;
+      
+      const textareas = fieldsContainer.querySelectorAll('textarea');
+      const modifications = {};
+      textareas.forEach(ta => {
+        const fieldName = ta.getAttribute('data-field-name');
+        modifications[fieldName] = ta.value;
+      });
+      
+      // Create modification request object
+      const request = {
+        timestamp: new Date().toISOString(),
+        deckTitle: deck?.title || 'Unknown Deck',
+        deckURL: deckURL || 'Unknown URL',
+        cardId: c.id || 'Unknown ID',
+        originalFields: c.fields || {},
+        modifiedFields: modifications,
+        userPseudo: localStorage.getItem('fabanki:pseudo') || 'Anonymous'
+      };
+      
+      // Store modification request locally and sync to cloud
+      try{
+        const existingRequests = JSON.parse(localStorage.getItem('fabanki:modification_requests') || '[]');
+        existingRequests.push(request);
+        localStorage.setItem('fabanki:modification_requests', JSON.stringify(existingRequests));
+        
+        // Log to console for developer
+        console.log('=== MODIFICATION REQUEST ===');
+        console.log(JSON.stringify(request, null, 2));
+        console.log('============================');
+        
+        // Sync to Firestore if available (syncs to shared developer collection)
+        if(window.__fabanki_firestore){
+          try{
+            console.log('Attempting to sync to Firestore...');
+            const docRef = await window.__fabanki_firestore.collection('modification_requests').add({
+              timestamp: request.timestamp,
+              deckTitle: request.deckTitle,
+              deckURL: request.deckURL,
+              cardId: request.cardId,
+              originalFields: request.originalFields,
+              modifiedFields: request.modifiedFields,
+              userPseudo: request.userPseudo,
+              submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              status: 'pending'
+            });
+            console.log('✔️ Modification request synced to cloud with ID:', docRef.id);
+          }catch(cloudError){
+            console.error('Failed to sync modification request to cloud:', cloudError);
+            alert('Avertissement: La demande a été enregistrée localement mais n\'a pas pu être synchronisée avec le cloud. Erreur: ' + cloudError.message);
+          }
+        } else {
+          console.warn('Firestore not available - modification saved locally only');
+        }
+        
+        alert('Demande de modification enregistrée ! Le développeur sera notifié.');
+        
+        // Close overlay
+        const overlay = document.getElementById('modRequestOverlay');
+        if(overlay) overlay.style.display = 'none';
+      }catch(e){
+        console.error('Failed to save modification request:', e);
+        alert('Erreur lors de l\'enregistrement de la demande.');
+      }
+    });
+  }
+
+  // Console command to display all modification requests with admin panel UI
+  window.showModificationRequests = function(){
+    try{
+      const requests = JSON.parse(localStorage.getItem('fabanki:modification_requests') || '[]');
+      
+      // Log to console for reference
+      console.log(`=== ${requests.length} DEMANDE(S) DE MODIFICATION ===`);
+      if(requests.length === 0){
+        console.log('Aucune demande de modification enregistrée.');
+        alert('Aucune demande de modification.');
+        return;
+      }
+      
+      // Create admin panel overlay
+      const existingPanel = document.getElementById('adminModRequestPanel');
+      if(existingPanel) existingPanel.remove();
+      
+      const panel = document.createElement('div');
+      panel.id = 'adminModRequestPanel';
+      panel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99999;overflow-y:auto;padding:20px;';
+      
+      const container = document.createElement('div');
+      container.style.cssText = 'max-width:1200px;margin:0 auto;background:var(--card-bg);padding:24px;border-radius:12px;';
+      
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;';
+      header.innerHTML = `<h2 style="margin:0;">🛠️ Admin Panel - Demandes de Modification (${requests.length})</h2>`;
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.textContent = '✕ Fermer';
+      closeBtn.className = 'secondary';
+      closeBtn.style.cssText = 'padding:8px 16px;';
+      closeBtn.addEventListener('click', () => panel.remove());
+      header.appendChild(closeBtn);
+      
+      container.appendChild(header);
+      
+      // Function to remove a request from localStorage
+      const removeRequest = (index) => {
+        const updatedRequests = JSON.parse(localStorage.getItem('fabanki:modification_requests') || '[]');
+        updatedRequests.splice(index, 1);
+        localStorage.setItem('fabanki:modification_requests', JSON.stringify(updatedRequests));
+        panel.remove();
+        showModificationRequests(); // Reload panel with updated data
+      };
+      
+      // Display each request
+      requests.forEach((req, index) => {
+        const reqCard = document.createElement('div');
+        reqCard.style.cssText = 'border:1px solid var(--border-color);border-radius:8px;padding:16px;margin-bottom:16px;background:var(--bg);';
+        
+        const reqHeader = document.createElement('div');
+        reqHeader.style.cssText = 'display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;';
+        
+        const reqInfo = document.createElement('div');
+        reqInfo.innerHTML = `
+          <h3 style="margin:0 0 8px 0;color:var(--primary);">#${index + 1} - ${req.deckTitle}</h3>
+          <div style="font-size:0.85em;color:var(--text-muted);">
+            <div><strong>Date:</strong> ${new Date(req.timestamp).toLocaleString('fr-FR')}</div>
+            <div><strong>Utilisateur:</strong> ${req.userPseudo}</div>
+            <div><strong>Card ID:</strong> ${req.cardId}</div>
+            <div><strong>URL:</strong> <a href="${req.deckURL}" target="_blank" style="color:var(--primary);">${req.deckURL}</a></div>
+          </div>
+        `;
+        reqHeader.appendChild(reqInfo);
+        
+        // Action buttons (Accept/Reject)
+        const actionBtns = document.createElement('div');
+        actionBtns.style.cssText = 'display:flex;gap:8px;';
+        
+        const acceptBtn = document.createElement('button');
+        acceptBtn.innerHTML = '✔️ Accepter';
+        acceptBtn.className = 'primary';
+        acceptBtn.style.cssText = 'padding:6px 12px;font-size:0.9em;background:#16a34a;';
+        acceptBtn.addEventListener('click', () => {
+          if(confirm('Accepter cette modification ?')){
+            console.log('✅ ACCEPTED:', req);
+            removeRequest(index);
+          }
+        });
+        actionBtns.appendChild(acceptBtn);
+        
+        const rejectBtn = document.createElement('button');
+        rejectBtn.innerHTML = '❌ Refuser';
+        rejectBtn.className = 'secondary';
+        rejectBtn.style.cssText = 'padding:6px 12px;font-size:0.9em;background:#dc2626;color:#fff;';
+        rejectBtn.addEventListener('click', () => {
+          if(confirm('Refuser cette modification ?')){
+            console.log('❌ REJECTED:', req);
+            removeRequest(index);
+          }
+        });
+        actionBtns.appendChild(rejectBtn);
+        
+        reqHeader.appendChild(actionBtns);
+        reqCard.appendChild(reqHeader);
+        
+        // Display modified fields
+        const fieldsContainer = document.createElement('div');
+        fieldsContainer.style.cssText = 'margin-top:16px;';
+        
+        Object.keys(req.modifiedFields).forEach(fieldName => {
+          const fieldDetails = document.createElement('details');
+          fieldDetails.style.cssText = 'margin-bottom:12px;border:1px solid var(--border-color);border-radius:4px;padding:8px;';
+          
+          const summary = document.createElement('summary');
+          summary.style.cssText = 'cursor:pointer;font-weight:600;padding:4px;';
+          summary.textContent = fieldName;
+          fieldDetails.appendChild(summary);
+          
+          const comparison = document.createElement('div');
+          comparison.style.cssText = 'margin-top:8px;';
+          comparison.innerHTML = `
+            <div style="margin-bottom:8px;">
+              <strong style="color:#dc2626;">Original:</strong>
+              <pre style="background:#fef2f2;padding:8px;border-radius:4px;overflow-x:auto;font-size:0.8em;white-space:pre-wrap;">${(req.originalFields[fieldName]?.html || 'N/A').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+            </div>
+            <div>
+              <strong style="color:#16a34a;">Modifié:</strong>
+              <pre style="background:#f0fdf4;padding:8px;border-radius:4px;overflow-x:auto;font-size:0.8em;white-space:pre-wrap;">${req.modifiedFields[fieldName].replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+            </div>
+          `;
+          fieldDetails.appendChild(comparison);
+          fieldsContainer.appendChild(fieldDetails);
+        });
+        
+        reqCard.appendChild(fieldsContainer);
+        container.appendChild(reqCard);
+      });
+      
+      panel.appendChild(container);
+      document.body.appendChild(panel);
+      
+      // Also log to console
+      console.log('Admin panel ouvert. Demandes:');
+      requests.forEach((req, i) => console.log(`#${i+1}:`, req));
+      
+    }catch(e){
+      console.error('Erreur lors de l\'affichage des demandes:', e);
+      alert('Erreur: ' + e.message);
+    }
+  };
+  console.log('💡 Admin: Tapez showModificationRequests() pour ouvrir le panneau d\'administration.');
+
+  const againBtn = $('#again');
+  if(againBtn) againBtn.addEventListener('click', ()=>{ answerCurrent(0) });
+  
+  const hardBtn = $('#hard');
+  if(hardBtn) hardBtn.addEventListener('click', ()=>{ answerCurrent(3) });
+  
+  const goodBtn = $('#good');
+  if(goodBtn) goodBtn.addEventListener('click', ()=>{ answerCurrent(4) });
+  
+  const easyBtn = $('#easy');
+  if(easyBtn) easyBtn.addEventListener('click', ()=>{ answerCurrent(5) });
+  
   // Pass current card: mark as 'Never' (far future) and remove from session
-  $('#passer').addEventListener('click', ()=>{ passCurrent() });
+  const passerBtn = $('#passer');
+  if(passerBtn) passerBtn.addEventListener('click', ()=>{ passCurrent() });
+  
+  function showModificationRequestModal(card){
+    const overlay = document.getElementById('modRequestOverlay');
+    const fieldsContainer = document.getElementById('modRequestFields');
+    if(!overlay || !fieldsContainer) return;
+    
+    // Clear previous content
+    fieldsContainer.innerHTML = '';
+    
+    // Create editable fields for each field in the card
+    const fields = card.fields || {};
+    Object.keys(fields).forEach(fieldName => {
+      const field = fields[fieldName];
+      const fieldDiv = document.createElement('div');
+      fieldDiv.style.cssText = 'margin-bottom:16px;';
+      
+      const label = document.createElement('label');
+      label.textContent = fieldName;
+      label.style.cssText = 'display:block;font-weight:600;margin-bottom:4px;';
+      fieldDiv.appendChild(label);
+      
+      const textarea = document.createElement('textarea');
+      textarea.value = field.html || '';
+      textarea.style.cssText = 'width:100%;min-height:80px;padding:8px;border:1px solid var(--border-color);border-radius:4px;font-family:monospace;font-size:0.85em;background:var(--bg);color:var(--text);';
+      textarea.setAttribute('data-field-name', fieldName);
+      fieldDiv.appendChild(textarea);
+      
+      fieldsContainer.appendChild(fieldDiv);
+    });
+    
+    // Show overlay
+    overlay.style.display = 'block';
+  }
 
   function passCurrent(){
     try{
@@ -2195,6 +2610,13 @@
     if(q < 3){
       // remove current card from list
       dueCards.splice(currentIndex, 1);
+      // Check if deck is empty after removal
+      if(dueCards.length === 0){ 
+        updateStatus('Révision terminée pour aujourd\'hui'); 
+        renderEmpty(); 
+        answerLocked = false;
+        return;
+      }
       // insert it after a random offset (5..20)
       const offset = randInt(5,20);
       const insertPos = Math.min(dueCards.length, currentIndex + offset);
@@ -2202,13 +2624,19 @@
       const cardToReinsert = multiDeckMode ? cardData : c;
       dueCards.splice(insertPos, 0, cardToReinsert);
       // don't advance index: currentIndex now points to the next card
-      if(dueCards.length === 0){ updateStatus('Révision terminée pour aujourd\'hui'); renderEmpty(); }
-      else { showNextCard(); }
+      if(currentIndex >= dueCards.length) currentIndex = dueCards.length - 1;
+      showNextCard();
     } else {
       // remove answered card; next card naturally shifts into currentIndex
       dueCards.splice(currentIndex, 1);
-      if(currentIndex >= dueCards.length){ updateStatus('Révision terminée pour aujourd\'hui'); renderEmpty(); }
-      else { showNextCard(); }
+      // Check if deck is empty after removal
+      if(dueCards.length === 0 || currentIndex >= dueCards.length){ 
+        updateStatus('Révision terminée pour aujourd\'hui'); 
+        renderEmpty(); 
+        answerLocked = false;
+        return;
+      }
+      showNextCard();
     }
     const dueEl2 = $('#dueCount'); if(dueEl2) dueEl2.textContent = dueCards.length;
     updateProgressDisplay();
@@ -2244,6 +2672,37 @@
   // Load deck from URL param on start
   function param(key){ const p = new URLSearchParams(location.search); return p.get(key) }
   window.addEventListener('load', async ()=>{
+  // First-time bonus: give 20 credits on first load
+  try{
+    const firstLoadKey = 'fabanki:first_load_bonus_given';
+    if(!localStorage.getItem(firstLoadKey)){
+      if(typeof addCredits === 'function'){
+        addCredits(20);
+        console.log('🎉 Bienvenue ! Vous avez reçu 20 crédits de bienvenue !');
+        alert('🎉 Bienvenue sur Fab\'Anki ! Vous recevez 20 crédits gratuits pour commencer !');
+      }
+      localStorage.setItem(firstLoadKey, 'true');
+    }
+  }catch(e){ console.warn('First load bonus error:', e); }
+  
+  // Migrate localStorage from old domain (simon-mgnz.github.io/fabanki) to new domain (fabanki.fr)
+  try{
+    const oldDomain = 'simon-mgnz.github.io';
+    const migrationKey = 'fabanki:migrated_from_old_domain';
+    if(!localStorage.getItem(migrationKey)){
+      // Check if we're on the new domain
+      if(window.location.hostname === 'fabanki.fr' || window.location.hostname === 'www.fabanki.fr'){
+        console.log('Attempting to migrate data from old domain...');
+        // Note: Due to same-origin policy, we cannot directly access localStorage from another domain
+        // However, if the user has data from the old GitHub Pages site in their browser,
+        // it would have been stored with that origin. Since we can't access it directly,
+        // we'll mark migration as attempted.
+        localStorage.setItem(migrationKey, 'true');
+        console.log('Migration check completed. If you had data on the old site, please export and import it manually.');
+      }
+    }
+  }catch(e){ console.warn('Migration check failed:', e); }
+  
   // Set CSS variable for iOS viewport fix
   function updateVh(){
     try{
@@ -2296,11 +2755,16 @@
         reader.readAsText(f);
       });
     }
-    $('#resetBtn').addEventListener('click', ()=>{ if(confirm('Supprimer toutes les données locales pour ce deck ?')){ // clear keys for this deck
-      if(!deckKey) { alert('Aucun deck chargé'); return }
-      const prefix = `fabanki:${deckKey}:`;
-      for(const k of Object.keys(localStorage)) if(k.startsWith(prefix)) localStorage.removeItem(k);
-      alert('Données locales supprimées'); initFSRS(); }});
+    // Reset button removed from top bar - now in overview page
+    
+    // Home button - return to welcome page and restore sync button
+    const homeBtn = document.getElementById('homeBtn');
+    if(homeBtn){
+      homeBtn.addEventListener('click', ()=>{
+        // Navigate to welcome page (which will restore buttons)
+        renderWelcomeDecks();
+      });
+    }
     
     // Toggle hint box visibility
     const toggleHintBtn = $('#toggleHint');
@@ -4082,6 +4546,8 @@
           ));
           // Reset daily selected missions
           localStorage.removeItem('fabanki:daily_selected_missions');
+          // Reset backlog baseline for new day
+          localStorage.removeItem('fabanki:backlog_midnight_set_' + today);
         }
         
         // Initialize weekly missions if needed
@@ -4092,6 +4558,11 @@
           // Reset weekly selected missions
           localStorage.removeItem('fabanki:weekly_selected_missions');
         }
+        
+        // Force initial mission progress update
+        setTimeout(() => {
+          try{ if(typeof updateMissionProgress === 'function') updateMissionProgress(); }catch(e){}
+        }, 100);
       }catch(e){ console.warn('initializeMissions error:', e) }
     }
     
@@ -4199,44 +4670,139 @@
           const timeSpentWeekSec = Number(localStorage.getItem('fabanki:time_spent_week_sec') || 0);
           const timeSpentWeek = timeSpentWeekSec > 0 ? Math.floor(timeSpentWeekSec / 60) : Number(localStorage.getItem('fabanki:time_spent_week') || 0);
           updateMission(weeklyMissions, 'study_5h', timeSpentWeek, 'weekly');
-        
-                // For backlog reduction missions
-                try{
-                  // Count current overdue cards
-                  let currentOverdue = 0;
-                  const todayStart = new Date();
-                  todayStart.setHours(0, 0, 0, 0);
-          
-                  for(const k of Object.keys(localStorage)){
-                    if(!k.includes(':card:')) continue;
-                    try{
-                      const st = JSON.parse(localStorage.getItem(k) || '{}');
-                      if(st && st.due){
-                        const due = new Date(st.due);
-                        if(due < todayStart) currentOverdue++;
-                      }
-                    }catch(e){}
-                  }
-          
-                  // Get or set initial overdue count for today
-                  const initialKey = 'fabanki:backlog_initial_' + new Date().toISOString().split('T')[0];
-                  let initialOverdue = Number(localStorage.getItem(initialKey) || 0);
-          
-                  if(initialOverdue === 0 && currentOverdue > 0){
-                    // First time checking today, set the baseline
-                    initialOverdue = currentOverdue;
-                    localStorage.setItem(initialKey, String(initialOverdue));
-                  }
-          
-                  // Calculate reduction percentage
-                  const reductionPercent = initialOverdue > 0 ? Math.round(((initialOverdue - currentOverdue) / initialOverdue) * 100) : 0;
-          
-                  // Update backlog missions with the reduction percentage
-                  updateMission(dailyMissions, 'backlog_20', Math.max(0, reductionPercent), 'daily');
-                  updateMission(dailyMissions, 'backlog_50', Math.max(0, reductionPercent), 'daily');
-                  updateMission(weeklyMissions, 'backlog_50w', Math.max(0, reductionPercent), 'weekly');
-                }catch(e){ console.warn('backlog tracking error:', e) }
         }catch(e){}
+        
+        // For accuracy missions - calculate today's and week's accuracy
+        try{
+          // Today's accuracy
+          let todayCorrect = 0, todayTotal = 0;
+          for(const k of Object.keys(localStorage)){
+            if(!k.includes(':card:')) continue;
+            try{
+              const st = JSON.parse(localStorage.getItem(k) || '{}');
+              if(st && st.last){
+                const d = new Date(st.last);
+                if(d.toDateString() === now.toDateString()){
+                  todayTotal++;
+                  // Count as correct if last review was quality >= 3
+                  if(st.lastQuality && Number(st.lastQuality) >= 3) todayCorrect++;
+                }
+              }
+            }catch(e){}
+          }
+          const todayAccuracy = todayTotal > 0 ? Math.round((todayCorrect / todayTotal) * 100) : 0;
+          updateMission(dailyMissions, 'accuracy_70', todayAccuracy, 'daily');
+          updateMission(dailyMissions, 'accuracy_80', todayAccuracy, 'daily');
+          updateMission(dailyMissions, 'accuracy_90', todayAccuracy, 'daily');
+          
+          // Week's accuracy
+          let weekCorrect = 0, weekTotal = 0;
+          for(const k of Object.keys(localStorage)){
+            if(!k.includes(':card:')) continue;
+            try{
+              const st = JSON.parse(localStorage.getItem(k) || '{}');
+              if(st && st.last){
+                const d = new Date(st.last);
+                if(d >= weekStart){
+                  weekTotal++;
+                  if(st.lastQuality && Number(st.lastQuality) >= 3) weekCorrect++;
+                }
+              }
+            }catch(e){}
+          }
+          const weekAccuracy = weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : 0;
+          updateMission(weeklyMissions, 'accuracy_75w', weekAccuracy, 'weekly');
+          updateMission(weeklyMissions, 'accuracy_85w', weekAccuracy, 'weekly');
+          updateMission(weeklyMissions, 'accuracy_90w', weekAccuracy, 'weekly');
+        }catch(e){ console.warn('accuracy tracking error:', e) }
+        
+        // Track days active this week
+        try{
+          const activeDaysSet = new Set();
+          // Always count today as an active day since the user loaded the site
+          activeDaysSet.add(now.toDateString());
+          for(const k of Object.keys(localStorage)){
+            if(!k.includes(':card:')) continue;
+            try{
+              const st = JSON.parse(localStorage.getItem(k) || '{}');
+              if(st && st.last){
+                const d = new Date(st.last);
+                if(d >= weekStart && d.toDateString() !== now.toDateString()){
+                  // Add past days from this week (today already added)
+                  activeDaysSet.add(d.toDateString());
+                }
+              }
+            }catch(e){}
+          }
+          const daysActive = activeDaysSet.size;
+          updateMission(weeklyMissions, 'study_4days', daysActive, 'weekly');
+          updateMission(weeklyMissions, 'study_6days', daysActive, 'weekly');
+          updateMission(weeklyMissions, 'study_7days', daysActive, 'weekly');
+        }catch(e){ console.warn('days active tracking error:', e) }
+        
+        // For backlog reduction missions - set baseline at midnight
+        try{
+          // Count current overdue cards
+          let currentOverdue = 0;
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          
+          for(const k of Object.keys(localStorage)){
+            if(!k.includes(':card:')) continue;
+            try{
+              const st = JSON.parse(localStorage.getItem(k) || '{}');
+              if(st && st.due){
+                const due = new Date(st.due);
+                if(due < todayStart) currentOverdue++;
+              }
+            }catch(e){}
+          }
+          
+          // Get or set initial overdue count at midnight (00:00)
+          const initialKey = 'fabanki:backlog_initial_' + new Date().toISOString().split('T')[0];
+          let initialOverdue = Number(localStorage.getItem(initialKey) || 0);
+          
+          // Set baseline at midnight if not set
+          const midnightCheckKey = 'fabanki:backlog_midnight_set_' + new Date().toISOString().split('T')[0];
+          if(!localStorage.getItem(midnightCheckKey)){
+            // First check after midnight - set baseline
+            initialOverdue = currentOverdue;
+            localStorage.setItem(initialKey, String(initialOverdue));
+            localStorage.setItem(midnightCheckKey, 'true');
+          }
+          
+          // Calculate reduction percentage
+          const reductionPercent = initialOverdue > 0 ? Math.round(((initialOverdue - currentOverdue) / initialOverdue) * 100) : 0;
+          
+          // Update backlog missions with the reduction percentage
+          updateMission(dailyMissions, 'backlog_20', Math.max(0, reductionPercent), 'daily');
+          updateMission(dailyMissions, 'backlog_50', Math.max(0, reductionPercent), 'daily');
+          updateMission(weeklyMissions, 'backlog_50w', Math.max(0, reductionPercent), 'weekly');
+        }catch(e){ console.warn('backlog tracking error:', e) }
+        
+        // Check for no overdue cards missions
+        try{
+          let hasOverdue = false;
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          
+          for(const k of Object.keys(localStorage)){
+            if(!k.includes(':card:')) continue;
+            try{
+              const st = JSON.parse(localStorage.getItem(k) || '{}');
+              if(st && st.due){
+                const due = new Date(st.due);
+                if(due < todayStart){ hasOverdue = true; break; }
+              }
+            }catch(e){}
+          }
+          
+          // Update no_overdue missions (target is 0 overdue = complete when hasOverdue is false)
+          if(!hasOverdue){
+            updateMission(dailyMissions, 'no_overdue', 1, 'daily');
+            updateMission(weeklyMissions, 'week_no_overdue', 1, 'weekly');
+          }
+        }catch(e){ console.warn('overdue check error:', e) }
         
         // Save updated missions
         localStorage.setItem(dailyKey, JSON.stringify(dailyMissions));
@@ -5503,6 +6069,9 @@
           dailyQuestsCompleted = missions.filter(m => m.completed).length;
         }catch(e){}
         
+        const dailyGoal = Number(localStorage.getItem('fabanki:daily_goal') || 20);
+        const streakCurrent = Number(localStorage.getItem('fabanki:streak_current') || 0);
+        
         const doc = {
           Pseudo: pseudo,
           XP: xp,
@@ -5515,10 +6084,10 @@
           ['Ratés']: rates,
           ['Passer']: passes,
           ['Streak_max']: streakMax,
+          ['Streak_current']: streakCurrent,
+          ['Daily_goal']: dailyGoal,
           ['Cartes maîtrisées']: mastered,
           Badges: badges,
-          Titres: titres,
-          Objectifs: objectifs,
           Titres: titres,
           Objectifs: objectifs,
           XP_semaine: xpS,
@@ -5934,6 +6503,32 @@
 
     async function renderWelcomeDecks(){
       try{
+        // Restore top bar buttons (swap home back to sync)
+        try{
+          const syncBtn = document.getElementById('syncBtn');
+          const homeBtn = document.getElementById('homeBtn');
+          
+          console.log('renderWelcomeDecks - restoring buttons:', {
+            syncBtn: !!syncBtn,
+            homeBtn: !!homeBtn,
+            homeBtnVisible: homeBtn ? homeBtn.style.display : null,
+            homeBtnParent: homeBtn ? !!homeBtn.parentNode : null
+          });
+          
+          // If home button is visible (in DOM and displayed), swap it with sync
+          if(homeBtn && syncBtn && homeBtn.style.display !== 'none' && homeBtn.parentNode){
+            const parent = homeBtn.parentNode;
+            const homeBtnNextSibling = homeBtn.nextSibling;
+            parent.removeChild(homeBtn);
+            parent.insertBefore(syncBtn, homeBtnNextSibling);
+            console.log('Buttons swapped back successfully');
+          }
+          
+          // Ensure correct visibility
+          if(syncBtn) syncBtn.style.display = 'inline-block';
+          if(homeBtn) homeBtn.style.display = 'none';
+        }catch(e){ console.warn('Button swap error:', e); }
+        
         // remove any existing welcome first
         await removeWelcome();
         updateStatus("Bienvenue sur Fab'Anki");
