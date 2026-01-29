@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Fab'Anki — Flashcards sans compte</title>
+  <link rel="icon" href="./fabankilogo.png">
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
   <!-- Firebase (compat) -->
@@ -18,7 +19,7 @@
 <body>
   <div class="app" id="app" data-theme="light">
     <header>
-      <h1 id="appTitle">Fab'Anki — Flashcards (sans compte)</h1>
+      <h1 id="appTitle" style="display:flex;align-items:center;gap:10px;"><img src="./fabankilogo.png" style="width:32px;height:32px;" alt="Logo">Fab'Anki — Flashcards (sans compte)</h1>
       <div class="controls">
         <!-- Hidden file picker used as a fallback when running the page from file:// -->
         <input id="filePicker" type="file" accept=".xml,application/xml" style="display:none" />
@@ -26,10 +27,10 @@
         <button id="browseDecks" data-label-text="Parcourir decks" data-label-emoji="📚">Parcourir decks</button>
         <button id="profileBtn" data-label-text="Profile" data-label-emoji="👤">Profile</button>
         <button id="syncBtn" class="secondary" data-label-text="Synchroniser mes progrès" data-label-emoji="🔄">Synchroniser mes progrès</button>
+        <button id="homeBtn" class="secondary" data-label-text="Accueil" data-label-emoji="🏠" style="display:none">Accueil</button>
         <!-- <button id="loadBtn" class="secondary" data-label-text="Charger" data-label-emoji="📂">Charger</button> -->
         <button id="toggleStats" class="secondary" data-label-text="Histogramme" data-label-emoji="📊">Histogramme</button>
         <button id="toggleTheme" class="secondary" data-label-text="Mode sombre" data-label-emoji="🌙">Mode sombre</button>
-        <button id="resetBtn" class="secondary" data-label-text="Réinitialiser données locales" data-label-emoji="♻️">Réinitialiser données locales</button>
       </div>
     </header>
 
@@ -45,7 +46,9 @@
               <div id="back" class="back" style="display:none"></div>
               <div id="always" class="muted small" style="margin-top:8px"></div>
             </div>
-            <div class="meta" id="meta"><span id="dueInline" class="muted small">Cartes prêtes : <strong id="dueCount">0</strong></span></div>
+            <div class="meta" id="meta">
+              <span id="dueInline" class="muted small">Cartes prêtes : <strong id="dueCount">0</strong></span>
+            </div>
             <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
               <div class="buttons">
                 <button id="showAnswer">Afficher la réponse</button>
@@ -57,7 +60,8 @@
                   <button id="passer" class="secondary" title="Passer cette carte">Passer</button>
                 </div>
               </div>
-              <div class="progress-container">
+              <div class="progress-container" style="position:relative;">
+                <button id="requestModBtn" class="secondary" style="position:absolute;bottom:48px;right:8px;min-width:48px;min-height:48px;padding:3px;font-size:1.4em;border-radius:6px;display:flex;align-items:center;justify-content:center;z-index:10;box-shadow:0 2px 4px rgba(0,0,0,0.1);aspect-ratio: 1 / 1;" title="Demander une modification de cette carte">✏️</button>
                 <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
                 <div id="progressInfo" class="muted small" style="text-align:center;margin-top:6px">Révisées : 0 / 0</div>
               </div>
@@ -131,6 +135,23 @@
       <div class="muted small">Fab'Anki — Fonctionne entièrement côté navigateur</div>
       <div class="muted small">© Swiess corporation - 2026 - MPSI1 &gt;&gt; MPSI2</div>
     </footer>
+    
+    <!-- Modification Request Modal -->
+    <div id="modRequestOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;">
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card-bg);padding:24px;border-radius:12px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;">
+          <button id="closeModModalBtn" class="secondary" style="background:none;border:none;font-size:1.2em;cursor:pointer;padding:6px 12px;color:#007AFF;flex-shrink:0;" title="Retour">← Retour</button>
+          <h2 style="margin:0;flex:1;text-align:center;">Demande de modification</h2>
+          <div style="width:48px;flex-shrink:0;"></div>
+        </div>
+        <p style="font-size:0.9em;color:var(--text-muted);margin-bottom:16px;">Modifiez les champs ci-dessous. Vos modifications seront enregistrées localement et affichées dans la console.</p>
+        <div id="modRequestFields" style="margin-bottom:16px;"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button id="cancelModBtn" class="secondary">Annuler</button>
+          <button id="submitModBtn" class="primary">Envoyer</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- KaTeX auto-render -->
