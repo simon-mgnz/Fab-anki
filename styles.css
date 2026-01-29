@@ -318,19 +318,28 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
 
 @media (min-width:641px){
 
-  .buttons button, .resp-buttons button, button.secondary{min-width:120px;padding:10px 14px}
+  .buttons button, .resp-buttons button, button.secondary{min-width:120px;padding:10px 14px;max-width:200px}
 
   /* Standardize top-bar buttons on desktop */
 
-  header .controls button{min-width:120px;padding:10px 14px}
+  header .controls button{min-width:120px;padding:10px 14px;flex-shrink:1}
 
   .card{min-height:260px}
 
   /* Disable page scrolling on desktop */
 
   body{overflow:hidden}
+  
+  /* Ensure buttons wrap on very large screens */
+  .resp-buttons{flex-wrap:wrap;max-width:100%}
+  
+  .buttons{flex-wrap:wrap;max-width:100%}
 
 }
+
+  body{overflow:hidden}
+
+
 
 
 
