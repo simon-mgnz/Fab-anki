@@ -88,6 +88,8 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
 
 @keyframes popupZoom { from{opacity:0;transform:scale(0)} to{opacity:1;transform:scale(1)} }
 
+@keyframes fadeInOut { 0%{opacity:0} 10%{opacity:1} 90%{opacity:1} 100%{opacity:0} }
+
 @keyframes popupFlip { from{opacity:0;transform:perspective(400px) rotateY(90deg)} to{opacity:1;transform:perspective(400px) rotateY(0)} }
 
 @keyframes popupPulse { 0%{transform:scale(1)} 50%{transform:scale(1.05)} 100%{transform:scale(1)} }
