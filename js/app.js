@@ -11,12 +11,79 @@
   let sessionTotal = 0;
   let reviewedCount = 0;
     let sessionData = []; // Track per-card data for recap: {cardId, grade, timeSpent}
+  let isReviewing = false;
+  let sessionCreditsGranted = false;
   let answerLocked = false;
   let deckKey = null; // prefix for localStorage
   let manifestMeta = {}; // path (relative to decks/) -> manifest entry (cost/level/tags)
   let tooltipShown = false;
   let cardShownAt = Date.now();
   let showHintBox = false; // Toggle for hint box visibility
+  let reviewMode = 'default'; // 'default' or 'fillblank' - controls review behavior
+  let deckHasTextTag = false; // Whether deck supports fill-in-the-blank mode
+
+  function isInAppBrowser(){
+    try{
+      const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+      const inApp = /(FBAN|FBAV|Instagram|Line|Twitter|Snapchat|LinkedInApp|Pinterest|MicroMessenger|WeChat|TikTok|Messenger|WhatsApp|Telegram)/i.test(ua);
+      const webView = /\bwv\b|WebView/i.test(ua);
+      return inApp || webView;
+    }catch(e){ return false }
+  }
+
+  function forceExternalBrowser(){
+    try{
+      const url = window.location.href;
+      // Best-effort: try to open in system browser
+      try{
+        const a = document.createElement('a');
+        a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        a.style.display = 'none';
+        document.body.appendChild(a); a.click(); a.remove();
+      }catch(e){}
+      try{ window.open(url, '_blank', 'noopener,noreferrer'); }catch(e){}
+
+      // Show blocking overlay with explicit action
+      const existing = document.getElementById('externalBrowserOverlay');
+      if(existing) existing.remove();
+      const ov = document.createElement('div');
+      ov.id = 'externalBrowserOverlay';
+      ov.style.position = 'fixed';
+      ov.style.left = '0';
+      ov.style.right = '0';
+      ov.style.top = '0';
+      ov.style.bottom = '0';
+      ov.style.background = 'rgba(0,0,0,0.7)';
+      ov.style.zIndex = '99999';
+      ov.style.display = 'flex';
+      ov.style.alignItems = 'center';
+      ov.style.justifyContent = 'center';
+      const box = document.createElement('div');
+      box.style.background = '#fff';
+      box.style.color = '#111';
+      box.style.padding = '20px';
+      box.style.borderRadius = '12px';
+      box.style.maxWidth = '420px';
+      box.style.width = '90%';
+      box.style.textAlign = 'center';
+      box.innerHTML = `
+        <div style="font-weight:700;margin-bottom:8px;">Ouvrir dans votre navigateur</div>
+        <div style="color:#666;margin-bottom:14px;">Cette page ne fonctionne pas dans le navigateur intégré de l'application.</div>
+      `;
+      const btn = document.createElement('a');
+      btn.href = url; btn.target = '_blank'; btn.rel = 'noopener noreferrer';
+      btn.textContent = 'Ouvrir dans le navigateur';
+      btn.style.display = 'inline-block';
+      btn.style.background = '#2563eb';
+      btn.style.color = 'white';
+      btn.style.padding = '10px 14px';
+      btn.style.borderRadius = '8px';
+      btn.style.textDecoration = 'none';
+      box.appendChild(btn);
+      ov.appendChild(box);
+      document.body.appendChild(ov);
+    }catch(e){}
+  }
 
   function normalizeDeckPath(url){
     let p = url || '';
@@ -29,7 +96,19 @@
   }
   function getManifestEntryForPath(url){
     const rel = normalizeDeckPath(url);
-    return manifestMeta[rel] || null;
+    let entry = manifestMeta[rel] || null;
+    
+    // If not found, try to match by searching the path
+    if(!entry && Object.keys(manifestMeta).length > 0){
+      for(const key of Object.keys(manifestMeta)){
+        if(key.includes(rel) || rel.includes(key)){
+          entry = manifestMeta[key];
+          break;
+        }
+      }
+    }
+    
+    return entry;
   }
   function isDeckUnlocked(path){
     return localStorage.getItem('fabanki:deck_unlocked:'+normalizeDeckPath(path)) === '1';
@@ -133,6 +212,7 @@
   async function loadMultipleDeckCards(deckURLs, options = {}){
     try{
       const onlyNow = options.onlyNow === true;
+      const limitCount = Number.isFinite(options.limitCount) ? options.limitCount : null;
       onlyNowMode = onlyNow;
       multiDeckMode = true;
       multiDeckURLs = deckURLs;
@@ -143,6 +223,13 @@
       // Load all decks and collect cards
       for(const url of deckURLs){
         try{
+          // Check if deck is locked and skip if it is
+          const lockState = evaluateDeckLock(url);
+          if(lockState.locked){
+            console.log('Skipping locked deck:', url, 'Locked by:', lockState.lockedByCost ? 'cost' : 'level');
+            continue;
+          }
+          
           const res = await fetch(url);
           if(!res.ok) continue;
           const text = await res.text();
@@ -301,6 +388,9 @@
       
       // Order: Maintenant (due now) first, then future, then new
       multiDeckCards = onlyNow ? nowCards : nowCards.concat(futureCards).concat(newCards);
+      if(limitCount && multiDeckCards.length > limitCount){
+        multiDeckCards = multiDeckCards.slice(0, limitCount);
+      }
       
       if(multiDeckCards.length === 0){
         updateStatus(onlyNow ? 'Aucune carte à réviser maintenant' : 'Aucune carte à réviser');
@@ -319,6 +409,9 @@
       dueCards = multiDeckCards;
       sessionTotal = dueCards.length;
       reviewedCount = 0;
+      sessionData = [];
+      isReviewing = true;
+      sessionCreditsGranted = false;
       currentIndex = 0;
       
       // Ensure progress info element is visible and initialized
@@ -595,6 +688,12 @@
       
       const titleEl = xml.querySelector('title') || xml.querySelector('name');
       if(titleEl) tempDeck.title = titleEl.textContent?.trim() || '';
+      // Fallback to URL filename if no title found in XML
+      if(!tempDeck.title) {
+        const urlParts = decodeURIComponent(url).split('/');
+        const fileName = urlParts[urlParts.length - 1].replace(/\.xml$/i, '');
+        tempDeck.title = fileName;
+      }
       
       const cardNodes = Array.from(xml.getElementsByTagName('card')).length 
         ? Array.from(xml.getElementsByTagName('card')) 
@@ -756,6 +855,93 @@
       title.style.cssText = 'margin:0 0 16px 0;font-size:1.4em;';
       rightPanel.appendChild(title);
       
+      // Star rating and progress bar
+      const ratingContainer = document.createElement('div');
+      ratingContainer.style.cssText = 'margin-bottom:16px;';
+      
+      // Calculate accuracy for star rating
+      let accuracyForRating = 0;
+      if(reviewed > 0) {
+        let accuracySum = 0, reviewedTotal = 0;
+        for(const c of cardsList){
+          if(c.category === 'now') { accuracySum += 0; reviewedTotal++; }
+          else if(c.category === 'h12') { accuracySum += 5; reviewedTotal++; }
+          else if(c.category === 'tomorrow') { accuracySum += 10; reviewedTotal++; }
+          else if(c.category === 'week') { accuracySum += 15; reviewedTotal++; }
+          else if(c.category === 'long') { accuracySum += 20; reviewedTotal++; }
+        }
+        accuracyForRating = reviewedTotal > 0 ? (accuracySum / reviewedTotal) / 20 : 0; // 0-1 scale
+      }
+      
+      // Determine star count (0-3 stars based on accuracy tiers)
+      let starCount = 0;
+      if(accuracyForRating >= 0.9) starCount = 3;      // 90%+
+      else if(accuracyForRating >= 0.8) starCount = 2.5; // 80-90%
+      else if(accuracyForRating >= 0.6) starCount = 2;  // 60-80%
+      else if(accuracyForRating >= 0.2) starCount = 1;  // 20-60%
+      
+      // Star rating display
+      const starDiv = document.createElement('div');
+      starDiv.style.cssText = 'display:flex;gap:4px;align-items:center;margin-bottom:8px;';
+      
+      for(let i = 0; i < 3; i++) {
+        const star = document.createElement('span');
+        if(i < Math.floor(starCount)) {
+          star.textContent = '★';
+          star.style.color = '#fbbf24'; // Gold
+        } else if(i === Math.floor(starCount) && starCount % 1 !== 0) {
+          star.textContent = '✦'; // Half star
+          star.style.color = '#fbbf24';
+        } else {
+          star.textContent = '☆';
+          star.style.color = '#d1d5db'; // Gray
+        }
+        star.style.fontSize = '1.5em';
+        starDiv.appendChild(star);
+      }
+      
+      const ratingText = document.createElement('span');
+      ratingText.textContent = `${(accuracyForRating * 100).toFixed(0)}%`;
+      ratingText.style.cssText = 'margin-left:8px;font-weight:bold;font-size:0.9em;color:#666;';
+      starDiv.appendChild(ratingText);
+      ratingContainer.appendChild(starDiv);
+      
+      // Progress bar with tier markers
+      const progressWrapper = document.createElement('div');
+      progressWrapper.style.cssText = 'position:relative;height:24px;margin-bottom:8px;';
+      
+      const progressBar = document.createElement('div');
+      progressBar.style.cssText = 'position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg, #ef4444 0%, #f97316 33%, #eab308 66%, #22c55e 100%);border-radius:6px;border:1px solid #ddd;width:100%;';
+      progressWrapper.appendChild(progressBar);
+      
+      // Progress fill
+      const progressFill = document.createElement('div');
+      progressFill.style.cssText = `position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 100%);border-radius:6px;width:${accuracyForRating * 100}%;transition:width 0.3s ease;`;
+      progressWrapper.appendChild(progressFill);
+      
+      // Tier markers at 60%, 80%, 90%
+      const tiers = [
+        {percent: 60, label: '60%'},
+        {percent: 80, label: '80%'},
+        {percent: 90, label: '90%'}
+      ];
+      
+      tiers.forEach(tier => {
+        const marker = document.createElement('div');
+        marker.style.cssText = `position:absolute;top:-20px;left:calc(${tier.percent}% - 8px);width:16px;text-align:center;font-size:0.7em;color:#999;`;
+        marker.textContent = tier.label;
+        progressWrapper.appendChild(marker);
+      });
+      
+      // Current position indicator on progress bar
+      const positionIndicator = document.createElement('div');
+      const currentPercent = accuracyForRating * 100;
+      positionIndicator.style.cssText = `position:absolute;top:-4px;left:calc(${currentPercent}% - 6px);width:12px;height:32px;background:#fff;border:2px solid #333;border-radius:2px;box-shadow:0 2px 4px rgba(0,0,0,0.2);transition:left 0.3s ease;`;
+      progressWrapper.appendChild(positionIndicator);
+      
+      ratingContainer.appendChild(progressWrapper);
+      rightPanel.appendChild(ratingContainer);
+      
       const stats = document.createElement('div');
       stats.style.cssText = 'background:linear-gradient(135deg, #1e293b 0%, #334155 100%);color:#fff;padding:16px;border-radius:12px;margin-bottom:16px;font-size:0.9em;line-height:1.8;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
       
@@ -782,6 +968,77 @@
       console.log('Lock state for', url, ':', lockState);
       console.log('manifestMeta:', manifestMeta);
       console.log('normalized path:', normalizeDeckPath(url));
+      
+      // Ensure manifest is loaded BEFORE checking tags (always reload to get latest)
+      try{
+        const manifestRes = await fetch('./decks/manifest.json?v=' + Date.now());
+        if(manifestRes && manifestRes.ok){
+          const list = await manifestRes.json();
+          if(Array.isArray(list)){
+            manifestMeta = {};
+            list.forEach(item => {
+              if(typeof item === 'string') manifestMeta[item] = { path:item };
+              else if(item && item.path) manifestMeta[item.path] = item;
+            });
+          }
+        }
+      }catch(e){ console.warn('Manifest load error:', e); }
+      
+      // Define deckKey for this overview session (if not already defined)
+      if(!deckKey || deckKey === 'multideck'){
+        deckKey = fallbackSha1(url).slice(0,10);
+      }
+      
+      // Check if deck has "text" tag for fill-in-the-blank mode
+      const deckEntry = getManifestEntryForPath(url);
+      const deckTags = (typeof deckEntry === 'object' && deckEntry.tags) ? deckEntry.tags : [];
+      deckHasTextTag = Array.isArray(deckTags) ? deckTags.includes('text') : false;
+      
+      console.log('DEBUG: deckEntry=', deckEntry);
+      console.log('DEBUG: deckTags=', deckTags);
+      console.log('DEBUG: deckHasTextTag=', deckHasTextTag);
+      console.log('DEBUG: manifestMeta keys=', Object.keys(manifestMeta));
+      
+      // Add review mode selector if deck supports it AND mode is unlocked
+      const isTextModeUnlocked = localStorage.getItem('fabanki:market_mode_texte_trou');
+      if(deckHasTextTag && !lockState.locked && isTextModeUnlocked){
+        const modeContainer = document.createElement('div');
+        modeContainer.style.cssText = 'margin-bottom:16px;display:flex;gap:8px;align-items:center;';
+        
+        const modeLabel = document.createElement('label');
+        modeLabel.textContent = 'Mode: ';
+        modeLabel.style.cssText = 'font-weight:600;';
+        modeContainer.appendChild(modeLabel);
+        
+        const modeSelect = document.createElement('select');
+        modeSelect.style.cssText = 'padding:8px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg);color:var(--text);';
+        
+        const option1 = document.createElement('option');
+        option1.value = 'default';
+        option1.textContent = 'Mode Anki (Défaut)';
+        modeSelect.appendChild(option1);
+        
+        const option2 = document.createElement('option');
+        option2.value = 'fillblank';
+        option2.textContent = 'Texte à trou';
+        modeSelect.appendChild(option2);
+        
+        modeSelect.addEventListener('change', (e) => {
+          reviewMode = e.target.value;
+          localStorage.setItem(`fabanki:review_mode:${deckKey}`, reviewMode);
+        });
+        
+        // Load saved mode preference
+        const savedMode = localStorage.getItem(`fabanki:review_mode:${deckKey}`);
+        if(savedMode) {
+          modeSelect.value = savedMode;
+          reviewMode = savedMode;
+        }
+        
+        modeContainer.appendChild(modeSelect);
+        rightPanel.appendChild(modeContainer);
+      }
+      
       const startBtn = document.createElement('button');
       
       if(lockState.locked && lockState.lockedByCost){
@@ -1350,6 +1607,8 @@
     dueCards = getDueCards();
     // sessionTotal should equal number of due cards at session start
     sessionTotal = dueCards.length; reviewedCount = 0; sessionData = [];
+    isReviewing = true;
+    sessionCreditsGranted = false;
     const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
     currentIndex = 0;
     showNextCard();
@@ -1659,8 +1918,10 @@
         if(prevDue && prevDue > now && new Date(st.due) <= now){ sessionTotal = (sessionTotal||0) + 1; updateProgressDisplay(); }
       }catch(e){}
       if(!multiDeckMode){
-        dueCards = getDueCards();
-        const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
+        if(!isReviewing){
+          dueCards = getDueCards();
+          const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
+        }
         updateHistogram();
       }
       return;
@@ -1723,8 +1984,10 @@
     }catch(e){}
     // update due list and UI - but NOT in multi-deck mode (we manage dueCards directly)
     if(!multiDeckMode){
-      dueCards = getDueCards();
-      const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
+      if(!isReviewing){
+        dueCards = getDueCards();
+        const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
+      }
       updateHistogram();
     }
   }
@@ -1745,6 +2008,7 @@
     }catch(e){ try{ $('#status').textContent = t }catch(e){} }
   }
   function renderEmpty(){
+    isReviewing = false;
     // Restore top bar buttons (swap home back to sync)
     try{
       const syncBtn = document.getElementById('syncBtn');
@@ -1769,8 +2033,19 @@
     const sa = $('#showAnswer'); if(sa) sa.style.display='none';
     const multiTitle = document.getElementById('multiDeckTitle'); if(multiTitle) multiTitle.style.display = 'none';
     // Hide elements that should not appear in recap
-    const cardStatus = document.getElementById('cardStatus'); if(cardStatus) cardStatus.style.display='none';
-    const progressContainer = document.getElementById('progressContainer'); if(progressContainer) progressContainer.style.display='none';
+    const cardStatus = document.getElementById('cardStatus');
+    if(cardStatus){
+      cardStatus.style.display='none';
+      cardStatus.style.visibility='hidden';
+      cardStatus.style.pointerEvents='none';
+    }
+    const progressContainer = document.getElementById('progressContainer');
+    if(progressContainer){
+      progressContainer.style.display='none';
+      progressContainer.style.visibility='hidden';
+      progressContainer.style.pointerEvents='none';
+    }
+    const requestModBtn = document.getElementById('requestModBtn'); if(requestModBtn) requestModBtn.style.display='none';
     const dueInline = document.getElementById('dueInline'); if(dueInline) dueInline.style.display='none';
     const status = document.getElementById('status'); if(status) { status.style.display='none'; status.style.padding=''; status.style.borderRadius=''; status.style.background=''; status.style.boxShadow=''; status.textContent=''; }
     const hint = document.getElementById('histHint'); if(hint) { hint.style.display='none'; hint.style.position=''; hint.style.marginBottom=''; }
@@ -1793,7 +2068,53 @@
 
     const totalReviewed = sessionData.length || reviewedCount || 0;
     const totalTimeSec = sessionData.reduce((sum, it) => sum + (Number(it.timeSpent) || 0), 0);
+    // Grant credits once per completed review session
+    if(!sessionCreditsGranted && totalReviewed > 0){
+      const x = Math.max(0, totalReviewed);
+      const raw = Math.pow(x, 0.3) - Math.pow(x, 0.15);
+      const base = Math.max(0, Math.floor(raw));
+      const frac = raw - base;
+      let grant = base;
+      if(Math.random() < frac) grant += 1;
+      if(grant > 0 && typeof addCredits === 'function') addCredits(grant);
+      try{
+        const toast = document.createElement('div');
+        toast.style.position = 'fixed';
+        toast.style.bottom = '24px';
+        toast.style.left = '50%';
+        toast.style.transform = 'translateX(-50%)';
+        toast.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+        toast.style.color = 'white';
+        toast.style.padding = '12px 18px';
+        toast.style.borderRadius = '10px';
+        toast.style.fontWeight = '700';
+        toast.style.zIndex = '9999';
+        toast.style.boxShadow = '0 8px 24px rgba(37, 99, 235, 0.35)';
+        toast.textContent = `Crédits gagnés : ${grant}`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3500);
+      }catch(e){}
+      sessionCreditsGranted = true;
+      try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
+    }
+    // Also ensure cardStatus and progressContainer stay hidden even if page re-renders
+    setTimeout(() => {
+      const cardSt = document.getElementById('cardStatus');
+      if(cardSt){ cardSt.style.display='none'; cardSt.style.visibility='hidden'; cardSt.style.pointerEvents='none'; }
+      const progCont = document.getElementById('progressContainer');
+      if(progCont){ progCont.style.display='none'; progCont.style.visibility='hidden'; progCont.style.pointerEvents='none'; }
+    }, 50);
     const avgTimeSec = totalReviewed > 0 ? (totalTimeSec / totalReviewed) : 0;
+
+    // Calculate credits granted this session
+    let sessionCreditsGranted_Amount = 0;
+    if(totalReviewed > 0){
+      const x = Math.max(0, totalReviewed);
+      const raw = Math.pow(x, 0.3) - Math.pow(x, 0.15);
+      const base = Math.max(0, Math.floor(raw));
+      const frac = raw - base;
+      sessionCreditsGranted_Amount = base + (Math.random() < frac ? 1 : 0);
+    }
 
     let failCount = 0, hardCount = 0, goodCount = 0, easyCount = 0;
     let scoreSum = 0;
@@ -1906,6 +2227,10 @@
               <div style="color:#64748b;font-size:0.8em;">Durée mémoire</div>
               <div style="font-weight:700;font-size:1.1em;color:#111;">${memAvg ? `${memAvg.toFixed(1)} j` : 'N/A'}</div>
             </div>
+            <div id="recap-stat-credits" class="recap-stat-box" style="background:linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 100%);border-radius:10px;padding:12px;cursor:pointer;border:1px solid rgba(59, 130, 246, 0.2);">
+              <div style="color:#64748b;font-size:0.8em;">Crédits gagnés</div>
+              <div style="font-weight:700;font-size:1.3em;color:#2563eb;">${sessionCreditsGranted_Amount}ℂ</div>
+            </div>
           </div>
 
           <div id="recap-distribution" style="background:rgba(66, 133, 244, 0.08);border-radius:12px;padding:12px;cursor:pointer;">
@@ -1934,7 +2259,7 @@
             </div>
           </div>
 
-          <button id="recapHomeBtn" class="secondary" style="width:100%;padding:12px;font-size:1em;">Accueil</button>
+          <button id="recapHomeBtn" class="secondary" style="width:100%;max-width:100%;padding:12px;font-size:1em;display:block;margin:0 auto;align-self:stretch;">Accueil</button>
         </div>
       `;
       const homeBtn = document.getElementById('recapHomeBtn');
@@ -2018,7 +2343,7 @@
     if(currentIndex >= dueCards.length) currentIndex = 0;
     const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
     const cardData = multiDeckMode ? dueCards[currentIndex] : null;
-    const sa = $('#showAnswer'); if(sa) sa.style.display = 'inline-block';
+    const sa = $('#showAnswer'); if(sa) sa.style.display = reviewMode === 'fillblank' ? 'none' : 'inline-block';
     const resp = $('#respButtons'); if(resp) resp.style.display = 'none';
     const backEl = $('#back'); if(backEl) backEl.style.display = 'none';
     
@@ -2036,6 +2361,12 @@
 
     
     renderFront(c);
+    
+    // Setup fill-in-the-blank mode if enabled
+    if(reviewMode === 'fillblank'){
+      setupFillBlankMode(c);
+    }
+    
     // update card status box (Nouveau / Maintenant)
     try{ renderCardStatus(c); }catch(e){}
     // record when this card was shown to compute XP based on time spent
@@ -2050,6 +2381,123 @@
     // Update histogram for current deck if in multi-deck mode
     if(multiDeckMode && cardData){
       updateHistogramForDeck(cardData.deckKey);
+    }
+  }
+  
+  function setupFillBlankMode(card){
+    // Remove existing fill-blank UI if any
+    const existingContainer = document.getElementById('fillBlankContainer');
+    if(existingContainer) existingContainer.remove();
+    
+    const cardArea = document.getElementById('cardArea');
+    if(!cardArea) return;
+    
+    // Create container for input and button
+    const container = document.createElement('div');
+    container.id = 'fillBlankContainer';
+    container.style.cssText = 'display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;';
+    
+    // Create input field
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'fillBlankInput';
+    input.placeholder = 'Entrez votre réponse...';
+    input.style.cssText = 'flex:1;min-width:200px;padding:10px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg);color:var(--text);font-size:1em;';
+    input.addEventListener('keypress', (e) => {
+      if(e.key === 'Enter') validateFillBlank(card);
+    });
+    
+    // Create validate button
+    const validateBtn = document.createElement('button');
+    validateBtn.textContent = 'Valider';
+    validateBtn.style.cssText = 'padding:10px 16px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;';
+    validateBtn.addEventListener('click', () => validateFillBlank(card));
+    
+    container.appendChild(input);
+    container.appendChild(validateBtn);
+    
+    cardArea.appendChild(container);
+    
+    // Focus input automatically
+    setTimeout(() => input.focus(), 100);
+  }
+  
+  function validateFillBlank(card){
+    const input = document.getElementById('fillBlankInput');
+    if(!input) return;
+    
+    const userAnswer = input.value;
+    const backEl = $('#back');
+    if(!backEl) return;
+    
+    // Get correct answer from back content
+    let correctAnswer = '';
+    if(card.fields){
+      // Get the second field (first is front, second is back)
+      const fieldOrder = card._fieldOrder || Object.keys(card.fields);
+      if(fieldOrder.length > 1){
+        const backFieldName = fieldOrder[1];
+        const backField = card.fields[backFieldName];
+        if(backField){
+          correctAnswer = backField.html || '';
+        }
+      }
+    }
+    
+    if(!correctAnswer){
+      alert('Erreur: réponse correcte non trouvée');
+      return;
+    }
+    
+    // Validate the answer
+    const result = validateFillBlankAnswer(userAnswer, correctAnswer);
+    
+    // Show back content with feedback
+    backEl.style.display = 'block';
+    backEl.innerHTML = '';
+    
+    // Show the back content
+    const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
+    renderBack(c);
+    
+    // Add feedback overlay
+    renderFillBlankFeedback(userAnswer, correctAnswer, result);
+    
+    // Hide input and show response buttons
+    const fillBlankContainer = document.getElementById('fillBlankContainer');
+    if(fillBlankContainer) fillBlankContainer.style.display = 'none';
+    
+    const respButtons = $('#respButtons');
+    if(respButtons){
+      respButtons.style.display = 'inline-flex';
+      respButtons.style.gap = '8px';
+      respButtons.innerHTML = '';
+      
+      // Create buttons based on result quality
+      const qualityToGrade = {
+        5: { text: '✓ Validé', quality: 5, cls: 'rate-facile' },
+        4: { text: 'Bon', quality: 4, cls: 'rate-bon' },
+        3: { text: 'Hard', quality: 3, cls: 'rate-difficile' },
+        0: { text: 'Raté', quality: 0, cls: 'rate-ratte' }
+      };
+      
+      const gradeInfo = qualityToGrade[result.quality];
+      if(gradeInfo){
+        const btn = document.createElement('button');
+        btn.textContent = gradeInfo.text;
+        btn.className = gradeInfo.cls;
+        btn.style.cssText = 'padding:10px 16px;cursor:pointer;font-weight:600;';
+        btn.addEventListener('click', () => answerCurrent(gradeInfo.quality));
+        respButtons.appendChild(btn);
+      }
+      
+      // Add "Pass" button
+      const passBtn = document.createElement('button');
+      passBtn.textContent = 'Passer';
+      passBtn.className = 'secondary';
+      passBtn.style.cssText = 'padding:10px 16px;cursor:pointer;';
+      passBtn.addEventListener('click', () => passCurrent());
+      respButtons.appendChild(passBtn);
     }
   }
 
@@ -2080,6 +2528,335 @@
       }
       stEl.textContent = txt; stEl.className = 'card-status ' + cls;
     }catch(e){ console.warn('renderCardStatus', e) }
+  }
+
+  // === FILL-IN-THE-BLANK MODE FUNCTIONS ===
+  function cleanPunctuation(text){
+    // Remove HTML tags
+    text = text.replace(/<[^>]*>/g, '');
+    // Remove ellipsis (...)
+    text = text.replace(/\.\.\./g, '');
+    // Normalize dashes/hyphens
+    text = text.replace(/[-–—]/g, '-');
+    return text.trim();
+  }
+  
+  function validateFillBlankAnswer(userAnswer, correctAnswer){
+    // Normalize the correct answer (remove HTML tags, punctuation)
+    const normalized = cleanPunctuation(correctAnswer).toLowerCase();
+    const userNormalized = cleanPunctuation(userAnswer).toLowerCase();
+    
+    // Split by "/" to get multiple acceptable answers
+    const answers = normalized.split('/').map(a => a.trim()).filter(a => a.length > 0);
+    
+    if(answers.length === 0) return { quality: 4, message: 'Bon', isCorrect: false };
+    
+    // Check each possible answer with advanced logic
+    for(let i = 0; i < answers.length; i++){
+      const answer = answers[i];
+      const result = checkAnswerVariant(userNormalized, answer);
+      
+      // If exact match or special case (Facile/Bon), return immediately
+      if(result.quality >= 4) return result;
+      
+      // If hard (quality 3), continue to check other options but remember this result
+      if(result.quality === 3 && i === answers.length - 1){
+        return result; // Return hard if it's the last option
+      }
+    }
+    
+    // None matched perfectly, return worst result
+    return checkAnswerVariant(userNormalized, answers[0]);
+  }
+  
+  function checkAnswerVariant(userAnswer, correctAnswer){
+    // SPECIAL CASE: Handle phrases with special keywords like "emphasizes / lays emphasis on"
+    // If the correct answer contains patterns like "word1 / word2 pattern", apply advanced matching
+    
+    // Clean punctuation for both answers
+    const userCleaned = cleanPunctuation(userAnswer).toLowerCase();
+    const correctCleaned = cleanPunctuation(correctAnswer).toLowerCase();
+    
+    // Exact match -> Validé (quality 5)
+    if(userCleaned === correctCleaned){
+      return { quality: 5, message: 'Validé', isCorrect: true };
+    }
+    
+    // Check for special patterns (e.g., "He emphasizes / lays emphasis on...")
+    const specialPatternResult = checkSpecialPattern(userCleaned, correctCleaned);
+    if(specialPatternResult) return specialPatternResult;
+    
+    // Count character differences
+    const similarity = calculateSimilarity(userCleaned, correctCleaned);
+    const charErrorRate = similarity.errorRate;
+    
+    // Special characters only (accents, -, _, !, ?) -> Bon (quality 4)
+    if(similarity.specialCharsOnly){
+      return { quality: 4, message: 'Bon', isCorrect: false, diff: similarity.diff };
+    }
+    
+    // More than 95% correct -> Bon (quality 4)
+    if(charErrorRate < 0.20){
+      return { quality: 4, message: 'Bon', isCorrect: false, diff: similarity.diff };
+    }
+    
+    // Less than 20% character errors -> Hard (quality 3)
+    if(charErrorRate < 0.50){
+      return { quality: 3, message: 'Partiel', isCorrect: false, diff: similarity.diff };
+    }
+    
+    // Check each part before slashes
+    const parts = correctCleaned.split('/').map(p => p.trim()).filter(p => p.length > 0);
+    for(const part of parts){
+      const partSimilarity = calculateSimilarity(userCleaned, part);
+      // If one variant matches exactly or with <20% errors, it's valid
+      if(userCleaned === part || partSimilarity.errorRate < 0.20){
+        return { quality: 5, message: 'Validé', isCorrect: true };
+      }
+      // If variant matches with <20% errors but not exact, it's Hard
+      if(partSimilarity.errorRate < 0.50){
+        return { quality: 3, message: 'Partiel', isCorrect: false, diff: partSimilarity.diff };
+      }
+    }
+    
+    // Default: Raté (quality 0)
+    return { quality: 0, message: 'Raté', isCorrect: false, diff: similarity.diff };
+  }
+  
+  function checkSpecialPattern(userAnswer, correctAnswer){
+    // Handle patterns like: "word1 pattern / word2 pattern..."
+    // Example: "He emphasizes / lays emphasis on" or "emphasizes / lays emphasis on..."
+    // Note: userAnswer and correctAnswer are already lowercase at this point
+    
+    // Split by "/" to get all variants
+    const variants = correctAnswer.split('/').map(v => v.trim()).filter(v => v.length > 0);
+    if(variants.length < 2) return null; // Only for multiple choice patterns
+    
+    // Try exact match with each variant
+    for(const variant of variants){
+      if(userAnswer === variant){
+        return { quality: 5, message: 'Facile', isCorrect: true };
+      }
+    }
+    
+    // Try to match substrings and extract patterns
+    // Example: If user says "lays emphasis on" and answer is "He emphasizes / lays emphasis on..."
+    // We should give "Bon" because they have the core phrase
+    
+    for(let i = 0; i < variants.length; i++){
+      const variant = variants[i];
+      
+      // Extract the last 2-3 words as "core phrase"
+      const words = variant.split(' ');
+      
+      // For longer answers, try to find the core matching
+      if(words.length >= 3){
+        // Try matching last N words (for patterns ending with "...")
+        for(let wordCount = 2; wordCount <= Math.min(4, words.length); wordCount++){
+          const corePhrase = words.slice(-wordCount).join(' ').replace(/\.\.\.$/, '').trim();
+          
+          if(userAnswer.includes(corePhrase) || corePhrase.includes(userAnswer)){
+            // Check how much of the pattern matches
+            const matchRatio = corePhrase.length > 0 ? 
+              Math.min(userAnswer.length, corePhrase.length) / Math.max(userAnswer.length, corePhrase.length) 
+              : 0;
+            
+            if(matchRatio > 0.7){
+              return { quality: 4, message: 'Bon', isCorrect: false };
+            }
+          }
+        }
+      }
+    }
+    
+    return null;
+  }
+  
+  function calculateSimilarity(user, correct){
+    // Improved: use Levenshtein-like distance but track actual missing/extra chars
+    const userChars = user.split('');
+    const correctChars = correct.split('');
+    
+    // Use a more intelligent matching algorithm
+    // Find longest common subsequence to identify extra/missing chars
+    const lcs = getLongestCommonSubsequence(user, correct);
+    const matchedChars = lcs.length;
+    
+    const maxLen = Math.max(user.length, correct.length);
+    const errorRate = maxLen > 0 ? (maxLen - matchedChars) / maxLen : 0;
+    
+    // Identify which specific chars are extra/missing
+    let extraChars = [];
+    let missingChars = [];
+    
+    // Find extra chars (in user but not in LCS properly aligned)
+    const correctLcs = getLongestCommonSubsequence(correct, user);
+    for(let i = 0; i < userChars.length; i++){
+      if(!lcs.includes(userChars[i]) || userChars.filter(c => c === userChars[i]).length > correctLcs.split('').filter(c => c === userChars[i]).length){
+        extraChars.push({idx: i, char: userChars[i]});
+      }
+    }
+    
+    // Find missing chars (in correct but not in user)
+    for(let i = 0; i < correctChars.length; i++){
+      if(!lcs.includes(correctChars[i]) || correctChars.filter(c => c === correctChars[i]).length > userChars.filter(c => c === correctChars[i]).length){
+        missingChars.push({idx: i, char: correctChars[i]});
+      }
+    }
+    
+    // Simplify: count actual extra/missing by character frequency
+    const userFreq = {};
+    const correctFreq = {};
+    
+    for(let c of userChars) userFreq[c] = (userFreq[c] || 0) + 1;
+    for(let c of correctChars) correctFreq[c] = (correctFreq[c] || 0) + 1;
+    
+    extraChars = [];
+    missingChars = [];
+    
+    for(let c in userFreq){
+      const extra = userFreq[c] - (correctFreq[c] || 0);
+      if(extra > 0){
+        for(let i = 0; i < extra; i++){
+          const idx = user.lastIndexOf(c);
+          extraChars.push({idx, char: c});
+        }
+      }
+    }
+    
+    for(let c in correctFreq){
+      const missing = correctFreq[c] - (userFreq[c] || 0);
+      if(missing > 0){
+        for(let i = 0; i < missing; i++){
+          missingChars.push({idx: correct.lastIndexOf(c), char: c});
+        }
+      }
+    }
+    
+    const specialCharRegex = /[.éèêëàâäùûüôöçœæñ\-_!?]/i;
+    const onlySpecialDiff = extraChars.concat(missingChars).every(d => specialCharRegex.test(d.char));
+    
+    return {
+      errorRate,
+      specialCharsOnly: onlySpecialDiff && (extraChars.length > 0 || missingChars.length > 0),
+      diff: { extra: extraChars, missing: missingChars },
+      matchedChars,
+      lcsLength: matchedChars
+    };
+  }
+  
+  function getLongestCommonSubsequence(str1, str2){
+    const m = str1.length;
+    const n = str2.length;
+    const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+    
+    for(let i = 1; i <= m; i++){
+      for(let j = 1; j <= n; j++){
+        if(str1[i - 1] === str2[j - 1]){
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+    
+    // Reconstruct LCS
+    let lcs = '';
+    let i = m, j = n;
+    while(i > 0 && j > 0){
+      if(str1[i - 1] === str2[j - 1]){
+        lcs = str1[i - 1] + lcs;
+        i--; j--;
+      } else if(dp[i - 1][j] > dp[i][j - 1]){
+        i--;
+      } else {
+        j--;
+      }
+    }
+    
+    return lcs;
+  }
+  
+  function renderFillBlankFeedback(userAnswer, correctAnswer, result){
+    const backEl = $('#back');
+    const feedbackEl = document.createElement('div');
+    feedbackEl.style.cssText = 'margin-top:16px;padding:12px;border-radius:8px;';
+    
+    // Result header
+    const resultDiv = document.createElement('div');
+    const resultColors = {
+      'Validé': '#2ecc71',
+      'Bon': '#3498db',
+      'BON': '#3498db',
+      'Hard': '#f39c12',
+      'Raté': '#e74c3c'
+    };
+    const color = resultColors[result.message] || '#999';
+    resultDiv.style.cssText = `background:${color}20;border-left:4px solid ${color};padding:8px;margin-bottom:12px;font-weight:700;color:${color};`;
+    resultDiv.textContent = `Résultat: ${result.message}`;
+    feedbackEl.appendChild(resultDiv);
+    
+    // Back content (correct answer)
+    const correctDiv = document.createElement('div');
+    correctDiv.style.cssText = 'margin-bottom:12px;padding:8px;background:#f0f0f0;border-radius:4px;';
+    correctDiv.innerHTML = `<strong>Réponse correcte:</strong><br>${correctAnswer}`;
+    feedbackEl.appendChild(correctDiv);
+    
+    // User's answer with visual feedback
+    const userDiv = document.createElement('div');
+    userDiv.style.cssText = 'margin-bottom:12px;padding:8px;background:#f9f9f9;border-radius:4px;';
+    userDiv.innerHTML = '<strong>Votre réponse:</strong><br>';
+    
+    // Render user answer with strike-through extra chars and green missing chars
+    if(result.diff){
+      const userRendered = renderAnswerDiff(userAnswer, result.diff);
+      userDiv.innerHTML += userRendered;
+    } else {
+      userDiv.innerHTML += `<span>${userAnswer}</span>`;
+    }
+    
+    feedbackEl.appendChild(userDiv);
+    
+    backEl.appendChild(feedbackEl);
+    return feedbackEl;
+  }
+  
+  function renderAnswerDiff(userAnswer, diff){
+    let html = '';
+    const chars = userAnswer.split('');
+    const extraSet = new Set(diff.extra.map(e => e.idx));
+    const missingSet = new Set(diff.missing.map(m => m.idx));
+    
+    for(let i = 0; i < chars.length; i++){
+      if(extraSet.has(i)){
+        html += `<span style="text-decoration:line-through;color:#e74c3c;">${escapeHtml(chars[i])}</span>`;
+      } else {
+        html += escapeHtml(chars[i]);
+      }
+    }
+    
+    // Add missing characters in green
+    if(diff.missing.length > 0){
+      html += '<span style="color:#2ecc71;"> (manquants: ';
+      diff.missing.forEach((m, idx) => {
+        if(idx > 0) html += ', ';
+        html += escapeHtml(m.char);
+      });
+      html += ')</span>';
+    }
+    
+    return html;
+  }
+  
+  function escapeHtml(text){
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
   }
 
   // Button handlers
@@ -2538,8 +3315,10 @@
       if(q >= 3){  // only count correct answers
         const reviewed = incrementTodayReviewedCount();
         const goal = getDailyGoal();
-        if(goal > 0 && reviewed === goal){
+        if(goal > 0 && reviewed >= goal){
           showDailyGoalMilestoneToast(reviewed, goal);
+          updateDailyStreakOnGoalReached();
+          try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
         }
       }
     }catch(e){ console.warn('daily goal tracking', e); }
@@ -2651,7 +3430,29 @@
           // track long answers (>20s) for Hadamard titre
           try{ if(timeSec > 20) incLocal('fabanki:long_answer_total', 1); }catch(e){}
           const section = (typeof window.getDeckSection === 'function') ? window.getDeckSection() : '';
-          const xp = (typeof window.computeXpForQuality === 'function') ? window.computeXpForQuality(section, q, timeSec, prevReviewHours) : 0;
+          let xp = (typeof window.computeXpForQuality === 'function') ? window.computeXpForQuality(section, q, timeSec, prevReviewHours) : 0;
+          
+          // Apply XP boosters if active
+          try{
+            const boosterIds = ['booster_1h', 'booster_15m', 'booster_5m'];
+            const boosterMultipliers = {booster_1h: 1.5, booster_15m: 2, booster_5m: 5};
+            
+            for(const boosterId of boosterIds){
+              const boosterData = localStorage.getItem(`fabanki:market_${boosterId}`);
+              if(boosterData){
+                try{
+                  const parsed = JSON.parse(boosterData);
+                  if(parsed.expiry && parsed.expiry > Date.now()){
+                    const mult = boosterMultipliers[boosterId] || 1;
+                    xp = Math.floor(xp * mult);
+                    console.log(`[BOOSTER] Applied ${boosterId}: ×${mult} multiplier, total XP: ${xp}`);
+                    break; // Only apply one booster at a time
+                  }
+                }catch(e){}
+              }
+            }
+          }catch(e){ console.warn('booster calc', e); }
+          
           const applied = (typeof window.applyXp === 'function') ? window.applyXp(xp) : 0;
           if(applied) { try{ window.showXpToast(applied); }catch(e){} }
         }catch(e){ console.warn('xp calc', e); }
@@ -2672,6 +3473,10 @@
   // Load deck from URL param on start
   function param(key){ const p = new URLSearchParams(location.search); return p.get(key) }
   window.addEventListener('load', async ()=>{
+  if(isInAppBrowser()){
+    forceExternalBrowser();
+    return;
+  }
   // First-time bonus: give 20 credits on first load
   try{
     const firstLoadKey = 'fabanki:first_load_bonus_given';
@@ -2684,6 +3489,93 @@
       localStorage.setItem(firstLoadKey, 'true');
     }
   }catch(e){ console.warn('First load bonus error:', e); }
+  
+  // === BACKGROUND TIME TRACKING FOR MISSIONS ===
+  // Track time spent on site (active and idle time)
+  try{
+    let lastActivityTime = Date.now();
+    const IDLE_THRESHOLD = 5 * 60 * 1000; // 5 minutes of no activity = idle
+    let isIdle = false;
+    
+    // Reset daily time at midnight
+    function resetDailyTimeIfNeeded(){
+      const today = new Date().toISOString().split('T')[0];
+      const lastDateStored = localStorage.getItem('fabanki:time_tracking_date');
+      if(lastDateStored !== today){
+        localStorage.setItem('fabanki:time_tracking_date', today);
+        localStorage.setItem('fabanki:time_spent_today_sec', '0');
+        localStorage.setItem('fabanki:time_spent_today', '0');
+      }
+    }
+    
+    // Reset weekly time at start of week (Monday)
+    function resetWeeklyTimeIfNeeded(){
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay()); // Monday
+      weekStart.setHours(0, 0, 0, 0);
+      const weekStartStr = weekStart.toISOString().split('T')[0];
+      const lastWeekStart = localStorage.getItem('fabanki:time_tracking_week_start');
+      if(lastWeekStart !== weekStartStr){
+        localStorage.setItem('fabanki:time_tracking_week_start', weekStartStr);
+        localStorage.setItem('fabanki:time_spent_week_sec', '0');
+        localStorage.setItem('fabanki:time_spent_week', '0');
+      }
+    }
+    
+    // Track user activity (mouse, keyboard, touch)
+    function recordActivity(){
+      lastActivityTime = Date.now();
+      if(isIdle){
+        isIdle = false;
+        console.log('[TIME] User is active again');
+      }
+    }
+    
+    document.addEventListener('mousemove', recordActivity, { passive: true });
+    document.addEventListener('keydown', recordActivity, { passive: true });
+    document.addEventListener('touchstart', recordActivity, { passive: true });
+    document.addEventListener('click', recordActivity, { passive: true });
+    
+    // Background time accumulator - runs every 10 seconds
+    setInterval(() => {
+      try{
+        resetDailyTimeIfNeeded();
+        resetWeeklyTimeIfNeeded();
+        
+        const now = Date.now();
+        const timeSinceLastActivity = now - lastActivityTime;
+        
+        // Only count time if user is active (not idle for more than threshold)
+        if(timeSinceLastActivity < IDLE_THRESHOLD){
+          if(isIdle){
+            isIdle = false;
+            console.log('[TIME] User is active again');
+          }
+          // Add 10 seconds to time tracking
+          const addSeconds = 10;
+          const currentDaySec = Number(localStorage.getItem('fabanki:time_spent_today_sec') || 0);
+          const currentWeekSec = Number(localStorage.getItem('fabanki:time_spent_week_sec') || 0);
+          const newDaySec = currentDaySec + addSeconds;
+          const newWeekSec = currentWeekSec + addSeconds;
+          
+          localStorage.setItem('fabanki:time_spent_today_sec', String(newDaySec));
+          localStorage.setItem('fabanki:time_spent_today', String(Math.floor(newDaySec / 60)));
+          localStorage.setItem('fabanki:time_spent_week_sec', String(newWeekSec));
+          localStorage.setItem('fabanki:time_spent_week', String(Math.floor(newWeekSec / 60)));
+          
+          // Debug logging every minute
+          const minutePassed = Math.floor(newDaySec / 60);
+          if(newDaySec % 60 === 0 && newDaySec > 0){
+            console.log(`[TIME] Site time tracking: ${minutePassed}m today, ${Math.floor(newWeekSec / 60)}m this week`);
+          }
+        } else if(!isIdle && timeSinceLastActivity >= IDLE_THRESHOLD){
+          isIdle = true;
+          console.log('[TIME] User is idle, time tracking paused');
+        }
+      }catch(e){ console.warn('[TIME] Time tracking error:', e); }
+    }, 10000); // Check every 10 seconds
+  }catch(e){ console.warn('Background time tracking init error:', e); }
   
   // Migrate localStorage from old domain (simon-mgnz.github.io/fabanki) to new domain (fabanki.fr)
   try{
@@ -2760,9 +3652,10 @@
     // Home button - return to welcome page and restore sync button
     const homeBtn = document.getElementById('homeBtn');
     if(homeBtn){
-      homeBtn.addEventListener('click', ()=>{
-        // Navigate to welcome page (which will restore buttons)
-        renderWelcomeDecks();
+      homeBtn.addEventListener('click', (ev)=>{
+        try{ ev.preventDefault(); ev.stopPropagation(); }catch(e){}
+        // Show recap instead of welcome page
+        renderEmpty();
       });
     }
     
@@ -2872,8 +3765,11 @@
     function updateAppTitle(){
       try{
         const el = document.getElementById('appTitle'); if(!el) return;
-        if(window.innerWidth <= 640) el.textContent = "Fab'Anki";
-        else el.textContent = "Fab'Anki — Flashcards";
+        const text = (window.innerWidth <= 640) ? "Fab'Anki" : "Fab'Anki — Flashcards";
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.gap = '8px';
+        el.innerHTML = `<img src="./fabankilogo.png" alt="Logo" style="width:44px;height:44px;" /><span>${text}</span>`;
       }catch(e){}  
     }
     updateAppTitle();
@@ -3057,7 +3953,14 @@
           Array.from(files).sort().forEach(file=>{
             const row = document.createElement('div'); row.className='deck-entry';
             const dec = decodeURIComponent((prefix+file).replace(/\+/g,' '));
-            const nm = document.createElement('div'); nm.textContent = dec.replace(/\.xml$/i,'');
+            // Extract just the deck name (without parent path) if the full path is too long
+            const fullDeckName = dec.replace(/\.xml$/i,'');
+            const shortDeckName = fullDeckName.split('/').pop(); // Just the filename
+            // Use short name if full path is longer than 40 characters
+            const displayName = fullDeckName.length > 40 ? shortDeckName : fullDeckName;
+            const nm = document.createElement('div'); 
+            nm.textContent = displayName;
+            nm.title = fullDeckName; // Show full path on hover
             const act = document.createElement('div');
               if(file.toLowerCase().endsWith('.xml')){ const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
                 const b=document.createElement('button'); b.className='secondary';
@@ -3413,6 +4316,86 @@
         
         m.appendChild(statsBox);
 
+        // Title selector section
+        const titleSelectorBox = document.createElement('div');
+        titleSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin:12px 0;';
+        const titleSelectorLabel = document.createElement('div');
+        titleSelectorLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:#333;';
+        titleSelectorLabel.textContent = '👑 Titre sélectionné';
+        titleSelectorBox.appendChild(titleSelectorLabel);
+        
+        // Get all unlocked titles
+        const unlockedTitles = [];
+        const mathematicianTiers = {
+          1: { name: 'Bronze', mathematicians: ['Lagrange', 'Laplace', 'Fourier', 'Cauchy', 'Riemann'] },
+          2: { name: 'Silver', mathematicians: ['Ramanujan', 'Cantor', 'Hilbert', 'Leibniz', 'Boole'] },
+          3: { name: 'Gold', mathematicians: ['Descartes', 'Bernoulli', 'Weierstrass', 'Dirichlet', 'Archimedes'] },
+          4: { name: 'Platinum', mathematicians: ['Euclid', 'Pythagoras', 'Al-Khwarizmi', 'Galois', 'Grothendieck'] },
+          5: { name: 'Diamond', mathematicians: ['Euler', 'Newton', 'Gauss', 'Fibonacci', 'Pascal'] }
+        };
+        
+        for(const [tierKey, tierData] of Object.entries(mathematicianTiers)){
+          const titleStorageKey = `fabanki:title_chosen_${tierKey}`;
+          const chosenTitle = localStorage.getItem(titleStorageKey);
+          if(chosenTitle){
+            unlockedTitles.push({name: chosenTitle, tier: tierKey, tierName: tierData.name});
+          }
+        }
+        
+        if(unlockedTitles.length > 0){
+          const select = document.createElement('select');
+          select.style.cssText = 'width:100%;padding:8px;border-radius:6px;border:1px solid #ccc;margin-bottom:8px;';
+          
+          // Add option for no title
+          const noneOption = document.createElement('option');
+          noneOption.value = '';
+          noneOption.textContent = '(Aucun titre)';
+          select.appendChild(noneOption);
+          
+          // Add unlocked titles
+          unlockedTitles.forEach(title => {
+            const option = document.createElement('option');
+            option.value = title.name;
+            option.textContent = `${title.name} (${title.tierName})`;
+            select.appendChild(option);
+          });
+          
+          // Load current selection
+          const currentTitle = localStorage.getItem('fabanki:selected_title') || '';
+          select.value = currentTitle;
+          
+          select.addEventListener('change', (e) => {
+            const selectedTitle = e.target.value;
+            if(selectedTitle){
+              localStorage.setItem('fabanki:selected_title', selectedTitle);
+              showXpToast(`Titre sélectionné: ${selectedTitle}`);
+              // Trigger sync to update leaderboard
+              try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+            } else {
+              localStorage.removeItem('fabanki:selected_title');
+              showXpToast('Aucun titre sélectionné');
+              // Trigger sync to update leaderboard
+              try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+            }
+            if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
+          });
+          
+          titleSelectorBox.appendChild(select);
+          
+          // Display current selection
+          const currentDisplay = document.createElement('div');
+          currentDisplay.style.cssText = 'font-size:0.9em;color:#666;';
+          currentDisplay.textContent = currentTitle ? `Actuel: ${currentTitle}` : 'Actuel: aucun';
+          titleSelectorBox.appendChild(currentDisplay);
+        } else {
+          const noTitlesMsg = document.createElement('div');
+          noTitlesMsg.style.cssText = 'font-size:0.9em;color:#999;';
+          noTitlesMsg.textContent = 'Aucun titre déverrouillé pour le moment.';
+          titleSelectorBox.appendChild(noTitlesMsg);
+        }
+        
+        m.appendChild(titleSelectorBox);
+
         // Classement button
         const rankBtnWrap = document.createElement('div'); 
         rankBtnWrap.style.marginTop = '10px'; 
@@ -3531,6 +4514,434 @@
     // expose leaderboard helpers
     try{ window.ensurePseudo = ensurePseudo; window.syncClassement = syncClassement; window.showLeaderboardPopup = showLeaderboardPopup; }catch(e){}
 
+    // Toast notification for market
+    function showMarketToast(message){
+      try{
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#333;color:white;padding:12px 16px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:10000;max-width:300px;word-wrap:break-word;animation:fadeInOut 3s ease-in-out;';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(()=>{ try{ toast.remove(); }catch(e){} }, 3000);
+      }catch(e){}
+    }
+
+    // === MARKET PAGE ===
+    async function showMarketPage(){
+      try{
+        // Prevent duplicates
+        if(document.getElementById('marketContainer')) return;
+        
+        const container = document.createElement('div');
+        container.id = 'marketContainer';
+        container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);overflow-y:auto;z-index:1000;padding:20px;box-sizing:border-box;';
+        
+        // Header with back button
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;max-width:1200px;margin-left:auto;margin-right:auto;';
+        const title = document.createElement('h2');
+        title.textContent = '🛍️ Marché';
+        title.style.cssText = 'margin:0;font-size:2em;';
+        header.appendChild(title);
+        
+        const backBtn = document.createElement('button');
+        backBtn.textContent = '← Retour';
+        backBtn.className = 'secondary';
+        backBtn.addEventListener('click', ()=>{ container.remove(); });
+        header.appendChild(backBtn);
+        container.appendChild(header);
+        
+        // Main content wrapper
+        const content = document.createElement('div');
+        content.style.cssText = 'max-width:1200px;margin:0 auto;';
+        
+        // Helper function to get current credits
+        const getBalance = () => typeof getCredits === 'function' ? getCredits() : 0;
+        
+        // Helper function to purchase items
+        const purchaseItem = (itemId, cost, onSuccess) => {
+          const balance = getBalance();
+          if(balance < cost){
+            alert(`Crédits insuffisants. Vous avez ${balance} ℂ, il en faut ${cost} ℂ`);
+            return false;
+          }
+          if(typeof addCredits === 'function') addCredits(-cost);
+          localStorage.setItem(`fabanki:market_${itemId}`, 'true');
+          if(onSuccess) onSuccess();
+          return true;
+        };
+        
+        // ===== SECTION 1: MODE TEXTE À TROU (TOP) =====
+        const textModeSection = document.createElement('section');
+        textModeSection.style.cssText = 'margin-bottom:40px;';
+        
+        const textModeItemId = 'mode_texte_trou';
+        const isTextModeUnlocked = localStorage.getItem(`fabanki:market_${textModeItemId}`);
+        
+        const textModeGrid = document.createElement('div');
+        textModeGrid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:16px;';
+        
+        const textModeCard = document.createElement('div');
+        // Responsive layout: horizontal on desktop, vertical on mobile
+        const isMobile = window.innerWidth <= 768;
+        const cardLayout = isMobile 
+          ? 'background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(102, 126, 234, 0.3);display:flex;flex-direction:column;gap:16px;color:#FFFFFF;'
+          : 'background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(102, 126, 234, 0.3);display:flex;align-items:center;gap:24px;color:#FFFFFF;';
+        textModeCard.style.cssText = cardLayout;
+        
+        // Icon/emojis section
+        const iconDiv = document.createElement('div');
+        const iconStyle = isMobile 
+          ? 'font-size:3em;text-align:center;'
+          : 'font-size:4em;text-align:center;min-width:120px;';
+        iconDiv.style.cssText = iconStyle;
+        iconDiv.textContent = '✨📝';
+        textModeCard.appendChild(iconDiv);
+        
+        // Content section
+        const contentDiv = document.createElement('div');
+        contentDiv.style.cssText = isMobile ? 'flex:1;text-align:center;' : 'flex:1;';
+        
+        const modeBadge = document.createElement('div');
+        modeBadge.style.cssText = isMobile
+          ? 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.8em;font-weight:700;margin-bottom:8px;'
+          : 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.85em;font-weight:700;margin-bottom:12px;';
+        modeBadge.textContent = '🆕 NOUVEAU MODE';
+        contentDiv.appendChild(modeBadge);
+        
+        const modeTitle = document.createElement('h3');
+        modeTitle.textContent = 'Mode Texte à trou';
+        modeTitle.style.cssText = isMobile 
+          ? 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.5em;'
+          : 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.8em;';
+        contentDiv.appendChild(modeTitle);
+        
+        const modeDesc = document.createElement('p');
+        modeDesc.textContent = 'Remplissez les blancs et validez vos réponses. Disponible sur tous les decks compatibles avec ce mode. Une nouvelle manière d\'apprendre !';
+        modeDesc.style.cssText = isMobile
+          ? 'margin:0;font-size:0.9em;color:#FFFFFF;opacity:0.95;line-height:1.5;'
+          : 'margin:0;font-size:1em;color:#FFFFFF;opacity:0.95;line-height:1.5;';
+        contentDiv.appendChild(modeDesc);
+        
+        textModeCard.appendChild(contentDiv);
+        
+        // Button section
+        const btnDiv = document.createElement('div');
+        btnDiv.style.cssText = isMobile
+          ? 'display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;'
+          : 'display:flex;flex-direction:column;align-items:center;gap:8px;min-width:180px;';
+        
+        const priceDiv = document.createElement('div');
+        priceDiv.style.cssText = isMobile
+          ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
+          : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
+        priceDiv.textContent = '100 ℂ';
+        btnDiv.appendChild(priceDiv);
+        
+        const modeBtn = document.createElement('button');
+        modeBtn.style.cssText = isMobile
+          ? 'width:100%;background:#FFFFFF;color:#667eea;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
+          : 'width:100%;background:#FFFFFF;color:#667eea;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
+        modeBtn.textContent = isTextModeUnlocked ? '✓ Déverrouillé' : 'Débloquer';
+        modeBtn.disabled = !!isTextModeUnlocked;
+        
+        if(!isTextModeUnlocked){
+          modeBtn.addEventListener('click', ()=>{
+            if(purchaseItem(textModeItemId, 100, ()=>{
+              showMarketToast('Mode "Texte à trou" déverrouillé ! 🎉');
+              showMarketPage();
+            })){
+              showMarketPage();
+            }
+          });
+          modeBtn.addEventListener('mouseover', ()=>{ modeBtn.style.background = '#f0f0f0'; });
+          modeBtn.addEventListener('mouseout', ()=>{ modeBtn.style.background = '#FFFFFF'; });
+        }
+        
+        btnDiv.appendChild(modeBtn);
+        textModeCard.appendChild(btnDiv);
+        
+        textModeGrid.appendChild(textModeCard);
+        textModeSection.appendChild(textModeGrid);
+        content.appendChild(textModeSection);
+        
+        // ===== SECTION 2: OFFRES SPÉCIALES (TITRES + XP) =====
+        const specialsSection = document.createElement('section');
+        specialsSection.style.cssText = 'margin-bottom:40px;';
+        const mathematicianTiers = {
+          1: { name: 'Bronze', cost: 25, color: '#8B7355', textColor: '#FFFFFF', mathematicians: ['Lagrange', 'Laplace', 'Fourier', 'Cauchy', 'Riemann'] },
+          2: { name: 'Silver', cost: 50, color: '#A0A0A0', textColor: '#FFFFFF', mathematicians: ['Ramanujan', 'Cantor', 'Hilbert', 'Leibniz', 'Boole'] },
+          3: { name: 'Gold', cost: 100, color: '#DAA520', textColor: '#FFFFFF', mathematicians: ['Descartes', 'Bernoulli', 'Weierstrass', 'Dirichlet', 'Archimedes'] },
+          4: { name: 'Platinum', cost: 250, color: '#9D9D9D', textColor: '#333333', mathematicians: ['Euclid', 'Pythagoras', 'Al-Khwarizmi', 'Galois', 'Grothendieck'] },
+          5: { name: 'Diamond', cost: 500, color: '#4169E1', textColor: '#FFFFFF', mathematicians: ['Euler', 'Newton', 'Gauss', 'Fibonacci', 'Pascal'] }
+        };
+        
+        const specialsTitle = document.createElement('h3');
+        specialsTitle.textContent = '⭐ Offres spéciales';
+        specialsTitle.style.cssText = 'font-size:1.5em;margin-bottom:16px;color:#666;';
+        specialsSection.appendChild(specialsTitle);
+        
+        const specialsGrid = document.createElement('div');
+        specialsGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:16px;';
+        
+        // Mathematician Titles organized by tier
+        const titlesHeaderDiv = document.createElement('div');
+        titlesHeaderDiv.style.cssText = 'grid-column: 1 / -1;';
+        titlesHeaderDiv.innerHTML = '<h4 style="color:#666;margin:0 0 12px 0;">👑 Titres Mathématicien</h4>';
+        specialsGrid.appendChild(titlesHeaderDiv);
+        
+        // Iterate through tiers and display one mathematician per tier
+        for(const [tierKey, tierData] of Object.entries(mathematicianTiers)){
+          // Display one random mathematician from this tier (for display)
+          const randIndex = Math.floor(Math.random() * tierData.mathematicians.length);
+          const displayMath = tierData.mathematicians[randIndex];
+          
+          const itemId = `title_${displayMath.toLowerCase()}`;
+          const isPurchased = localStorage.getItem(`fabanki:market_${itemId}`);
+          
+          const card = document.createElement('div');
+          card.style.cssText = `background:${tierData.color};border-radius:12px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,0.15);display:flex;flex-direction:column;color:${tierData.textColor};`;
+          
+          const rarityBadge = document.createElement('div');
+          rarityBadge.style.cssText = `display:inline-block;background:rgba(255,255,255,0.25);color:${tierData.textColor};padding:4px 8px;border-radius:4px;font-size:0.8em;font-weight:700;margin-bottom:8px;width:fit-content;`;
+          rarityBadge.textContent = `${tierData.name.toUpperCase()}`;
+          card.appendChild(rarityBadge);
+          
+          const titleEl = document.createElement('h5');
+          titleEl.textContent = displayMath;
+          titleEl.style.cssText = `margin:0 0 8px 0;color:${tierData.textColor};font-weight:700;`;
+          card.appendChild(titleEl);
+          
+          const desc = document.createElement('p');
+          desc.textContent = tierData.mathematicians.length > 1 ? `Au hasard parmi ${tierData.mathematicians.length} mathématiciens` : 'Titre prestigieux de mathématicien';
+          desc.style.cssText = `margin:0 0 12px 0;font-size:0.9em;color:${tierData.textColor};flex:1;opacity:0.95;`;
+          card.appendChild(desc);
+          
+          const priceDiv = document.createElement('div');
+          priceDiv.style.cssText = `color:${tierData.textColor};margin-bottom:12px;font-weight:700;`;
+          priceDiv.innerHTML = `<strong>Prix:</strong> ${tierData.cost} ℂ`;
+          card.appendChild(priceDiv);
+          
+          const btn = document.createElement('button');
+          btn.style.cssText = `width:100%;background:${tierData.color};color:${tierData.textColor};border:2px solid ${tierData.textColor};padding:10px;border-radius:6px;font-weight:700;cursor:pointer;`;
+          btn.textContent = isPurchased ? '✓ Possédé' : 'Acheter';
+          btn.disabled = !!isPurchased;
+          
+          if(!isPurchased){
+            btn.addEventListener('click', ()=>{
+              if(purchaseItem(itemId, tierData.cost, ()=>{
+                // Choisir aléatoirement un titre du tier
+                const randomIndex = Math.floor(Math.random() * tierData.mathematicians.length);
+                const chosenTitle = tierData.mathematicians[randomIndex];
+                // Enregistrer le titre choisi
+                const titleStorageKey = `fabanki:title_chosen_${tierKey}`;
+                localStorage.setItem(titleStorageKey, chosenTitle);
+                // Show toast instead of alert
+                showMarketToast(`Titre "${chosenTitle}" (${tierData.name}) acquis aléatoirement !`);
+                showMarketPage();
+              })){
+                showMarketPage();
+              }
+            });
+          }
+          
+          card.appendChild(btn);
+          specialsGrid.appendChild(card);
+        }
+        
+        // XP Boosters section header
+        const boostersHeaderDiv = document.createElement('div');
+        boostersHeaderDiv.style.cssText = 'grid-column: 1 / -1;margin-top:12px;';
+        boostersHeaderDiv.innerHTML = '<h4 style="color:#666;margin:0 0 12px 0;">⚡ Boosts XP</h4>';
+        specialsGrid.appendChild(boostersHeaderDiv);
+        
+        const xpBoosters = [
+          {icon: '🟢', multiplier: '×1.5 XP', duration: '1 heure', cost: 30, itemId: 'booster_1h', durationMs: 3600000},
+          {icon: '🟡', multiplier: '×2 XP', duration: '15 minutes', cost: 20, itemId: 'booster_15m', durationMs: 900000},
+          {icon: '🔴', multiplier: '×5 XP', duration: '5 minutes', cost: 50, itemId: 'booster_5m', durationMs: 300000}
+        ];
+        
+        xpBoosters.forEach(({icon, multiplier, duration, cost, itemId, durationMs}) => {
+          const card = document.createElement('div');
+          card.style.cssText = 'background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.1);display:flex;flex-direction:column;';
+          
+          // Check if boost is active
+          const boosterData = localStorage.getItem(`fabanki:market_${itemId}`);
+          let boosterExpiry = 0;
+          if(boosterData){
+            try{ boosterExpiry = JSON.parse(boosterData).expiry || 0; }catch(e){}
+          }
+          const isActive = boosterExpiry > Date.now();
+          
+          const titleEl = document.createElement('h5');
+          titleEl.textContent = `${icon} ${multiplier}`;
+          titleEl.style.cssText = 'margin:0 0 8px 0;color:#333;';
+          card.appendChild(titleEl);
+          
+          const desc = document.createElement('p');
+          desc.textContent = `Active pendant ${duration}`;
+          desc.style.cssText = 'margin:0 0 12px 0;font-size:0.9em;color:#666;flex:1;';
+          card.appendChild(desc);
+          
+          const priceDiv = document.createElement('div');
+          priceDiv.style.cssText = 'color:#666;margin-bottom:12px;';
+          priceDiv.innerHTML = `<strong>Prix:</strong> ${cost} ℂ`;
+          card.appendChild(priceDiv);
+          
+          const btn = document.createElement('button');
+          btn.className = 'primary';
+          btn.style.cssText = 'width:100%;';
+          btn.textContent = isActive ? '✓ Actif' : 'Activer';
+          btn.disabled = isActive;
+          
+          if(!isActive){
+            btn.addEventListener('click', ()=>{
+              if(purchaseItem(itemId, cost, ()=>{
+                localStorage.setItem(`fabanki:market_${itemId}`, JSON.stringify({
+                  purchasedAt: Date.now(),
+                  expiry: Date.now() + durationMs
+                }));
+                alert(`Boost ${multiplier} activé pendant ${duration} !`);
+                showMarketPage();
+              })){
+                showMarketPage();
+              }
+            });
+          }
+          
+          card.appendChild(btn);
+          specialsGrid.appendChild(card);
+        });
+        
+        specialsSection.appendChild(specialsGrid);
+        
+        // Section 2: Decks Carousel (Locked decks by cost and level) - NOW FIRST
+        const decksSection = document.createElement('section');
+        decksSection.style.cssText = 'margin-bottom:40px;';
+        const decksTitle = document.createElement('h3');
+        decksTitle.textContent = '📚 Decks à débloquer';
+        decksTitle.style.cssText = 'font-size:1.5em;margin-bottom:16px;color:#666;';
+        decksSection.appendChild(decksTitle);
+        
+        const decksCarousel = document.createElement('div');
+        decksCarousel.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:16px;';
+        decksSection.appendChild(decksCarousel);
+        
+        // Fetch and populate decks from manifest
+        try{
+          const manifestRes = await fetch('./decks/manifest.json');
+          if(manifestRes.ok){
+            const manifest = await manifestRes.json();
+            const processedDecks = new Set();
+            
+            for(const item of manifest){
+              const path = typeof item === 'string' ? item : (item.path || null);
+              if(!path || processedDecks.has(path)) continue;
+              processedDecks.add(path);
+              
+              const deckMeta = typeof item === 'string' ? {} : item;
+              const cost = deckMeta.cost || 0;
+              const levelReq = deckMeta.level || 0;
+              const isLocked = cost > 0 || levelReq > 0;
+              const isLockedByCost = cost > 0;
+              const isLockedByLevel = levelReq > 0;
+              
+              // Skip decks without locks (only show locked decks)
+              if(!isLocked) continue;
+              
+              const deckCard = document.createElement('div');
+              deckCard.style.cssText = 'background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.1);display:flex;flex-direction:column;';
+              
+              const deckTitle = document.createElement('h4');
+              const titleText = typeof item === 'string' ? path.replace(/\.xml$/i, '') : (deckMeta.title || path.replace(/\.xml$/i, ''));
+              deckTitle.textContent = titleText;
+              deckTitle.style.cssText = 'margin:0 0 8px 0;font-size:1.1em;';
+              deckCard.appendChild(deckTitle);
+              
+              const deckDesc = document.createElement('p');
+              deckDesc.textContent = deckMeta.description || 'Pas de description disponible';
+              deckDesc.style.cssText = 'margin:0 0 12px 0;font-size:0.9em;color:#666;flex:1;';
+              deckCard.appendChild(deckDesc);
+              
+              const infoDiv = document.createElement('div');
+              infoDiv.style.cssText = 'font-size:0.85em;margin-bottom:12px;';
+              
+              if(isLockedByCost){
+                const lockInfo = document.createElement('div');
+                lockInfo.innerHTML = `<strong>💳 Coût:</strong> ${cost} ℂ`;
+                lockInfo.style.cssText = 'color:#e74c3c;margin-bottom:6px;';
+                infoDiv.appendChild(lockInfo);
+              } else if(isLockedByLevel){
+                const lockInfo = document.createElement('div');
+                lockInfo.innerHTML = `<strong>🔒 Niveau requis:</strong> ${levelReq}`;
+                lockInfo.style.cssText = 'color:#e74c3c;margin-bottom:6px;';
+                infoDiv.appendChild(lockInfo);
+              }
+              
+              deckCard.appendChild(infoDiv);
+              
+              // Action button
+              const actionBtn = document.createElement('button');
+              if(isLockedByCost){
+                const currentCredits = getBalance();
+                actionBtn.textContent = `Acheter pour ${cost} ℂ`;
+                actionBtn.className = currentCredits >= cost ? 'primary' : 'secondary';
+                actionBtn.disabled = currentCredits < cost;
+                actionBtn.addEventListener('click', ()=>{
+                  const fresh = getBalance();
+                  if(fresh < cost){
+                    alert(`Crédits insuffisants. Vous avez ${fresh} ℂ, il en faut ${cost} ℂ`);
+                    return;
+                  }
+                  if(typeof addCredits === 'function') addCredits(-cost);
+                  showMarketToast(`Deck "${titleText}" acheté ! Il vous reste ${fresh - cost} ℂ`);
+                });
+              } else if(isLockedByLevel){
+                const userLevel = computeLevelAndProgress ? computeLevelAndProgress(getXpTotal ? getXpTotal() : 0).level : 0;
+                actionBtn.textContent = `Niveau ${levelReq} nécessaire`;
+                actionBtn.className = 'secondary';
+                actionBtn.disabled = true;
+                if(userLevel < levelReq){
+                  actionBtn.style.opacity = '0.5';
+                }
+              }
+              deckCard.appendChild(actionBtn);
+              decksCarousel.appendChild(deckCard);
+            }
+          }
+        }catch(e){
+          console.warn('Error loading decks in market:', e);
+          const errorMsg = document.createElement('div');
+          errorMsg.style.cssText = 'padding:16px;background:#fee;border-radius:8px;color:#c00;';
+          errorMsg.textContent = 'Erreur lors du chargement des decks';
+          decksCarousel.appendChild(errorMsg);
+        }
+        
+        // Add sections in correct order: Mode Texte à trou first, then Titles/Offers, then Decks, then Customizations
+        content.appendChild(specialsSection);
+        content.appendChild(decksSection);
+        
+        // Section 3: Customization Items - HIDDEN WITH "EN CONSTRUCTION" MESSAGE
+        const customSection = document.createElement('section');
+        const customTitle = document.createElement('h3');
+        customTitle.textContent = '🎨 Personnalisations';
+        customTitle.style.cssText = 'font-size:1.5em;margin-bottom:16px;color:#666;';
+        customSection.appendChild(customTitle);
+        
+        const constructionMsg = document.createElement('div');
+        constructionMsg.style.cssText = 'background:#f0f0f0;border-left:4px solid #ffa500;padding:16px;border-radius:8px;color:#666;text-align:center;';
+        constructionMsg.innerHTML = '<h4 style="margin:0 0 8px 0;color:#ff8c00;">🚧 En construction</h4><p style="margin:0;">Cette section sera bientôt disponible avec plus de personnalisations !</p>';
+        customSection.appendChild(constructionMsg);
+        content.appendChild(customSection);
+        
+        container.appendChild(content);
+        document.body.appendChild(container);
+      }catch(e){
+        console.warn('Market page error:', e);
+      }
+    }
+    
+    try{ window.showMarketPage = showMarketPage; }catch(e){}
+
     // === DAILY GOAL SYSTEM ===
     function getDailyGoal(){ return Number(localStorage.getItem('fabanki:daily_goal') || 0); }
     function setDailyGoal(goal){ localStorage.setItem('fabanki:daily_goal', String(Math.max(0, goal))); }
@@ -3553,6 +4964,26 @@
         return cur;
       }
     }
+    function updateDailyStreakOnGoalReached(){
+      try{
+        const today = new Date().toDateString();
+        const last = localStorage.getItem('fabanki:last_active_date');
+        if(last === today) return;
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate()-1);
+        if(last === yesterday.toDateString()){
+          const cur = Number(localStorage.getItem('fabanki:streak_current')||0) + 1;
+          localStorage.setItem('fabanki:streak_current', String(cur));
+          const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), cur);
+          localStorage.setItem('fabanki:streak_max', String(maxi));
+        } else {
+          localStorage.setItem('fabanki:streak_current', '1');
+          const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), 1);
+          localStorage.setItem('fabanki:streak_max', String(maxi));
+        }
+        localStorage.setItem('fabanki:last_active_date', today);
+      }catch(e){}
+    }
     function showDailyGoalDialog(callback){
       try{
         const currentGoal = getDailyGoal();
@@ -3562,21 +4993,30 @@
         m.appendChild(t);
         const desc = document.createElement('p'); desc.textContent = 'Combien de cartes voulez-vous réviser chaque jour ?'; desc.style.color = 'var(--muted)'; desc.style.marginBottom = '16px';
         m.appendChild(desc);
-        const input = document.createElement('input'); input.type = 'number'; input.min = '1'; input.value = currentGoal || '20'; input.style.width = '100%'; input.style.padding = '10px'; input.style.borderRadius = '6px'; input.style.border = '1px solid var(--border)'; input.style.fontSize = '1em'; input.style.marginBottom = '16px';
+        const input = document.createElement('input'); input.type = 'number'; input.min = '0'; input.value = (currentGoal || currentGoal === 0) ? String(currentGoal) : '20'; input.style.width = '100%'; input.style.padding = '10px'; input.style.borderRadius = '6px'; input.style.border = '1px solid var(--border)'; input.style.fontSize = '1em'; input.style.marginBottom = '16px';
         m.appendChild(input);
         const btnWrap = document.createElement('div'); btnWrap.style.display='flex'; btnWrap.style.gap='8px';
         const saveBtn = document.createElement('button'); saveBtn.textContent = 'Enregistrer'; saveBtn.addEventListener('click', ()=>{
-          const val = Number(input.value) || 20;
+          const raw = Number(input.value);
+          if(Number.isNaN(raw)){
+            alert('Objectif invalide : veuillez entrer un nombre.');
+            return;
+          }
+          if(raw < 0){
+            alert('Objectif invalide : le nombre doit être positif ou nul.');
+            return;
+          }
+          const val = raw;
           setDailyGoal(val);
           ov.remove();
           if(callback) callback(val);
         });
-        const cancelBtn = document.createElement('button'); cancelBtn.className = 'secondary'; cancelBtn.textContent = 'Annuler'; cancelBtn.addEventListener('click', ()=>{ ov.remove(); });
+        const cancelBtn = document.createElement('button'); cancelBtn.className = 'secondary'; cancelBtn.textContent = 'Annuler'; cancelBtn.addEventListener('click', ()=>{ setDailyGoal(0); ov.remove(); if(callback) callback(0); });
         btnWrap.appendChild(saveBtn); btnWrap.appendChild(cancelBtn);
         m.appendChild(btnWrap);
         ov.appendChild(m); document.body.appendChild(ov);
         ov.classList.add('open'); m.classList.add('open');
-        ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
+        ov.addEventListener('click', (ev)=>{ if(ev.target === ov){ setDailyGoal(0); ov.remove(); if(callback) callback(0); } });
         setTimeout(()=>{ input.focus(); input.select(); }, 100);
       }catch(e){ console.warn('daily goal dialog error', e); }
     }
@@ -3605,6 +5045,10 @@
 
     const profileBtn = document.getElementById('profileBtn');
     if(profileBtn) profileBtn.addEventListener('click', ()=>{ showProfilePopup(); updateProfilePopupIfOpen(); });
+
+    // Market button
+    const marketBtn = document.getElementById('marketBtn');
+    if(marketBtn) marketBtn.addEventListener('click', ()=>{ showMarketPage(); });
 
     // === Optional Account + Synchronization System ===
     // Unified user state used for both local-only and synced modes.
@@ -4461,7 +5905,35 @@
         try{ resetWeeklyIfNeeded(); const curWeekXp = Number(localStorage.getItem('fabanki:xp_semaine') || 0) + Math.max(0, delta); localStorage.setItem('fabanki:xp_semaine', String(curWeekXp)); }catch(e){}
         const newLevel = computeLevelAndProgress(total).level;
         // If level increased, show notification
-        if(newLevel > prevLevel){ try{ showLevelUpNotification(newLevel, prevLevel); }catch(e){} }
+        if(newLevel > prevLevel){
+          try{ showLevelUpNotification(newLevel, prevLevel); }catch(e){}
+          try{
+            let creditsToGrant = 0;
+            for(let lvl = prevLevel + 1; lvl <= newLevel; lvl++){
+              creditsToGrant += Math.floor(Math.pow(lvl, 0.8));
+            }
+            if(creditsToGrant > 0){
+              addCredits(creditsToGrant);
+              try{
+                const toast = document.createElement('div');
+                toast.style.position = 'fixed';
+                toast.style.bottom = '64px';
+                toast.style.left = '50%';
+                toast.style.transform = 'translateX(-50%)';
+                toast.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                toast.style.color = 'white';
+                toast.style.padding = '12px 18px';
+                toast.style.borderRadius = '10px';
+                toast.style.fontWeight = '700';
+                toast.style.zIndex = '9999';
+                toast.style.boxShadow = '0 8px 24px rgba(217, 119, 6, 0.35)';
+                toast.textContent = `+${creditsToGrant} crédits (niveau ${newLevel})`;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3500);
+              }catch(e){}
+            }
+          }catch(e){}
+        }
         // Auto-sync after XP change
         setTimeout(() => autoSync().catch(e => console.warn('autoSync failed:', e)), 100);
         return delta;
@@ -4532,6 +6004,34 @@
         { id: 'study_5h', name: 'Réviser au moins 5 heures', type: 'time', target: 300, goal: 300, reward: { xp: 780, credits: 115 }, difficulty: 'hard' }
       ]
     };
+
+    function showMissionsDebug(){
+      try{
+        const daily = JSON.parse(localStorage.getItem('fabanki:daily_missions') || '[]');
+        const weekly = JSON.parse(localStorage.getItem('fabanki:weekly_missions') || '[]');
+        const dailySelected = JSON.parse(localStorage.getItem('fabanki:daily_selected_missions') || 'null');
+        const weeklySelected = JSON.parse(localStorage.getItem('fabanki:weekly_selected_missions') || 'null');
+        const missionsDate = localStorage.getItem('fabanki:missions_date') || null;
+        const payload = { missionsDate, dailySelected, weeklySelected, daily, weekly };
+
+        const existing = document.getElementById('missionsDebugOverlay');
+        if(existing) existing.remove();
+
+        const ov = document.createElement('div'); ov.id = 'missionsDebugOverlay'; ov.className = 'modal-overlay';
+        ov.style.display = 'flex'; ov.style.alignItems = 'center'; ov.style.justifyContent = 'center'; ov.style.zIndex = '9999';
+        const m = document.createElement('div'); m.className = 'modal'; m.style.maxWidth = '720px';
+        const t = document.createElement('h3'); t.textContent = 'Debug missions (quotidien & hebdo)'; t.style.margin = '0 0 12px 0';
+        const pre = document.createElement('pre');
+        pre.style.whiteSpace = 'pre-wrap'; pre.style.margin = '0'; pre.style.background = 'rgba(0,0,0,0.04)';
+        pre.style.padding = '12px'; pre.style.borderRadius = '8px'; pre.textContent = JSON.stringify(payload, null, 2);
+        const close = document.createElement('button'); close.className = 'secondary'; close.textContent = 'Fermer';
+        close.style.marginTop = '12px'; close.addEventListener('click', ()=> ov.remove());
+        m.appendChild(t); m.appendChild(pre); m.appendChild(close);
+        ov.appendChild(m); document.body.appendChild(ov);
+        ov.classList.add('open'); m.classList.add('open');
+        ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
+      }catch(e){ console.warn('missions debug error', e); }
+    }
     
     function initializeMissions(){
       try{
@@ -4662,15 +6162,18 @@
         
         // For time spent - track from review sessions
         try{
-          const timeSpentSec = Number(localStorage.getItem('fabanki:time_spent_today_sec') || 0);
-          const timeSpent = timeSpentSec > 0 ? Math.floor(timeSpentSec / 60) : Number(localStorage.getItem('fabanki:time_spent_today') || 0);
-          updateMission(dailyMissions, 'study_10m', timeSpent, 'daily');
-          updateMission(dailyMissions, 'study_45m', timeSpent, 'daily');
+          // Time missions: convert seconds to minutes for comparison with mission targets
+          const timeSpentDaySec = Number(localStorage.getItem('fabanki:time_spent_today_sec') || 0);
+          const timeSpentDayMin = Math.floor(timeSpentDaySec / 60);
+          console.log('[MISSION] Daily time spent:', timeSpentDayMin, 'minutes (', timeSpentDaySec, 'seconds)');
+          updateMission(dailyMissions, 'study_10m', timeSpentDayMin, 'daily');
+          updateMission(dailyMissions, 'study_45m', timeSpentDayMin, 'daily');
           
           const timeSpentWeekSec = Number(localStorage.getItem('fabanki:time_spent_week_sec') || 0);
-          const timeSpentWeek = timeSpentWeekSec > 0 ? Math.floor(timeSpentWeekSec / 60) : Number(localStorage.getItem('fabanki:time_spent_week') || 0);
-          updateMission(weeklyMissions, 'study_5h', timeSpentWeek, 'weekly');
-        }catch(e){}
+          const timeSpentWeekMin = Math.floor(timeSpentWeekSec / 60);
+          console.log('[MISSION] Weekly time spent:', timeSpentWeekMin, 'minutes (', timeSpentWeekSec, 'seconds)');
+          updateMission(weeklyMissions, 'study_5h', timeSpentWeekMin, 'weekly');
+        }catch(e){ console.warn('[MISSION] Time tracking error:', e); }
         
         // For accuracy missions - calculate today's and week's accuracy
         try{
@@ -4872,6 +6375,7 @@
         const existing = document.getElementById('customizationOverlay');
         if (existing) existing.remove();
         
+    try{ window.debugMissions = showMissionsDebug; }catch(e){}
         const overlay = document.createElement('div');
         overlay.id = 'customizationOverlay';
         overlay.className = 'customization-overlay';
@@ -4914,7 +6418,7 @@
           { name: 'Cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 20, credit: 40 },
           { name: 'Orange', light: '#ffe0b2', dark: '#2d1b0a', level: 20 },
           { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 25, credit: 50 },
-          { name: 'Corail', light: '#ffebee', dark: '#2d0a0a', level: 25 },
+          { name: 'Corail', light: '#ffebee', dark: '#382f2f', level: 25 },
           { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 30 },
           { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 30, credit: 60 },
           { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 35 },
@@ -6090,6 +7594,7 @@
           Badges: badges,
           Titres: titres,
           Objectifs: objectifs,
+          Selected_Title: localStorage.getItem('fabanki:selected_title') || '',
           XP_semaine: xpS,
           Score_MPSI_semaine: Math.max(0, scoreWeekLocal),
           Semaine_ID: weekId,
@@ -6157,7 +7662,7 @@
         const tabWeek = document.createElement('button'); tabWeek.className='secondary'; tabWeek.textContent='Classement du mois';
         tabs.appendChild(tabGlobal); tabs.appendChild(tabWeek); m.appendChild(tabs);
         const table = document.createElement('table'); table.className = 'leaderboard-table'; table.style.width='100%'; table.style.borderCollapse='collapse';
-        const thead = document.createElement('thead'); thead.innerHTML = '<tr><th>Rang</th><th>Pseudo</th><th>Niveau</th><th>Titres</th><th>Score MPSI</th><th>Cartes</th><th>Quêtes quotidiennes</th></tr>';
+        const thead = document.createElement('thead'); thead.innerHTML = '<tr><th>Rang</th><th>Pseudo</th><th>Titre</th><th>Niveau</th><th>Titres</th><th>Score MPSI</th><th>Cartes</th><th>Quêtes quotidiennes</th></tr>';
         table.appendChild(thead);
         const tbody = document.createElement('tbody'); table.appendChild(tbody);
         m.appendChild(table);
@@ -6204,6 +7709,13 @@
           const tr = document.createElement('tr');
           const tdRank = document.createElement('td'); tdRank.textContent = String(rank);
           const tdPseudo = document.createElement('td'); tdPseudo.textContent = pseudo;
+          
+          // Add title column (selected title)
+          const tdTitle = document.createElement('td');
+          const selectedTitle = d.Selected_Title || '';
+          tdTitle.textContent = selectedTitle || '—';
+          tdTitle.style.fontWeight = selectedTitle ? '700' : '400';
+          
           const tdNiv = document.createElement('td'); tdNiv.textContent = d['Niveau'] || d['Niveau Prépa'] || '';
           const tdScore = document.createElement('td'); tdScore.textContent = d[scoreField] || 0;
           const tdBadges = document.createElement('td'); tdBadges.style.display='flex'; tdBadges.style.gap='6px';
@@ -6227,7 +7739,7 @@
           }catch(e){}
           const tdCartes = document.createElement('td'); tdCartes.textContent = d['Cartes révisées'] || 0;
           const tdQuests = document.createElement('td'); tdQuests.textContent = d['Quêtes_quotidiennes'] || 0;
-          tr.appendChild(tdRank); tr.appendChild(tdPseudo); tr.appendChild(tdNiv); tr.appendChild(tdBadges); tr.appendChild(tdScore); tr.appendChild(tdCartes); tr.appendChild(tdQuests);
+          tr.appendChild(tdRank); tr.appendChild(tdPseudo); tr.appendChild(tdTitle); tr.appendChild(tdNiv); tr.appendChild(tdBadges); tr.appendChild(tdScore); tr.appendChild(tdCartes); tr.appendChild(tdQuests);
           return tr;
         }
 
@@ -6621,13 +8133,32 @@
           
           // Create button container for Maintenant button - place AFTER level card, BEFORE decks card
           const buttonContainer = document.createElement('div');
-          buttonContainer.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin:16px 0;width:100%;';
+          buttonContainer.style.cssText = 'display:flex;align-items:center;gap:8px;margin:16px 0;width:100%;';
+
+          const maintenantSelect = document.createElement('select');
+          maintenantSelect.style.cssText = 'padding:10px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:var(--card);color:var(--fg);font-size:0.95em;';
+          const selectOptions = [
+            { label: '10', value: '10' },
+            { label: '25', value: '25' },
+            { label: '50', value: '50' },
+            { label: '100', value: '100' },
+            { label: '200', value: '200' },
+            { label: 'toutes', value: 'all' }
+          ];
+          for(const opt of selectOptions){
+            const o = document.createElement('option');
+            o.value = opt.value; o.textContent = opt.label;
+            if(opt.value === '50') o.selected = true;
+            maintenantSelect.appendChild(o);
+          }
           
           // Add Maintenant (now) button for quick review
           const maintenantBtn = document.createElement('button'); maintenantBtn.className = 'maintenant-btn'; maintenantBtn.textContent = '📚 Maintenant';
-          maintenantBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;border-radius:8px;';
+          maintenantBtn.style.cssText = 'flex:1;padding:12px;font-size:1em;border-radius:8px;';
           maintenantBtn.addEventListener('click', async ()=>{
             try{
+              const rawLimit = maintenantSelect.value;
+              const limitCount = (rawLimit === 'all') ? null : Number(rawLimit);
               console.log('🔍 Maintenant button clicked - loading all decks with cards due now');
               updateStatus('Recherche des cartes à réviser maintenant...');
               
@@ -6662,7 +8193,7 @@
                 await removeWelcome();
                 console.log('🗑️ Welcome screen removed');
                 
-                await loadMultipleDeckCards(decksWithDueCards, { onlyNow: true });
+                await loadMultipleDeckCards(decksWithDueCards, { onlyNow: true, limitCount: (Number.isFinite(limitCount) ? limitCount : null) });
                 console.log('✅ Decks loaded, total cards:', multiDeckCards.length);
                 
                 if(typeof showNextCard === 'function'){
@@ -6684,6 +8215,7 @@
           });
           
           buttonContainer.appendChild(maintenantBtn);
+          buttonContainer.appendChild(maintenantSelect);
           container.appendChild(buttonContainer);
         }catch(e){ /* ignore level rendering on welcome if error */ }
 
@@ -6974,23 +8506,17 @@
             manifestData = await manifestRes.json();
           }
           
-          // Find decks with "featured" or "last" tag to display
-          let deckToDisplay = null;
+          // Find all decks with "featured" or "last" tag to display
+          const decksToDisplay = [];
           for(const item of manifestData){
             const itemPath = typeof item === 'string' ? item : item.path;
             const itemTags = typeof item === 'string' ? [] : (item.tags || []);
             if(itemTags.includes('featured') || itemTags.includes('last')){
-              deckToDisplay = itemPath;
-              break;
+              decksToDisplay.push(itemPath);
             }
           }
           
-          if(deckToDisplay){
-            const lastDeckFile = deckToDisplay;
-            const lastDeckName = decodeURIComponent(lastDeckFile.replace(/\+/g,'')).replace(/\.xml$/i,'');
-            const lastDeckUrl = './decks/' + lastDeckFile;
-            const lastDeckCount = await countDueNowForDeck(lastDeckUrl);
-            
+          if(decksToDisplay.length > 0){
             const lastCard = document.createElement('div');
             lastCard.className = 'card';
             lastCard.id = 'featuredDeckCard';
@@ -7006,42 +8532,72 @@
             lastTitle.style.color = 'var(--muted)';
             lastCard.appendChild(lastTitle);
             
-            const lastRow = document.createElement('div');
-            lastRow.style.display = 'flex';
-            lastRow.style.justifyContent = 'space-between';
-            lastRow.style.alignItems = 'center';
-            lastRow.style.gap = '8px';
+            // Create a responsive container for all decks with "last" tag
+            const decksContainer = document.createElement('div');
+            decksContainer.style.display = 'grid';
+            // Responsive grid: at least 250px per deck, but adapt to number of decks
+            const deckWidth = Math.max(240, Math.floor((window.innerWidth - 48) / Math.min(3, decksToDisplay.length)));
+            decksContainer.style.gridTemplateColumns = `repeat(auto-fit, minmax(${deckWidth}px, 1fr))`;
+            decksContainer.style.gap = '12px';
             
-            const lastLeft = document.createElement('div');
-            lastLeft.style.display = 'flex';
-            lastLeft.style.alignItems = 'center';
-            lastLeft.style.gap = '12px';
+            // Add each deck to the container
+            for(const deckToDisplay of decksToDisplay){
+              const lastDeckFile = deckToDisplay;
+              const lastDeckName = decodeURIComponent(lastDeckFile.replace(/\+/g,'')).replace(/\.xml$/i,'');
+              const lastDeckUrl = './decks/' + lastDeckFile;
+              const lastDeckCount = await countDueNowForDeck(lastDeckUrl);
+              
+              const deckRow = document.createElement('div');
+              deckRow.style.display = 'flex';
+              deckRow.style.justifyContent = 'space-between';
+              deckRow.style.alignItems = 'center';
+              deckRow.style.gap = '8px';
+              deckRow.style.padding = '12px';
+              deckRow.style.background = 'rgba(59, 130, 246, 0.04)';
+              deckRow.style.borderRadius = '8px';
+              deckRow.style.border = '1px solid rgba(59, 130, 246, 0.1)';
+              
+              const deckLeft = document.createElement('div');
+              deckLeft.style.display = 'flex';
+              deckLeft.style.alignItems = 'center';
+              deckLeft.style.gap = '8px';
+              deckLeft.style.flex = '1';
+              deckLeft.style.minWidth = '0';
+              
+              const deckNm = document.createElement('div');
+              deckNm.textContent = lastDeckName;
+              deckNm.style.fontWeight = '600';
+              deckNm.style.fontSize = '0.95rem';
+              deckNm.style.overflow = 'hidden';
+              deckNm.style.textOverflow = 'ellipsis';
+              deckNm.style.whiteSpace = 'nowrap';
+              deckLeft.appendChild(deckNm);
+              
+              const deckAct = document.createElement('div');
+              deckAct.style.display = 'flex';
+              deckAct.style.alignItems = 'center';
+              deckAct.style.gap = '6px';
+              deckAct.style.flexShrink = '0';
+              
+              const deckBadge = document.createElement('span');
+              deckBadge.className = 'due-badge';
+              deckBadge.innerHTML = `<div class="due-num">${lastDeckCount>0? lastDeckCount : ''}</div><div class="due-label" style="display:${lastDeckCount>0?'block':'none'}">à faire</div>`;
+              
+              const deckBtn = document.createElement('button');
+              deckBtn.className = 'secondary';
+              deckBtn.textContent = (window.innerWidth <= 640) ? '📂' : 'Charger';
+              deckBtn.style.fontSize = '0.9rem';
+              deckBtn.style.padding = '6px 10px';
+              deckBtn.addEventListener('click', async ()=>{ await removeWelcome(); loadDeckFromURL(lastDeckUrl); deckURL = lastDeckUrl; });
+              
+              deckAct.appendChild(deckBadge);
+              deckAct.appendChild(deckBtn);
+              deckRow.appendChild(deckLeft);
+              deckRow.appendChild(deckAct);
+              decksContainer.appendChild(deckRow);
+            }
             
-            const lastNm = document.createElement('div');
-            lastNm.textContent = lastDeckName;
-            lastNm.style.fontWeight = '600';
-            lastNm.style.fontSize = '1.1rem';
-            lastLeft.appendChild(lastNm);
-            
-            const lastAct = document.createElement('div');
-            lastAct.style.display = 'flex';
-            lastAct.style.alignItems = 'center';
-            lastAct.style.gap = '8px';
-            
-            const lastBadge = document.createElement('span');
-            lastBadge.className = 'due-badge';
-            lastBadge.innerHTML = `<div class="due-num">${lastDeckCount>0? lastDeckCount : ''}</div><div class="due-label" style="display:${lastDeckCount>0?'block':'none'}">à faire</div>`;
-            
-            const lastBtn = document.createElement('button');
-            lastBtn.className = 'secondary';
-            lastBtn.textContent = (window.innerWidth <= 640) ? '📂' : 'Charger';
-            lastBtn.addEventListener('click', async ()=>{ await removeWelcome(); loadDeckFromURL(lastDeckUrl); deckURL = lastDeckUrl; });
-            
-            lastAct.appendChild(lastBadge);
-            lastAct.appendChild(lastBtn);
-            lastRow.appendChild(lastLeft);
-            lastRow.appendChild(lastAct);
-            lastCard.appendChild(lastRow);
+            lastCard.appendChild(decksContainer);
             container.appendChild(lastCard);
           }
         }catch(e){ console.warn('featured deck card error:', e) }
@@ -7928,7 +9484,6 @@
         {
           title: 'Consultez vos statistiques',
           text: 'La section Statistiques vous montre votre progression détaillée : cartes révisées, nouvelles cartes, précision et bien plus encore. Certaines statistiques sont verrouillées et peuvent être débloquées avec des crédits !',
-          target: '.stats-card',
           position: 'top'
         },
         {
