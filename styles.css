@@ -360,6 +360,17 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
   #toggleStats{display:inline-block}
 
   #closeStatsMobile{display:inline-block}
+  
+  /* Mobile fillblank: stack front and input vertically */
+  .card-content{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;text-align:center;font-size:1rem;padding:12px 6px 6px 6px;min-height:auto}
+  
+  .card-content > #front{display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;margin-bottom:12px}
+  
+  .card-content > #back{width:100%;text-align:left;margin-top:12px}
+  
+  #fillBlankContainer{flex-direction:column;width:100%;gap:8px;margin-top:8px}
+  
+  #fillBlankInput{width:100%;min-width:auto}
 
   /* Prevent scrolling on mobile - fit to viewport */
 
