@@ -19,8 +19,10 @@
   let tooltipShown = false;
   let cardShownAt = Date.now();
   let showHintBox = false; // Toggle for hint box visibility
-  let reviewMode = 'default'; // 'default' or 'fillblank' - controls review behavior
+  let reviewMode = 'default'; // 'default', 'fillblank', or 'timer' - controls review behavior
   let deckHasTextTag = false; // Whether deck supports fill-in-the-blank mode
+  let deckHasTimerTag = false; // Whether deck supports pressure recall mode
+  let timerSettings = { frontTime: 10, backTime: 5 }; // Settings for timer mode
 
   function isInAppBrowser(){
     try{
@@ -993,17 +995,22 @@
       const deckEntry = getManifestEntryForPath(url);
       const deckTags = (typeof deckEntry === 'object' && deckEntry.tags) ? deckEntry.tags : [];
       deckHasTextTag = Array.isArray(deckTags) ? deckTags.includes('text') : false;
+      deckHasTimerTag = Array.isArray(deckTags) ? deckTags.includes('timer') : false;
       
       console.log('DEBUG: deckEntry=', deckEntry);
       console.log('DEBUG: deckTags=', deckTags);
       console.log('DEBUG: deckHasTextTag=', deckHasTextTag);
+      console.log('DEBUG: deckHasTimerTag=', deckHasTimerTag);
       console.log('DEBUG: manifestMeta keys=', Object.keys(manifestMeta));
       
       // Add review mode selector if deck supports it AND mode is unlocked
       const isTextModeUnlocked = localStorage.getItem('fabanki:market_mode_texte_trou');
-      if(deckHasTextTag && !lockState.locked && isTextModeUnlocked){
+      const isTimerModeUnlocked = true; // Timer mode is free for now
+      const isActiveMemoryUnlocked = true; // Active Memory mode is free and always available
+      
+      if((deckHasTextTag || deckHasTimerTag) && !lockState.locked){
         const modeContainer = document.createElement('div');
-        modeContainer.style.cssText = 'margin-bottom:16px;display:flex;gap:8px;align-items:center;';
+        modeContainer.style.cssText = 'margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
         
         const modeLabel = document.createElement('label');
         modeLabel.textContent = 'Mode: ';
@@ -1018,14 +1025,32 @@
         option1.textContent = 'Mode Anki (Défaut)';
         modeSelect.appendChild(option1);
         
-        const option2 = document.createElement('option');
-        option2.value = 'fillblank';
-        option2.textContent = 'Texte à trou';
-        modeSelect.appendChild(option2);
+        if(deckHasTextTag && isTextModeUnlocked){
+          const option2 = document.createElement('option');
+          option2.value = 'fillblank';
+          option2.textContent = 'Texte à trou';
+          modeSelect.appendChild(option2);
+        }
+        
+        if(deckHasTimerTag && isTimerModeUnlocked){
+          const option3 = document.createElement('option');
+          option3.value = 'timer';
+          option3.textContent = 'Rappel sous pression ⏱️';
+          modeSelect.appendChild(option3);
+        }
+        
+        // Add Active Memory mode (always available for all decks)
+        if(isActiveMemoryUnlocked){
+          const option4 = document.createElement('option');
+          option4.value = 'activeMemory';
+          option4.textContent = 'Mémoire active 🧠';
+          modeSelect.appendChild(option4);
+        }
         
         modeSelect.addEventListener('change', (e) => {
           reviewMode = e.target.value;
           localStorage.setItem(`fabanki:review_mode:${deckKey}`, reviewMode);
+          // Don't show timer dialog in overview - it will be shown during first card
         });
         
         // Load saved mode preference
@@ -1037,6 +1062,54 @@
         
         modeContainer.appendChild(modeSelect);
         rightPanel.appendChild(modeContainer);
+        
+        // Add helpful hint about modes
+        const modeHint = document.createElement('div');
+        modeHint.style.cssText = 'font-size:0.85em;color:#666;margin-bottom:12px;padding:8px;background:rgba(0,0,0,0.05);border-radius:4px;';
+        modeHint.innerHTML = '💡 Sélectionnez votre mode d\'étude, puis cliquez sur le deck pour commencer. Chaque mode offre une expérience différente!';
+        rightPanel.appendChild(modeHint);
+      } else if(isActiveMemoryUnlocked && !lockState.locked){
+        // Show activeMemory mode selector even if no other modes are available
+        const modeContainer = document.createElement('div');
+        modeContainer.style.cssText = 'margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
+        
+        const modeLabel = document.createElement('label');
+        modeLabel.textContent = 'Mode: ';
+        modeLabel.style.cssText = 'font-weight:600;';
+        modeContainer.appendChild(modeLabel);
+        
+        const modeSelect = document.createElement('select');
+        modeSelect.style.cssText = 'padding:8px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg);color:var(--text);';
+        
+        const option1 = document.createElement('option');
+        option1.value = 'default';
+        option1.textContent = 'Mode Anki (Défaut)';
+        modeSelect.appendChild(option1);
+        
+        const option4 = document.createElement('option');
+        option4.value = 'activeMemory';
+        option4.textContent = 'Mémoire active 🧠';
+        modeSelect.appendChild(option4);
+        
+        modeSelect.addEventListener('change', (e) => {
+          reviewMode = e.target.value;
+          localStorage.setItem(`fabanki:review_mode:${deckKey}`, reviewMode);
+        });
+        
+        const savedMode = localStorage.getItem(`fabanki:review_mode:${deckKey}`);
+        if(savedMode) {
+          modeSelect.value = savedMode;
+          reviewMode = savedMode;
+        }
+        
+        modeContainer.appendChild(modeSelect);
+        rightPanel.appendChild(modeContainer);
+        
+        // Add helpful hint about modes
+        const modeHint = document.createElement('div');
+        modeHint.style.cssText = 'font-size:0.85em;color:#666;margin-bottom:12px;padding:8px;background:rgba(0,0,0,0.05);border-radius:4px;';
+        modeHint.innerHTML = '💡 Sélectionnez votre mode d\'étude, puis cliquez sur le deck pour commencer. Chaque mode offre une expérience différente!';
+        rightPanel.appendChild(modeHint);
       }
       
       const startBtn = document.createElement('button');
@@ -1605,10 +1678,20 @@
       }
     }
     dueCards = getDueCards();
+    
+    // Load timer settings if they exist for this deck
+    const savedTimerSettings = localStorage.getItem(`fabanki:timer_settings:${deckKey}`);
+    if(savedTimerSettings){
+      try{
+        timerSettings = JSON.parse(savedTimerSettings);
+      }catch(e){ console.warn('Error loading timer settings:', e); }
+    }
+    
     // sessionTotal should equal number of due cards at session start
     sessionTotal = dueCards.length; reviewedCount = 0; sessionData = [];
     isReviewing = true;
     sessionCreditsGranted = false;
+    window.__timerSettingsShown = false; // Reset timer settings flag for new session
     const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
     currentIndex = 0;
     showNextCard();
@@ -2009,6 +2092,12 @@
   }
   function renderEmpty(){
     isReviewing = false;
+    // Increment decks reviewed counter for missions
+    try{
+      const decksCount = incrementDecksReviewed();
+      if(typeof updateMissionProgress === 'function') updateMissionProgress();
+    }catch(e){ console.warn('Error incrementing decks reviewed:', e); }
+    
     // Restore top bar buttons (swap home back to sync)
     try{
       const syncBtn = document.getElementById('syncBtn');
@@ -2068,6 +2157,23 @@
 
     const totalReviewed = sessionData.length || reviewedCount || 0;
     const totalTimeSec = sessionData.reduce((sum, it) => sum + (Number(it.timeSpent) || 0), 0);
+    
+    // Calculate XP and Credit modifiers based on review mode
+    const xpModifiers = {
+      'default': 1,        // Mode Anki (Défaut)
+      'fillblank': 2,      // Texte à trou
+      'timer': 1.2,        // Rappel sous pression
+      'activeMemory': 1.1  // Mémoire active
+    };
+    const creditModifiers = {
+      'default': 1,        // Mode Anki (Défaut)
+      'fillblank': 1,      // Texte à trou
+      'timer': 1,          // Rappel sous pression
+      'activeMemory': 1    // Mémoire active
+    };
+    const xpMultiplier = xpModifiers[reviewMode] || 1;
+    const creditMultiplier = creditModifiers[reviewMode] || 1;
+    
     // Grant credits once per completed review session
     if(!sessionCreditsGranted && totalReviewed > 0){
       const x = Math.max(0, totalReviewed);
@@ -2076,6 +2182,10 @@
       const frac = raw - base;
       let grant = base;
       if(Math.random() < frac) grant += 1;
+      
+      // Apply credit multiplier
+      grant = Math.floor(grant * creditMultiplier);
+      
       if(grant > 0 && typeof addCredits === 'function') addCredits(grant);
       try{
         const toast = document.createElement('div');
@@ -2090,7 +2200,8 @@
         toast.style.fontWeight = '700';
         toast.style.zIndex = '9999';
         toast.style.boxShadow = '0 8px 24px rgba(37, 99, 235, 0.35)';
-        toast.textContent = `Crédits gagnés : ${grant}`;
+        const modeName = reviewMode === 'default' ? 'Mode Anki' : reviewMode === 'fillblank' ? 'Texte à trou' : reviewMode === 'timer' ? 'Rappel sous pression' : 'Mémoire active';
+        toast.textContent = `Crédits gagnés : ${grant} (${modeName} x${creditMultiplier} crédit, x${xpMultiplier} XP)`;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3500);
       }catch(e){}
@@ -2265,6 +2376,23 @@
       const homeBtn = document.getElementById('recapHomeBtn');
       if(homeBtn){
         homeBtn.addEventListener('click', () => {
+          // Stop both timer mode and active memory timers
+          if(window.timerModeState && window.timerModeState.animationHandle){
+            cancelAnimationFrame(window.timerModeState.animationHandle);
+            window.timerModeState.animationHandle = null;
+          }
+          if(window.timerModeState && window.timerModeState.timeoutHandle){
+            clearTimeout(window.timerModeState.timeoutHandle);
+            window.timerModeState.timeoutHandle = null;
+          }
+          if(window.__activeMemoryTimerState){
+            if(window.__activeMemoryTimerState.animationHandle){
+              cancelAnimationFrame(window.__activeMemoryTimerState.animationHandle);
+            }
+            if(window.__activeMemoryTimerState.timeoutHandle){
+              clearTimeout(window.__activeMemoryTimerState.timeoutHandle);
+            }
+          }
           window.location.href = window.location.origin + window.location.pathname;
         });
       }
@@ -2315,8 +2443,47 @@
   // For simplicity where sha1 is used synchronously above, ensure fallback string is returned; this is acceptable for IDs.
 
   // === UI flow ===
+  
+  function incrementDecksReviewed(){
+    try{
+      const key = 'fabanki:decks_reviewed_today';
+      const today = new Date().toISOString().split('T')[0];
+      const lastDate = localStorage.getItem('fabanki:decks_reviewed_date');
+      let count = 0;
+      
+      // Reset if new day
+      if(lastDate !== today){
+        localStorage.setItem('fabanki:decks_reviewed_date', today);
+        count = 1;
+      } else {
+        count = Number(localStorage.getItem(key) || 0) + 1;
+      }
+      
+      localStorage.setItem(key, String(count));
+      console.log('[MISSION] Decks reviewed today:', count);
+      return count;
+    }catch(e){ console.warn('incrementDecksReviewed error:', e); return 0; }
+  }
+  
+  function continueWithFirstCard(){
+    // This function is called after timer settings dialog is confirmed
+    // It proceeds with displaying the first card
+    showNextCard();
+  }
+  
   function showNextCard(){
     answerLocked = false;
+    
+    // Check if there are any cards to show
+    if(!dueCards || dueCards.length===0){ updateStatus('Aucune carte à réviser aujourd\'hui'); renderEmpty(); return }
+    
+    // Show timer settings dialog on first card if timer mode is active
+    // But don't proceed with card display - wait for confirmation
+    if(currentIndex === 0 && reviewMode === 'timer' && !window.__timerSettingsShown){
+      window.__timerSettingsShown = true;
+      showTimerSettingsDialog();
+      return;  // Wait for Confirmer button to be clicked
+    }
     
     // Ensure home button is visible during review (replace sync button)
     try{
@@ -2331,15 +2498,14 @@
       }
     }catch(e){}
     
-    // Show contextual onboarding on first card
-    if(!window.__reviewOnboardingShown && typeof showReviewOnboarding === 'function'){
-      window.__reviewOnboardingShown = true;
-      setTimeout(() => {
-        showReviewOnboarding();
-      }, 300);
+    // Show mode-specific onboarding on first card
+    if(currentIndex === 0 && typeof showModeOnboarding === 'function'){
+      showModeOnboarding(reviewMode);
     }
     
-    if(!dueCards || dueCards.length===0){ updateStatus('Aucune carte à réviser aujourd\'hui'); renderEmpty(); return }
+    // Setup active memory mode for every card (reset the card-specific flag)
+    window.__activeMemoryCardSetup = false;
+    
     if(currentIndex >= dueCards.length) currentIndex = 0;
     const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
     const cardData = multiDeckMode ? dueCards[currentIndex] : null;
@@ -2367,6 +2533,16 @@
       setupFillBlankMode(c);
     }
     
+    // Setup timer mode if enabled
+    if(reviewMode === 'timer'){
+      setupTimerMode(c);
+    }
+    
+    // Setup active memory mode if enabled
+    if(reviewMode === 'activeMemory'){
+      setupActiveMemoryMode(c);
+    }
+    
     // update card status box (Nouveau / Maintenant)
     try{ renderCardStatus(c); }catch(e){}
     // record when this card was shown to compute XP based on time spent
@@ -2382,6 +2558,90 @@
     if(multiDeckMode && cardData){
       updateHistogramForDeck(cardData.deckKey);
     }
+  }
+  
+  function showTimerSettingsDialog(){
+    try{
+      if(document.getElementById('timerSettingsDialog')) return;
+      
+      const overlay = document.createElement('div');
+      overlay.id = 'timerSettingsDialog';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+      
+      const dialog = document.createElement('div');
+      dialog.style.cssText = 'background:white;border-radius:12px;padding:24px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
+      
+      const title = document.createElement('h2');
+      title.textContent = '⏱️ Temps de révision';
+      title.style.cssText = 'margin-top:0;margin-bottom:16px;color:#333;';
+      dialog.appendChild(title);
+      
+      const desc = document.createElement('p');
+      desc.textContent = 'Définissez le temps maximum pour voir chaque côté de la carte :';
+      desc.style.cssText = 'color:#666;margin-bottom:20px;';
+      dialog.appendChild(desc);
+      
+      // Front time input
+      const frontLabel = document.createElement('label');
+      frontLabel.textContent = 'Temps pour la face (secondes) :';
+      frontLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:#333;';
+      dialog.appendChild(frontLabel);
+      
+      const frontInput = document.createElement('input');
+      frontInput.type = 'number';
+      frontInput.value = timerSettings.frontTime;
+      frontInput.min = '1';
+      frontInput.max = '60';
+      frontInput.style.cssText = 'width:100%;padding:8px;border:1px solid var(--border-color);border-radius:4px;margin-bottom:16px;box-sizing:border-box;';
+      dialog.appendChild(frontInput);
+      
+      // Back time input
+      const backLabel = document.createElement('label');
+      backLabel.textContent = 'Temps pour le revers (secondes) :';
+      backLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:#333;';
+      dialog.appendChild(backLabel);
+      
+      const backInput = document.createElement('input');
+      backInput.type = 'number';
+      backInput.value = timerSettings.backTime;
+      backInput.min = '1';
+      backInput.max = '60';
+      backInput.style.cssText = 'width:100%;padding:8px;border:1px solid var(--border-color);border-radius:4px;margin-bottom:20px;box-sizing:border-box;';
+      dialog.appendChild(backInput);
+      
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.cssText = 'display:flex;gap:8px;';
+      
+      const confirmBtn = document.createElement('button');
+      confirmBtn.textContent = 'Confirmer';
+      confirmBtn.className = 'primary';
+      confirmBtn.addEventListener('click', () => {
+        timerSettings.frontTime = Math.max(1, parseInt(frontInput.value) || 10);
+        timerSettings.backTime = Math.max(1, parseInt(backInput.value) || 5);
+        localStorage.setItem(`fabanki:timer_settings:${deckKey}`, JSON.stringify(timerSettings));
+        overlay.remove();
+        
+        // Continue to first card after dialog is closed
+        setTimeout(() => {
+          continueWithFirstCard();
+        }, 100);
+      });
+      buttonContainer.appendChild(confirmBtn);
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Annuler';
+      cancelBtn.className = 'secondary';
+      cancelBtn.addEventListener('click', () => {
+        reviewMode = 'default';
+        localStorage.setItem(`fabanki:review_mode:${deckKey}`, 'default');
+        overlay.remove();
+      });
+      buttonContainer.appendChild(cancelBtn);
+      
+      dialog.appendChild(buttonContainer);
+      overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
+    }catch(e){ console.warn('Timer settings dialog error:', e); }
   }
   
   function setupFillBlankMode(card){
@@ -2420,6 +2680,660 @@
     
     // Focus input automatically
     setTimeout(() => input.focus(), 100);
+  }
+  
+  function setupTimerMode(card){
+    // Load saved timer settings
+    const savedSettings = localStorage.getItem(`fabanki:timer_settings:${deckKey}`);
+    if(savedSettings){
+      try{
+        timerSettings = JSON.parse(savedSettings);
+      }catch(e){}
+    }
+    
+    // Calculate adjusted time based on card size
+    let adjustedFrontTime = timerSettings.frontTime;
+    let adjustedBackTime = timerSettings.backTime;
+    
+    // Get card content length
+    if(card && card.fields){
+      const fieldOrder = card._fieldOrder || Object.keys(card.fields);
+      const meanCardLength = 200; // Approximate mean character count for a card
+      
+      if(fieldOrder.length > 0){
+        const frontFieldName = fieldOrder[0];
+        const frontField = card.fields[frontFieldName];
+        const frontContent = typeof frontField === 'string' ? frontField : '';
+        const frontLength = frontContent.replace(/<[^>]*>/g, '').length; // Remove HTML
+        
+        if(frontLength > 1.5 * meanCardLength){
+          adjustedFrontTime = timerSettings.frontTime * 1.3; // Add 30% time
+        }
+      }
+      
+      if(fieldOrder.length > 1){
+        const backFieldName = fieldOrder[1];
+        const backField = card.fields[backFieldName];
+        const backContent = typeof backField === 'string' ? backField : '';
+        const backLength = backContent.replace(/<[^>]*>/g, '').length; // Remove HTML
+        
+        if(backLength > 1.5 * meanCardLength){
+          adjustedBackTime = timerSettings.backTime * 1.3; // Add 30% time
+        }
+      }
+    }
+    
+    // Initialize timer state
+    if(!window.timerModeState){
+      window.timerModeState = {
+        cardStartTime: Date.now(),
+        frontCardStartTime: Date.now(),
+        isShowingBack: false,
+        currentTimeLimit: adjustedFrontTime * 1000,
+        autoClickActive: false,
+        timeoutHandle: null,
+        animationHandle: null,
+        fixedButtonState: null
+      };
+    }else{
+      window.timerModeState.cardStartTime = Date.now();
+      window.timerModeState.frontCardStartTime = Date.now();
+      window.timerModeState.isShowingBack = false;
+      window.timerModeState.currentTimeLimit = adjustedFrontTime * 1000;
+      window.timerModeState.fixedButtonState = null;
+    }
+    
+    // Remove existing timer UI
+    const existingTimer = document.getElementById('timerModeContainer');
+    if(existingTimer) existingTimer.remove();
+    
+    const cardArea = document.getElementById('cardArea');
+    if(!cardArea) return;
+    
+    // Create timer container
+    const container = document.createElement('div');
+    container.id = 'timerModeContainer';
+    container.style.cssText = 'margin-top:16px;padding:12px;background:#f0f9ff;border-radius:8px;border:1px solid #bfdbfe;';
+    
+    // Timer bar
+    const timerBar = document.createElement('div');
+    timerBar.id = 'timerBar';
+    timerBar.style.cssText = 'width:100%;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;margin-bottom:8px;';
+    
+    const timerFill = document.createElement('div');
+    timerFill.id = 'timerFill';
+    timerFill.style.cssText = 'height:100%;background:#10b981;width:0%;transition:width 0.1s linear;';
+    
+    timerBar.appendChild(timerFill);
+    container.appendChild(timerBar);
+    
+    // Timer text
+    const timerText = document.createElement('div');
+    timerText.id = 'timerText';
+    timerText.style.cssText = 'font-size:0.85em;color:#666;text-align:center;';
+    timerText.textContent = `Face: ${Math.ceil(adjustedFrontTime)}s`;
+    container.appendChild(timerText);
+    
+    cardArea.appendChild(container);
+    
+    // Start timer animation (only if not paused for onboarding)
+    if(!window.__timerPausedForOnboarding){
+      startTimerAnimation();
+    }
+  }
+  
+  function setupActiveMemoryMode(card){
+    // Show front for 3 seconds with blue progress bar timer, then hide it until "Afficher la Réponse" is clicked
+    // Skip if paused for onboarding
+    if(window.__activeMemoryPausedForOnboarding) return;
+    
+    const frontEl = $('#front');
+    if(frontEl){
+      frontEl.style.display = 'flex';
+      
+      // Remove any existing timer container and create a fresh one for each card
+      const existingContainer = document.getElementById('activeMemoryTimerContainer');
+      if(existingContainer) existingContainer.remove();
+      
+      const timerContainer = document.createElement('div');
+      timerContainer.id = 'activeMemoryTimerContainer';
+      timerContainer.style.cssText = 'margin-top:12px;padding:8px;background:#f0f9ff;border-radius:8px;border:1px solid #bfdbfe;';
+      
+      const timerBar = document.createElement('div');
+      timerBar.id = 'activeMemoryBar';
+      timerBar.style.cssText = 'width:100%;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;';
+      
+      const fillDiv = document.createElement('div');
+      fillDiv.id = 'activeMemoryFill';
+      fillDiv.style.cssText = 'width:0%;height:100%;background:#3b82f6;';
+      timerBar.appendChild(fillDiv);
+      
+      timerContainer.appendChild(timerBar);
+      
+      // Insert timer below the card content (find cardArea and append after it)
+      const cardArea = document.getElementById('cardArea');
+      if(cardArea){
+        cardArea.appendChild(timerContainer);
+      }
+      
+      const timerFill = document.getElementById('activeMemoryFill');
+      const startTime = Date.now();
+      const duration = 3000; // Always 3 seconds for each card
+      
+      // Store the timer state for this card
+      window.__activeMemoryTimerState = {
+        startTime: startTime,
+        duration: duration,
+        timerContainer: timerContainer,
+        timerFill: timerFill,
+        frontEl: frontEl,
+        animationHandle: null,
+        timeoutHandle: null
+      };
+      
+      const updateTimer = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(100, (elapsed / duration) * 100);
+        if(timerFill){
+          timerFill.style.width = progress + '%';
+        }
+        
+        if(progress < 100){
+          window.__activeMemoryTimerState.animationHandle = requestAnimationFrame(updateTimer);
+        } else {
+          if(timerContainer) timerContainer.style.display = 'none';
+        }
+      };
+      
+      window.__activeMemoryTimerState.animationHandle = requestAnimationFrame(updateTimer);
+      
+      // Hide front after 3 seconds
+      const hideTimeout = setTimeout(() => {
+        if(frontEl && reviewMode === 'activeMemory'){
+          frontEl.style.display = 'none';
+          frontEl.style.flex = '0 0 auto';
+        }
+        if(timerContainer) timerContainer.style.display = 'none';
+      }, duration);
+      
+      window.__activeMemoryTimerState.timeoutHandle = hideTimeout;
+    }
+  }
+  
+  // Show onboarding specific to each mode (fillblank, timer, activeMemory)
+  function showModeOnboarding(mode){
+    try{
+      if(!mode || mode === 'default') return;
+      
+      const flag = `fabanki:mode_onboarding_${mode}`;
+      if(localStorage.getItem(flag) === 'true') {
+        // Onboarding already shown, make sure pause flags are cleared
+        window.__timerPausedForOnboarding = false;
+        window.__activeMemoryPausedForOnboarding = false;
+        return;
+      }
+      
+      localStorage.setItem(flag, 'true');
+      
+      let steps = [];
+      
+      if(mode === 'fillblank'){
+        steps = [
+          {
+            title: '✍️ Mode entrée libre',
+            text: 'Bienvenue en mode entrée libre! Vous allez devoir réécrire les mots ou les phrases. Soyez précis!',
+            target: 'front',
+            position: 'bottom'
+          },
+          {
+            title: 'Tapez votre réponse',
+            text: 'Écrivez les lettres manquantes exactement. Les accents et majuscules comptent! Une fois satisfait, appuyez sur Entrée ou cliquez Valider.',
+            target: 'fillBlankInput',
+            position: 'top'
+          },
+          {
+            title: 'Validation intelligente',
+            text: 'Notre système comprend les petites erreurs (accents, majuscules). Si vous avez 80%+ correct, c\'est "Bon"! Sinon si c\'est 50%+, c\'est "Partiel".',
+            target: 'back',
+            position: 'top'
+          },
+          {
+            title: 'Double récompense',
+            text: 'Le mode entrée libre vous rapporte 2x plus d\'XP et 2.5x plus de crédits! Cela récompense votre précision. Plus difficile = plus lucratif!',
+            target: 'none',
+            position: 'center'
+          }
+        ];
+      } else if(mode === 'timer'){
+        steps = [
+          {
+            title: '⏱️ Mode Rappel sous pression',
+            text: 'Bienvenue en mode Rappel sous pression! Vous avez un temps limité pour répondre. Testez votre rapidité!',
+            target: 'timerModeContainer',
+            position: 'bottom'
+          },
+          {
+            title: 'Barre de progression colorée',
+            text: 'La barre du bas change de couleur: Vert (Facile) → Bleu (Bon) → Orange (Difficile). Cela vous montre le temps restant rapidement.',
+            target: 'timerBar',
+            position: 'bottom'
+          },
+          {
+            title: 'Soyez rapide!',
+            text: 'Vous n\'avez que peu de temps pour répondre. Plus vous cliquez vite sur "Afficher la réponse", plus vous pouvez vous mettre une bonne note.',
+            target: 'respButtons',
+            position: 'top'
+          },
+          {
+            title: 'Auto-avance automatique',
+            text: 'Au revers, si le temps expire, votre résultat est clické automatiquement (on part du principe que ce n\'est pas raté). Vous pouvez aussi répondre manuellement avant la fin.',
+            target: 'respButtons',
+            position: 'top'
+          },
+          {
+            title: 'Bonus XP',
+            text: 'Le mode Rappel sous pression vous rapporte 1.2x XP supplémentaire. Bonne révision!',
+            target: 'none',
+            position: 'center'
+          }
+        ];
+      } else if(mode === 'activeMemory'){
+        steps = [
+          {
+            title: '🧠 Mode Mémoire active',
+            text: 'Bienvenue en mode Mémoire active! Vous avez 3 secondes pour lire la question, puis elle disparaît. Engagez votre mémoire!',
+            target: 'front',
+            position: 'bottom'
+          },
+          {
+            title: 'Compte à rebours de 3 secondes',
+            text: 'Une barre bleue progresse pendant 3 secondes. Lisez vite et mémorisez bien car elle disparaîtra après!',
+            target: 'activeMemoryTimerContainer',
+            position: 'bottom'
+          },
+          {
+            title: 'La question disparaît',
+            text: 'Une fois les 3 secondes écoulées, la question disparaît. Vous ne verrez que le bouton "Afficher la réponse".',
+            target: 'showAnswer',
+            position: 'top'
+          },
+          {
+            title: 'Répondez de mémoire',
+            text: 'Essayez de répondre sans voir la question. Cliquez "Afficher la réponse" quand vous êtes prêt.',
+            target: 'showAnswer',
+            position: 'top'
+          },
+          {
+            title: 'Amélioration de la rétention',
+            text: 'Ce mode force votre cerveau à former des connexions plus fortes. Vous mémoriserez mieux à long terme! Bonus de 1.1x XP pour ce mode.',
+            target: 'none',
+            position: 'center'
+          }
+        ];
+      }
+      
+      if(steps.length > 0){
+        // Pause timer modes before showing onboarding
+        const wasPaused = window.__timerPausedForOnboarding;
+        if(!wasPaused && window.timerModeState && window.timerModeState.animationHandle){
+          cancelAnimationFrame(window.timerModeState.animationHandle);
+          window.timerModeState.animationHandle = null;
+          window.__timerPausedForOnboarding = true;
+        }
+        // Also pause active memory timer if running
+        window.__activeMemoryPausedForOnboarding = true;
+        
+        createContextualOnboarding(steps, flag);
+      }
+    }catch(e){ console.warn('mode onboarding error:', e) }
+  }
+  
+  // Onboarding system - shows contextual help for each mode
+  function showReviewOnboarding(){
+    const mode = reviewMode || 'default';
+    const onboardingShown = localStorage.getItem(`fabanki:onboarding_${mode}`) === 'true';
+    
+    // Show onboarding only once per mode
+    if(onboardingShown) return;
+    localStorage.setItem(`fabanki:onboarding_${mode}`, 'true');
+    
+    const ov = document.createElement('div');
+    ov.className = 'modal-overlay';
+    ov.style.cssText = 'display:flex;align-items:center;justify-content:center;z-index:2500;';
+    
+    const m = document.createElement('div');
+    m.className = 'modal';
+    m.style.cssText = 'max-width:500px;';
+    
+    let title = '';
+    let content = '';
+    
+    switch(mode){
+      case 'fillblank':
+        title = '✍️ Mode Texte à trou';
+        content = `
+          <p><strong>Bienvenue en mode Texte à trou!</strong></p>
+          <p>Complétez les mots manquants dans les phrases. Vous devez écrire exactement ce qui manque.</p>
+          <ul style="text-align:left;margin:12px 0;">
+            <li>📝 Lisez la phrase avec les trous</li>
+            <li>⌨️ Tapez les lettres manquantes</li>
+            <li>✅ Validez votre réponse</li>
+            <li>💰 Gagnez 2x plus d'XP pour cette précision!</li>
+          </ul>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>💡 Conseil:</strong> Les lettres manquantes s'affichent en vert après révélation.</p>
+        `;
+        break;
+      
+      case 'timer':
+        title = '⏱️ Mode Rappel sous pression';
+        content = `
+          <p><strong>Bienvenue en mode Rappel sous pression!</strong></p>
+          <p>Testez votre rapidité sous pression temporelle. Plus vous êtes rapide, meilleure votre note!</p>
+          <ul style="text-align:left;margin:12px 0;">
+            <li>👀 Un chronomètre compte à rebours</li>
+            <li>🎨 Barre verte → bleue → orange</li>
+            <li>📌 Un seul bouton visible à la fois</li>
+            <li>⚡ Auto-avance à la fin du chrono</li>
+            <li>💫 Gagnez 1.2x d'XP!</li>
+          </ul>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>🔵 Note:</strong> Le côté Revers reste toujours bleu (moins de pression).</p>
+        `;
+        break;
+      
+      case 'activeMemory':
+        title = '🧠 Mode Mémoire active';
+        content = `
+          <p><strong>Bienvenue en mode Mémoire active!</strong></p>
+          <p>3 secondes pour lire la question, puis elle disparaît. Engagez votre mémoire!</p>
+          <ul style="text-align:left;margin:12px 0;">
+            <li>⏱️ 3 secondes pour lire l'avant</li>
+            <li>💭 L'avant se cache après les 3 sec</li>
+            <li>🔵 Une barre de progression bleue</li>
+            <li>📚 Répondez de mémoire</li>
+            <li>✨ Gagnez 1.1x d'XP!</li>
+          </ul>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>🎯 Astuce:</strong> Vérifiez votre réponse en cliquant "Afficher la réponse".</p>
+        `;
+        break;
+      
+      default:
+        title = '📚 Bienvenue dans Fab\'Anki!';
+        content = `
+          <p><strong>Vous êtes en mode Anki (Défaut).</strong></p>
+          <p>Mode classique de révision avec l'algorithme SM-2. Pas de pression, apprenez à votre rythme.</p>
+          <ul style="text-align:left;margin:12px 0;">
+            <li>📖 Lisez la question</li>
+            <li>🤔 Réfléchissez à la réponse</li>
+            <li>👀 Cliquez "Afficher la réponse"</li>
+            <li>⭐ Notez votre réponse: Facile, Bon, Difficile, Raté</li>
+            <li>💯 Gagnez de l'XP!</li>
+          </ul>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>💡 Conseil:</strong> Essayez d'autres modes depuis "Parcourir decks"!</p>
+        `;
+        break;
+    }
+    
+    const h = document.createElement('h3');
+    h.textContent = title;
+    h.style.cssText = 'margin-top:0;margin-bottom:16px;';
+    m.appendChild(h);
+    
+    const desc = document.createElement('div');
+    desc.innerHTML = content;
+    desc.style.cssText = 'font-size:0.95rem;line-height:1.6;';
+    m.appendChild(desc);
+    
+    const btnWrap = document.createElement('div');
+    btnWrap.style.cssText = 'display:flex;gap:8px;margin-top:20px;justify-content:flex-end;';
+    
+    const btn1 = document.createElement('button');
+    btn1.textContent = 'Ne plus afficher';
+    btn1.className = 'secondary';
+    btn1.addEventListener('click', () => ov.remove());
+    btnWrap.appendChild(btn1);
+    
+    const btn2 = document.createElement('button');
+    btn2.textContent = 'Compris!';
+    btn2.addEventListener('click', () => ov.remove());
+    btnWrap.appendChild(btn2);
+    
+    m.appendChild(btnWrap);
+    ov.appendChild(m);
+    document.body.appendChild(ov);
+  }
+  
+  function showMarketOnboarding(){
+    try{
+      if(localStorage.getItem('fabanki:market_onboarding_completed')) return;
+      if(document.getElementById('onboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: '🛍️ Bienvenue au Marché!',
+          text: 'Le Marché vous permet d\'acheter des fonctionnalités premium avec les crédits (ℂ) que vous gagnez en révisant!',
+          position: 'center'
+        },
+        {
+          title: '📚 Modes d\'étude',
+          text: 'Texte à trou (2x XP) - Complétez les mots manquants\nRappel sous pression (1.2x XP) - Mode chronométré\nMémoire active (1.1x XP - GRATUIT!) - 3 sec de lecture',
+          position: 'center'
+        },
+        {
+          title: '🎨 Personnalisations',
+          text: 'Débloquez : Couleurs de fond (Rose, Océan, Forêt, Dégradés), Motifs (Points, Grille, Vagues), Polices (Serif, Mono, Moderne), Couleurs de cartes et Animations!',
+          position: 'center'
+        },
+        {
+          title: '💰 Titres aléatoires',
+          text: 'Débloquez des titres aléatoires à différents niveaux de rareté. Votre titre s\'affiche sur le leaderboard pour montrer votre prestige!',
+          position: 'center'
+        },
+        {
+          title: '📈 Comment ça marche',
+          text: 'Gagnez de l\'XP et des crédits (ℂ) en révisant → Visitez le Marché pour acheter → Appliquez vos personnalisations dans votre profil (⚙️) → Choisissez votre mode dans "Parcourir decks"',
+          position: 'center'
+        },
+        {
+          title: '💡 Conseil',
+          text: 'Montez de niveau pour débloquer plus de personnalisations gratuites! Soyez régulier dans vos révisions pour accumuler crédits et XP rapidement.',
+          position: 'center'
+        }
+      ];
+      
+      createContextualOnboarding(steps, 'fabanki:market_onboarding_completed');
+    }catch(e){ console.warn('market onboarding error:', e) }
+  }
+  
+  function createTimerParticles(){
+    try{
+      const container = document.getElementById('timerModeContainer');
+      if(!container) return;
+      
+      // Create 8-10 particles
+      for(let i = 0; i < 10; i++){
+        const particle = document.createElement('div');
+        particle.style.cssText = `
+          position: fixed;
+          pointer-events: none;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #ef4444;
+          box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+          z-index: 1000;
+        `;
+        
+        // Random starting position near the timer
+        const rect = container.getBoundingClientRect();
+        const startX = rect.left + Math.random() * rect.width;
+        const startY = rect.top + rect.height / 2;
+        
+        particle.style.left = startX + 'px';
+        particle.style.top = startY + 'px';
+        
+        document.body.appendChild(particle);
+        
+        // Animate particle upward
+        const duration = 1000 + Math.random() * 500;
+        const startTime = Date.now();
+        const vx = (Math.random() - 0.5) * 200;
+        const vy = -100 - Math.random() * 150;
+        
+        const animateParticle = () => {
+          const elapsed = Date.now() - startTime;
+          const progress = elapsed / duration;
+          
+          if(progress >= 1){
+            particle.remove();
+            return;
+          }
+          
+          const x = startX + vx * progress;
+          const y = startY + vy * progress + 50 * progress * progress;
+          const opacity = 1 - progress;
+          
+          particle.style.left = x + 'px';
+          particle.style.top = y + 'px';
+          particle.style.opacity = opacity;
+          
+          requestAnimationFrame(animateParticle);
+        };
+        
+        animateParticle();
+      }
+    }catch(e){ console.warn('Particle effect error:', e); }
+  }
+  
+  function startTimerAnimation(){
+    if(!window.timerModeState) return;
+    
+    const animate = () => {
+      const state = window.timerModeState;
+      const elapsed = Date.now() - state.cardStartTime;
+      const progress = Math.min(100, (elapsed / state.currentTimeLimit) * 100);
+      
+      const fill = document.getElementById('timerFill');
+      const text = document.getElementById('timerText');
+      
+      if(fill){
+        fill.style.width = progress + '%';
+        
+        // Change color based on progress: Green → Blue → Orange → Red
+        if(progress < 30){
+          fill.style.background = '#10b981';  // Green
+        } else if(progress < 60){
+          fill.style.background = '#3b82f6';  // Blue
+        } else if(progress < 95){
+          fill.style.background = '#f6c73b';  // Orange
+        } else {
+          fill.style.background = '#ef4444';  // Red
+        }
+      }
+      
+      if(text){
+        const remaining = Math.max(0, Math.ceil((state.currentTimeLimit - elapsed) / 1000));
+        const side = state.isShowingBack ? 'Revers' : 'Face';
+        text.textContent = `${side}: ${remaining}s`;
+      }
+      
+      // Update button visibility based on time progress
+      updateTimerButtonVisibility(progress);
+      
+      // Create particles at 75% progress
+      if(progress > 75 && !state.particlesStarted){
+        state.particlesStarted = true;
+        createTimerParticles();
+      }
+      
+      // Auto-click when time expires
+      if(progress >= 100 && !state.autoClickActive){
+        autoClickTimerButton();
+      }
+      
+      state.animationHandle = requestAnimationFrame(animate);
+    };
+    
+    window.timerModeState.animationHandle = requestAnimationFrame(animate);
+  }
+  
+  function autoClickTimerButton(){
+    if(!window.timerModeState) return;
+    window.timerModeState.autoClickActive = true;
+    
+    // Get all response buttons (Facile > Bon > Difficile > Raté)
+    const easyBtn = document.getElementById('easy');
+    const goodBtn = document.getElementById('good');
+    const hardBtn = document.getElementById('hard');
+    const failBtn = document.getElementById('again');
+    
+    // Check visibility and priority (from best to worst)
+    // Only click if button is actually visible (not just display !== 'none')
+    let buttonToClick = null;
+    
+    const isVisible = (btn) => {
+      if(!btn) return false;
+      const style = window.getComputedStyle(btn);
+      return style.display !== 'none' && style.visibility !== 'hidden';
+    };
+    
+    if(isVisible(easyBtn)){
+      buttonToClick = easyBtn;
+    } else if(isVisible(goodBtn)){
+      buttonToClick = goodBtn;
+    } else if(isVisible(hardBtn)){
+      buttonToClick = hardBtn;
+    } else if(isVisible(failBtn)){
+      buttonToClick = failBtn;
+    }
+    
+    if(buttonToClick && !buttonToClick.disabled){
+      buttonToClick.click();
+      // Auto-advance to next card after button click
+      setTimeout(() => {
+        currentIndex++;
+        try{
+          if(typeof showNextCard === 'function'){
+            showNextCard();
+          }
+        }catch(e){ console.warn('Auto-advance error:', e); }
+      }, 500);
+    }
+  }
+  
+  function updateTimerButtonVisibility(progress){
+    const easyBtn = document.getElementById('easy');
+    const goodBtn = document.getElementById('good');
+    const hardBtn = document.getElementById('hard');
+    const failBtn = document.getElementById('again');
+    
+    // If button state is fixed (answer has been shown), show the fixed button PLUS always show Raté
+    if(window.timerModeState && window.timerModeState.fixedButtonState){
+      const fixed = window.timerModeState.fixedButtonState;
+      
+      if(easyBtn) easyBtn.style.display = fixed === 'easy' ? 'inline-block' : 'none';
+      if(goodBtn) goodBtn.style.display = fixed === 'good' ? 'inline-block' : 'none';
+      if(hardBtn) hardBtn.style.display = fixed === 'hard' ? 'inline-block' : 'none';
+      // Always show Raté button when back content is shown
+      if(failBtn) failBtn.style.display = 'inline-block';
+      return;
+    }
+    
+    // Hide all buttons by default
+    if(easyBtn) easyBtn.style.display = 'none';
+    if(goodBtn) goodBtn.style.display = 'none';
+    if(hardBtn) hardBtn.style.display = 'none';
+    if(failBtn) failBtn.style.display = 'none';
+    
+    // Show only appropriate button based on progress (before answer is shown)
+    if(progress < 20 && easyBtn){
+      easyBtn.style.display = 'inline-block';
+    } else if(progress < 60 && goodBtn){
+      goodBtn.style.display = 'inline-block';
+    } else if(progress < 100 && hardBtn){
+      hardBtn.style.display = 'inline-block';
+    } else if(progress >= 100 && failBtn){
+      failBtn.style.display = 'inline-block';
+    }
   }
   
   function validateFillBlank(card){
@@ -2569,6 +3483,53 @@
     return checkAnswerVariant(userNormalized, answers[0]);
   }
   
+  function alignAndCompareLetters(userAnswer, correctAnswer){
+    // For detecting offset letters when a word is missing
+    // Example: user has "sits" but correct is "stands" - should detect 'sit' matching
+    // or if correct is "The stands" and user has "stands" - should be Bon
+    
+    // Split into words
+    const userWords = userAnswer.split(/\s+/).filter(w => w.length > 0);
+    const correctWords = correctAnswer.split(/\s+/).filter(w => w.length > 0);
+    
+    if(userWords.length === correctWords.length){
+      // Same number of words - compare position by position
+      let totalMatchRatio = 0;
+      for(let i = 0; i < userWords.length; i++){
+        const userWord = userWords[i];
+        const correctWord = correctWords[i];
+        const similarity = calculateWordSimilarity(userWord, correctWord);
+        totalMatchRatio += similarity;
+      }
+      return totalMatchRatio / userWords.length;
+    } else {
+      // Different number of words - find best alignment
+      // Try to find which words match which
+      let bestRatio = 0;
+      
+      // Try to find contiguous matching words
+      for(let startCorrect = 0; startCorrect <= correctWords.length - userWords.length; startCorrect++){
+        let ratio = 0;
+        for(let i = 0; i < userWords.length; i++){
+          const userWord = userWords[i];
+          const correctWord = correctWords[startCorrect + i];
+          ratio += calculateWordSimilarity(userWord, correctWord);
+        }
+        ratio /= userWords.length;
+        bestRatio = Math.max(bestRatio, ratio);
+      }
+      
+      return bestRatio;
+    }
+  }
+  
+  function calculateWordSimilarity(word1, word2){
+    // Return a number 0-1 representing how similar two words are
+    const lcs = getLongestCommonSubsequence(word1, word2);
+    const maxLen = Math.max(word1.length, word2.length);
+    return maxLen > 0 ? lcs.length / maxLen : (word1 === word2 ? 1 : 0);
+  }
+  
   function checkAnswerVariant(userAnswer, correctAnswer){
     // SPECIAL CASE: Handle phrases with special keywords like "emphasizes / lays emphasis on"
     // If the correct answer contains patterns like "word1 / word2 pattern", apply advanced matching
@@ -2600,24 +3561,44 @@
       return { quality: 4, message: 'Bon', isCorrect: false, diff: similarity.diff };
     }
     
-    // Less than 20% character errors -> Hard (quality 3)
+    // Check if this is a case of missing words with matching letters
+    // If user has fewer words but the letters align well with some words, it might be Bon
+    const letterAlignment = alignAndCompareLetters(userCleaned, correctCleaned);
+    if(letterAlignment > 0.85){
+      return { quality: 4, message: 'Bon', isCorrect: false, diff: similarity.diff };
+    }
+    
+    // Less than 50% character errors -> Hard (quality 3)
     if(charErrorRate < 0.50){
       return { quality: 3, message: 'Partiel', isCorrect: false, diff: similarity.diff };
     }
     
     // Check each part before slashes
     const parts = correctCleaned.split('/').map(p => p.trim()).filter(p => p.length > 0);
+    let bestPartialMatch = null;
     for(const part of parts){
       const partSimilarity = calculateSimilarity(userCleaned, part);
-      // If one variant matches exactly or with <20% errors, it's valid
-      if(userCleaned === part || partSimilarity.errorRate < 0.20){
+      // If one variant matches exactly, it's valid (Validé)
+      if(userCleaned === part){
         return { quality: 5, message: 'Validé', isCorrect: true };
       }
-      // If variant matches with <20% errors but not exact, it's Hard
-      if(partSimilarity.errorRate < 0.50){
-        return { quality: 3, message: 'Partiel', isCorrect: false, diff: partSimilarity.diff };
+      // If variant matches with <20% errors, it's Good (Bon) - user got one of the options
+      if(partSimilarity.errorRate < 0.20){
+        return { quality: 4, message: 'Bon', isCorrect: false, diff: partSimilarity.diff };
+      }
+      // Check letter alignment for this part too
+      const partLetterAlignment = alignAndCompareLetters(userCleaned, part);
+      if(partLetterAlignment > 0.85){
+        return { quality: 4, message: 'Bon', isCorrect: false, diff: partSimilarity.diff };
+      }
+      // If variant matches with <50% errors, remember as best partial match
+      if(partSimilarity.errorRate < 0.50 && !bestPartialMatch){
+        bestPartialMatch = { quality: 3, message: 'Partiel', isCorrect: false, diff: partSimilarity.diff };
       }
     }
+    
+    // If we found a partial match, return it
+    if(bestPartialMatch) return bestPartialMatch;
     
     // Default: Raté (quality 0)
     return { quality: 0, message: 'Raté', isCorrect: false, diff: similarity.diff };
@@ -2825,25 +3806,32 @@
     let html = '';
     const chars = userAnswer.split('');
     const extraSet = new Set(diff.extra.map(e => e.idx));
-    const missingSet = new Set(diff.missing.map(m => m.idx));
+    const missingMap = new Map(diff.missing.map(m => [m.idx, m.char]));
     
+    // Build string with missing characters inserted at correct positions
+    let resultChars = [];
     for(let i = 0; i < chars.length; i++){
       if(extraSet.has(i)){
-        html += `<span style="text-decoration:line-through;color:#e74c3c;">${escapeHtml(chars[i])}</span>`;
+        resultChars.push({char: chars[i], type: 'extra'});
       } else {
-        html += escapeHtml(chars[i]);
+        resultChars.push({char: chars[i], type: 'normal'});
+      }
+      // Insert missing character after this position if it exists
+      if(missingMap.has(i)){
+        resultChars.push({char: missingMap.get(i), type: 'missing'});
       }
     }
     
-    // Add missing characters in green
-    if(diff.missing.length > 0){
-      html += '<span style="color:#2ecc71;"> (manquants: ';
-      diff.missing.forEach((m, idx) => {
-        if(idx > 0) html += ', ';
-        html += escapeHtml(m.char);
-      });
-      html += ')</span>';
-    }
+    // Render with proper styling
+    resultChars.forEach((item) => {
+      if(item.type === 'extra'){
+        html += `<span style="text-decoration:line-through;color:#e74c3c;">${escapeHtml(item.char)}</span>`;
+      } else if(item.type === 'missing'){
+        html += `<span style="color:#2ecc71;">${escapeHtml(item.char)}</span>`;
+      } else {
+        html += escapeHtml(item.char);
+      }
+    });
     
     return html;
   }
@@ -2868,6 +3856,63 @@
       console.log('showAnswer clicked - renderBack will be called once');
       renderBack(c);
       console.log('renderBack completed');
+      
+      // For Active Memory mode, stop the timer
+      if(reviewMode === 'activeMemory' && window.__activeMemoryTimerState){
+        if(window.__activeMemoryTimerState.animationHandle){
+          cancelAnimationFrame(window.__activeMemoryTimerState.animationHandle);
+        }
+        if(window.__activeMemoryTimerState.timeoutHandle){
+          clearTimeout(window.__activeMemoryTimerState.timeoutHandle);
+        }
+      }
+      
+      // For timer mode, update timer state with adjusted back time
+      if(reviewMode === 'timer' && window.timerModeState && c){
+        let adjustedBackTime = timerSettings.backTime;
+        
+        // Check back content length for size adjustment
+        if(c.fields){
+          const fieldOrder = c._fieldOrder || Object.keys(c.fields);
+          const meanCardLength = 200;
+          
+          if(fieldOrder.length > 1){
+            const backFieldName = fieldOrder[1];
+            const backField = c.fields[backFieldName];
+            const backContent = typeof backField === 'string' ? backField : '';
+            const backLength = backContent.replace(/<[^>]*>/g, '').length;
+            
+            if(backLength > 1.5 * meanCardLength){
+              adjustedBackTime = timerSettings.backTime * 1.3;
+            }
+          }
+        }
+        
+        window.timerModeState.isShowingBack = true;
+        window.timerModeState.cardStartTime = Date.now();
+        window.timerModeState.currentTimeLimit = adjustedBackTime * 1000;
+        window.timerModeState.autoClickActive = false;
+        
+        // FIX BUTTON VISIBILITY based on time spent on front
+        const timeSpentOnFront = (Date.now() - window.timerModeState.frontCardStartTime) / 1000;
+        const totalFrontTime = timerSettings.frontTime;
+        const frontProgress = Math.min(100, (timeSpentOnFront / totalFrontTime) * 100);
+        
+        // Determine which button to show and lock it
+        let buttonToShow = null;
+        if(frontProgress < 20){
+          buttonToShow = 'easy';
+        } else if(frontProgress < 60){
+          buttonToShow = 'good';
+        } else if(frontProgress < 100){
+          buttonToShow = 'hard';
+        } else {
+          buttonToShow = 'fail';
+        }
+        
+        window.timerModeState.fixedButtonState = buttonToShow;
+      }
+      
       const frontEl = $('#front');
       const backEl = $('#back');
       const respBtn = $('#respButtons');
@@ -3231,6 +4276,16 @@
       const c = cardData ? cardData.card : dueCards[currentIndex];
       if(!c) return;
       answerLocked = true;
+      
+      // For Active Memory mode: stop the current timer
+      if(reviewMode === 'activeMemory' && window.__activeMemoryTimerState){
+        if(window.__activeMemoryTimerState.animationHandle){
+          cancelAnimationFrame(window.__activeMemoryTimerState.animationHandle);
+        }
+        if(window.__activeMemoryTimerState.timeoutHandle){
+          clearTimeout(window.__activeMemoryTimerState.timeoutHandle);
+        }
+      }
       
       const origStorageKey = storageKey; // save original
       
@@ -4437,6 +5492,17 @@
           }catch(e){ console.warn('customize error', e) }
         });
         rankBtnWrap.appendChild(customizeBtn);
+        // Theme personalization button
+        const themeBtn = document.createElement('button'); themeBtn.className='secondary'; themeBtn.textContent='🎨';
+        themeBtn.title = 'Personnalisation du thème';
+        themeBtn.addEventListener('click', ()=>{
+          try{
+            if(typeof showCustomizationModal === 'function'){
+              showCustomizationModal();
+            }
+          }catch(e){ console.warn('theme popup error', e) }
+        });
+        rankBtnWrap.appendChild(themeBtn);
         // Daily goal button
         const dailyGoalBtn = document.createElement('button'); dailyGoalBtn.className='secondary'; dailyGoalBtn.textContent='🎯';
         dailyGoalBtn.title = 'Objectif quotidien';
@@ -4528,6 +5594,11 @@
     // === MARKET PAGE ===
     async function showMarketPage(){
       try{
+        // Show onboarding on first visit
+        if(typeof showMarketOnboarding === 'function'){
+          setTimeout(() => showMarketOnboarding(), 200);
+        }
+        
         // Prevent duplicates
         if(document.getElementById('marketContainer')) return;
         
@@ -4575,6 +5646,7 @@
         textModeSection.style.cssText = 'margin-bottom:40px;';
         
         const textModeItemId = 'mode_texte_trou';
+        const textModeCost = 100;
         const isTextModeUnlocked = localStorage.getItem(`fabanki:market_${textModeItemId}`);
         
         const textModeGrid = document.createElement('div');
@@ -4646,7 +5718,7 @@
         
         if(!isTextModeUnlocked){
           modeBtn.addEventListener('click', ()=>{
-            if(purchaseItem(textModeItemId, 100, ()=>{
+            if(purchaseItem(textModeItemId, textModeCost, ()=>{
               showMarketToast('Mode "Texte à trou" déverrouillé ! 🎉');
               showMarketPage();
             })){
@@ -4663,6 +5735,172 @@
         textModeGrid.appendChild(textModeCard);
         textModeSection.appendChild(textModeGrid);
         content.appendChild(textModeSection);
+        
+        // ===== SECTION 1B: MODE RAPPEL SOUS PRESSION =====
+        const timerModeSection = document.createElement('section');
+        timerModeSection.style.cssText = 'margin-bottom:40px;';
+        
+        const timerModeItemId = 'mode_rappel_sous_pression';
+        const timerModeCost = 100;
+        const isTimerModeUnlocked = localStorage.getItem(`fabanki:market_${timerModeItemId}`);
+        
+        const timerModeGrid = document.createElement('div');
+        timerModeGrid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:16px;';
+        
+        const timerModeCard = document.createElement('div');
+        const timerCardLayout = isMobile 
+          ? 'background:linear-gradient(135deg, #FF6B6B 0%, #FF8E72 100%);border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(255, 107, 107, 0.3);display:flex;flex-direction:column;gap:16px;color:#FFFFFF;'
+          : 'background:linear-gradient(135deg, #FF6B6B 0%, #FF8E72 100%);border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(255, 107, 107, 0.3);display:flex;align-items:center;gap:24px;color:#FFFFFF;';
+        timerModeCard.style.cssText = timerCardLayout;
+        
+        const timerIconDiv = document.createElement('div');
+        const timerIconStyle = isMobile 
+          ? 'font-size:3em;text-align:center;'
+          : 'font-size:4em;text-align:center;min-width:120px;';
+        timerIconDiv.style.cssText = timerIconStyle;
+        timerIconDiv.textContent = '⏱️🔥';
+        timerModeCard.appendChild(timerIconDiv);
+        
+        const timerContentDiv = document.createElement('div');
+        timerContentDiv.style.cssText = isMobile ? 'flex:1;text-align:center;' : 'flex:1;';
+        
+        const timerBadge = document.createElement('div');
+        timerBadge.style.cssText = isMobile
+          ? 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.8em;font-weight:700;margin-bottom:8px;'
+          : 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.85em;font-weight:700;margin-bottom:12px;';
+        timerBadge.textContent = '🆕 NOUVEAU MODE';
+        timerContentDiv.appendChild(timerBadge);
+        
+        const timerTitle = document.createElement('h3');
+        timerTitle.textContent = 'Mode Rappel sous pression';
+        timerTitle.style.cssText = isMobile 
+          ? 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.5em;'
+          : 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.8em;';
+        timerContentDiv.appendChild(timerTitle);
+        
+        const timerDesc = document.createElement('p');
+        timerDesc.textContent = 'Testez votre rapidité ! Vous avez un temps limité pour chaque question. Répondez avant que le temps s\'écoule. Gagnez 1.2x XP supplémentaire !';
+        timerDesc.style.cssText = isMobile
+          ? 'margin:0;font-size:0.9em;color:#FFFFFF;opacity:0.95;line-height:1.5;'
+          : 'margin:0;font-size:1em;color:#FFFFFF;opacity:0.95;line-height:1.5;';
+        timerContentDiv.appendChild(timerDesc);
+        
+        timerModeCard.appendChild(timerContentDiv);
+        
+        const timerBtnDiv = document.createElement('div');
+        timerBtnDiv.style.cssText = isMobile
+          ? 'display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;'
+          : 'display:flex;flex-direction:column;align-items:center;gap:8px;min-width:180px;';
+        
+        const timerPriceDiv = document.createElement('div');
+        timerPriceDiv.style.cssText = isMobile
+          ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
+          : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
+        timerPriceDiv.textContent = '100 ℂ';
+        timerBtnDiv.appendChild(timerPriceDiv);
+        
+        const timerBtn = document.createElement('button');
+        timerBtn.style.cssText = isMobile
+          ? 'width:100%;background:#FFFFFF;color:#FF6B6B;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
+          : 'width:100%;background:#FFFFFF;color:#FF6B6B;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
+        timerBtn.textContent = isTimerModeUnlocked ? '✓ Déverrouillé' : 'Débloquer';
+        timerBtn.disabled = !!isTimerModeUnlocked;
+        
+        if(!isTimerModeUnlocked){
+          timerBtn.addEventListener('click', ()=>{
+            if(purchaseItem(timerModeItemId, timerModeCost, ()=>{
+              showMarketToast('Mode "Rappel sous pression" déverrouillé ! 🎉');
+              showMarketPage();
+            })){
+              showMarketPage();
+            }
+          });
+          timerBtn.addEventListener('mouseover', ()=>{ timerBtn.style.background = '#f0f0f0'; });
+          timerBtn.addEventListener('mouseout', ()=>{ timerBtn.style.background = '#FFFFFF'; });
+        }
+        
+        timerBtnDiv.appendChild(timerBtn);
+        timerModeCard.appendChild(timerBtnDiv);
+        
+        timerModeGrid.appendChild(timerModeCard);
+        timerModeSection.appendChild(timerModeGrid);
+        content.appendChild(timerModeSection);
+        
+        // ===== SECTION 1C: MODE MÉMOIRE ACTIVE =====
+        const activeMemoryModeSection = document.createElement('section');
+        activeMemoryModeSection.style.cssText = 'margin-bottom:40px;';
+        
+        const activeMemoryModeItemId = 'mode_memoire_active';
+        const isActiveMemoryModeUnlocked = localStorage.getItem(`fabanki:market_${activeMemoryModeItemId}`) || 'true'; // Already unlocked
+        
+        const activeMemoryModeGrid = document.createElement('div');
+        activeMemoryModeGrid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:16px;';
+        
+        const activeMemoryModeCard = document.createElement('div');
+        const activeMemoryCardLayout = isMobile 
+          ? 'background:linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%);border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(108, 92, 231, 0.3);display:flex;flex-direction:column;gap:16px;color:#FFFFFF;'
+          : 'background:linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%);border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(108, 92, 231, 0.3);display:flex;align-items:center;gap:24px;color:#FFFFFF;';
+        activeMemoryModeCard.style.cssText = activeMemoryCardLayout;
+        
+        const activeMemoryIconDiv = document.createElement('div');
+        const activeMemoryIconStyle = isMobile 
+          ? 'font-size:3em;text-align:center;'
+          : 'font-size:4em;text-align:center;min-width:120px;';
+        activeMemoryIconDiv.style.cssText = activeMemoryIconStyle;
+        activeMemoryIconDiv.textContent = '🧠💡';
+        activeMemoryModeCard.appendChild(activeMemoryIconDiv);
+        
+        const activeMemoryContentDiv = document.createElement('div');
+        activeMemoryContentDiv.style.cssText = isMobile ? 'flex:1;text-align:center;' : 'flex:1;';
+        
+        const activeMemoryBadge = document.createElement('div');
+        activeMemoryBadge.style.cssText = isMobile
+          ? 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.8em;font-weight:700;margin-bottom:8px;'
+          : 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.85em;font-weight:700;margin-bottom:12px;';
+        activeMemoryBadge.textContent = '✓ DÉVERROUILLÉ';
+        activeMemoryContentDiv.appendChild(activeMemoryBadge);
+        
+        const activeMemoryTitle = document.createElement('h3');
+        activeMemoryTitle.textContent = 'Mode Mémoire active';
+        activeMemoryTitle.style.cssText = isMobile 
+          ? 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.5em;'
+          : 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.8em;';
+        activeMemoryContentDiv.appendChild(activeMemoryTitle);
+        
+        const activeMemoryDesc = document.createElement('p');
+        activeMemoryDesc.textContent = 'Entraînez votre mémoire active ! Vous avez 3 secondes pour mémoriser la question avant qu\'elle disparaisse. Relèvez le défi et gagnez 1.1x XP !';
+        activeMemoryDesc.style.cssText = isMobile
+          ? 'margin:0;font-size:0.9em;color:#FFFFFF;opacity:0.95;line-height:1.5;'
+          : 'margin:0;font-size:1em;color:#FFFFFF;opacity:0.95;line-height:1.5;';
+        activeMemoryContentDiv.appendChild(activeMemoryDesc);
+        
+        activeMemoryModeCard.appendChild(activeMemoryContentDiv);
+        
+        const activeMemoryBtnDiv = document.createElement('div');
+        activeMemoryBtnDiv.style.cssText = isMobile
+          ? 'display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;'
+          : 'display:flex;flex-direction:column;align-items:center;gap:8px;min-width:180px;';
+        
+        const activeMemoryStatusDiv = document.createElement('div');
+        activeMemoryStatusDiv.style.cssText = isMobile
+          ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
+          : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
+        activeMemoryStatusDiv.textContent = '✓ Offert';
+        activeMemoryBtnDiv.appendChild(activeMemoryStatusDiv);
+        
+        const activeMemoryBtn = document.createElement('button');
+        activeMemoryBtn.style.cssText = isMobile
+          ? 'width:100%;background:#FFFFFF;color:#6C5CE7;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
+          : 'width:100%;background:#FFFFFF;color:#6C5CE7;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
+        activeMemoryBtn.textContent = '✓ Déverrouillé';
+        activeMemoryBtn.disabled = true;
+        
+        activeMemoryBtnDiv.appendChild(activeMemoryBtn);
+        activeMemoryModeCard.appendChild(activeMemoryBtnDiv);
+        
+        activeMemoryModeGrid.appendChild(activeMemoryModeCard);
+        activeMemoryModeSection.appendChild(activeMemoryModeGrid);
+        content.appendChild(activeMemoryModeSection);
         
         // ===== SECTION 2: OFFRES SPÉCIALES (TITRES + XP) =====
         const specialsSection = document.createElement('section');
@@ -4920,17 +6158,87 @@
         content.appendChild(specialsSection);
         content.appendChild(decksSection);
         
-        // Section 3: Customization Items - HIDDEN WITH "EN CONSTRUCTION" MESSAGE
+        // Section 3: Customization Items
         const customSection = document.createElement('section');
+        customSection.style.cssText = 'margin-bottom:40px;';
         const customTitle = document.createElement('h3');
         customTitle.textContent = '🎨 Personnalisations';
         customTitle.style.cssText = 'font-size:1.5em;margin-bottom:16px;color:#666;';
         customSection.appendChild(customTitle);
         
-        const constructionMsg = document.createElement('div');
-        constructionMsg.style.cssText = 'background:#f0f0f0;border-left:4px solid #ffa500;padding:16px;border-radius:8px;color:#666;text-align:center;';
-        constructionMsg.innerHTML = '<h4 style="margin:0 0 8px 0;color:#ff8c00;">🚧 En construction</h4><p style="margin:0;">Cette section sera bientôt disponible avec plus de personnalisations !</p>';
-        customSection.appendChild(constructionMsg);
+        const customGrid = document.createElement('div');
+        customGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill, minmax(110px, 1fr));gap:12px;';
+        
+        const customizations = [
+          { id: 'bg_pink', name: 'Fond Rose', type: 'background', desc: 'Thème rose pastel', cost: 50, icon: '🌸' },
+          { id: 'bg_ocean', name: 'Fond Océan', type: 'background', desc: 'Bleu océan dynamique', cost: 50, icon: '🌊' },
+          { id: 'bg_forest', name: 'Fond Forêt', type: 'background', desc: 'Vert naturel apaisé', cost: 50, icon: '🌲' },
+          { id: 'card_glass', name: 'Cartes Verre', type: 'card_design', desc: 'Effet de verre dépoli', cost: 40, icon: '❄️' },
+          { id: 'card_neon', name: 'Cartes Néon', type: 'card_design', desc: 'Style cyberpunk lumineux', cost: 60, icon: '⚡' },
+          { id: 'font_serif', name: 'Police Serif', type: 'font', desc: 'Élégante et classique', cost: 30, icon: '𝓐' },
+          { id: 'font_mono', name: 'Police Mono', type: 'font', desc: 'Code et tech friendly', cost: 30, icon: '❰ ❱' },
+          { id: 'pattern_dots', name: 'Motif Points', type: 'pattern', desc: 'Pointillés subtils', cost: 35, icon: '·' },
+          { id: 'pattern_waves', name: 'Motif Vagues', type: 'pattern', desc: 'Ondulation fluide', cost: 35, icon: '∿' },
+          { id: 'glow_effect', name: 'Effet Lueur', type: 'effect', desc: 'Luminescence douce', cost: 45, icon: '✨' },
+          { id: 'shadow_deep', name: 'Ombre Profonde', type: 'effect', desc: 'Contraste dramatique', cost: 45, icon: '🌑' },
+          { id: 'animate_cards', name: 'Animation Cartes', type: 'effect', desc: 'Transitions fluides', cost: 55, icon: '🎬' }
+        ];
+        
+        customizations.forEach(custom => {
+          const itemId = `custom_${custom.id}`;
+          const isPurchased = localStorage.getItem(`fabanki:market_${itemId}`);
+          const currentCredits = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          
+          const card = document.createElement('div');
+          card.style.cssText = `padding:12px;border-radius:8px;border:2px solid ${isPurchased ? '#ccc' : '#ddd'};background:${isPurchased ? '#f5f5f5' : 'white'};display:flex;flex-direction:column;align-items:center;text-align:center;cursor:${isPurchased ? 'default' : 'pointer'};transition:all 0.2s;position:relative;`;
+          
+          if(isPurchased){
+            card.style.borderColor = '#4caf50';
+            card.style.background = 'rgba(76, 175, 80, 0.08)';
+          }
+          
+          const iconEl = document.createElement('div');
+          iconEl.style.cssText = 'font-size:2em;margin-bottom:6px;';
+          iconEl.textContent = custom.icon;
+          card.appendChild(iconEl);
+          
+          const nameEl = document.createElement('div');
+          nameEl.style.cssText = 'font-weight:600;font-size:0.8em;color:#333;margin-bottom:2px;line-height:1.2;';
+          nameEl.textContent = custom.name;
+          card.appendChild(nameEl);
+          
+          const priceEl = document.createElement('div');
+          priceEl.style.cssText = `font-size:0.75em;${isPurchased ? 'color:#4caf50;' : 'color:#667eea;'}font-weight:700;`;
+          priceEl.textContent = isPurchased ? '✓ Possédé' : custom.cost + ' ℂ';
+          card.appendChild(priceEl);
+          
+          if(!isPurchased){
+            card.addEventListener('mouseenter', () => {
+              card.style.borderColor = '#667eea';
+              card.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.2)';
+            });
+            card.addEventListener('mouseleave', () => {
+              card.style.borderColor = '#ddd';
+              card.style.boxShadow = 'none';
+            });
+            card.addEventListener('click', ()=>{
+              if(currentCredits < custom.cost){
+                showMarketToast(`Crédits insuffisants! Vous avez ${currentCredits} ℂ`);
+              } else {
+                if(purchaseItem(itemId, custom.cost, ()=>{
+                  showMarketToast(`"${custom.name}" déverrouillé ! 🎉`);
+                  showMarketPage();
+                })){
+                  showMarketPage();
+                }
+              }
+            });
+          }
+          
+          customGrid.appendChild(card);
+        });
+        
+        customSection.appendChild(customGrid);
         content.appendChild(customSection);
         
         container.appendChild(content);
@@ -5022,6 +6330,18 @@
     }
     function showDailyGoalMilestoneToast(reviewed, goal){
       try{
+        // Check if toast was already shown today
+        const today = new Date().toDateString();
+        const lastToastDate = localStorage.getItem('fabanki:daily_goal_toast_date');
+        
+        // Only show toast once per day
+        if(lastToastDate === today){
+          return; // Toast already shown today, skip
+        }
+        
+        // Mark that we've shown the toast today
+        localStorage.setItem('fabanki:daily_goal_toast_date', today);
+        
         const toast = document.createElement('div');
         toast.style.position = 'fixed';
         toast.style.top = '50%';
@@ -5959,8 +7279,11 @@
     function getCredits(){ return Number(localStorage.getItem('fabanki:credits') || 0); }
     function addCredits(amount){
       try{
-        if(amount <= 0) return 0;
-        let total = getCredits() + amount;
+        if(amount === 0) return 0;
+        let currentCredits = getCredits();
+        let total = currentCredits + amount;
+        // Prevent negative balance
+        if(total < 0) total = 0;
         localStorage.setItem('fabanki:credits', String(total));
         // Auto-sync after credits change
         setTimeout(() => autoSync().catch(e => console.warn('autoSync failed:', e)), 100);
@@ -6061,7 +7384,7 @@
         
         // Force initial mission progress update
         setTimeout(() => {
-          try{ if(typeof updateMissionProgress === 'function') updateMissionProgress(); }catch(e){}
+          updateMissionProgress();
         }, 100);
       }catch(e){ console.warn('initializeMissions error:', e) }
     }
@@ -6154,6 +7477,13 @@
         updateMission(weeklyMissions, 'study_300', weekCards, 'weekly');
         updateMission(weeklyMissions, 'study_600', weekCards, 'weekly');
         updateMission(weeklyMissions, 'study_1000', weekCards, 'weekly');
+        
+        // Update decks reviewed mission
+        try{
+          const decksReviewedToday = Number(localStorage.getItem('fabanki:decks_reviewed_today') || 0);
+          updateMission(dailyMissions, 'review_1', decksReviewedToday, 'daily');
+          console.log('[MISSION] Updating decks reviewed:', decksReviewedToday);
+        }catch(e){ console.warn('decks reviewed tracking error:', e) }
         
         // Update streak mission
         const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
@@ -6944,6 +8274,84 @@
         animationSection.appendChild(animationGrid);
         modal.appendChild(animationSection);
         
+        // ===== BUYABLE CUSTOMIZATION ITEMS =====
+        const buyableSection = document.createElement('div');
+        buyableSection.className = 'customization-section';
+        const buyableTitle = document.createElement('div');
+        buyableTitle.className = 'customization-section-title';
+        buyableTitle.textContent = '🛒 Thèmes à acheter au Marché';
+        buyableSection.appendChild(buyableTitle);
+        
+        const buyableCustomizations = [
+          { id: 'bg_pink', name: 'Fond Rose', type: 'background', desc: 'Thème rose pastel', cost: 50, icon: '🌸' },
+          { id: 'bg_ocean', name: 'Fond Océan', type: 'background', desc: 'Bleu océan dynamique', cost: 50, icon: '🌊' },
+          { id: 'bg_forest', name: 'Fond Forêt', type: 'background', desc: 'Vert naturel apaisé', cost: 50, icon: '🌲' },
+          { id: 'card_glass', name: 'Cartes Verre', type: 'card_design', desc: 'Effet de verre dépoli', cost: 40, icon: '❄️' },
+          { id: 'card_neon', name: 'Cartes Néon', type: 'card_design', desc: 'Style cyberpunk lumineux', cost: 60, icon: '⚡' },
+          { id: 'font_serif', name: 'Police Serif', type: 'font', desc: 'Élégante et classique', cost: 30, icon: '𝓐' },
+          { id: 'font_mono', name: 'Police Mono', type: 'font', desc: 'Code et tech friendly', cost: 30, icon: '❰ ❱' },
+          { id: 'pattern_dots', name: 'Motif Points', type: 'pattern', desc: 'Pointillés subtils', cost: 35, icon: '·' },
+          { id: 'pattern_waves', name: 'Motif Vagues', type: 'pattern', desc: 'Ondulation fluide', cost: 35, icon: '∿' },
+          { id: 'glow_effect', name: 'Effet Lueur', type: 'effect', desc: 'Luminescence douce', cost: 45, icon: '✨' },
+          { id: 'shadow_deep', name: 'Ombre Profonde', type: 'effect', desc: 'Contraste dramatique', cost: 45, icon: '🌑' },
+          { id: 'animate_cards', name: 'Animation Cartes', type: 'effect', desc: 'Transitions fluides', cost: 55, icon: '🎬' }
+        ];
+        
+        const buyableGrid = document.createElement('div');
+        buyableGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));gap:8px;';
+        
+        buyableCustomizations.forEach(custom => {
+          const itemId = `custom_${custom.id}`;
+          const isPurchased = localStorage.getItem(`fabanki:market_${itemId}`);
+          const currentCredits = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          
+          const card = document.createElement('div');
+          card.style.cssText = `padding:10px;border-radius:6px;border:1px solid ${isPurchased ? '#ccc' : '#e0e0e0'};background:${isPurchased ? 'rgba(76, 175, 80, 0.1)' : 'white'};text-align:center;cursor:${isPurchased ? 'default' : 'pointer'};opacity:${isPurchased ? '1' : '0.8'};transition:all 0.2s;`;
+          card.title = isPurchased ? 'Possédé' : `${custom.cost} ℂ`;
+          
+          const iconEl = document.createElement('div');
+          iconEl.style.cssText = 'font-size:1.8em;margin-bottom:4px;';
+          iconEl.textContent = custom.icon;
+          card.appendChild(iconEl);
+          
+          const nameEl = document.createElement('div');
+          nameEl.style.cssText = 'font-weight:600;font-size:0.8em;color:#333;margin-bottom:2px;';
+          nameEl.textContent = custom.name;
+          card.appendChild(nameEl);
+          
+          if(!isPurchased){
+            const costEl = document.createElement('div');
+            costEl.style.cssText = 'font-size:0.75em;color:#667eea;font-weight:700;';
+            costEl.textContent = custom.cost + ' ℂ';
+            card.appendChild(costEl);
+          } else {
+            const checkEl = document.createElement('div');
+            checkEl.style.cssText = 'font-size:1em;color:#4caf50;font-weight:700;';
+            checkEl.textContent = '✓';
+            card.appendChild(checkEl);
+          }
+          
+          if(!isPurchased){
+            card.addEventListener('click', () => {
+              const bal = currentCredits;
+              if(bal < custom.cost){
+                alert(`Crédits insuffisants. Vous avez ${bal} ℂ, il en faut ${custom.cost} ℂ. Visitez le Marché pour acheter.`);
+              } else {
+                if(confirm(`Acheter "${custom.name}" pour ${custom.cost} ℂ ?`)){
+                  addCredits(-custom.cost);
+                  localStorage.setItem(`fabanki:market_${itemId}`, 'true');
+                  showCustomizationModal();
+                }
+              }
+            });
+          }
+          
+          buyableGrid.appendChild(card);
+        });
+        
+        buyableSection.appendChild(buyableGrid);
+        modal.appendChild(buyableSection);
+        
         // Action buttons
         const actions = document.createElement('div');
         actions.className = 'customization-actions';
@@ -7172,6 +8580,7 @@
         // String fields: validate type and length
         sanitized.Pseudo = String(rawData.Pseudo || 'Anonyme').slice(0, 50);
         sanitized['Niveau Prépa'] = String(rawData['Niveau Prépa'] || 'Débutant').slice(0, 50);
+        sanitized.Selected_Title = String(rawData.Selected_Title || '').slice(0, 50);
         
         // Numeric fields: coerce to number, validate range, cap at max
         const getValidNumber = (val, min = 0, max = Infinity) => {
@@ -7187,7 +8596,10 @@
         sanitized['Ratés'] = getValidNumber(rawData['Ratés'], -1000, 100000);
         sanitized['Passer'] = getValidNumber(rawData['Passer'], -1000, 100000);
         sanitized['Streak_max'] = getValidNumber(rawData['Streak_max'], 0, MAX_STREAK);
+        sanitized['Streak_current'] = getValidNumber(rawData['Streak_current'], 0, MAX_STREAK);
+        sanitized['Daily_goal'] = getValidNumber(rawData['Daily_goal'], 0, 200);
         sanitized['Cartes maîtrisées'] = getValidNumber(rawData['Cartes maîtrisées'], 0, MAX_MASTERED);
+        sanitized['Quêtes_quotidiennes'] = getValidNumber(rawData['Quêtes_quotidiennes'], 0, 20);
         sanitized.Score_MPSI = getValidNumber(rawData.Score_MPSI, -10000, MAX_MPSI_SCORE);
         sanitized.XP_semaine = getValidNumber(rawData.XP_semaine, 0, MAX_XP_WEEK);
         sanitized.Score_MPSI_semaine = getValidNumber(rawData.Score_MPSI_semaine, -1000, MAX_XP_SCORE_WEEK);
@@ -9884,6 +11296,72 @@
       tooltip.style.position = 'relative';
       tooltip.style.animation = 'fadeIn 0.3s ease-out';
       
+      const updateTooltipPosition = () => {
+        const step = steps[currentStep];
+        const targetId = step.target;
+        
+        // If target is 'none' or 'center', keep tooltip centered
+        if(!targetId || targetId === 'none' || targetId === 'center'){
+          overlay.style.alignItems = 'center';
+          overlay.style.justifyContent = 'center';
+          tooltip.style.position = 'relative';
+          tooltip.style.margin = 'auto';
+          return;
+        }
+        
+        // Find target element
+        const targetEl = document.getElementById(targetId);
+        if(!targetEl){
+          // If target not found, center it
+          overlay.style.alignItems = 'center';
+          overlay.style.justifyContent = 'center';
+          tooltip.style.position = 'relative';
+          tooltip.style.margin = 'auto';
+          return;
+        }
+        
+        // Get target element position
+        const rect = targetEl.getBoundingClientRect();
+        const position = step.position || 'bottom';
+        
+        // Calculate tooltip position based on target
+        overlay.style.alignItems = 'flex-start';
+        overlay.style.justifyContent = 'flex-start';
+        
+        const offsetX = 20;
+        const offsetY = 20;
+        const tooltipWidth = 500;
+        const tooltipHeight = 250;
+        
+        let left, top;
+        
+        if(position === 'top'){
+          left = rect.left + (rect.width - tooltipWidth) / 2;
+          top = rect.top - tooltipHeight - offsetY;
+        } else if(position === 'bottom'){
+          left = rect.left + (rect.width - tooltipWidth) / 2;
+          top = rect.bottom + offsetY;
+        } else if(position === 'left'){
+          left = rect.left - tooltipWidth - offsetX;
+          top = rect.top + (rect.height - tooltipHeight) / 2;
+        } else if(position === 'right'){
+          left = rect.right + offsetX;
+          top = rect.top + (rect.height - tooltipHeight) / 2;
+        } else {
+          // center
+          left = (window.innerWidth - tooltipWidth) / 2;
+          top = (window.innerHeight - tooltipHeight) / 2;
+        }
+        
+        // Keep tooltip within viewport
+        left = Math.max(10, Math.min(left, window.innerWidth - tooltipWidth - 10));
+        top = Math.max(10, Math.min(top, window.innerHeight - tooltipHeight - 10));
+        
+        tooltip.style.position = 'fixed';
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+      };
+      
       const renderStep = () => {
         const step = steps[currentStep];
         tooltip.innerHTML = '';
@@ -9925,6 +11403,7 @@
           prevBtn.addEventListener('click', () => {
             currentStep--;
             renderStep();
+            updateTooltipPosition();
           });
           btnGroup.appendChild(prevBtn);
         }
@@ -9935,6 +11414,8 @@
         skipBtn.addEventListener('click', () => {
           localStorage.setItem(completionFlag, 'true');
           overlay.remove();
+          // Resume timer when onboarding closes
+          resumeTimerAfterOnboarding();
         });
         btnGroup.appendChild(skipBtn);
         
@@ -9944,15 +11425,21 @@
           if(currentStep === steps.length - 1){
             localStorage.setItem(completionFlag, 'true');
             overlay.remove();
+            // Resume timer when onboarding closes
+            resumeTimerAfterOnboarding();
           } else {
             currentStep++;
             renderStep();
+            updateTooltipPosition();
           }
         });
         btnGroup.appendChild(nextBtn);
         
         actions.appendChild(btnGroup);
         tooltip.appendChild(actions);
+        
+        // Update position after rendering
+        setTimeout(() => updateTooltipPosition(), 10);
       };
       
       overlay.appendChild(tooltip);
@@ -9960,6 +11447,24 @@
       renderStep();
       
     }catch(e){ console.warn('contextual onboarding error:', e) }
+  }
+  
+  // Resume timer after onboarding is closed
+  function resumeTimerAfterOnboarding(){
+    try{
+      window.__timerPausedForOnboarding = false;
+      window.__activeMemoryPausedForOnboarding = false;
+      
+      // Restart timer animation if in timer mode
+      if(reviewMode === 'timer' && window.timerModeState && !window.timerModeState.animationHandle){
+        startTimerAnimation();
+      }
+      
+      // Restart active memory timer if in active memory mode
+      if(reviewMode === 'activeMemory'){
+        // Active memory will be restarted on next card or when front is shown
+      }
+    }catch(e){ console.warn('resume timer error:', e) }
   }
 
   // Expose functions as required (so they're available globally)
