@@ -9,7 +9,7 @@
 	{ "path": "Anglais/Livre de vocabulaire/The World of Work P132.xml", "tags": ["text"] },
 	{ "path": "Anglais/Livre de vocabulaire/Social protection P140.xml", "tags": ["text"] },
 	{ "path": "Anglais/Voc de Colle.xml", "tags": ["text"] },
-	{ "path": "AnglaisConnecteurs logiques.xml", "tags": ["text"], "level":10,"cost":30 },
+	{ "path": "Anglais/Connecteurs logiques.xml", "tags": ["text"], "level":10,"cost":30 },
 	{ "path": "Anglais/Synthèse de document.xml", "tags": ["text"],"level": 15 },
 	{ "path": "Anglais/Idiomatiques en anglais (ajout perso).xml", "tags": ["text"] },
 	{ "path": "Français/20 000 lieues sous les mers.xml", "tags": [] },
@@ -51,6 +51,7 @@
 	{ "path": "Sciences industrielles/Chapitre 2 - Vecteurs, Référentiels, changement de bases, liaisons, et la totale.xml", "tags": [] },
 	{ "path": "Sciences industrielles/Chapitre 3 - Simuler la vie avec un modèle de connaissance.xml", "tags": [] }
 ]
+
 
 
 
