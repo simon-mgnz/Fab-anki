@@ -1,0 +1,160 @@
+<deck name="Chapitre 16 - Compléments moment cinétique et lois de Kepler" tags='Physique::Contrôle de cours'><fields><rich-text name='Front' sides='11' ></rich-text><tex name='TeX' sides='11'></tex><rich-text name='Back' sides='01' ></rich-text><tex name='Formula' sides='01'></tex><rich-text name='Texte enrichi' sides='01' ></rich-text><tex name='TeX2' sides='01'></tex><rich-text name='Texte enrichi2' sides='01' ></rich-text><tex name='TeX5' sides='01'></tex><rich-text name='Texte enrichi3' sides='01' ></rich-text><tex name='TeX3' sides='01'></tex><rich-text name='Texte enrichi4' sides='01' ></rich-text><tex name='TeX4' sides='01'></tex></fields><cards><card><rich-text name='Front'><p>Exprimer l'énergie mécanique pour le mouvement elliptique en fonction du demi-grand axe.</p></rich-text><rich-text name='Back'><p><strong>Expression de l'énergie mécanique :</strong></p><p>Pour une orbite elliptique de demi-grand axe a, l'énergie mécanique s'écrit (admis) :</p><p><br/></p></rich-text><tex name='Formula'>\boxed{E_M = -\frac{GM_\odot m}{2a}}</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p><strong>Remarques importantes :</strong></p>
+<p>1. L'expression est identique au cas circulaire en remplaçant R par a.</p>
+<p>2. EM ne dépend que du demi-grand axe a.</p>
+<p>3. EM &lt; 0 pour une orbite elliptique (mouvement borné).</p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Lien avec la période :</strong></p><p>Combiné avec la 3ᵉ loi de Kepler :</p><p><br/></p></rich-text><tex name='TeX5'>T = 2\pi\sqrt{\frac{a^3}{GM_\odot}}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p>On peut réécrire :</p>
+<p><br/></p></rich-text><tex name='TeX3'>E_M = -\frac{2\pi^2m a^2}{T^2}</tex></card><card><rich-text name='Front'><p>Exprimer l'énergie mécanique pour le mouvement circulaire.</p></rich-text><rich-text name='Back'><p><strong>Démarche :</strong></p><p>Pour une orbite circulaire de rayon R autour d'une masse M☉ :</p><p><br/></p></rich-text><tex name='Formula'>E_M = E_C + E_P</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p><strong>Énergie cinétique :</strong></p>
+<p>La condition de mouvement circulaire donne :</p>
+<p><br/></p></rich-text><tex name='TeX2'>v^2 = \frac{GM_\odot}{R}</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>Donc :</p>
+<p><br/></p></rich-text><tex name='TeX5'>E_C = \frac{1}{2}mv^2 = \frac{1}{2}m\frac{GM_\odot}{R} = \frac{GM_\odot m}{2R}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p><strong>Énergie potentielle :</strong></p>
+<p><br/></p></rich-text><tex name='TeX3'>E_P = -\frac{GM_\odot m}{R}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p><strong>Énergie mécanique et </strong><strong>Relations importantes:</strong></p>
+<p><br/></p></rich-text><tex name='TeX4'>E_M = E_C + E_P = \frac{GM_\odot m}{2R} - \frac{GM_\odot m}{R} \\ \\ \boxed{E_M = -\frac{GM_\odot m}{2R}} \\ \\ E_C = -E_M \quad \text{et} \quad E_P = 2E_M</tex></card><card><rich-text name='Front'><p>Établir que le mouvement circulaire est uniforme et déterminer sa période.</p></rich-text><rich-text name='Back'><p><strong>Mouvement uniforme :</strong></p><p>Pour une orbite circulaire de rayon R, la force gravitationnelle fournit l'accélération centripète :</p><p><br/></p></rich-text><tex name='Formula'>m\frac{v^2}{R} = \frac{GM_\odot m}{R^2}</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>On en déduit :</p>
+<p><br/></p></rich-text><tex name='TeX2'>v^2 = \frac{GM_\odot}{R} \quad \Rightarrow \quad v = \sqrt{\frac{GM_\odot}{R}} = \text{constante}</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p><strong>Conclusion :</strong> Le mouvement circulaire est uniforme (vitesse de norme constante).</p>
+<p><br/></p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p><strong>Période du mouvement :</strong></p>
+<p>Le périmètre de l'orbite est 2πR, donc :</p>
+<p><br/></p></rich-text><tex name='TeX3'>T = \frac{2\pi R}{v} = 2\pi R \sqrt{\frac{R}{GM_\odot}}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p>En simplifiant :</p>
+<p><br/></p></rich-text><tex name='TeX4'>\boxed{T = 2\pi\sqrt{\frac{R^3}{GM_\odot}}}</tex></card><card><rich-text name='Front'><p>Établir la troisième loi de Kepler dans le cas particulier de la trajectoire circulaire. Exploiter sans démonstration sa généralisation au cas elliptique.</p></rich-text><rich-text name='Back'><p><strong>Cas circulaire - Démonstration :</strong></p><p>Pour une orbite circulaire de rayon R :</p><p><br/></p></rich-text><tex name='Formula'>v = \sqrt{\frac{GM_\odot}{R}} \quad \text{et} \quad T = \frac{2\pi R}{v}</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>Donc :</p>
+<p><br/></p></rich-text><tex name='TeX2'>T = 2\pi\sqrt{\frac{R^3}{GM_\odot}}</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>En élevant au carré :</p>
+<p><br/></p></rich-text><tex name='TeX5'>T^2 = 4\pi^2\frac{R^3}{GM_\odot} \quad \Rightarrow \quad \boxed{\frac{T^2}{R^3} = \frac{4\pi^2}{GM_\odot}}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p><strong>Cas elliptique - Généralisation :</strong></p>
+<p>Pour une orbite elliptique de demi-grand axe a, la 3ᵉ loi de Kepler s'écrit (admis) :</p>
+<p><br/></p></rich-text><tex name='TeX3'>\boxed{\frac{T^2}{a^3} = \frac{4\pi^2}{GM_\odot}}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p>Le rayon R de l'orbite circulaire est remplacé par le demi-grand axe a de l'ellipse.</p>
+<p><strong>La même constante 4π²/(GM☉) s'applique à toutes les planètes, quelle que soit leur orbite.</strong></p></rich-text></card><card><rich-text name='Front'><p>Différencier les orbites des satellites terrestres en fonction de leurs missions.</p></rich-text><rich-text name='Back'><p>
+    <strong>Classification des orbites :</strong>
+  </p>
+  <p>
+  <br/>
+</p></rich-text><tex name='Formula'></tex><rich-text name='Texte enrichi'><p>
+  <strong>1. Orbite basse (LEO - Low Earth Orbit) :</strong>
+</p>
+<p>• Altitude : 200-2000 km</p>
+<p>• Période : ~90 min</p>
+<p>• Missions : observation terrestre, Station Spatiale Internationale, télédétection</p>
+<p>• Avantages : résolution élevée, faible coût de lancement</p>
+<p>
+<br/>
+</p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p>
+  <strong>2. Orbite moyenne (MEO - Medium Earth Orbit) :</strong>
+</p>
+<p>• Altitude : 2000-35 786 km</p>
+<p>• Période : quelques heures</p>
+<p>• Missions : navigation (GPS, Galileo, GLONASS)</p>
+<p>• Avantages : bon compromis entre couverture et précision</p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p>
+  <strong>3. Orbite géostationnaire (GEO) :</strong>
+</p>
+<p>• Altitude : 35 786 km (au-dessus de l'équateur)</p>
+<p>• Période : 24 h (fixe par rapport à la Terre)</p>
+<p>• Missions : télécommunications, météorologie</p>
+<p>• Avantages : couverture continue d'une zone</p></rich-text><tex name='TeX3'></tex><rich-text name='Texte enrichi4'><p>
+  <strong>4. Orbite polaire :</strong>
+</p>
+<p>• Inclinaison : ~90° par rapport à l'équateur</p>
+<p>• Missions : observation globale, reconnaissance</p>
+<p>• Avantages : couvre toute la surface terrestre grâce à la rotation de la Terre</p></rich-text></card><card><rich-text name='Front'><p>Déterminer l'altitude d'un satellite géostationnaire et justifier sa localisation dans le plan équatorial.</p></rich-text><rich-text name='Back'><p><strong>Détermination de l'altitude :</strong></p><p>Un satellite géostationnaire doit avoir une période T = 24 h = 86 400 s.</p><p>D'après la 3ᵉ loi de Kepler :</p><p><br/></p></rich-text><tex name='Formula'>\frac{T^2}{R^3} = \frac{4\pi^2}{GM_\oplus}</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>On en déduit le rayon orbital :</p>
+<p><br/></p></rich-text><tex name='TeX2'>R = \left(\frac{GM_\oplus T^2}{4\pi^2}\right)^{1/3}</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>Application numérique avec :</p>
+<p>• G = 6,67 × 10⁻¹¹ m³ kg⁻¹ s⁻²</p>
+<p>• M⊕ = 5,97 × 10²⁴ kg</p>
+<p>• T = 86 400 s</p>
+<p>• R⊕ = 6 370 km</p>
+<p><br/></p>
+<p>On trouve : <strong>R ≈ 42 200 km</strong></p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p>L'altitude est :</p><p><br/></p></rich-text><tex name='TeX3'>h = R - R_\oplus \approx 42\,200 - 6\,370 = \boxed{35\,800\text{ km}}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p><strong>Localisation dans le plan équatorial :</strong></p>
+<p>Pour qu'un satellite reste fixe au-dessus d'un point de la surface terrestre, il doit :</p>
+<p>1. Tourner à la même vitesse angulaire que la Terre (période 24 h)</p>
+<p>2. Être dans le plan contenant l'axe de rotation terrestre</p>
+<p><br/></p>
+<p>Le seul plan perpendiculaire à l'axe de rotation et contenant des points de la surface est le <strong>plan équatorial</strong>.</p>
+<p><br/></p>
+<p><strong>Conclusion : Tous les satellites géostationnaires sont situés au-dessus de l'équateur à l'altitude de 35 800 km.</strong></p></rich-text></card><card><rich-text name='Front'><p>Énoncer les lois de Kepler pour les planètes et les transposer au cas des satellites terrestres.</p></rich-text><rich-text name='Back'><p><strong>Lois de Kepler pour les planètes :</strong></p>
+<p><strong>1ʳᵉ loi :</strong> Le centre M de la planète décrit une ellipse dont le centre O du Soleil est l'un des foyers</p>
+<p><strong>2ᵉ loi :</strong> L'aire balayée par le vecteur position vec(OM) pendant un intervalle de temps Delta t est proportionnelle à Deltat, et indépendante de la position de M sur sa trajectoire</p>
+<p><strong>3ᵉ loi :</strong></p>
+<p>Le rapport<br/></p></rich-text><tex name='Formula'>\frac{T^2}{a^3}</tex><rich-text name='Texte enrichi'><p><strong>est le même pour toutes les planètes gravitant autour du Soleil</strong></p>
+<p>où T est la période de révolution de la planète, a le demi-grand axe.</p>
+<p><br/></p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Transposition aux satellites terrestres :</strong></p><p><strong>1ʳᵉ loi :</strong> Les satellites décrivent des ellipses dont la Terre occupe un des foyers.</p><p><strong>2ᵉ loi :</strong> Le rayon vecteur Terre-satellite balaye des aires égales en des temps égaux.</p><p><strong>3ᵉ loi :</strong></p><p><br/></p></rich-text><tex name='TeX5'>\boxed{\frac{T^2}{a^3}</tex><rich-text name='Texte enrichi3'><p>Cette constante est la même pour <strong>tous les satellites terrestres</strong>.</p></rich-text></card><card><rich-text name='Front'><p>Établir la conservation du moment cinétique à partir du théorème du moment cinétique.</p></rich-text><rich-text name='Back'><p><strong>Démonstration :</strong></p><p>Dans un référentiel galiléen, le théorème du moment cinétique s'écrit :</p><p><br/></p></rich-text><tex name='Formula'>\frac{d\vec{L}_O}{dt} = \vec{M}_O(\vec{F})</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p><strong>Cas d'une force centrale :</strong></p>
+<p>Si la force est centrale (dirigée selon OM), alors :</p>
+<p><br/></p></rich-text><tex name='TeX2'>\vec{F} = F(r)\vec{e}_r</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>Le moment de cette force par rapport à O est :</p>
+<p><br/></p></rich-text><tex name='TeX5'>\vec{M}_O(\vec{F}) = \vec{OM} \times \vec{F} = r\vec{e}_r \times F(r)\vec{e}_r = \vec{0} \\ \\ \ car \ \vec{e}_r \wedge \vec{e}_r = \vec{0}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p>Donc le théorème du moment cinétique donne :</p>
+<p><br/></p></rich-text><tex name='TeX3'>\frac{d\vec{L}_O}{dt} = \vec{0}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p><strong>Conservation du moment cinétique :</strong></p>
+<p><br/></p>
+<p>Le moment cinétique est une constante vectorielle (en norme et en direction).</p></rich-text><tex name='TeX4'>\boxed{\vec{L}_O = \text{constante}}</tex></card><card><rich-text name='Front'><p>Établir les conséquences de la conservation du moment cinétique : mouvement plan et loi des aires.</p></rich-text><rich-text name='Back'><p><strong>Conséquence 1 : Mouvement plan</strong></p><p>Le moment cinétique est conservé :</p><p><br/></p></rich-text><tex name='Formula'>\vec{L}_O = \vec{OM} \wedge m\vec{v} = \text{constante}</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>vec(L_O) est perpendiculaire au plan formé par vec(OM) et vec(v).</p>
+<p>Puisque vec(L_O) est constant en direction, le vecteur vec(OM) reste toujours dans un plan perpendiculaire à vec(L_O).</p>
+<p><strong>Conclusion :</strong> Le mouvement est plan.</p>
+<p><br/></p>
+<p><strong>Conséquence 2 : Loi des aires</strong></p>
+<p>En coordonnées polaires dans le plan du mouvement :</p>
+<p><br/></p></rich-text><tex name='TeX2'>\vec{L}_O = mr^2\dot{\theta}\,\vec{e}_z = C\,\vec{e}_z \quad (C = \text{constante})</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>La surface balayée pendant dt par le rayon vecteur vec(OM) est :</p></rich-text><tex name='TeX5'>dA = \frac{1}{2}r^2d\theta= \frac{C}{2}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p>La vitesse aréolaire (surface balayée par unité de temps) est :</p>
+<p><br/></p></rich-text><tex name='TeX3'>\frac{dA}{dt} = \frac{1}{2}r^2\dot{\theta} = \frac{C}{2m} = \text{constante}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p><strong>Loi des aires :</strong> La vitesse aréolaire est constante (2ᵉ loi de Kepler).</p></rich-text><tex name='TeX4'></tex></card><card><rich-text name='Front'><p>Exprimer l'énergie mécanique d'un système conservatif ponctuel à partir de l'équation du mouvement.</p></rich-text><rich-text name='Back'><p><strong>Démarche :</strong></p><p>Pour un système conservatif, les forces dérivent d'une énergie potentielle EP.</p><p>L'énergie mécanique est :</p><p><br/></p></rich-text><tex name='Formula'>E_M = E_C + E_P</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p><strong>Énergie cinétique (</strong>En coordonnées polaires (mouvement plan)) :</p>
+<p><br/></p></rich-text><tex name='TeX2'>E_C = \frac{1}{2}m\vec{v}^2 = \frac{1}{2}m(\dot{r}^2 + r^2\dot{\theta}^2)</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p><strong>Énergie potentielle<br/></strong>pour une force centrale conservative (exemple : gravitation) :</p>
+<p><br/></p></rich-text><tex name='TeX5'>E_P(r) = -\frac{k}{r} \quad \text{(avec } k = GM_\odot m \text{ pour la gravitation)}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p><strong>Énergie mécanique totale :</strong></p>
+<p><br/></p></rich-text><tex name='TeX3'>\boxed{E_M = \frac{1}{2}m\dot{r}^2 + \frac{1}{2}mr^2\dot{\theta}^2 + E_P(r)}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p>Pour un système conservatif :</p>
+<p><br/></p></rich-text><tex name='TeX4'>\frac{dE_M}{dt} = 0 \quad \Rightarrow \quad E_M = \text{constante}</tex></card><card><rich-text name='Front'><p>Décrire qualitativement le mouvement radial à l'aide de l'énergie potentielle effective. Relier le caractère borné à la valeur de l'énergie mécanique.</p></rich-text><rich-text name='Back'><p><strong>Analyse du mouvement radial :</strong></p><p>L'énergie mécanique s'écrit :</p><p><br/></p></rich-text><tex name='Formula'>E_M = \frac{1}{2}m\dot{r}^2 + E_{P,\text{eff}}(r)</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>Donc :</p>
+<p><br/></p></rich-text><tex name='TeX2'>\dot{r}^2 = \frac{2}{m}[E_M - E_{P,\text{eff}}(r)] \geq 0</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p><strong>Condition de mouvement :</strong></p>
+<p>Le mouvement n'est possible que si EM ≥ EPeff(r).</p>
+<p>Les valeurs de r accessibles sont celles où la courbe EPeff(r) est sous le niveau EM.</p>
+<p><br/></p>
+<p><strong>Points de demi tour :</strong></p>
+<p>Quand EM = EPeff(r), alors ṙ = 0 : la "particule" s'arrête radialement et fait demi tour.</p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p><strong>Caractère borné du mouvement :</strong></p>
+<p><strong>1. EM &lt; 0 (sous l'asymptote) :</strong></p>
+<p>- Mouvement borné (orbite fermée : cercle ou ellipse)</p>
+<p>- r oscille entre rmin et rmax</p>
+<p><br/></p>
+<p><strong>2. EM = 0 :</strong></p>
+<p>- Orbite parabolique (limite)</p>
+<p><br/></p>
+<p><strong>3. EM &gt; 0 :</strong></p>
+<p>- Mouvement non borné (orbite hyperbolique)</p>
+<p>- La particule s'échappe à l'infini</p></rich-text></card><card><rich-text name='Front'><p>Exprimer la conservation de l'énergie mécanique et construire une énergie potentielle effective.</p></rich-text><rich-text name='Back'><p>
+    <strong>Conservation de l'énergie mécanique :</strong>
+  </p>
+  <p>L'énergie mécanique est constante pour un système conservatif :</p>
+  <p>
+  <br/>
+</p></rich-text><tex name='Formula'>E_M = \frac{1}{2}m\dot{r}^2 + \frac{1}{2}mr^2\dot{\theta}^2 + E_P(r) = \text{constante}</tex><rich-text name='Texte enrichi'><p>
+  <strong>Construction de l'énergie potentielle effective :</strong>
+</p>
+<p>Le moment cinétique est conservé :</p>
+<p>
+<br/>
+</p></rich-text><tex name='TeX2'>L_O = mr^2\dot{\theta} = C = \text{constante}</tex><rich-text name='Texte enrichi2'><p>Donc :</p>
+  <p>
+  <br/>
+</p></rich-text><tex name='TeX5'>\dot{\theta} = \frac{C}{mr^2}</tex><rich-text name='Texte enrichi3'><p>En substituant dans EM :</p>
+  <p>
+  <br/>
+</p></rich-text><tex name='TeX3'>E_M = \frac{1}{2}m\dot{r}^2 + \frac{1}{2}m\frac{C^2}{m^2r^2} + E_P(r) = \frac{1}{2}m\dot{r}^2 + \frac{C^2}{2mr^2} + E_P(r)</tex><rich-text name='Texte enrichi4'><p>On définit l'<strong>énergie potentielle effective</strong> :</p>
+  <p>
+  <br/>
+</p>
+<p>L'énergie mécanique devient :</p>
+<p>
+<br/>
+</p></rich-text><tex name='TeX4'>\boxed{E_{P,\text{eff}}(r) = \frac{C^2}{2mr^2} + E_P(r)} \\ \\ \boxed{E_M = \frac{1}{2}m\dot{r}^2 + E_{P,\text{eff}}(r)}</tex></card></cards></deck>
