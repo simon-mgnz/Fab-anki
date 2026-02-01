@@ -13,6 +13,7 @@
 	{ "path": "Anglais/Synthèse de document.xml", "tags": ["text","timer"],"level": 15 },
 	{ "path": "Anglais/Idiomatiques en anglais (ajout perso).xml", "tags": ["text","timer"] },
 	{ "path": "Français/20 000 lieues sous les mers.xml", "tags": ["timer"] },
+	{ "path": "Français/Figures de style.xml", "tags": ["timer"],"level":20,"cost":50 },
 	{ "path": "Informatique/Formulaire Python.xml", "tags": ["text","timer"],"cost": 5  },
 	{ "path": "Maths/Dérivées et primitives.xml", "tags": ["timer"],"level": 10 },
 	{ "path": "Maths/LCI et caractéristiques.xml", "tags": ["timer"],"level": 20, "cost": 10  },
@@ -47,14 +48,9 @@
 	{ "path": "Physique/Cours/Chapitre 15 - Moment cinétique d'un point matériel.xml", "tags": ["last","timer"] },
 	{ "path": "Physique/Contrôle de cours/Chapitre 13 - Particules chargées dans un champ électromagnétique.xml", "tags": ["timer"] },
 	{ "path": "Physique/Contrôle de cours/Chapitre 14 - Relations structure microscoptique - propriétés macroscopiques.xml", "tags": ["timer"] },
+	{ "path": "Physique/Contrôle de cours/Chapitre 15 - Moment cinétique d'un point matériel.xml", "tags": ["timer"] },
+	{ "path": "Physique/Contrôle de cours/Chapitre 16 - Mouvements dans un champ de force central conservatif.xml", "tags": ["timer"] },
 	{ "path": "Sciences industrielles/Chapitre 1 - SysML et blabla de SI.xml", "tags": ["timer"] },
 	{ "path": "Sciences industrielles/Chapitre 2 - Vecteurs, Référentiels, changement de bases, liaisons, et la totale.xml", "tags": ["timer"] },
 	{ "path": "Sciences industrielles/Chapitre 3 - Simuler la vie avec un modèle de connaissance.xml", "tags": ["timer"] }
 ]
-
-
-
-
-
-
-
