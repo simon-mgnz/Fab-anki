@@ -5,6 +5,7 @@
 
   // Application state
   let deckURL = null;
+  let currentFolderPath = ''; // Track current folder path for back navigation in overview
   let deck = {title:'', cards:[]};
   let dueCards = [];
   let currentIndex = 0;
@@ -160,6 +161,136 @@
   if(typeof incLocal !== 'function'){
     var incLocal = function(key, n){ try{ const v = Number(localStorage.getItem(key) || 0) + (n||1); localStorage.setItem(key, String(v)); return v; }catch(e){ return 0 } };
     try{ window.incLocal = incLocal; }catch(e){}
+  }
+
+  // === Function to open deck with mode selection ===
+  async function openDeckWithModeSelection(deckUrl, deckTitle, triggerButton = null){
+    try{
+      // Pre-load the deck to check available modes
+      const res = await fetch(deckUrl);
+      const text = await res.text();
+      const parser = new DOMParser();
+      let xml = parser.parseFromString(text,'application/xml');
+      if(xml.querySelector('parsererror')) xml = parser.parseFromString(text,'text/html');
+      
+      // Get deck info
+      const tempDeck = {title:'', cards:[]};
+      const titleEl = xml.querySelector('title') || xml.querySelector('name');
+      if(titleEl) tempDeck.title = titleEl.textContent?.trim() || '';
+      if(!tempDeck.title && deckTitle) tempDeck.title = deckTitle;
+      
+      // Set deckKey temporarily
+      const tempKey = fallbackSha1(deckUrl).slice(0,10);
+      const deckEntry = getManifestEntryForPath(deckUrl);
+      const deckTags = (typeof deckEntry === 'object' && deckEntry.tags) ? deckEntry.tags : [];
+      const hasTextMode = Array.isArray(deckTags) ? deckTags.includes('text') : false;
+      const hasTimerMode = Array.isArray(deckTags) ? deckTags.includes('timer') : false;
+      const hasActiveMemory = true; // Always available
+      
+      // Count available modes
+      const isTextModeUnlocked = localStorage.getItem('fabanki:market_mode_texte_trou');
+      const modes = [];
+      modes.push({id: 'default', name: 'Anki', unlocked: true});
+      if(hasTextMode && isTextModeUnlocked) modes.push({id: 'fillblank', name: 'Texte', unlocked: true});
+      if(hasTimerMode) modes.push({id: 'timer', name: 'Rappel', unlocked: true});
+      if(hasActiveMemory) modes.push({id: 'activeMemory', name: 'Mémoire', unlocked: true});
+      
+      // If only one mode, load directly
+      if(modes.length <= 1){
+        deckURL = deckUrl;
+        reviewMode = 'default';
+        // Hide welcome
+        const w = document.getElementById('welcomeDecks');
+        if(w) w.remove();
+        const mainEl = document.querySelector('main');
+        if(mainEl) mainEl.style.display = 'block';
+        const statsEl = document.getElementById('stats');
+        if(statsEl) statsEl.style.display = 'block';
+        await loadDeckFromURL(deckUrl);
+        return;
+      }
+      
+      // Show tooltip with modes above the clicked button
+      const tooltip = document.createElement('div');
+      tooltip.id = 'modeSelectionTooltip';
+      
+      let tooltipTop = '50%';
+      let tooltipLeft = '50%';
+      let transform = 'translate(-50%, -50%)';
+      
+      if(triggerButton){
+        const rect = triggerButton.getBoundingClientRect();
+        tooltipTop = Math.max(10, rect.top - 100) + 'px'; // 100px above button, min 10px from top
+        tooltipLeft = (rect.left + rect.width / 2) + 'px';
+        transform = 'translateX(-50%)';
+      }
+      
+      tooltip.style.cssText = `position:fixed;top:${tooltipTop};left:${tooltipLeft};transform:${transform};background:white;border-radius:8px;padding:12px 16px;box-shadow:0 6px 24px rgba(0,0,0,0.15);z-index:10000;`;
+      
+      const modesContainer = document.createElement('div');
+      modesContainer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;';
+      
+      modes.forEach((mode, idx) => {
+        const btn = document.createElement('button');
+        btn.style.cssText = 'flex:0 0 auto;padding:8px 12px;border:1px solid #ddd;border-radius:4px;background:white;color:#333;cursor:pointer;font-size:0.85em;user-select:none;transition:all 0.15s;font-weight:500;';
+        btn.textContent = mode.name;
+        
+        btn.addEventListener('mouseenter', () => {
+          btn.style.background = '#0066ff';
+          btn.style.color = '#fff';
+          btn.style.borderColor = '#0066ff';
+        });
+        btn.addEventListener('mouseleave', () => {
+          btn.style.background = 'white';
+          btn.style.color = '#333';
+          btn.style.borderColor = '#ddd';
+        });
+        
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          tooltip.remove();
+          document.removeEventListener('click', closeTooltip);
+          deckURL = deckUrl;
+          reviewMode = mode.id;
+          localStorage.setItem(`fabanki:review_mode:${tempKey}`, reviewMode);
+          // Hide welcome
+          const w = document.getElementById('welcomeDecks');
+          if(w) w.remove();
+          const mainEl = document.querySelector('main');
+          if(mainEl) mainEl.style.display = 'block';
+          const statsEl = document.getElementById('stats');
+          if(statsEl) statsEl.style.display = 'block';
+          await loadDeckFromURL(deckUrl);
+        });
+        
+        modesContainer.appendChild(btn);
+      });
+      
+      tooltip.appendChild(modesContainer);
+      
+      // Close tooltip when clicking outside
+      const closeTooltip = (e) => {
+        if(!tooltip.contains(e.target)){
+          tooltip.remove();
+          document.removeEventListener('click', closeTooltip);
+        }
+      };
+      
+      document.body.appendChild(tooltip);
+      setTimeout(() => document.addEventListener('click', closeTooltip), 0);
+      
+    }catch(e){
+      console.error('Mode selection error:', e);
+      deckURL = deckUrl;
+      // Hide welcome
+      const w = document.getElementById('welcomeDecks');
+      if(w) w.remove();
+      const mainEl = document.querySelector('main');
+      if(mainEl) mainEl.style.display = 'block';
+      const statsEl = document.getElementById('stats');
+      if(statsEl) statsEl.style.display = 'block';
+      await loadDeckFromURL(deckUrl);
+    }
   }
 
   // === Function: loadDeckFromURL ===
@@ -826,11 +957,29 @@
       backBtn.textContent = '← Retour';
       backBtn.className = 'secondary';
       backBtn.style.cssText = 'flex:1;padding:8px;font-size:0.9em;';
-      backBtn.addEventListener('click', ()=>{
+      backBtn.addEventListener('click', async ()=>{
+        // Remove overview container
         const overviewContainer = document.getElementById('deckOverviewContainer');
         if(overviewContainer) overviewContainer.remove();
-        // Return to home by reloading without deck parameter
-        window.location.href = window.location.origin + window.location.pathname;
+        
+        // Open deck browser and restore to the folder we were in
+        if(typeof window.openDeckBrowser === 'function'){
+          try{
+            await window.openDeckBrowser();
+            
+            // Restore to the folder path we were in before opening overview
+            if(currentFolderPath && window.deckBrowserRenderPath){
+              setTimeout(() => {
+                window.deckBrowserRenderPath(currentFolderPath);
+              }, 100);
+            }
+          }catch(e){
+            console.error('Error opening deck browser:', e);
+            window.location.reload();
+          }
+        } else {
+          window.location.reload();
+        }
       });
       buttonRow.appendChild(backBtn);
       
@@ -1250,9 +1399,27 @@
           }catch(e){ console.warn('KaTeX render error:', e); }
         }
         
-        // Get text preview
-        const preview = contentDiv.textContent.replace(/<[^>]*>/g,'').slice(0,60);
-        cardEl.textContent = preview + (preview.length >= 60 ? '...' : '');
+        // Get text preview (preserve HTML with rendered KaTeX, but truncate)
+        let preview = contentDiv.innerHTML;
+        const textContent = contentDiv.textContent.replace(/<[^>]*>/g,'');
+        const truncatedText = textContent.slice(0,60);
+        
+        // Clear and set content properly
+        cardEl.innerHTML = '';
+        
+        // Create preview container with KaTeX support
+        const previewEl = document.createElement('div');
+        previewEl.style.cssText = 'overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;';
+        
+        // Add the rendered HTML (with KaTeX)
+        previewEl.innerHTML = preview;
+        
+        // Truncate text if needed
+        if(textContent.length > 60){
+          previewEl.textContent = truncatedText + '...';
+        }
+        
+        cardEl.appendChild(previewEl);
         
         // Add tooltip on hover
         const tooltip = document.createElement('div');
@@ -1643,10 +1810,13 @@
       // Safe to render with KaTeX (no block HTML inside)
       const texSrc = decodedHtml.trim();
       const span = document.createElement('div');
+      span.style.cssText = 'display:flex;justify-content:center;align-items:center;min-height:60px;';
       try{
         if(window.katex && typeof katex.render === 'function'){
           const display = /\\\\\[|\\\\\]|\$\$|\n/.test(texSrc) || texSrc.split(/\\n|\n/).length>1;
           katex.render(texSrc, span, {throwOnError:false, displayMode: display});
+          // Center the rendered KaTeX
+          span.style.justifyContent = 'center';
         } else { span.textContent = texSrc }
       }catch(e){ span.textContent = texSrc }
       wrapper.appendChild(span);
@@ -1677,6 +1847,11 @@
         localStorage.setItem(key, JSON.stringify(state));
       }
     }
+    
+    // Reset session state BEFORE calling getDueCards (which checks reviewedCount)
+    reviewedCount = 0;
+    sessionData = [];
+    
     dueCards = getDueCards();
     
     // Load timer settings if they exist for this deck
@@ -1688,7 +1863,7 @@
     }
     
     // sessionTotal should equal number of due cards at session start
-    sessionTotal = dueCards.length; reviewedCount = 0; sessionData = [];
+    sessionTotal = dueCards.length;
     isReviewing = true;
     sessionCreditsGranted = false;
     window.__timerSettingsShown = false; // Reset timer settings flag for new session
@@ -1841,20 +2016,27 @@
   function getDueCards(){
     // use current time so cards scheduled for now are included
     const now = new Date();
-    const nowList = [], newList = [], h12List = [], tomorrowList = [], weekList = [], longList = [];
+    const maintenantFromPreviousReview = []; // Cards with st.last set and due <= now
+    const nouveau = []; // Cards never reviewed (no st.last)
+    const h12List = [], tomorrowList = [], weekList = [], longList = [];
     
     for(const c of deck.cards){
       const key = storageKey('card:'+c.id);
       const st = JSON.parse(localStorage.getItem(key) || '{}');
       const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
       const due = st && st.due ? new Date(st.due) : new Date();
+      const wasReviewedBefore = st && st.last; // has previous review history
       
       // Categorize cards
       if(isNew){
-        newList.push(c);
-      } else if(due <= now){
-        // Card is due now (not new)
-        nowList.push(c);
+        // New card - never reviewed
+        nouveau.push(c);
+      } else if(wasReviewedBefore && due <= now){
+        // Maintenant from previous review: was reviewed before AND is due now
+        maintenantFromPreviousReview.push(c);
+      } else if(!wasReviewedBefore && due <= now){
+        // This case shouldn't happen (new cards don't have due dates), but include just in case
+        maintenantFromPreviousReview.push(c);
       } else {
         // Cards due in the future - categorize by time
         const hrs = (due - now) / (1000*60*60);
@@ -1867,15 +2049,30 @@
     
     // shuffle within each bucket
     const shuffle = (arr)=>{ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] } };
-    shuffle(nowList); shuffle(newList); shuffle(h12List); shuffle(tomorrowList); shuffle(weekList); shuffle(longList);
+    shuffle(maintenantFromPreviousReview); 
+    shuffle(nouveau); 
+    shuffle(h12List); 
+    shuffle(tomorrowList); 
+    shuffle(weekList); 
+    shuffle(longList);
     
-    // If there are any Maintenant or Nouveau cards, include all cards in time order
-    if(nowList.length > 0 || newList.length > 0){
-      // Return: Maintenant -> Nouveau -> <12h -> Demain -> <1 semaine -> Longtemps
-      return nowList.concat(newList, h12List, tomorrowList, weekList, longList);
-    } else {
-      // No urgent cards, just return empty (or could return future cards if desired)
+    // Priority logic:
+    // 1. If there are maintenant cards from previous reviews, show them
+    if(maintenantFromPreviousReview.length > 0){
+      return maintenantFromPreviousReview.concat(nouveau, h12List, tomorrowList, weekList, longList);
+    }
+    // 2. Else if there are nouveau cards, show them
+    else if(nouveau.length > 0){
+      return nouveau.concat(h12List, tomorrowList, weekList, longList);
+    }
+    // 3. If there's any remaining card and session is active (>= 1 reviewed), show recap instead
+    else if((h12List.length > 0 || tomorrowList.length > 0 || weekList.length > 0 || longList.length > 0) && reviewedCount >= 1){
+      // Signal to show recap - we'll return empty and let the calling code check reviewedCount
       return [];
+    }
+    // 4. Else show all remaining cards sorted by due date (closer to maintenant first)
+    else {
+      return h12List.concat(tomorrowList, weekList, longList);
     }
   }
 
@@ -2475,7 +2672,17 @@
     answerLocked = false;
     
     // Check if there are any cards to show
-    if(!dueCards || dueCards.length===0){ updateStatus('Aucune carte à réviser aujourd\'hui'); renderEmpty(); return }
+    if(!dueCards || dueCards.length===0){ 
+      // If we've reviewed at least 1 card this session, show recap
+      // Otherwise show "no cards available"
+      if(reviewedCount >= 1){
+        updateStatus('Révision terminée pour aujourd\'hui');
+      } else {
+        updateStatus('Aucune carte à réviser aujourd\'hui');
+      }
+      renderEmpty(); 
+      return;
+    }
     
     // Show timer settings dialog on first card if timer mode is active
     // But don't proceed with card display - wait for confirmation
@@ -3245,8 +3452,8 @@
         createTimerParticles();
       }
       
-      // Auto-click when time expires
-      if(progress >= 100 && !state.autoClickActive){
+      // Auto-click when time expires (ONLY on back side, not front)
+      if(progress >= 100 && !state.autoClickActive && state.isShowingBack){
         autoClickTimerButton();
       }
       
@@ -3288,15 +3495,7 @@
     
     if(buttonToClick && !buttonToClick.disabled){
       buttonToClick.click();
-      // Auto-advance to next card after button click
-      setTimeout(() => {
-        currentIndex++;
-        try{
-          if(typeof showNextCard === 'function'){
-            showNextCard();
-          }
-        }catch(e){ console.warn('Auto-advance error:', e); }
-      }, 500);
+      // Note: Button click handlers already call showNextCard(), no need to manually advance
     }
   }
   
@@ -3918,8 +4117,8 @@
       const respBtn = $('#respButtons');
       const showBtn = $('#showAnswer');
       if(window.innerWidth <= 640){
-        // mobile: replace front with back (full-screen centered)
-        if(frontEl){ frontEl.style.display = 'none'; frontEl.style.flex = '0 0 auto'; }
+        // mobile: show front AND back (don't auto-hide front)
+        if(frontEl){ frontEl.style.display = 'block'; frontEl.style.flex = '0 0 auto'; }
         if(backEl){ backEl.style.display = 'flex'; backEl.style.flex = '1 1 auto'; }
       } else {
         // desktop: show answer under the question, center both
@@ -4369,10 +4568,36 @@
     try{
       if(q >= 3){  // only count correct answers
         const reviewed = incrementTodayReviewedCount();
+        
+        // Update streak on first review of the day (regardless of goal)
+        if(reviewed === 1){
+          try{
+            const today = new Date().toDateString();
+            const last = localStorage.getItem('fabanki:last_active_date');
+            if(last !== today){
+              const yesterday = new Date();
+              yesterday.setDate(yesterday.getDate()-1);
+              if(last === yesterday.toDateString()){
+                // Consecutive day: increment streak
+                const cur = Number(localStorage.getItem('fabanki:streak_current')||0) + 1;
+                localStorage.setItem('fabanki:streak_current', String(cur));
+                const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), cur);
+                localStorage.setItem('fabanki:streak_max', String(maxi));
+              } else {
+                // Streak broken or new streak: reset to 1
+                localStorage.setItem('fabanki:streak_current', '1');
+                const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), 1);
+                localStorage.setItem('fabanki:streak_max', String(maxi));
+              }
+              localStorage.setItem('fabanki:last_active_date', today);
+              try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
+            }
+          }catch(e){ console.warn('streak tracking', e); }
+        }
+        
         const goal = getDailyGoal();
         if(goal > 0 && reviewed >= goal){
           showDailyGoalMilestoneToast(reviewed, goal);
-          updateDailyStreakOnGoalReached();
           try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
         }
       }
@@ -4858,6 +5083,23 @@
       }
     }catch(e){ /* ignore */ }
 
+    // Global function to restore folder browser (accessible from overview back button)
+    window.restoreFolderBrowser = async function(folderPath){
+      // Simply open the deck browser - it will show the saved folder path
+      try{
+        if(typeof window.openDeckBrowser === 'function'){
+          await window.openDeckBrowser();
+        } else {
+          console.warn('openDeckBrowser not available');
+          window.location.href = window.location.origin + window.location.pathname;
+        }
+      }catch(e){
+        console.warn('Error restoring folder browser:', e);
+        // Fallback to welcome page
+        window.location.href = window.location.origin + window.location.pathname;
+      }
+    };
+    
     // Wire Browse Decks modal
     const browseBtn = document.getElementById('browseDecks');
     const overlay = document.getElementById('deckBrowserOverlay');
@@ -4915,6 +5157,24 @@
     async function openDeckBrowser(){
       if(!overlay) return;
       
+      // Hide review content when opening browser
+      const mainEl = document.querySelector('main');
+      if(mainEl) mainEl.style.display = 'none';
+      const statsEl = document.getElementById('stats');
+      if(statsEl) statsEl.style.display = 'none';
+      
+      // Show or create welcome page
+      let welcomeEl = document.getElementById('welcomeDecks');
+      if(!welcomeEl){
+        // Recreate welcome page if it was removed
+        welcomeEl = document.createElement('div');
+        welcomeEl.id = 'welcomeDecks';
+        welcomeEl.style.cssText = 'padding:20px;text-align:center;';
+        welcomeEl.innerHTML = '<h2>Fab\'Anki</h2><p>Choisissez un deck pour commencer</p>';
+        document.body.insertBefore(welcomeEl, document.body.firstChild);
+      }
+      welcomeEl.style.display = 'block';
+      
       // Show contextual onboarding on first open
       setTimeout(() => {
         if(typeof showBrowseOnboarding === 'function'){
@@ -4922,28 +5182,49 @@
         }
       }, 300);
       
-      overlay.style.display = 'flex'; overlay.setAttribute('aria-hidden','false'); overlay.classList.add('open');
-      overlay.querySelector('.modal')?.classList.add('open');
+      overlay.style.display = 'flex'; 
+      overlay.style.visibility = 'visible'; // Override CSS hidden visibility
+      overlay.setAttribute('aria-hidden','false'); 
+      overlay.classList.add('open');
+      console.log('[DECK BROWSER] Overlay display set to flex, classList:', overlay.classList.value);
+      console.log('[DECK BROWSER] Overlay computed display:', window.getComputedStyle(overlay).display);
+      console.log('[DECK BROWSER] Overlay visibility:', window.getComputedStyle(overlay).visibility);
+      console.log('[DECK BROWSER] Overlay zIndex:', window.getComputedStyle(overlay).zIndex);
+      
+      const modalEl = overlay.querySelector('.modal');
+      if(modalEl){
+        modalEl.classList.add('open');
+        modalEl.style.display = 'block';
+        modalEl.style.backgroundColor = 'white';
+        modalEl.style.color = '#333';
+        modalEl.style.padding = '20px';
+        modalEl.style.borderRadius = '8px';
+        modalEl.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+      }
       deckList.innerHTML = '';
+      deckList.style.visibility = 'visible';
+      deckList.style.backgroundColor = 'white';
       deckMsg.textContent = 'Recherche de ./decks/ ...';
       try{
         const entries = await fetchDirectory('./decks/');
-        if(!entries || entries.length===0){ deckMsg.textContent = 'Aucun fichier trouvé dans ./decks/'; return }
+        if(!entries || entries.length===0){ 
+          deckMsg.textContent = 'Aucun fichier trouvé dans ./decks/'; 
+          return;
+        }
         deckMsg.textContent = '';
-        // If manifest contains paths with '/', treat as manifest-mode and build a tree
         const manifestMode = entries.some(e=> typeof e === 'string' && e.includes('/'));
         if(manifestMode){
-          // keep entries for navigation
           overlay._manifestEntries = entries.slice();
+          window.deckBrowserEntries = entries.slice();
           renderPath('');
         } else {
-          // normal directory listing (server HTML) — render directly
           renderList(entries, './decks/');
         }
 
         function renderPath(path){
           deckList.innerHTML = '';
-          // path is like '' or 'Anglais/' or 'Anglais/Sub/'
+          deckList.style.visibility = 'visible';
+          const entries = window.deckBrowserEntries || overlay._manifestEntries || [];
           const prefix = path;
           const files = new Set();
           const folders = new Set();
@@ -4960,7 +5241,7 @@
             const nm = document.createElement('div'); nm.textContent = '..';
             const act = document.createElement('div');
               const b = document.createElement('button'); b.className='secondary'; b.textContent='Retour';
-            b.addEventListener('click', ()=>{ const up = prefix.replace(/[^\/]+\/$/,''); renderPath(up); });
+            b.addEventListener('click', ()=>{ const up = prefix.replace(/[^\/]+\/$/, ''); renderPath(up); currentFolderPath = up; });
             act.appendChild(b); back.appendChild(nm); back.appendChild(act); deckList.appendChild(back);
           }
           // folders with due counts and badge
@@ -4978,7 +5259,7 @@
             
             const act = document.createElement('div');
             const b = document.createElement('button'); b.className='secondary'; b.textContent='Ouvrir';
-            b.addEventListener('click', ()=>{ renderPath(prefix+folder); });
+            b.addEventListener('click', ()=>{ renderPath(prefix+folder); currentFolderPath = prefix+folder; });
             act.appendChild(badge);
             act.appendChild(b); 
             row.appendChild(nm); 
@@ -5071,6 +5352,9 @@
           
           deckMsg.textContent = '';
         }
+        
+        // Expose renderPath globally so Retour button can restore folder view
+        window.deckBrowserRenderPath = renderPath;
 
         async function renderList(list, base){
           deckList.innerHTML = '';
@@ -5131,6 +5415,12 @@
       }catch(err){ deckMsg.textContent = 'Impossible d\'accéder à ./decks/ — invoquez via un serveur HTTP (non supporté en file://)'; }
     }
     if(browseBtn) browseBtn.addEventListener('click', openDeckBrowser);
+    // Expose openDeckBrowser and renderPath globally for retour button
+    try{ 
+      window.openDeckBrowser = openDeckBrowser;
+      // Expose renderPath from within the closure after it's defined
+      window.deckBrowserRenderPath = null; // Will be set after openDeckBrowser is called
+    }catch(e){}
     // show tooltip first-time to indicate where to change deck
     function showDeckTooltipOnce(){
       try{
@@ -5625,8 +5915,12 @@
         const content = document.createElement('div');
         content.style.cssText = 'max-width:1200px;margin:0 auto;';
         
-        // Helper function to get current credits
-        const getBalance = () => typeof getCredits === 'function' ? getCredits() : 0;
+        // Helper function to get current credits - directly call getCredits function
+        const getBalance = () => {
+          const credits = getCredits();
+          console.log('DEBUG getBalance() called, returning:', credits);
+          return credits;
+        };
         
         // Helper function to purchase items
         const purchaseItem = (itemId, cost, onSuccess) => {
@@ -5936,6 +6230,19 @@
           const itemId = `title_${displayMath.toLowerCase()}`;
           const isPurchased = localStorage.getItem(`fabanki:market_${itemId}`);
           
+          console.log(`DEBUG Title ${displayMath}: isPurchased=${!!isPurchased}, itemId=${itemId}`);
+          
+          // Hide purchased titles
+          if(isPurchased) {
+            console.log(`DEBUG Title ${displayMath} hidden because already purchased`);
+            continue;
+          }
+          
+          const currentCredits = getBalance();
+          const canAfford = currentCredits >= tierData.cost;
+          
+          console.log(`DEBUG Title ${displayMath}: credits=${currentCredits}, cost=${tierData.cost}, canAfford=${canAfford}`);
+          
           const card = document.createElement('div');
           card.style.cssText = `background:${tierData.color};border-radius:12px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,0.15);display:flex;flex-direction:column;color:${tierData.textColor};`;
           
@@ -5955,32 +6262,42 @@
           card.appendChild(desc);
           
           const priceDiv = document.createElement('div');
-          priceDiv.style.cssText = `color:${tierData.textColor};margin-bottom:12px;font-weight:700;`;
+          priceDiv.style.cssText = `margin-bottom:12px;font-weight:700;color:${canAfford ? tierData.textColor : '#ff0000'};`;
           priceDiv.innerHTML = `<strong>Prix:</strong> ${tierData.cost} ℂ`;
           card.appendChild(priceDiv);
           
           const btn = document.createElement('button');
-          btn.style.cssText = `width:100%;background:${tierData.color};color:${tierData.textColor};border:2px solid ${tierData.textColor};padding:10px;border-radius:6px;font-weight:700;cursor:pointer;`;
-          btn.textContent = isPurchased ? '✓ Possédé' : 'Acheter';
-          btn.disabled = !!isPurchased;
+          btn.style.cssText = `width:100%;background:${tierData.color};color:${tierData.textColor};border:2px solid ${tierData.textColor};padding:10px;border-radius:6px;font-weight:700;cursor:${canAfford ? 'pointer' : 'not-allowed'};opacity:${canAfford ? '1' : '0.6'};`;
+          btn.textContent = 'Acheter';
+          btn.disabled = !canAfford;
           
-          if(!isPurchased){
-            btn.addEventListener('click', ()=>{
-              if(purchaseItem(itemId, tierData.cost, ()=>{
-                // Choisir aléatoirement un titre du tier
-                const randomIndex = Math.floor(Math.random() * tierData.mathematicians.length);
-                const chosenTitle = tierData.mathematicians[randomIndex];
-                // Enregistrer le titre choisi
-                const titleStorageKey = `fabanki:title_chosen_${tierKey}`;
-                localStorage.setItem(titleStorageKey, chosenTitle);
-                // Show toast instead of alert
-                showMarketToast(`Titre "${chosenTitle}" (${tierData.name}) acquis aléatoirement !`);
+          btn.addEventListener('click', ()=>{
+            if(!canAfford){
+              showMarketToast(`Crédits insuffisants! Vous avez ${currentCredits} ℂ`);
+              return;
+            }
+            if(purchaseItem(itemId, tierData.cost, ()=>{
+              // Choisir aléatoirement un titre du tier
+              const randomIndex = Math.floor(Math.random() * tierData.mathematicians.length);
+              const chosenTitle = tierData.mathematicians[randomIndex];
+              // Enregistrer le titre choisi
+              const titleStorageKey = `fabanki:title_chosen_${tierKey}`;
+              localStorage.setItem(titleStorageKey, chosenTitle);
+              // Show toast instead of alert
+              showMarketToast(`Titre "${chosenTitle}" (${tierData.name}) acquis aléatoirement !`);
+              setTimeout(() => {
+                const mc = document.getElementById('marketContainer');
+                if(mc) mc.remove();
                 showMarketPage();
-              })){
+              }, 1500);
+            })){
+              setTimeout(() => {
+                const mc = document.getElementById('marketContainer');
+                if(mc) mc.remove();
                 showMarketPage();
-              }
-            });
-          }
+              }, 1500);
+            }
+          });
           
           card.appendChild(btn);
           specialsGrid.appendChild(card);
@@ -6020,8 +6337,11 @@
           desc.style.cssText = 'margin:0 0 12px 0;font-size:0.9em;color:#666;flex:1;';
           card.appendChild(desc);
           
+          const currentCredits = getBalance();
+          const canAfford = currentCredits >= cost;
+          
           const priceDiv = document.createElement('div');
-          priceDiv.style.cssText = 'color:#666;margin-bottom:12px;';
+          priceDiv.style.cssText = `color:${canAfford ? '#000' : '#e74c3c'};margin-bottom:12px;font-weight:${canAfford ? '600' : '700'};`;
           priceDiv.innerHTML = `<strong>Prix:</strong> ${cost} ℂ`;
           card.appendChild(priceDiv);
           
@@ -6051,8 +6371,9 @@
         });
         
         specialsSection.appendChild(specialsGrid);
+        content.appendChild(specialsSection);
         
-        // Section 2: Decks Carousel (Locked decks by cost and level) - NOW FIRST
+        // Section: Decks Carousel (Locked decks by cost and level) - NOW FIRST
         const decksSection = document.createElement('section');
         decksSection.style.cssText = 'margin-bottom:40px;';
         const decksTitle = document.createElement('h3');
@@ -6070,7 +6391,10 @@
           if(manifestRes.ok){
             const manifest = await manifestRes.json();
             const processedDecks = new Set();
+            const userLevel = computeLevelAndProgress ? computeLevelAndProgress(getXpTotal ? getXpTotal() : 0).level : 0;
             
+            // Collect and filter decks
+            const decksToShow = [];
             for(const item of manifest){
               const path = typeof item === 'string' ? item : (item.path || null);
               if(!path || processedDecks.has(path)) continue;
@@ -6080,11 +6404,39 @@
               const cost = deckMeta.cost || 0;
               const levelReq = deckMeta.level || 0;
               const isLocked = cost > 0 || levelReq > 0;
-              const isLockedByCost = cost > 0;
-              const isLockedByLevel = levelReq > 0;
               
               // Skip decks without locks (only show locked decks)
               if(!isLocked) continue;
+              
+              // Check if already purchased
+              const isPurchased = isDeckUnlocked(path);
+              if(isPurchased) continue; // Hide purchased decks
+              
+              // Determine if deck is available for purchase (level reached)
+              const isLockedByCost = cost > 0 && userLevel >= levelReq;
+              const isLockedByLevel = levelReq > userLevel;
+              
+              decksToShow.push({ item, path, deckMeta, cost, levelReq, isLockedByCost, isLockedByLevel });
+            }
+            
+            // Sort: level-locked decks at the end (sorted by level requirement asc), 
+            // then cost-locked decks (sorted by price desc = cheaper last)
+            decksToShow.sort((a, b) => {
+              // Level-locked go to the end
+              if(a.isLockedByLevel && !b.isLockedByLevel) return 1;
+              if(!a.isLockedByLevel && b.isLockedByLevel) return -1;
+              
+              // Both level-locked: sort by level requirement (lower first)
+              if(a.isLockedByLevel && b.isLockedByLevel) {
+                return a.levelReq - b.levelReq;
+              }
+              
+              // Both cost-locked: sort by price descending (cheaper = last)
+              return b.cost - a.cost;
+            });
+            
+            for(const deckData of decksToShow){
+              const { item, path, deckMeta, cost, levelReq, isLockedByCost, isLockedByLevel } = deckData;
               
               const deckCard = document.createElement('div');
               deckCard.style.cssText = 'background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.1);display:flex;flex-direction:column;';
@@ -6103,10 +6455,13 @@
               const infoDiv = document.createElement('div');
               infoDiv.style.cssText = 'font-size:0.85em;margin-bottom:12px;';
               
+              const currentCredits = getBalance();
+              
               if(isLockedByCost){
                 const lockInfo = document.createElement('div');
+                const canAfford = currentCredits >= cost;
                 lockInfo.innerHTML = `<strong>💳 Coût:</strong> ${cost} ℂ`;
-                lockInfo.style.cssText = 'color:#e74c3c;margin-bottom:6px;';
+                lockInfo.style.cssText = `color:${canAfford ? '#000' : '#e74c3c'};margin-bottom:6px;`;
                 infoDiv.appendChild(lockInfo);
               } else if(isLockedByLevel){
                 const lockInfo = document.createElement('div');
@@ -6120,10 +6475,10 @@
               // Action button
               const actionBtn = document.createElement('button');
               if(isLockedByCost){
-                const currentCredits = getBalance();
+                const canAfford = currentCredits >= cost;
                 actionBtn.textContent = `Acheter pour ${cost} ℂ`;
-                actionBtn.className = currentCredits >= cost ? 'primary' : 'secondary';
-                actionBtn.disabled = currentCredits < cost;
+                actionBtn.className = canAfford ? 'primary' : 'secondary';
+                actionBtn.disabled = !canAfford;
                 actionBtn.addEventListener('click', ()=>{
                   const fresh = getBalance();
                   if(fresh < cost){
@@ -6131,16 +6486,20 @@
                     return;
                   }
                   if(typeof addCredits === 'function') addCredits(-cost);
+                  unlockDeck(path);
                   showMarketToast(`Deck "${titleText}" acheté ! Il vous reste ${fresh - cost} ℂ`);
+                  // Refresh market to hide purchased deck
+                  setTimeout(() => {
+                    const mc = document.getElementById('marketContainer');
+                    if(mc) mc.remove();
+                    showMarketPage();
+                  }, 1500);
                 });
               } else if(isLockedByLevel){
-                const userLevel = computeLevelAndProgress ? computeLevelAndProgress(getXpTotal ? getXpTotal() : 0).level : 0;
                 actionBtn.textContent = `Niveau ${levelReq} nécessaire`;
                 actionBtn.className = 'secondary';
                 actionBtn.disabled = true;
-                if(userLevel < levelReq){
-                  actionBtn.style.opacity = '0.5';
-                }
+                actionBtn.style.opacity = '0.5';
               }
               deckCard.appendChild(actionBtn);
               decksCarousel.appendChild(deckCard);
@@ -6187,15 +6546,15 @@
         customizations.forEach(custom => {
           const itemId = `custom_${custom.id}`;
           const isPurchased = localStorage.getItem(`fabanki:market_${itemId}`);
-          const currentCredits = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          
+          // Hide purchased customizations
+          if(isPurchased) return;
+          
+          const currentCredits = getBalance();
+          const canAfford = currentCredits >= custom.cost;
           
           const card = document.createElement('div');
-          card.style.cssText = `padding:12px;border-radius:8px;border:2px solid ${isPurchased ? '#ccc' : '#ddd'};background:${isPurchased ? '#f5f5f5' : 'white'};display:flex;flex-direction:column;align-items:center;text-align:center;cursor:${isPurchased ? 'default' : 'pointer'};transition:all 0.2s;position:relative;`;
-          
-          if(isPurchased){
-            card.style.borderColor = '#4caf50';
-            card.style.background = 'rgba(76, 175, 80, 0.08)';
-          }
+          card.style.cssText = `padding:12px;border-radius:8px;border:2px solid #ddd;background:white;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:${canAfford ? 'pointer' : 'not-allowed'};transition:all 0.2s;position:relative;opacity:${canAfford ? '1' : '0.6'};`;
           
           const iconEl = document.createElement('div');
           iconEl.style.cssText = 'font-size:2em;margin-bottom:6px;';
@@ -6208,11 +6567,11 @@
           card.appendChild(nameEl);
           
           const priceEl = document.createElement('div');
-          priceEl.style.cssText = `font-size:0.75em;${isPurchased ? 'color:#4caf50;' : 'color:#667eea;'}font-weight:700;`;
-          priceEl.textContent = isPurchased ? '✓ Possédé' : custom.cost + ' ℂ';
+          priceEl.style.cssText = `font-size:0.75em;color:${canAfford ? '#000' : '#e74c3c'};font-weight:700;`;
+          priceEl.textContent = custom.cost + ' ℂ';
           card.appendChild(priceEl);
           
-          if(!isPurchased){
+          if(canAfford){
             card.addEventListener('mouseenter', () => {
               card.style.borderColor = '#667eea';
               card.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.2)';
@@ -6221,19 +6580,28 @@
               card.style.borderColor = '#ddd';
               card.style.boxShadow = 'none';
             });
-            card.addEventListener('click', ()=>{
-              if(currentCredits < custom.cost){
-                showMarketToast(`Crédits insuffisants! Vous avez ${currentCredits} ℂ`);
-              } else {
-                if(purchaseItem(itemId, custom.cost, ()=>{
-                  showMarketToast(`"${custom.name}" déverrouillé ! 🎉`);
-                  showMarketPage();
-                })){
-                  showMarketPage();
-                }
-              }
-            });
           }
+          
+          card.addEventListener('click', ()=>{
+            if(currentCredits < custom.cost){
+              showMarketToast(`Crédits insuffisants! Vous avez ${currentCredits} ℂ`);
+            } else {
+              if(purchaseItem(itemId, custom.cost, ()=>{
+                showMarketToast(`"${custom.name}" déverrouillé ! 🎉`);
+                setTimeout(() => {
+                  const mc = document.getElementById('marketContainer');
+                  if(mc) mc.remove();
+                  showMarketPage();
+                }, 1500);
+              })){
+                setTimeout(() => {
+                  const mc = document.getElementById('marketContainer');
+                  if(mc) mc.remove();
+                  showMarketPage();
+                }, 1500);
+              }
+            }
+          });
           
           customGrid.appendChild(card);
         });
@@ -6269,8 +6637,16 @@
       } else {
         const cur = Number(localStorage.getItem('fabanki:daily_reviewed_count') || 0) + 1;
         localStorage.setItem('fabanki:daily_reviewed_count', String(cur));
+        // Update max daily reviewed count
+        const maxDaily = Number(localStorage.getItem('fabanki:max_daily_reviewed') || 0);
+        if(cur > maxDaily){
+          localStorage.setItem('fabanki:max_daily_reviewed', String(cur));
+        }
         return cur;
       }
+    }
+    function getMaxDailyReviewedCount(){
+      return Number(localStorage.getItem('fabanki:max_daily_reviewed') || 0);
     }
     function updateDailyStreakOnGoalReached(){
       try{
@@ -6391,6 +6767,8 @@
         streakMax: Number(localStorage.getItem('fabanki:streak_max') || 0),
         decks: collectDeckStates(),
         quests: collectQuestState(),
+        inventory: collectInventory(),
+        dailyProgress: collectDailyProgress(),
         lastUpdated: Date.now()
       };
     }
@@ -6428,6 +6806,33 @@
       }catch(e){ return { daily:[], weekly:[], missions_date:null } }
     }
 
+    function collectInventory(){
+      try{
+        const inventory = {};
+        for(const k of Object.keys(localStorage)){
+          // Collect all marketplace purchases and deck unlocks
+          if(k.startsWith('fabanki:market_') || k.startsWith('fabanki:deck_unlocked:')){
+            inventory[k] = localStorage.getItem(k);
+          }
+        }
+        // Also collect selected title
+        const selectedTitle = localStorage.getItem('fabanki:selected_title');
+        if(selectedTitle) inventory['fabanki:selected_title'] = selectedTitle;
+        return inventory;
+      }catch(e){ return {} }
+    }
+
+    function collectDailyProgress(){
+      try{
+        return {
+          dailyGoal: Number(localStorage.getItem('fabanki:daily_goal') || 0),
+          dailyReviewedCount: Number(localStorage.getItem('fabanki:daily_reviewed_count') || 0),
+          dailyReviewedDate: localStorage.getItem('fabanki:daily_reviewed_date') || null,
+          lastActiveDate: localStorage.getItem('fabanki:last_active_date') || null
+        };
+      }catch(e){ return {} }
+    }
+
     function applyStateToLocalStorage(state){
       try{
         // Core profile
@@ -6441,6 +6846,19 @@
           localStorage.setItem('fabanki:daily_missions', JSON.stringify(state.quests.daily||[]));
           localStorage.setItem('fabanki:weekly_missions', JSON.stringify(state.quests.weekly||[]));
           if(state.quests.missions_date) localStorage.setItem('fabanki:missions_date', state.quests.missions_date);
+        }
+        // Inventory (purchased items, unlocked decks, selected title)
+        if(state.inventory){
+          for(const k of Object.keys(state.inventory)){
+            localStorage.setItem(k, state.inventory[k]);
+          }
+        }
+        // Daily progress (goal, reviewed count, dates)
+        if(state.dailyProgress){
+          if(Number.isFinite(state.dailyProgress.dailyGoal)) localStorage.setItem('fabanki:daily_goal', String(state.dailyProgress.dailyGoal));
+          if(Number.isFinite(state.dailyProgress.dailyReviewedCount)) localStorage.setItem('fabanki:daily_reviewed_count', String(state.dailyProgress.dailyReviewedCount));
+          if(state.dailyProgress.dailyReviewedDate) localStorage.setItem('fabanki:daily_reviewed_date', state.dailyProgress.dailyReviewedDate);
+          if(state.dailyProgress.lastActiveDate) localStorage.setItem('fabanki:last_active_date', state.dailyProgress.lastActiveDate);
         }
         // Deck cards
         if(state.decks){
@@ -6661,6 +7079,8 @@
         st.credits = Number(localStorage.getItem('fabanki:credits') || 0);
         st.quests = collectQuestState();
         st.decks = collectDeckProgress();
+        st.inventory = collectInventory();
+        st.dailyProgress = collectDailyProgress();
         
         syncLog('autoSync: collected state', { xp: st.xp, credits: st.credits, decks: Object.keys(st.decks || {}).length });
         
@@ -6752,9 +7172,17 @@
               localXp: localState.xp, remoteXp: remoteSt.xp
             });
             const mergedDecks = mergeDeckStates(localState.decks || {}, remoteSt.decks || {});
+            const mergedInventory = { ...(remoteSt.inventory || {}), ...(localState.inventory || {}) };
+            // For daily progress, prefer the most recent data based on dates
+            const remoteDailyDate = new Date(remoteSt.dailyProgress?.dailyReviewedDate || 0).getTime();
+            const localDailyDate = new Date(localState.dailyProgress?.dailyReviewedDate || 0).getTime();
+            const mergedDailyProgress = remoteDailyDate > localDailyDate ? 
+              (remoteSt.dailyProgress || {}) : (localState.dailyProgress || {});
             mergedState = {
               ...remoteSt,
               decks: mergedDecks,
+              inventory: mergedInventory,
+              dailyProgress: mergedDailyProgress,
               // Take the higher XP value (indicates more practice completed)
               xp: Math.max(Number(remoteSt.xp || 0), Number(localState.xp || 0)),
               streakCurrent: Math.max(Number(remoteSt.streakCurrent || 0), Number(localState.streakCurrent || 0)),
@@ -6830,6 +7258,8 @@
         st.credits = Number(localStorage.getItem('fabanki:credits') || 0);
         st.quests = collectQuestState();
         st.decks = collectDeckProgress();
+        st.inventory = collectInventory();
+        st.dailyProgress = collectDailyProgress();
         
         // Upload to cloud
         await saveState(st);
@@ -6849,14 +7279,23 @@
         const { user } = await auth.signInWithEmailAndPassword(email, password);
         const uid = user.uid;
 
-        // If switching accounts, delete previous leaderboard entry
+        // If switching accounts, delete previous profile and leaderboard entry
         try{
           const prevAuthUid = localStorage.getItem('fabanki:classement_auth_uid');
           const prevClassementId = localStorage.getItem('fabanki:classement_user_id');
-          if(prevAuthUid && prevAuthUid !== uid && prevClassementId){
-            await db.collection('Classement').doc(prevClassementId).delete();
+          if(prevAuthUid && prevAuthUid !== uid){
+            // Delete old profile from users collection
+            if(prevAuthUid){
+              await db.collection('users').doc(prevAuthUid).delete();
+              syncLog('Deleted old profile:', prevAuthUid);
+            }
+            // Delete old leaderboard entry
+            if(prevClassementId){
+              await db.collection('Classement').doc(prevClassementId).delete();
+              syncLog('Deleted old leaderboard entry:', prevClassementId);
+            }
           }
-        }catch(e){ console.warn('delete old classement failed', e) }
+        }catch(e){ console.warn('delete old profile failed', e) }
 
         // Ensure current leaderboard mapping
         try{
@@ -6872,13 +7311,44 @@
 
         let chosen = localSt;
         if(remoteSt && Number(remoteSt.lastUpdated||0) > Number(localSt.lastUpdated||0)){
-          // Remote newer → apply to local
-          applyStateToLocalStorage(remoteSt);
-          chosen = { ...remoteSt, mode: 'synced', userId: uid };
+          // Remote newer → merge with local, preferring remote for most fields
+          const mergedDecks = mergeDeckStates(localSt.decks || {}, remoteSt.decks || {});
+          const mergedInventory = { ...(localSt.inventory || {}), ...(remoteSt.inventory || {}) };
+          chosen = { 
+            ...remoteSt, 
+            mode: 'synced', 
+            userId: uid,
+            decks: mergedDecks,
+            inventory: mergedInventory,
+            // Take higher XP and streak values
+            xp: Math.max(Number(remoteSt.xp || 0), Number(localSt.xp || 0)),
+            streakCurrent: Math.max(Number(remoteSt.streakCurrent || 0), Number(localSt.streakCurrent || 0)),
+            streakMax: Math.max(Number(remoteSt.streakMax || 0), Number(localSt.streakMax || 0)),
+            lastUpdated: Date.now()
+          };
+          applyStateToLocalStorage(chosen);
+        } else if(remoteSt && Number(remoteSt.lastUpdated||0) === Number(localSt.lastUpdated||0)){
+          // Same timestamp: deep merge to combine data from both devices
+          const mergedDecks = mergeDeckStates(localSt.decks || {}, remoteSt.decks || {});
+          const mergedInventory = { ...(remoteSt.inventory || {}), ...(localSt.inventory || {}) };
+          chosen = {
+            ...localSt,
+            mode: 'synced',
+            userId: uid,
+            decks: mergedDecks,
+            inventory: mergedInventory,
+            xp: Math.max(Number(remoteSt.xp || 0), Number(localSt.xp || 0)),
+            streakCurrent: Math.max(Number(remoteSt.streakCurrent || 0), Number(localSt.streakCurrent || 0)),
+            streakMax: Math.max(Number(remoteSt.streakMax || 0), Number(localSt.streakMax || 0)),
+            lastUpdated: Date.now()
+          };
+          applyStateToLocalStorage(chosen);
         } else {
           // Local newer or no remote → push local
           chosen.mode = 'synced';
           chosen.userId = uid;
+          chosen.inventory = collectInventory();
+          chosen.dailyProgress = collectDailyProgress();
         }
         await saveState(chosen);
         try{ applyStateToLocalStorage(chosen); }catch(e){}
@@ -8677,11 +9147,15 @@
         if(document.getElementById('pseudoOverlay')) return;
         const ov = document.createElement('div'); ov.id='pseudoOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='2500';
         const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='520px'; m.style.width='94%';
-        const h = document.createElement('h3'); h.textContent = "Entre ton Pseudo"; m.appendChild(h);
-        const inp = document.createElement('input'); inp.type='text'; inp.placeholder='Ton Pseudo'; inp.style.width='100%'; inp.style.padding='8px'; inp.style.fontSize='1rem'; inp.style.marginTop='8px';
-        m.appendChild(inp);
-        const row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='flex-end'; row.style.gap='8px'; row.style.marginTop='12px';
-        const btn = document.createElement('button'); btn.className='secondary'; btn.textContent='Valider';
+        const h = document.createElement('h3'); h.textContent = "Bienvenue sur Fab'Anki"; h.style.marginBottom='8px'; m.appendChild(h);
+        const desc = document.createElement('p'); desc.textContent = "Choisissez comment commencer :"; desc.style.color='#666'; desc.style.fontSize='0.9em'; desc.style.marginBottom='16px'; m.appendChild(desc);
+        
+        // New user option
+        const newUserSection = document.createElement('div'); newUserSection.style.marginBottom='16px'; newUserSection.style.padding='12px'; newUserSection.style.border='1px solid #ddd'; newUserSection.style.borderRadius='8px';
+        const newUserTitle = document.createElement('h4'); newUserTitle.textContent = '🆕 Nouvel utilisateur'; newUserTitle.style.margin='0 0 8px 0'; newUserSection.appendChild(newUserTitle);
+        const inp = document.createElement('input'); inp.type='text'; inp.placeholder='Entre ton pseudo'; inp.style.width='100%'; inp.style.padding='8px'; inp.style.fontSize='1rem'; inp.style.marginBottom='8px';
+        newUserSection.appendChild(inp);
+        const btn = document.createElement('button'); btn.className='primary'; btn.textContent='Commencer'; btn.style.width='100%';
         btn.addEventListener('click', ()=>{
           const v = (inp.value || '').trim(); if(!v) return inp.focus();
           localStorage.setItem('pseudo', v);
@@ -8690,7 +9164,26 @@
           try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
           ov.remove();
         });
-        row.appendChild(btn); m.appendChild(row); ov.appendChild(m); document.body.appendChild(ov);
+        newUserSection.appendChild(btn);
+        m.appendChild(newUserSection);
+        
+        // Existing user option
+        const loginSection = document.createElement('div'); loginSection.style.padding='12px'; loginSection.style.border='1px solid #ddd'; loginSection.style.borderRadius='8px'; loginSection.style.background='#f8f9fa';
+        const loginTitle = document.createElement('h4'); loginTitle.textContent = '🔐 Déjà un compte ?'; loginTitle.style.margin='0 0 8px 0'; loginSection.appendChild(loginTitle);
+        const loginDesc = document.createElement('p'); loginDesc.textContent = 'Connectez-vous pour synchroniser vos données'; loginDesc.style.fontSize='0.85em'; loginDesc.style.color='#666'; loginDesc.style.marginBottom='8px'; loginSection.appendChild(loginDesc);
+        const loginBtn = document.createElement('button'); loginBtn.className='secondary'; loginBtn.textContent='Se connecter'; loginBtn.style.width='100%';
+        loginBtn.addEventListener('click', async ()=>{
+          ov.remove();
+          if(typeof loginAndSync === 'function'){
+            await loginAndSync();
+          } else {
+            alert('Fonctionnalité de connexion non disponible');
+          }
+        });
+        loginSection.appendChild(loginBtn);
+        m.appendChild(loginSection);
+        
+        ov.appendChild(m); document.body.appendChild(ov);
         try{ m.classList.add('open'); ov.classList.add('open'); }catch(e){}
         ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
       }catch(e){ console.warn('pseudo modal error', e) }
@@ -8826,6 +9319,9 @@
         // Get consec counters for Newton and Noether
         const consecCorrectMax = Number(localStorage.getItem('fabanki:consec_correct_max') || 0);
         const consecNoPassMax = Number(localStorage.getItem('fabanki:consec_no_pass_max') || 0);
+        
+        // Get max daily reviewed count for Knuth
+        const maxDailyReviewed = Number(localStorage.getItem('fabanki:max_daily_reviewed') || 0);
 
         // Helper to compute highest tier from thresholds array
         const highestTier = (value, thresholds)=>{
@@ -8836,12 +9332,13 @@
         // Define title thresholds
         const defs = [
           {nom:'Gauss', th:[100,300,600,1000,2000], val: bonnes},
-          {nom:'Fourier', th:[200,600,1200,2500,5000], val: reviewed},
+          {nom:'Fourier', th:[200,600,1200,2500,5000,10000], val: reviewed},
           {nom:'Euler', th:[200,500,1000,2000,4000], val: (reviewed>0? Math.round((bonnes/reviewed)*100):0), isPercent:true, percentDefs:[0.75,0.80,0.85,0.90,0.92]},
           {nom:'Newton', th:[20,50,100,200,365], val: consecCorrectMax},
           {nom:'Maxwell', th:[3,7,21,60,120], val: streakCurrent},
           {nom:'Noether', th:[50,150,400,1000,3000], val: consecNoPassMax},
-          {nom:'Hadamard', th:[50,150,400,1000,3000], val: longCount}
+          {nom:'Hadamard', th:[50,150,400,1000,3000], val: longCount},
+          {nom:'Knuth', th:[50,100,200,500,1000], val: maxDailyReviewed}
         ];
         for(const d of defs){
           let tier = 0;
@@ -9196,7 +9693,7 @@
         const stats = getProfileStats();
         const computed = (typeof computeTitles === 'function') ? computeTitles(stats) : {titres:[], objectifs:[]};
         const ov = document.createElement('div'); ov.id='titlesOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='2300';
-        const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='640px'; m.style.width='94%';
+        const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='640px'; m.style.width='94%'; m.style.maxHeight='80vh'; m.style.overflowY='auto';
         const h = document.createElement('h3'); h.textContent = 'Titres obtenus'; m.appendChild(h);
         const list = document.createElement('div'); list.style.display='flex'; list.style.flexDirection='column'; list.style.gap='8px';
         // Titres
@@ -9209,7 +9706,8 @@
           'Newton': {th:[20,50,100,200,365], desc:'Séquence de cartes consécutives sans "Raté" (cartes correctes d\'affilée).', metric: ()=> Number(localStorage.getItem('fabanki:consec_correct_max')||0) },
           'Maxwell': {th:[3,7,21,60,120], desc:'Endurance — jours consécutifs d\'activité.', metric: ()=> Number(localStorage.getItem('fabanki:streak_current')||0) },
           'Noether': {th:[50,150,400,1000,3000], desc:'Zéro gaspillage — cartes révisées sans "Passer".', metric: ()=> Number(localStorage.getItem('fabanki:consec_no_pass_max')||0) },
-          'Hadamard': {th:[50,150,400,1000,3000], desc:'Réponses longues (>20s) — temps passé par réponse.', metric: ()=> Number(localStorage.getItem('fabanki:long_answer_total')||0) }
+          'Hadamard': {th:[50,150,400,1000,3000], desc:'Réponses longues (>20s) — temps passé par réponse.', metric: ()=> Number(localStorage.getItem('fabanki:long_answer_total')||0) },
+          'Knuth': {th:[50,100,200,500,1000], desc:'Nombre de cartes révisées en un jour.', metric: ()=> Number(localStorage.getItem('fabanki:max_daily_reviewed')||0) }
         };
         if(computed.titres && computed.titres.length){
           computed.titres.forEach(t=>{
@@ -9683,7 +10181,7 @@
           const badge = document.createElement('span'); badge.className='due-badge'; badge.innerHTML = `<div class="due-num">${r.cnt>0? r.cnt : ''}</div><div class="due-label" style="display:${r.cnt>0?'block':'none'}">à faire</div>`;
           const b = document.createElement('button'); b.className='secondary';
           b.textContent = (window.innerWidth <= 640) ? '📂' : 'Charger';
-          b.addEventListener('click', async ()=>{ await removeWelcome(); loadDeckFromURL(r.url); deckURL = r.url; });
+          b.addEventListener('click', async (e)=>{ await openDeckWithModeSelection(r.url, r.name, e.currentTarget); });
           // mirror deck-browser layout: badge to the left of the Charger button
           act.appendChild(badge); act.appendChild(b);
           row.appendChild(left); row.appendChild(act); list.appendChild(row);
@@ -10000,7 +10498,7 @@
               deckBtn.textContent = (window.innerWidth <= 640) ? '📂' : 'Charger';
               deckBtn.style.fontSize = '0.9rem';
               deckBtn.style.padding = '6px 10px';
-              deckBtn.addEventListener('click', async ()=>{ await removeWelcome(); loadDeckFromURL(lastDeckUrl); deckURL = lastDeckUrl; });
+              deckBtn.addEventListener('click', async ()=>{ await openDeckWithModeSelection(lastDeckUrl, lastDeckName); });
               
               deckAct.appendChild(deckBadge);
               deckAct.appendChild(deckBtn);
