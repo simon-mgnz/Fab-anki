@@ -15,6 +15,8 @@
 	{ "path": "Français/20 000 lieues sous les mers.xml", "tags": ["timer"] },
 	{ "path": "Français/Figures de style.xml", "tags": ["timer"],"level":20,"cost":50 },
 	{ "path": "Informatique/Formulaire Python.xml", "tags": ["text","timer"],"cost": 5  },
+	{ "path": "Informatique/Option/Chapitre 1 - Introduction.xml", "tags": ["text","timer"],  },
+	{ "path": "Informatique/Chapitre 1 - Programmation.xml", "tags": ["text","timer"]  },
 	{ "path": "Maths/Dérivées et primitives.xml", "tags": ["timer"],"level": 10 },
 	{ "path": "Maths/LCI et caractéristiques.xml", "tags": ["timer"],"level": 20, "cost": 10  },
 	{ "path": "Maths/Cours/Chapitre 01 - Raisonner, rédiger.xml", "tags": ["timer"] },
@@ -57,4 +59,5 @@
 	{ "path": "Sciences industrielles/Chapitre 2 - Vecteurs, Référentiels, changement de bases, liaisons, et la totale.xml", "tags": ["timer"] },
 	{ "path": "Sciences industrielles/Chapitre 3 - Simuler la vie avec un modèle de connaissance.xml", "tags": ["timer"] }
 ]
+
 
