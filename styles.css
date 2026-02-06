@@ -110,6 +110,16 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
 
 .modal[data-animation='spring']{animation:popupSpring 0.5s cubic-bezier(0.34,1.56,0.64,1)}
 
+.modal[data-animation='zoom']{animation:popupZoom 0.35s ease-out}
+
+.modal[data-animation='flip']{animation:popupFlip 0.45s ease-out}
+
+.modal[data-animation='pulse']{animation:popupPulse 0.6s ease-out}
+
+.modal[data-animation='wobble']{animation:popupWobble 0.6s ease-out}
+
+.modal[data-animation='shake']{animation:popupShake 0.5s ease-out}
+
 
 
 /* Toast animations */
@@ -161,6 +171,10 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
 .card-pattern-zigzag { background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.015) 0px, rgba(0,0,0,0.015) 2px, transparent 2px, transparent 8px); background-attachment: fixed }
 
 .card-pattern-waves { background-image: repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.01) 0, rgba(0,0,0,0.01) 2px, transparent 2px, transparent 40px); background-attachment: fixed }
+.card-pattern-topography { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M0 60 Q30 40 60 60 T120 60' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><path d='M0 80 Q30 60 60 80 T120 80' fill='none' stroke='%2399a' stroke-opacity='0.08' stroke-width='2'/><path d='M0 40 Q30 20 60 40 T120 40' fill='none' stroke='%2399a' stroke-opacity='0.08' stroke-width='2'/></svg>"); background-attachment: fixed; background-size:120px 120px }
+.card-pattern-hex { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='90' viewBox='0 0 100 90'><path d='M25 5 L75 5 L95 45 L75 85 L25 85 L5 45 Z' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/></svg>"); background-attachment: fixed; background-size:100px 90px }
+.card-pattern-circuit { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 20 H60 V10 H110' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><path d='M10 80 H50 V110 H110' fill='none' stroke='%2399a' stroke-opacity='0.08' stroke-width='2'/><circle cx='60' cy='10' r='3' fill='%2399a' fill-opacity='0.2'/><circle cx='50' cy='110' r='3' fill='%2399a' fill-opacity='0.2'/><circle cx='60' cy='20' r='3' fill='%2399a' fill-opacity='0.18'/></svg>"); background-attachment: fixed; background-size:120px 120px }
+.card-pattern-jigsaw { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 10 H50 V30 H70 V10 H110 V110 H70 V90 H50 V110 H10 Z' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><circle cx='60' cy='30' r='6' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/></svg>"); background-attachment: fixed; background-size:120px 120px }
 
 /* Make KaTeX output wrap responsively instead of forcing no-wrap */
 
