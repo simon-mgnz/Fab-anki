@@ -54,7 +54,9 @@
 	{ "path": "Physique/Contrôle de cours/Chapitre 14 - Relations structure microscoptique - propriétés macroscopiques.xml", "tags": ["timer"], "description": "Controle de cours sur structure microscopique et proprietes macroscopiques cles." },
 	{ "path": "Physique/Contrôle de cours/Chapitre 15 - Moment cinétique d'un point matériel.xml", "tags": ["timer"], "description": "Controle de cours sur moment cinetique et conservation, exercices types." },
 	{ "path": "Physique/Contrôle de cours/Chapitre 16 - Mouvements dans un champ de force central conservatif.xml", "tags": ["timer"], "description": "Controle de cours sur mouvements en champ central conservatif types." },
+	{ "path": "Physique/Contrôle de cours/Chapitre 17 - Mouvement d'un solide.xml", "tags": ["timer"], "description": "Controle de cours sur les mouvements classiques de solides (pendule pesant)." },
 	{ "path": "Sciences industrielles/Chapitre 1 - SysML et blabla de SI.xml", "tags": ["timer"], "description": "SysML et bases de SI, modelisation et vocabulaire utile pratique." },
 	{ "path": "Sciences industrielles/Chapitre 2 - Vecteurs, Référentiels, changement de bases, liaisons, et la totale.xml", "tags": ["timer"], "description": "Vecteurs, referentiels, changement de bases, liaisons et outils cles utiles." },
 	{ "path": "Sciences industrielles/Chapitre 3 - Simuler la vie avec un modèle de connaissance.xml", "tags": ["timer"], "description": "Simulation et modeles de connaissance, principes et applications simples utiles." }
 ]
+
