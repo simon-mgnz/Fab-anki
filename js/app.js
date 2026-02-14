@@ -20,10 +20,32 @@
   let tooltipShown = false;
   let cardShownAt = Date.now();
   let showHintBox = false; // Toggle for hint box visibility
-  let reviewMode = 'default'; // 'default', 'fillblank', 'timer', 'activeMemory', 'step' - controls review behavior
+  let reviewMode = 'default'; // 'default', 'fillblank', 'timer', 'activeMemory', 'step', 'reverse', 'random' - controls review behavior
   let deckHasTextTag = false; // Whether deck supports fill-in-the-blank mode
   let deckHasTimerTag = false; // Whether deck supports pressure recall mode
   let timerSettings = { frontTime: 10, backTime: 5 }; // Settings for timer mode
+
+  function getRetentionCoefficient(mode){
+    const map = {
+      default: 1,
+      reverse: 1,
+      random: 1.1,
+      activeMemory: 1.1,
+      step: 1.2,
+      timer: 1.2,
+      fillblank: 2
+    };
+    return map[mode] || 1;
+  }
+
+  function setReviewTopBarVisibility(isReview){
+    try{
+      const marketBtn = document.getElementById('marketBtn');
+      const questsBtn = document.getElementById('questsBtn');
+      if(marketBtn) marketBtn.style.display = isReview ? 'none' : '';
+      if(questsBtn) questsBtn.style.display = isReview ? 'none' : '';
+    }catch(e){}
+  }
 
   function isInAppBrowser(){
     try{
@@ -188,6 +210,8 @@
       const hasActiveMemory = true; // Always available
       const isTimerModeUnlocked = localStorage.getItem('fabanki:market_mode_rappel_sous_pression');
       const isStepModeUnlocked = localStorage.getItem('fabanki:mode_step_unlocked') === 'true';
+      const reverseUnlocked = isReverseModeUnlocked();
+      const randomUnlocked = isRandomModeUnlocked();
       
       // Count available modes
       const isTextModeUnlocked = localStorage.getItem('fabanki:market_mode_texte_trou');
@@ -195,11 +219,15 @@
       const firstCard = xml.querySelector('card, note, item, entry, record');
       const fieldCount = firstCard ? (firstCard.children ? firstCard.children.length : 0) : 0;
       const stepModeCompatible = fieldCount > 2;
+      const reverseModeCompatible = fieldCount >= 2 && fieldCount <= 4;
+      const randomModeCompatible = fieldCount >= 2 && fieldCount <= 4;
       modes.push({id: 'default', name: 'Anki', unlocked: true});
       if(hasTextMode && isTextModeUnlocked) modes.push({id: 'fillblank', name: 'Texte', unlocked: true});
       if(hasTimerMode && isTimerModeUnlocked) modes.push({id: 'timer', name: 'Rappel', unlocked: true});
       if(hasActiveMemory) modes.push({id: 'activeMemory', name: 'Mémoire', unlocked: true});
       if(isStepModeUnlocked && stepModeCompatible) modes.push({id: 'step', name: 'Étapes', unlocked: true});
+      if(reverseModeCompatible && reverseUnlocked) modes.push({id: 'reverse', name: 'Revers', unlocked: true});
+      if(randomModeCompatible && randomUnlocked) modes.push({id: 'random', name: 'Aléatoire', unlocked: true});
       
       // If only one mode, load directly
       if(modes.length <= 1){
@@ -254,7 +282,9 @@
         'fillblank': '✍️',
         'timer': '⏱️',
         'activeMemory': '🧠',
-        'step': '🪜'
+        'step': '🪜',
+        'reverse': '🔁',
+        'random': '🎲'
       };
       
       const modeFullNames = {
@@ -262,7 +292,9 @@
         'fillblank': 'Texte à trou',
         'timer': 'Rappel sous pression',
         'activeMemory': 'Mémoire active',
-        'step': 'Étape par étape'
+        'step': 'Étape par étape',
+        'reverse': 'Revers',
+        'random': 'Aléatoire'
       };
       
       modes.forEach((mode, idx) => {
@@ -342,6 +374,7 @@
   // === Function: loadDeckFromURL ===
   async function loadDeckFromURL(url){
     updateStatus('Téléchargement du deck...');
+    try{ clearErrorScreen(); }catch(e){}
     try{
       // Make sure we're not in multi-deck mode
       multiDeckMode = false;
@@ -375,9 +408,16 @@
       updateStatus('Deck chargé — prêt pour révision');
     }catch(err){
       console.error(err);
-      updateStatus('Erreur chargement deck: '+err.message);
+      const errMsg = err && err.message ? err.message : 'Erreur inconnue';
+      updateStatus('Erreur chargement deck: '+ errMsg);
       deck = {title:'', cards:[]};
-      renderEmpty();
+      showErrorScreen({
+        title: 'Impossible de charger le deck',
+        message: 'Le fichier de deck n\'a pas pu etre charge.',
+        details: errMsg,
+        actionLabel: 'Reessayer',
+        onAction: () => loadDeckFromURL(url)
+      });
     }
   }
 
@@ -390,6 +430,7 @@
   
   async function loadMultipleDeckCards(deckURLs, options = {}){
     try{
+      try{ clearErrorScreen(); }catch(e){}
       const onlyNow = options.onlyNow === true;
       const limitCount = Number.isFinite(options.limitCount) ? options.limitCount : null;
       onlyNowMode = onlyNow;
@@ -419,6 +460,8 @@
           // Parse deck with proper field definitions (like parseXMLDeck does)
           const tempDeck = {title:'', cards:[], fieldDefs:[]};
           const deckKey = fallbackSha1(url).slice(0,10);
+          const deckPath = normalizeDeckPath(url).replace(/\.xml$/i, '');
+          try{ localStorage.setItem(`fabanki:deck_path:${deckKey}`, deckPath); }catch(e){}
           
           // Title
           const titleEl = xml.querySelector('title') || xml.querySelector('name') || xml.documentElement.getAttribute('name');
@@ -512,6 +555,9 @@
             }catch(e){ continue }
           }
           
+          // Store total card count for deck mastery tracking
+          try{ localStorage.setItem(`fabanki:deck_card_count:${deckKey}`, String(tempDeck.cards.length)); }catch(e){}
+
           // Get due cards for this deck
           const now = new Date();
           
@@ -533,40 +579,45 @@
             // Store field definitions in map so renderBack can access them
             cardFieldDefsMap.set(c.id, tempDeck.fieldDefs);
             // Add all cards to allCards - filtering will happen later
-            allCards.push({card: c, deckURL: url, deckName, deckKey, isNew});
+            allCards.push({card: c, deckURL: url, deckName, deckKey, deckPath, isNew});
           }
         }catch(e){ console.warn('Error loading deck:', url, e); }
       }
       
-      // Shuffle: separate by due status, shuffle each group, then concatenate
+      // Separate into due status groups with priority rules
       const now = new Date();
-      
-      // Separate into due status groups
       const nowCards = [];
+      const newCards = [];
       const futureCards = [];
+
       for(const card of allCards){
         if(card.isNew){
-          if(!onlyNow) continue; // new cards are excluded in only-now mode
-          else continue; // explicit for clarity
+          if(!onlyNow) newCards.push(card);
+          continue;
         }
         const st = JSON.parse(localStorage.getItem(`fabanki:${card.deckKey}:card:${card.card.id}`) || '{}');
         const due = st && st.due ? new Date(st.due) : now;
         if(due <= now) {
-          nowCards.push(card); // Due now or in past
+          nowCards.push(card);
         } else if(!onlyNow) {
-          futureCards.push(card); // Due in future (only if not only-now mode)
+          futureCards.push({ ...card, __due: due });
         }
       }
-      
-      const newCards = onlyNow ? [] : allCards.filter(x => x.isNew);
-      
+
       const shuffle = (arr)=>{ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] } };
-      shuffle(nowCards);
-      shuffle(futureCards);
-      shuffle(newCards);
-      
-      // Order: Maintenant (due now) first, then future, then new
-      multiDeckCards = onlyNow ? nowCards : nowCards.concat(futureCards).concat(newCards);
+      if(onlyNow){
+        shuffle(nowCards);
+        multiDeckCards = nowCards;
+      } else if(nowCards.length > 0){
+        shuffle(nowCards);
+        multiDeckCards = nowCards;
+      } else if(newCards.length > 0){
+        shuffle(newCards);
+        multiDeckCards = newCards;
+      } else {
+        futureCards.sort((a, b) => a.__due - b.__due);
+        multiDeckCards = futureCards;
+      }
       if(limitCount && multiDeckCards.length > limitCount){
         multiDeckCards = multiDeckCards.slice(0, limitCount);
       }
@@ -591,6 +642,7 @@
       sessionData = [];
       isReviewing = true;
       sessionCreditsGranted = false;
+      setReviewTopBarVisibility(true);
       currentIndex = 0;
       
       // Ensure progress info element is visible and initialized
@@ -608,9 +660,17 @@
       }
     }catch(err){
       console.error('Multi-deck error:', err);
-      updateStatus('Erreur chargement multi-deck: '+err.message);
+      const errMsg = err && err.message ? err.message : 'Erreur inconnue';
+      updateStatus('Erreur chargement multi-deck: '+errMsg);
       multiDeckMode = false;
       onlyNowMode = false;
+      showErrorScreen({
+        title: 'Impossible de charger les decks',
+        message: 'Le mode multi-deck a echoue.',
+        details: errMsg,
+        actionLabel: 'Reessayer',
+        onAction: () => loadMultipleDeckCards(deckURLs, options)
+      });
     }
   }
 
@@ -624,6 +684,7 @@
   function parseXMLDeck(xml, url){
     // create a deckKey based on URL (use synchronous fallback hash to avoid Promise issues)
     deckKey = fallbackSha1(url).slice(0,10);
+    try{ localStorage.setItem(`fabanki:deck_path:${deckKey}`, normalizeDeckPath(url).replace(/\.xml$/i, '')); }catch(e){}
     deck = {title:'', cards:[], fieldDefs:[]};
 
     // title (optional)
@@ -747,6 +808,9 @@
     }
 
     if(deck.cards.length===0) throw new Error('Aucune carte détectée dans le fichier XML');
+
+    // Store total card count for deck mastery tracking
+    try{ localStorage.setItem(`fabanki:deck_card_count:${deckKey}`, String(deck.cards.length)); }catch(e){}
 
     // Update UI
     $('#deckInfo').textContent = `Deck: ${deck.title || 'non nommé'} — ${deck.cards.length} cartes`;
@@ -1228,6 +1292,7 @@
         modeContainer.style.cssText = 'margin-bottom:16px;display:flex;flex-direction:column;gap:8px;';
         
         const modesContainer = document.createElement('div');
+        modesContainer.className = 'mode-grid';
         modesContainer.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start;align-items:center;';
         
         const modeIcons = {
@@ -1235,7 +1300,9 @@
           'fillblank': '✍️',
           'timer': '⏱️',
           'activeMemory': '🧠',
-          'step': '🪜'
+          'step': '🪜',
+          'reverse': '🔁',
+          'random': '🎲'
         };
         
         const modeFullNames = {
@@ -1243,7 +1310,9 @@
           'fillblank': 'Texte à trou',
           'timer': 'Rappel sous pression',
           'activeMemory': 'Mémoire active',
-          'step': 'Étape par étape'
+          'step': 'Étape par étape',
+          'reverse': 'Revers',
+          'random': 'Aléatoire'
         };
         
         const availableModes = [
@@ -1260,6 +1329,12 @@
         const stepLockedByDeck = deckFieldCount <= 2;
         const stepLockedByQuest = !isStepModeUnlocked;
         const stepLocked = stepLockedByDeck || stepLockedByQuest;
+        const reverseLockedByDeck = !(deckFieldCount >= 2 && deckFieldCount <= 4);
+        const reverseLockedByQuest = !isReverseModeUnlocked();
+        const reverseLocked = reverseLockedByDeck || reverseLockedByQuest;
+        const randomLockedByDeck = !(deckFieldCount >= 2 && deckFieldCount <= 4);
+        const randomLockedByQuest = !isRandomModeUnlocked();
+        const randomLocked = randomLockedByDeck || randomLockedByQuest;
         availableModes.push({
           id: 'fillblank',
           name: 'Texte à trou',
@@ -1278,6 +1353,18 @@
           name: 'Étape par étape',
           locked: stepLocked,
           lockReason: stepLockedByDeck ? 'Deck incompatible' : 'Mode bloque'
+        });
+        availableModes.push({
+          id: 'reverse',
+          name: 'Revers',
+          locked: reverseLocked,
+          lockReason: reverseLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'
+        });
+        availableModes.push({
+          id: 'random',
+          name: 'Aléatoire',
+          locked: randomLocked,
+          lockReason: randomLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'
         });
         
         const buttons = new Map();
@@ -1304,6 +1391,7 @@
         
         availableModes.forEach((mode) => {
           const btn = document.createElement('button');
+          btn.className = 'mode-btn';
           btn.style.cssText = 'flex:0 0 auto;padding:12px 16px;border:2px solid #ddd;border-radius:8px;background:white;color:#333;cursor:pointer;font-size:0.85em;user-select:none;transition:all 0.2s;font-weight:600;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;';
           
           const icon = document.createElement('div');
@@ -1322,7 +1410,7 @@
             btn.style.cursor = 'not-allowed';
             const lock = document.createElement('div');
             lock.style.cssText = 'font-size:0.75em;color:#6b7280;';
-            lock.textContent = '🔒 ' + (mode.lockReason || 'Verrouille');
+            lock.textContent = '🔒 ' + (mode.lockReason || 'Verrouillé');
             btn.appendChild(lock);
           }
           
@@ -1374,30 +1462,41 @@
         modeContainer.style.cssText = 'margin-bottom:16px;display:flex;flex-direction:column;gap:8px;';
         
         const modesContainer = document.createElement('div');
+        modesContainer.className = 'mode-grid';
         modesContainer.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start;align-items:center;';
         
         const modeIcons = {
           'default': '📚',
           'activeMemory': '🧠',
-          'step': '🪜'
+          'step': '🪜',
+          'reverse': '🔁',
+          'random': '🎲'
         };
         
         const modeFullNames = {
           'default': 'Mode Anki',
           'activeMemory': 'Mémoire active',
-          'step': 'Étape par étape'
+          'step': 'Étape par étape',
+          'reverse': 'Revers',
+          'random': 'Aléatoire'
         };
         
         const stepLockedByDeck = deckFieldCount <= 2;
         const stepLockedByQuest = !isStepModeUnlocked;
         const stepLocked = stepLockedByDeck || stepLockedByQuest;
+        const reverseLockedByDeck = !(deckFieldCount >= 2 && deckFieldCount <= 4);
+        const reverseLockedByQuest = !isReverseModeUnlocked();
+        const reverseLocked = reverseLockedByDeck || reverseLockedByQuest;
+        const randomLockedByDeck = !(deckFieldCount >= 2 && deckFieldCount <= 4);
 
         const availableModes = [
           {id: 'default', name: 'Mode Anki', locked: false},
           {id: 'fillblank', name: 'Texte à trou', locked: true, lockReason: 'Deck incompatible'},
           {id: 'timer', name: 'Rappel sous pression', locked: true, lockReason: 'Deck incompatible'},
           {id: 'activeMemory', name: 'Mémoire active', locked: false},
-          {id: 'step', name: 'Étape par étape', locked: stepLocked, lockReason: stepLockedByDeck ? 'Deck incompatible' : 'Mode bloque'}
+          {id: 'step', name: 'Étape par étape', locked: stepLocked, lockReason: stepLockedByDeck ? 'Deck incompatible' : 'Mode bloque'},
+          {id: 'reverse', name: 'Revers', locked: reverseLocked, lockReason: reverseLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'},
+          {id: 'random', name: 'Aléatoire', locked: randomLocked, lockReason: randomLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'}
         ];
         
         const buttons = new Map();
@@ -1424,6 +1523,7 @@
         
         availableModes.forEach((mode) => {
           const btn = document.createElement('button');
+          btn.className = 'mode-btn';
           btn.style.cssText = 'flex:0 0 auto;padding:12px 16px;border:2px solid #ddd;border-radius:8px;background:white;color:#333;cursor:pointer;font-size:0.85em;user-select:none;transition:all 0.2s;font-weight:600;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;';
           
           const icon = document.createElement('div');
@@ -1756,6 +1856,26 @@
       }
     });
   }
+  function isReverseModeActive(){
+    if(reviewMode === 'reverse') return true;
+    if(reviewMode === 'random'){
+      return !!(window.__randomModeState && window.__randomModeState.reverse);
+    }
+    return false;
+  }
+  function normalizeSidesForMode(sides, isReversed){
+    if(!sides || !isReversed) return sides;
+    return { front: !!sides.back, back: !!sides.front, always: false };
+  }
+  function getOrderedFieldNames(card, defs){
+    if(defs && defs.length){
+      const names = defs.map(d => d.name).filter(name => card.fields && card.fields[name]);
+      if(names.length) return names;
+    }
+    if(card._fieldOrder && card._fieldOrder.length) return card._fieldOrder.slice();
+    if(card.fields) return Object.keys(card.fields);
+    return [];
+  }
   function renderFront(card){
     const frontEl = $('#front');
     const alwaysEl = $('#always');
@@ -1815,10 +1935,51 @@
       return;
     }
     
+    const isReversed = isReverseModeActive();
+    if(isReversed){
+      const orderedNames = getOrderedFieldNames(card, defs);
+      for(let i = 1; i < orderedNames.length; i++){
+        const fieldName = orderedNames[i];
+        const f = card.fields && card.fields[fieldName];
+        if(!f || !f.html || f.html.trim().length === 0) continue;
+        const def = (defs || []).find(d => d.name === fieldName) || {name: fieldName, type: f.type || 'rich-text'};
+        const node = buildFieldElement(def, f);
+        frontEl.appendChild(node);
+      }
+      alwaysEl.textContent = '';
+      try{ applyCardScroll(frontEl); }catch(e){}
+      return;
+    }
     if(defs.length === 0){
       // No field definitions: show first field on front (multi-deck fallback)
       // Use _fieldOrder if available for correct ordering
-      if(card.fields && card._fieldOrder && card._fieldOrder.length > 0){
+      if(isReversed){
+        if(card.fields && card._fieldOrder && card._fieldOrder.length > 1){
+          for(let i = 1; i < card._fieldOrder.length; i++){
+            const fieldName = card._fieldOrder[i];
+            const f = card.fields[fieldName];
+            if(f){
+              const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: true, back: false}};
+              const node = buildFieldElement(def, f);
+              frontEl.appendChild(node);
+            }
+          }
+        } else if(card.fields){
+          let isFirst = true;
+          for(const fieldName in card.fields){
+            if(isFirst){
+              isFirst = false;
+              continue;
+            }
+            const f = card.fields[fieldName];
+            if(f){
+              const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: true, back: false}};
+              const node = buildFieldElement(def, f);
+              frontEl.appendChild(node);
+            }
+          }
+        }
+      } else if(card.fields && card._fieldOrder && card._fieldOrder.length > 0){
         const fieldName = card._fieldOrder[0];
         const f = card.fields[fieldName];
         if(f){
@@ -1859,7 +2020,7 @@
         }
         
         // Get sides from field or definition
-        const sides = f.sides || def.sides;
+        const sides = normalizeSidesForMode((f.sides || def.sides), isReversed);
         
         console.log(`Front Field "${def.name}": sides=`, sides);
         
@@ -1868,6 +2029,10 @@
           const isFirstField = Object.keys(card.fields).findIndex(k => k === def.name) === 0;
           if(!isFirstField) {
             console.log(`  -> Skipping "${def.name}" (no sides, not first)`);
+            continue;
+          }
+          if(isReversed){
+            console.log(`  -> Skipping "${def.name}" (first field, reversed)`);
             continue;
           }
           // First field with no sides - render it
@@ -1912,10 +2077,52 @@
     let anyContent = false;
     const frontVisible = (function(){ try{ const fe = document.getElementById('front'); return fe && fe.style.display !== 'none'; }catch(e){ return false } })();
     
+    const isReversed = isReverseModeActive();
+    if(isReversed){
+      const orderedNames = getOrderedFieldNames(card, defs);
+      if(orderedNames.length > 0){
+        const fieldName = orderedNames[0];
+        const f = card.fields && card.fields[fieldName];
+        if(f && f.html && f.html.trim().length > 0){
+          const def = (defs || []).find(d => d.name === fieldName) || {name: fieldName, type: f.type || 'rich-text'};
+          const node = buildFieldElement(def, f);
+          backEl.appendChild(node);
+          anyContent = true;
+        }
+      }
+      if(!anyContent){ backEl.innerHTML = '<em>Contenu masqué côté réponse</em>'; }
+      try{ applyCardScroll(backEl); }catch(e){}
+      return;
+    }
     if(defs.length === 0){
       // No field definitions: show all fields except first on back (multi-deck)
       // Use _fieldOrder if available to preserve XML order
-      if(card.fields && card._fieldOrder && card._fieldOrder.length > 1){
+      if(isReversed){
+        if(card.fields && card._fieldOrder && card._fieldOrder.length > 0){
+          const fieldName = card._fieldOrder[0];
+          const f = card.fields[fieldName];
+          if(f){
+            const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
+            const node = buildFieldElement(def, f);
+            backEl.appendChild(node);
+            anyContent = true;
+          }
+        } else if(card.fields){
+          let isFirst = true;
+          for(const fieldName in card.fields){
+            if(isFirst){
+              const f = card.fields[fieldName];
+              if(f){
+                const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
+                const node = buildFieldElement(def, f);
+                backEl.appendChild(node);
+                anyContent = true;
+              }
+              break;
+            }
+          }
+        }
+      } else if(card.fields && card._fieldOrder && card._fieldOrder.length > 1){
         // Multiple fields - show all except first
         for(let i = 1; i < card._fieldOrder.length; i++){
           const fieldName = card._fieldOrder[i];
@@ -1955,20 +2162,30 @@
       
       if(!defsMatch && cardFieldKeys.length > 0){
         // Field definitions don't match card fields - use actual card field names instead
-        
-        // Show all fields except first
-        let isFirst = true;
-        for(const fieldName of cardFieldKeys){
-          if(isFirst){
-            isFirst = false;
-            continue;
-          }
+        if(isReversed){
+          const fieldName = cardFieldKeys[0];
           const f = card.fields[fieldName];
           if(f){
             const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
             const node = buildFieldElement(def, f);
             backEl.appendChild(node);
             anyContent = true;
+          }
+        } else {
+          // Show all fields except first
+          let isFirst = true;
+          for(const fieldName of cardFieldKeys){
+            if(isFirst){
+              isFirst = false;
+              continue;
+            }
+            const f = card.fields[fieldName];
+            if(f){
+              const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
+              const node = buildFieldElement(def, f);
+              backEl.appendChild(node);
+              anyContent = true;
+            }
           }
         }
       } else {
@@ -1992,7 +2209,7 @@
           
           foundAny = true;
           // Get sides info, defaulting to {front:true,back:false} if not specified (don't show duplicates)
-          const sides = f.sides || def.sides || {front: true, back: false};
+          const sides = normalizeSidesForMode((f.sides || def.sides || {front: true, back: false}), isReversed);
           
           console.log(`Field "${def.name}": sides=`, sides, 'frontVisible=', frontVisible);
           
@@ -2153,6 +2370,7 @@
     sessionTotal = dueCards.length;
     isReviewing = true;
     sessionCreditsGranted = false;
+    setReviewTopBarVisibility(true);
     window.__timerSettingsShown = false; // Reset timer settings flag for new session
     const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
     currentIndex = 0;
@@ -2290,7 +2508,8 @@
       newStability = Math.max(1, st.stability * base * buttonMult * weights.w7);
     }
 
-    const intervalDays = Math.max(1, Math.round(newStability));
+    const retentionCoeff = getRetentionCoefficient(reviewMode);
+    const intervalDays = Math.max(1, Math.round(newStability * retentionCoeff));
 
     st.stability = newStability;
     st.interval = intervalDays;
@@ -2510,6 +2729,11 @@
       if(quality === 3) st.ef = (st.ef || 2.5) - 0.15; // penalize for Hard
       if(quality === 5) st.ef = (st.ef || 2.5) + 0.12; // boost for Easy
       if(st.ef < 1.3) st.ef = 1.3;
+
+      if((st.interval || 0) > 0){
+        const retentionCoeff = getRetentionCoefficient(reviewMode);
+        st.interval = Math.max(1, Math.round(st.interval * retentionCoeff));
+      }
     }
     // set due
     let next;
@@ -2559,8 +2783,94 @@
       if(hint){ hint.style.position = ''; hint.style.top = ''; hint.style.left = ''; hint.style.right = ''; hint.style.zIndex = ''; hint.style.display = t ? 'block' : ''; }
     }catch(e){ try{ $('#status').textContent = t }catch(e){} }
   }
-  function renderEmpty(){
+  function clearErrorScreen(){
+    try{
+      const err = document.getElementById('errorScreen');
+      if(err) err.remove();
+      const cardArea = document.getElementById('cardArea'); if(cardArea) cardArea.style.display = '';
+      const status = document.getElementById('status'); if(status) status.style.display = '';
+      const stats = document.getElementById('stats'); if(stats) stats.style.display = '';
+      const hint = document.getElementById('histHint'); if(hint) hint.style.display = '';
+      const footer = document.querySelector('footer'); if(footer) footer.style.display = '';
+    }catch(e){}
+  }
+  function showErrorScreen(options = {}){
+    try{
+      clearErrorScreen();
+      const mainEl = document.querySelector('main');
+      if(!mainEl) return;
+      mainEl.style.display = 'block';
+      const cardArea = document.getElementById('cardArea'); if(cardArea) cardArea.style.display = 'none';
+      const status = document.getElementById('status'); if(status) status.style.display = 'none';
+      const stats = document.getElementById('stats'); if(stats) stats.style.display = 'none';
+      const hint = document.getElementById('histHint'); if(hint) hint.style.display = 'none';
+      const footer = document.querySelector('footer'); if(footer) footer.style.display = 'none';
+
+      const wrap = document.createElement('div');
+      wrap.id = 'errorScreen';
+      wrap.className = 'error-screen';
+
+      const icon = document.createElement('div');
+      icon.className = 'error-screen__icon';
+      icon.textContent = '⚠️';
+
+      const title = document.createElement('div');
+      title.className = 'error-screen__title';
+      title.textContent = options.title || 'Erreur';
+
+      const message = document.createElement('div');
+      message.className = 'error-screen__message';
+      message.textContent = options.message || 'Une erreur est survenue.';
+
+      const details = document.createElement('div');
+      details.className = 'error-screen__details';
+      details.textContent = options.details || '';
+      if(!details.textContent) details.style.display = 'none';
+
+      const actions = document.createElement('div');
+      actions.className = 'error-screen__actions';
+
+      if(typeof options.onAction === 'function'){
+        const retry = document.createElement('button');
+        retry.textContent = options.actionLabel || 'Reessayer';
+        retry.addEventListener('click', ()=>{
+          clearErrorScreen();
+          try{ options.onAction(); }catch(e){}
+        });
+        actions.appendChild(retry);
+      }
+
+      const browse = document.createElement('button');
+      browse.className = 'secondary';
+      browse.textContent = 'Parcourir decks';
+      browse.addEventListener('click', ()=>{
+        clearErrorScreen();
+        if(typeof openDeckBrowser === 'function') openDeckBrowser();
+        else if(typeof renderWelcomeDecks === 'function') renderWelcomeDecks();
+      });
+      actions.appendChild(browse);
+
+      const home = document.createElement('button');
+      home.className = 'secondary';
+      home.textContent = 'Retour accueil';
+      home.addEventListener('click', ()=>{
+        clearErrorScreen();
+        if(typeof renderWelcomeDecks === 'function') renderWelcomeDecks();
+      });
+      actions.appendChild(home);
+
+      wrap.appendChild(icon);
+      wrap.appendChild(title);
+      wrap.appendChild(message);
+      wrap.appendChild(details);
+      wrap.appendChild(actions);
+      mainEl.appendChild(wrap);
+    }catch(e){ console.warn('showErrorScreen error:', e); }
+  }
+  function renderEmpty(options = {}){
+    const skipSessionTracking = !!options.skipSessionTracking;
     isReviewing = false;
+    setReviewTopBarVisibility(false);
     // Increment decks reviewed counter for missions
     try{
       const decksCount = incrementDecksReviewed();
@@ -2882,19 +3192,27 @@
         }, 500);
       }
       
-      // Grant mission "Réviser au moins un deck"
-      try{
-        if(typeof completeMission === 'function'){
-          completeMission('review_one_deck', 'daily');
-        }
-      }catch(e){ console.warn('mission grant error', e); }
-      
-      // Track welcome quest session completion
-      try{
-        if(typeof completeWelcomeQuestMission === 'function'){
-          completeWelcomeQuestMission('part2', 'session_completed', 5);
-        }
-      }catch(e){ console.warn('welcome quest session error', e); }
+      if(!skipSessionTracking && reviewedCount >= 1){
+        // Grant mission "Réviser au moins un deck"
+        try{
+          if(typeof completeMission === 'function'){
+            completeMission('review_one_deck', 'daily');
+          }
+        }catch(e){ console.warn('mission grant error', e); }
+
+        // Track session completion for daily missions
+        try{
+          incrementSessionsCompleted();
+          if(typeof updateMissionProgress === 'function') updateMissionProgress();
+        }catch(e){ console.warn('session mission update error', e); }
+        
+        // Track welcome quest session completion
+        try{
+          if(typeof completeWelcomeQuestMission === 'function'){
+            completeWelcomeQuestMission('part2', 'session_completed', 5);
+          }
+        }catch(e){ console.warn('welcome quest session error', e); }
+      }
     }
 
     if(back){ back.innerHTML=''; back.style.display = 'none'; }
@@ -2949,6 +3267,32 @@
       console.log('[MISSION] Decks reviewed today:', count);
       return count;
     }catch(e){ console.warn('incrementDecksReviewed error:', e); return 0; }
+  }
+
+  function incrementSessionsCompleted(){
+    try{
+      const key = 'fabanki:sessions_completed_today';
+      const today = new Date().toISOString().split('T')[0];
+      const lastDate = localStorage.getItem('fabanki:sessions_completed_date');
+      let count = 0;
+      if(lastDate !== today){
+        localStorage.setItem('fabanki:sessions_completed_date', today);
+        count = 1;
+      } else {
+        count = Number(localStorage.getItem(key) || 0) + 1;
+      }
+      localStorage.setItem(key, String(count));
+      return count;
+    }catch(e){ console.warn('incrementSessionsCompleted error:', e); return 0; }
+  }
+
+  function getSessionsCompletedToday(){
+    try{
+      const today = new Date().toISOString().split('T')[0];
+      const lastDate = localStorage.getItem('fabanki:sessions_completed_date');
+      if(lastDate !== today) return 0;
+      return Number(localStorage.getItem('fabanki:sessions_completed_today') || 0);
+    }catch(e){ return 0; }
   }
   
   function continueWithFirstCard(){
@@ -3024,6 +3368,17 @@
     }
 
     
+    if(reviewMode === 'random'){
+      try{
+        const key = (cardData && cardData.deckKey ? cardData.deckKey + '::' : '') + (c && c.id ? c.id : String(currentIndex));
+        if(!window.__randomModeState || window.__randomModeState.key !== key){
+          window.__randomModeState = { key, reverse: Math.random() < 0.5 };
+        }
+      }catch(e){ window.__randomModeState = { key: String(currentIndex), reverse: Math.random() < 0.5 }; }
+    } else {
+      window.__randomModeState = null;
+    }
+
     renderFront(c);
 
     // Setup step-by-step mode if enabled
@@ -4471,139 +4826,88 @@
   }
 
   // Button handlers
-    const showAnswerBtn = $('#showAnswer');
+  const showAnswerBtn = $('#showAnswer');
   if(showAnswerBtn){
     showAnswerBtn.addEventListener('click', ()=>{
       const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
       try{
-      console.log('showAnswer clicked - renderBack will be called once');
-      renderBack(c);
-      console.log('renderBack completed');
-      
-      // For Active Memory mode, stop the timer
-      if(reviewMode === 'activeMemory' && window.__activeMemoryTimerState){
-        if(window.__activeMemoryTimerState.animationHandle){
-          cancelAnimationFrame(window.__activeMemoryTimerState.animationHandle);
-        }
-        if(window.__activeMemoryTimerState.timeoutHandle){
-          clearTimeout(window.__activeMemoryTimerState.timeoutHandle);
-        }
-      }
-      
-      // For timer mode, update timer state with adjusted back time
-      if(reviewMode === 'timer' && window.timerModeState && c){
-        let adjustedBackTime = timerSettings.backTime;
+        console.log('showAnswer clicked - renderBack will be called once');
+        renderBack(c);
+        console.log('renderBack completed');
         
-        // Check back content length for size adjustment
-        if(c.fields){
-          const fieldOrder = c._fieldOrder || Object.keys(c.fields);
-          const meanCardLength = 200;
-          
-          if(fieldOrder.length > 1){
-            const backFieldName = fieldOrder[1];
-            const backField = c.fields[backFieldName];
-            const backContent = typeof backField === 'string' ? backField : '';
-            const backLength = backContent.replace(/<[^>]*>/g, '').length;
-            
-            if(backLength > 1.5 * meanCardLength){
-              adjustedBackTime = timerSettings.backTime * 1.3;
-            }
+        // For Active Memory mode, stop the timer
+        if(reviewMode === 'activeMemory' && window.__activeMemoryTimerState){
+          if(window.__activeMemoryTimerState.animationHandle){
+            cancelAnimationFrame(window.__activeMemoryTimerState.animationHandle);
+          }
+          if(window.__activeMemoryTimerState.timeoutHandle){
+            clearTimeout(window.__activeMemoryTimerState.timeoutHandle);
           }
         }
         
-        window.timerModeState.isShowingBack = true;
-        window.timerModeState.cardStartTime = Date.now();
-        window.timerModeState.currentTimeLimit = adjustedBackTime * 1000;
-        window.timerModeState.autoClickActive = false;
-        
-        // FIX BUTTON VISIBILITY based on time spent on front
-        const timeSpentOnFront = (Date.now() - window.timerModeState.frontCardStartTime) / 1000;
-        const totalFrontTime = timerSettings.frontTime;
-        const frontProgress = Math.min(100, (timeSpentOnFront / totalFrontTime) * 100);
-        
-        // Determine which button to show and lock it
-        let buttonToShow = null;
-        if(frontProgress < 20){
-          buttonToShow = 'easy';
-        } else if(frontProgress < 60){
-          buttonToShow = 'good';
-        } else if(frontProgress < 100){
-          buttonToShow = 'hard';
-        } else {
-          buttonToShow = 'fail';
+        // For timer mode, update timer state with adjusted back time
+        if(reviewMode === 'timer' && window.timerModeState && c){
+          let adjustedBackTime = timerSettings.backTime;
+          
+          // Check back content length for size adjustment
+          if(c.fields){
+            const fieldOrder = c._fieldOrder || Object.keys(c.fields);
+            const meanCardLength = 200;
+            
+            if(fieldOrder.length > 1){
+              const backFieldName = fieldOrder[1];
+              const backField = c.fields[backFieldName];
+              const backContent = typeof backField === 'string' ? backField : '';
+              const backLength = backContent.replace(/<[^>]*>/g, '').length;
+              
+              if(backLength > 1.5 * meanCardLength){
+                adjustedBackTime = timerSettings.backTime * 1.3;
+              }
+            }
+          }
+          
+          window.timerModeState.isShowingBack = true;
+          window.timerModeState.cardStartTime = Date.now();
+          window.timerModeState.currentTimeLimit = adjustedBackTime * 1000;
+          window.timerModeState.autoClickActive = false;
+          
+          // FIX BUTTON VISIBILITY based on time spent on front
+          const timeSpentOnFront = (Date.now() - window.timerModeState.frontCardStartTime) / 1000;
+          const totalFrontTime = timerSettings.frontTime;
+          const frontProgress = Math.min(100, (timeSpentOnFront / totalFrontTime) * 100);
+          
+          // Determine which button to show and lock it
+          let buttonToShow = null;
+          if(frontProgress < 20){
+            buttonToShow = 'easy';
+          } else if(frontProgress < 60){
+            buttonToShow = 'good';
+          } else if(frontProgress < 100){
+            buttonToShow = 'hard';
+          } else {
+            buttonToShow = 'fail';
+          }
+          
+          window.timerModeState.fixedButtonState = buttonToShow;
         }
         
-        window.timerModeState.fixedButtonState = buttonToShow;
-      }
-      
-      const frontEl = $('#front');
-      const backEl = $('#back');
-      const respBtn = $('#respButtons');
-      const showBtn = $('#showAnswer');
-      if(window.innerWidth <= 640){
-        // mobile: show front AND back (don't auto-hide front)
-        if(frontEl){ frontEl.style.display = 'block'; frontEl.style.flex = '0 0 auto'; }
-        if(backEl){ backEl.style.display = 'flex'; backEl.style.flex = '1 1 auto'; }
-      } else {
-        // desktop: show answer under the question, center both
-        if(frontEl){ frontEl.style.display = 'block'; frontEl.style.flex = '0 0 auto'; }
-        if(backEl){ backEl.style.display = 'block'; backEl.style.flex = '0 0 auto'; }
-        // ensure text inside both is centered
-        try{ frontEl.querySelectorAll('.field').forEach(n=>n.style.textAlign='center'); }catch(e){}
-        try{ backEl.querySelectorAll('.field').forEach(n=>n.style.textAlign='center'); }catch(e){}
-      }
-      // Apply scroll after a short delay to ensure dimensions are calculated
-      setTimeout(() => {
-        try{ applyCardScroll(backEl); }catch(e){}
-        try{ applyCardScroll(frontEl); }catch(e){}
-      }, 50);
-      if(respBtn) respBtn.style.display = 'flex';
-      if(showBtn) showBtn.style.display = 'none';
-    }catch(e){ console.warn('showAnswer error', e); }
+        const frontEl = $('#front');
+        const backEl = $('#back');
+        const respBtn = $('#respButtons');
+        const showBtn = $('#showAnswer');
+        if(window.innerWidth <= 640){
+          // mobile: show front AND back (don't auto-hide front)
+          if(frontEl){ frontEl.style.display = 'block'; frontEl.style.flex = '0 0 auto'; }
+          if(backEl){ backEl.style.display = 'block'; backEl.style.flex = '0 0 auto'; }
+        } else {
+          // desktop: show only back
+          if(frontEl){ frontEl.style.display = 'none'; }
+          if(backEl){ backEl.style.display = 'block'; backEl.style.flex = '1 1 auto'; }
+        }
+        if(respBtn) respBtn.style.display = 'inline-flex';
+        if(showBtn) showBtn.style.display = 'none';
+      }catch(e){ console.warn('showAnswer error', e); }
     });
-  }
-
-  // Modification request button
-  const requestModBtn = document.getElementById('requestModBtn');
-  if(requestModBtn){
-    requestModBtn.addEventListener('click', ()=>{
-      const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
-      if(!c) return;
-      showModificationRequestModal(c);
-    });
-  }
-  
-  function showModificationRequestModal(card){
-    const overlay = document.getElementById('modRequestOverlay');
-    const fieldsContainer = document.getElementById('modRequestFields');
-    if(!overlay || !fieldsContainer) return;
-    
-    // Clear previous content
-    fieldsContainer.innerHTML = '';
-    
-    // Create editable fields for each field in the card
-    const fields = card.fields || {};
-    Object.keys(fields).forEach(fieldName => {
-      const field = fields[fieldName];
-      const fieldDiv = document.createElement('div');
-      fieldDiv.style.cssText = 'margin-bottom:16px;';
-      
-      const label = document.createElement('label');
-      label.textContent = fieldName;
-      label.style.cssText = 'display:block;font-weight:600;margin-bottom:4px;';
-      fieldDiv.appendChild(label);
-      
-      const textarea = document.createElement('textarea');
-      textarea.value = field.html || '';
-      textarea.style.cssText = 'width:100%;min-height:80px;padding:8px;border:1px solid var(--border-color);border-radius:4px;font-family:monospace;font-size:0.85em;background:var(--bg);color:var(--text);';
-      textarea.setAttribute('data-field-name', fieldName);
-      fieldDiv.appendChild(textarea);
-      
-      fieldsContainer.appendChild(fieldDiv);
-    });
-    
-    // Show overlay
-    overlay.style.display = 'block';
   }
   
   // Cancel modification request
@@ -4930,6 +5234,15 @@
       // Track for recap: passed cards get grade 0
       const timeSec = Math.max(0, (Date.now() - (cardShownAt||Date.now())) / 1000);
       sessionData.push({cardId: c.id, grade: 0, timeSpent: timeSec, deckKey: cardData ? cardData.deckKey : null});
+      try{
+        const currentDeckKey = (multiDeckMode && cardData) ? cardData.deckKey : deckKey;
+        syncPostWelcomeQuestProgress({
+          mode: reviewMode,
+          deckKey: currentDeckKey,
+          timeSec,
+          reviewed: true
+        });
+      }catch(e){}
       updateProgressDisplay();
       try{ incLocal('fabanki:pass_total', 1); resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = -6; const cur = Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta; localStorage.setItem('fabanki:score_mpsi_semaine', String(cur)); const curM = Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta; localStorage.setItem('fabanki:score_mpsi_mois', String(curM)); }catch(e){}
       try{ incLocal('fabanki:cards_since_streak_reset',1); }catch(e){}
@@ -5055,9 +5368,10 @@
     updateProgressDisplay();
     // capture previous review time (hours since last review) to compute XP multiplier
     let prevReviewHours = null;
+    let stPrev = null;
     try{
       const keyPrev = storageKey('card:'+c.id);
-      const stPrev = JSON.parse(localStorage.getItem(keyPrev) || '{}');
+      stPrev = JSON.parse(localStorage.getItem(keyPrev) || '{}');
       if(stPrev && stPrev.last){ const lastD = new Date(stPrev.last); prevReviewHours = (new Date() - lastD) / (1000*60*60); }
       else if(stPrev && stPrev.due){ const pd = new Date(stPrev.due); prevReviewHours = (new Date() - pd) / (1000*60*60); }
     }catch(e){}
@@ -5067,11 +5381,14 @@
     try{
       const keyPrev = storageKey('card:'+c.id);
       const stNow = JSON.parse(localStorage.getItem(keyPrev) || '{}');
+      const wasNew = (!stPrev || (!stPrev.last && (stPrev.reps===0 || stPrev.reps===undefined)));
+      if(wasNew) { try{ incLocal('fabanki:new_cards_total', 1); }catch(e){} }
+      let masteredDelta = 0;
       // mastered detection: became mastered if reps crossed threshold (>=3)
       try{
         const prevReps = (typeof stPrev !== 'undefined' && stPrev && stPrev.reps) ? Number(stPrev.reps) : 0;
         const nowReps = (stNow && stNow.reps) ? Number(stNow.reps) : 0;
-        if(prevReps < 3 && nowReps >= 3){ incLocal('fabanki:mastered_total',1); }
+        if(prevReps < 3 && nowReps >= 3){ incLocal('fabanki:mastered_total',1); masteredDelta = 1; }
       }catch(e){}
 
       try{ incLocal('fabanki:cards_since_streak_reset',1); }catch(e){}
@@ -5082,6 +5399,16 @@
       
             // Accumulate time spent for mission tracking (seconds-based)
             try{ accumulateTimeSpent(timeSec); }catch(e){}
+      
+      try{
+        const currentDeckKey = (multiDeckMode && cardData) ? cardData.deckKey : deckKey;
+        syncPostWelcomeQuestProgress({
+          mode: reviewMode,
+          deckKey: currentDeckKey,
+          timeSec,
+          reviewed: true
+        });
+      }catch(e){}
       
       try{ if(timeSec > 20) incLocal('fabanki:long_answer_total', 1); }catch(e){}
 
@@ -5114,38 +5441,16 @@
         localStorage.setItem('fabanki:consec_no_pass_max', String(maxNoPass));
       }catch(e){}
     }catch(e){ console.warn('answerCurrent counters', e) }
-    // Anki-like behaviour: on Fail (q<3) reinsert this card later in the session
-    if(q < 3){
-      // remove current card from list
-      dueCards.splice(currentIndex, 1);
-      // Check if deck is empty after removal
-      if(dueCards.length === 0){ 
-        updateStatus('Révision terminée pour aujourd\'hui'); 
-        renderEmpty(); 
-        answerLocked = false;
-        return;
-      }
-      // insert it after a random offset (5..20)
-      const offset = randInt(5,20);
-      const insertPos = Math.min(dueCards.length, currentIndex + offset);
-      // In multi-deck mode, reinsert the full cardData object; otherwise just the card
-      const cardToReinsert = multiDeckMode ? cardData : c;
-      dueCards.splice(insertPos, 0, cardToReinsert);
-      // don't advance index: currentIndex now points to the next card
-      if(currentIndex >= dueCards.length) currentIndex = dueCards.length - 1;
-      showNextCard();
-    } else {
-      // remove answered card; next card naturally shifts into currentIndex
-      dueCards.splice(currentIndex, 1);
-      // Check if deck is empty after removal
-      if(dueCards.length === 0 || currentIndex >= dueCards.length){ 
-        updateStatus('Révision terminée pour aujourd\'hui'); 
-        renderEmpty(); 
-        answerLocked = false;
-        return;
-      }
-      showNextCard();
+    // Remove answered card; next card naturally shifts into currentIndex
+    dueCards.splice(currentIndex, 1);
+    // Check if deck is empty after removal
+    if(dueCards.length === 0 || currentIndex >= dueCards.length){ 
+      updateStatus('Révision terminée pour aujourd\'hui'); 
+      renderEmpty(); 
+      answerLocked = false;
+      return;
     }
+    showNextCard();
     const dueEl2 = $('#dueCount'); if(dueEl2) dueEl2.textContent = dueCards.length;
     updateProgressDisplay();
     try{
@@ -5252,12 +5557,29 @@
     document.addEventListener('keydown', recordActivity, { passive: true });
     document.addEventListener('touchstart', recordActivity, { passive: true });
     document.addEventListener('click', recordActivity, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if(!document.hidden){
+        lastActivityTime = Date.now();
+        if(isIdle){
+          isIdle = false;
+          console.log('[TIME] User is active again');
+        }
+      }
+    });
     
     // Background time accumulator - runs every 10 seconds
     setInterval(() => {
       try{
         resetDailyTimeIfNeeded();
         resetWeeklyTimeIfNeeded();
+
+        if(document.hidden){
+          if(!isIdle){
+            isIdle = true;
+            console.log('[TIME] Tab hidden, time tracking paused');
+          }
+          return;
+        }
         
         const now = Date.now();
         const timeSinceLastActivity = now - lastActivityTime;
@@ -5272,13 +5594,17 @@
           const addSeconds = 10;
           const currentDaySec = Number(localStorage.getItem('fabanki:time_spent_today_sec') || 0);
           const currentWeekSec = Number(localStorage.getItem('fabanki:time_spent_week_sec') || 0);
+          const currentTotalSec = Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0);
           const newDaySec = currentDaySec + addSeconds;
           const newWeekSec = currentWeekSec + addSeconds;
+          const newTotalSec = currentTotalSec + addSeconds;
           
           localStorage.setItem('fabanki:time_spent_today_sec', String(newDaySec));
           localStorage.setItem('fabanki:time_spent_today', String(Math.floor(newDaySec / 60)));
           localStorage.setItem('fabanki:time_spent_week_sec', String(newWeekSec));
           localStorage.setItem('fabanki:time_spent_week', String(Math.floor(newWeekSec / 60)));
+          localStorage.setItem('fabanki:time_spent_total_sec', String(newTotalSec));
+          try{ if(typeof syncPostWelcomeQuestTime === 'function') syncPostWelcomeQuestTime(); }catch(e){}
           
           // Debug logging every minute
           const minutePassed = Math.floor(newDaySec / 60);
@@ -5396,7 +5722,7 @@
           if(activeMemoryContainer) activeMemoryContainer.remove();
         }catch(e){}
         // Show recap instead of welcome page
-        renderEmpty();
+        renderEmpty({ skipSessionTracking: true });
       });
     }
     
@@ -5414,7 +5740,7 @@
         try{ if(typeof updateTopBarLabels === 'function') updateTopBarLabels(); }catch(e){}
       });
     }
-    
+
     const toggleBtn = $('#toggleTheme');
     if(toggleBtn){
       // ensure document root inherits initial theme
@@ -5765,10 +6091,12 @@
               if(file.toLowerCase().endsWith('.xml')){ const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
                 const b=document.createElement('button'); b.className='secondary';
                 b.textContent = (window.innerWidth <= 640) ? '▶️' : 'Accéder';
-                b.addEventListener('click', async ()=>{ 
+                b.addEventListener('click', async (e)=>{ 
                   const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
                   if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
-                  showDeckOverview('./decks/'+prefix+file);
+                  const deckUrl = './decks/'+prefix+file;
+                  const deckTitle = displayName;
+                  await openDeckWithModeSelection(deckUrl, deckTitle, e.currentTarget);
                 });
                 act.appendChild(dueBadge); act.appendChild(b);
                 // asynchronously compute number of cards due now for this deck and display
@@ -5854,19 +6182,23 @@
                   }
                 } else {
                   btn.textContent = (window.innerWidth <= 640) ? '📂' : 'Accéder';
-                  btn.addEventListener('click', async ()=>{ 
+                  btn.addEventListener('click', async (ev)=>{ 
                     const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
                     if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
-                    showDeckOverview(base+e);
+                    const deckUrl = base+e;
+                    const deckTitle = decoded.replace(/\.xml$/i,'');
+                    await openDeckWithModeSelection(deckUrl, deckTitle, ev.currentTarget);
                   });
                 }
               }catch(err){
                 console.warn('Lock check error for', e, err);
                 btn.textContent = (window.innerWidth <= 640) ? '📂' : 'Accéder';
-                btn.addEventListener('click', async ()=>{ 
+                btn.addEventListener('click', async (ev)=>{ 
                   const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
                   if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
-                  showDeckOverview(base+e);
+                  const deckUrl = base+e;
+                  const deckTitle = decoded.replace(/\.xml$/i,'');
+                  await openDeckWithModeSelection(deckUrl, deckTitle, ev.currentTarget);
                 });
               }
               actions.appendChild(dueBadge2); actions.appendChild(btn);
@@ -5983,7 +6315,6 @@
     }
     updateTopBarLabels();
     window.addEventListener('resize', updateTopBarLabels);
-
     // Hide status and hint when mobile stats overlay is visible
     (function(){
       try{
@@ -6063,6 +6394,14 @@
     // check URL param
     const pdeck = param('deck');
     // Profile & XP helpers
+    function getTotalReviewedCount(){
+      try{
+        const fail = Number(localStorage.getItem('fabanki:fail_total') || 0);
+        const hard = Number(localStorage.getItem('fabanki:difficult_total') || 0);
+        const good = Number(localStorage.getItem('fabanki:good_total') || 0);
+        return Math.max(0, fail + hard + good);
+      }catch(e){ return 0 }
+    }
     function getProfileStats(){
       let total = 0, today = 0;
       const now = new Date();
@@ -6077,7 +6416,58 @@
         }catch(e){}
       }
       const xp = Number(localStorage.getItem('fabanki:xp_total') || 0);
-      return {totalReviewed: total, todayReviewed: today, xpTotal: xp};
+      const totalFromCounters = getTotalReviewedCount();
+      return {totalReviewed: totalFromCounters > 0 ? totalFromCounters : total, todayReviewed: today, xpTotal: xp};
+    }
+
+    function setThemeMode(theme){
+      try{
+        const appEl = document.getElementById('app');
+        if(!appEl) return;
+        const t = (theme === 'dark') ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+        appEl.setAttribute('data-theme', t);
+        localStorage.setItem('fabanki:theme', t);
+        const toggleBtn = document.getElementById('toggleTheme');
+        if(toggleBtn){
+          const themeLabel = t==='dark' ? 'Mode clair' : 'Mode sombre';
+          toggleBtn.setAttribute('data-label-text', themeLabel);
+        }
+        // Auto-switch color to matching theme variant
+        const currentColorName = localStorage.getItem('fabanki:current_color_name');
+        if(currentColorName) {
+          const colors = [
+            { name: 'Clair (défaut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
+            { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
+            { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
+            { name: 'Vert', light: '#e8f5e9', dark: '#0d2818', level: 5 },
+            { name: 'Rose', light: '#fce4ec', dark: '#2a0e1f', level: 10 },
+            { name: 'Jaune', light: '#fffde7', dark: '#332d00', level: 10 },
+            { name: 'Pourpre', light: '#f3e5f5', dark: '#25071a', level: 15 },
+            { name: 'Indigo profond', light: '#e7e4f7', dark: '#1a0754', level: 0 },
+            { name: 'Cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 20 },
+            { name: 'Orange', light: '#ffe0b2', dark: '#2d1b0a', level: 20 },
+            { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 25 },
+            { name: 'Corail', light: '#ffebee', dark: '#2d0a0a', level: 25 },
+            { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 30 },
+            { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 30 },
+            { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 35 },
+            { name: 'Gradient Doré', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35 },
+            { name: 'Gradient Rose-Vert', light: 'linear-gradient(135deg, #f8bbd0 0%, #a5d6a7 100%)', dark: 'linear-gradient(135deg, #4a0e2a 0%, #1d3a1f 100%)', level: 40 },
+            { name: 'Gradient Prisma', light: 'linear-gradient(135deg, #e8f4f8 0%, #fce4ec 50%, #f3e5f5 100%)', dark: 'linear-gradient(135deg, #0a1a2e 0%, #2a0e1f 50%, #25071a 100%)', level: 45 },
+            { name: 'Gradient Bleu Royal', light: 'linear-gradient(135deg, #64b5f6 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0a2558 0%, #1a2a3a 100%)', level: 45 },
+            { name: 'Gradient Aurora', light: 'linear-gradient(135deg, #e0f2f1 0%, #fffde7 50%, #ffebee 100%)', dark: 'linear-gradient(135deg, #0d1816 0%, #332d00 50%, #2d0a0a 100%)', level: 48 },
+            { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
+            { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
+          ];
+          const found = colors.find(c => c.name === currentColorName);
+          if(found){
+            const value = (t === 'dark') ? found.dark : found.light;
+            localStorage.setItem('fabanki:bg_color', value);
+          }
+        }
+        applyCustomization();
+      }catch(e){ console.warn('setThemeMode error', e); }
     }
 
     function showProfilePopup(){
@@ -6205,6 +6595,42 @@
         
         m.appendChild(titleSelectorBox);
 
+        // Theme toggle (moved from top bar)
+        const themeBox = document.createElement('div');
+        themeBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+        const themeLabel = document.createElement('div');
+        themeLabel.style.cssText = 'font-weight:700;color:#333;';
+        themeLabel.textContent = '🌙 Mode sombre';
+        themeBox.appendChild(themeLabel);
+
+        const themeToggle = document.createElement('button');
+        themeToggle.id = 'profileThemeToggle';
+        themeToggle.type = 'button';
+        themeToggle.setAttribute('role', 'switch');
+        themeToggle.style.cssText = 'width:52px;height:28px;border-radius:999px;border:1px solid #d1d5db;background:#e5e7eb;position:relative;cursor:pointer;display:inline-flex;align-items:center;padding:2px;transition:background 0.2s,border-color 0.2s;';
+        const themeThumb = document.createElement('span');
+        themeThumb.className = 'theme-thumb';
+        themeThumb.style.cssText = 'width:22px;height:22px;border-radius:50%;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.25);transform:translateX(0);transition:transform 0.2s;display:block;';
+        themeToggle.appendChild(themeThumb);
+
+        const applyThemeToggleUI = (isDark) => {
+          themeToggle.setAttribute('aria-checked', isDark ? 'true' : 'false');
+          themeToggle.style.background = isDark ? '#111827' : '#e5e7eb';
+          themeToggle.style.borderColor = isDark ? '#111827' : '#d1d5db';
+          themeThumb.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
+        };
+        applyThemeToggleUI((document.documentElement.getAttribute('data-theme') || 'light') === 'dark');
+
+        themeToggle.addEventListener('click', ()=>{
+          const current = document.documentElement.getAttribute('data-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          setThemeMode(next);
+          applyThemeToggleUI(next === 'dark');
+        });
+
+        themeBox.appendChild(themeToggle);
+        m.appendChild(themeBox);
+
         // Classement button
         const rankBtnWrap = document.createElement('div'); 
         rankBtnWrap.style.marginTop = '10px'; 
@@ -6310,6 +6736,17 @@
         const totalNode = ov.querySelector('.profile-total'); if(totalNode) totalNode.textContent = `Cartes lues: ${stats.totalReviewed}`;
         const todayNode = ov.querySelector('.profile-today'); if(todayNode) todayNode.textContent = `Cartes lues aujourd'hui: ${stats.todayReviewed}`;
         const xpNode = ov.querySelector('.profile-xp'); if(xpNode) xpNode.innerHTML = `<strong>XP:</strong> ${stats.xpTotal}`;
+        try{
+          const themeToggle = ov.querySelector('#profileThemeToggle');
+          const themeThumb = ov.querySelector('#profileThemeToggle .theme-thumb');
+          if(themeToggle && themeThumb){
+            const isDark = (document.documentElement.getAttribute('data-theme') || 'light') === 'dark';
+            themeToggle.setAttribute('aria-checked', isDark ? 'true' : 'false');
+            themeToggle.style.background = isDark ? '#111827' : '#e5e7eb';
+            themeToggle.style.borderColor = isDark ? '#111827' : '#d1d5db';
+            themeThumb.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
+          }
+        }catch(e){}
         // update level ring if present
         try{
           const lvl = computeLevelAndProgress(stats.xpTotal || 0);
@@ -7425,6 +7862,7 @@
       localStorage.setItem('fabanki:welcome_quest', JSON.stringify(state));
       refreshWelcomeQuestUI();
       checkWelcomeQuestCompletion();
+      scheduleQuestSync();
       return state;
     }
 
@@ -7444,6 +7882,7 @@
       
       refreshWelcomeQuestUI();
       checkWelcomeQuestCompletion();
+      scheduleQuestSync();
     }
 
     function checkWelcomeQuestCompletion(){
@@ -7457,8 +7896,9 @@
       const indigoRewarded = localStorage.getItem('fabanki:welcome_quest_indigo') === 'true';
       if(part1Done && !indigoRewarded){
         localStorage.setItem('fabanki:welcome_quest_indigo', 'true');
-        showWelcomeQuestToast('🎁 Theme Indigo debloque !', 5000);
+        showWelcomeQuestToast('🎁 Thème Indigo débloqué !', 5000);
         refreshWelcomeQuestUI();
+        scheduleQuestSync();
       }
 
       // Unlock 42 pattern at the end of Part 2
@@ -7467,6 +7907,7 @@
         localStorage.setItem('fabanki:welcome_quest_42_pattern', 'true');
         showWelcomeQuestToast('🎉 Motif 42 débloqué !', 5000);
         refreshWelcomeQuestUI();
+        scheduleQuestSync();
       }
 
       // Check if all Part 3 missions are done
@@ -7481,11 +7922,14 @@
         if(!stepUnlocked){
           localStorage.setItem('fabanki:mode_step_unlocked', 'true');
         }
+        try{ checkPostWelcomeQuestCompletion(); }catch(e){}
       }
 
       if(part3Done && !state.completed){
         state.completed = true;
         localStorage.setItem('fabanki:welcome_quest', JSON.stringify(state));
+        scheduleQuestSync();
+        try{ refreshPostWelcomeQuestUI(); }catch(e){}
         
         // Show completion toast
         showWelcomeQuestToast('🎉 Quête de bienvenue terminée !', 6000);
@@ -7523,6 +7967,48 @@
       }
     }
 
+    function createRewardCardUI({ title, subtitle, locked, previewStyle, details }){
+      const card = document.createElement('div');
+      card.style.cssText = 'margin:10px 0 18px 0;padding:12px;border:1px solid #e5e7eb;border-radius:12px;background:white;box-shadow:0 6px 16px rgba(0,0,0,0.06);display:flex;gap:12px;align-items:center;';
+      if(locked){
+        card.style.opacity = '0.7';
+      }
+
+      const preview = document.createElement('div');
+      preview.style.cssText = `width:72px;height:72px;border-radius:10px;border:1px solid #e5e7eb;background:${previewStyle || '#f3f4f6'};display:flex;align-items:center;justify-content:center;font-weight:700;color:#111827;`;
+      preview.textContent = locked ? '🔒' : '🎁';
+      card.appendChild(preview);
+
+      const content = document.createElement('div');
+      content.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:4px;';
+
+      const titleEl = document.createElement('div');
+      titleEl.style.cssText = 'font-weight:700;color:#111827;';
+      titleEl.textContent = title;
+      content.appendChild(titleEl);
+
+      if(subtitle){
+        const subtitleEl = document.createElement('div');
+        subtitleEl.style.cssText = 'color:#6b7280;font-size:0.9em;';
+        subtitleEl.textContent = subtitle;
+        content.appendChild(subtitleEl);
+      }
+
+      if(details){
+        const detailsEl = document.createElement('div');
+        detailsEl.style.cssText = 'color:#4b5563;font-size:0.85em;';
+        detailsEl.textContent = details;
+        content.appendChild(detailsEl);
+      }
+
+      const badge = document.createElement('div');
+      badge.style.cssText = `padding:6px 10px;border-radius:999px;font-size:0.8em;font-weight:700;${locked ? 'background:#e5e7eb;color:#6b7280;' : 'background:#d1fae5;color:#065f46;'}`;
+      badge.textContent = locked ? 'Verrouillé' : 'Débloqué';
+      card.appendChild(content);
+      card.appendChild(badge);
+      return card;
+    }
+
     function renderWelcomeQuestContent(){
       const state = initWelcomeQuest();
       const container = document.createElement('div');
@@ -7531,48 +8017,6 @@
       const part2Done = state.part2.deck_opened && state.part2.cards_50_reviewed && state.part2.session_completed;
       const part3Done = state.part3.daily_goal_completed && state.part3.market_purchase && state.part3.first_title && state.part3.three_daily_quests && state.part3.active_memory_launched;
       
-      const createRewardCard = ({ title, subtitle, locked, previewStyle, details }) => {
-        const card = document.createElement('div');
-        card.style.cssText = 'margin:10px 0 18px 0;padding:12px;border:1px solid #e5e7eb;border-radius:12px;background:white;box-shadow:0 6px 16px rgba(0,0,0,0.06);display:flex;gap:12px;align-items:center;';
-        if(locked){
-          card.style.opacity = '0.7';
-        }
-
-        const preview = document.createElement('div');
-        preview.style.cssText = `width:72px;height:72px;border-radius:10px;border:1px solid #e5e7eb;background:${previewStyle || '#f3f4f6'};display:flex;align-items:center;justify-content:center;font-weight:700;color:#111827;`;
-        preview.textContent = locked ? '🔒' : '🎁';
-        card.appendChild(preview);
-
-        const content = document.createElement('div');
-        content.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:4px;';
-
-        const titleEl = document.createElement('div');
-        titleEl.style.cssText = 'font-weight:700;color:#111827;';
-        titleEl.textContent = title;
-        content.appendChild(titleEl);
-
-        if(subtitle){
-          const subtitleEl = document.createElement('div');
-          subtitleEl.style.cssText = 'color:#6b7280;font-size:0.9em;';
-          subtitleEl.textContent = subtitle;
-          content.appendChild(subtitleEl);
-        }
-
-        if(details){
-          const detailsEl = document.createElement('div');
-          detailsEl.style.cssText = 'color:#4b5563;font-size:0.85em;';
-          detailsEl.textContent = details;
-          content.appendChild(detailsEl);
-        }
-
-        const badge = document.createElement('div');
-        badge.style.cssText = `padding:6px 10px;border-radius:999px;font-size:0.8em;font-weight:700;${locked ? 'background:#e5e7eb;color:#6b7280;' : 'background:#d1fae5;color:#065f46;'}`;
-        badge.textContent = locked ? 'Verrouille' : 'Debloque';
-        card.appendChild(content);
-        card.appendChild(badge);
-        return card;
-      };
-
       // Part 1
       const part1 = createQuestPart('Partie 1: Découverte', [
         { label: 'Terminer la présentation (si vous l\'avez déjà fait cliquez sur le bouton livre dans le profil)', done: state.part1.onboarding_done, reward: '5 ℂ' },
@@ -7581,7 +8025,7 @@
         { label: 'Définir un objectif 🎯', done: state.part1.goal_set, reward: '3 ℂ' }
       ], !part1Done);
       container.appendChild(part1);
-      container.appendChild(createRewardCard({
+      container.appendChild(createRewardCardUI({
         title: 'Recompense partie 1',
         subtitle: 'Theme Indigo',
         details: 'Fond + cartes',
@@ -7596,7 +8040,7 @@
         { label: 'Terminer une session', done: state.part2.session_completed, reward: '5 ℂ' }
       ], !part2Done, !part1Done);
       container.appendChild(part2);
-      container.appendChild(createRewardCard({
+      container.appendChild(createRewardCardUI({
         title: 'Recompense partie 2',
         subtitle: 'Motif 42 exclusif',
         locked: !part2Done,
@@ -7612,7 +8056,7 @@
         { label: 'Lancer le mode Mémoire active', done: state.part3.active_memory_launched, reward: '10 ℂ' }
       ], !part3Done, !part2Done);
       container.appendChild(part3);
-      container.appendChild(createRewardCard({
+      container.appendChild(createRewardCardUI({
         title: 'Recompense partie 3',
         subtitle: 'Mode Etape par etape',
         locked: !part3Done,
@@ -7702,6 +8146,282 @@
     window.initWelcomeQuest = initWelcomeQuest;
     window.renderWelcomeQuestCard = renderWelcomeQuestCard;
 
+    // ===== POST-WELCOME QUEST (AFTER WELCOME QUEST) =====
+    const postWelcomeQuestTargets = {
+      stepCards: 25,
+      activeCards: 25,
+      timeSec: 60 * 60,
+      totalCards: 250,
+      reverseCards: 50
+    };
+
+    function getPostWelcomeQuestState(){
+      try{
+        const raw = localStorage.getItem('fabanki:post_welcome_quest');
+        if(!raw) return null;
+        return JSON.parse(raw);
+      }catch(e){ return null; }
+    }
+
+    function initPostWelcomeQuest(){
+      const existing = getPostWelcomeQuestState();
+      if(existing) return existing;
+      const state = {
+        stepCards: 0,
+        activeCards: 0,
+        timeSec: 0,
+        totalCards: 0,
+        reverseCards: 0,
+        timerUnlocked: false,
+        completed: false,
+        rewardUnlocked: false,
+        part1Completed: false,
+        part2Completed: false,
+        randomUnlocked: false,
+        stepRewarded: false,
+        activeRewarded: false,
+        timeRewarded: false,
+        totalRewarded: false,
+        reverseRewarded: false,
+        timerRewarded: false
+      };
+      localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+      return state;
+    }
+
+    function isReverseModeUnlocked(){
+      return localStorage.getItem('fabanki:mode_reverse_unlocked') === 'true';
+    }
+
+    function isRandomModeUnlocked(){
+      return localStorage.getItem('fabanki:mode_random_unlocked') === 'true';
+    }
+
+    function scheduleQuestSync(){
+      try{ if(typeof autoSync === 'function') setTimeout(() => autoSync().catch(e => console.warn('autoSync failed:', e)), 100); }catch(e){}
+    }
+
+    function checkPostWelcomeQuestCompletion(){
+      const welcomeState = getWelcomeQuestState();
+      if(!welcomeState || !welcomeState.completed) return;
+
+      const state = initPostWelcomeQuest();
+      const stepDone = Number(state.stepCards || 0) >= postWelcomeQuestTargets.stepCards;
+      const activeDone = Number(state.activeCards || 0) >= postWelcomeQuestTargets.activeCards;
+      const timeDone = Number(state.timeSec || 0) >= postWelcomeQuestTargets.timeSec;
+      const totalDone = Number(state.totalCards || 0) >= postWelcomeQuestTargets.totalCards;
+      const reverseDone = Number(state.reverseCards || 0) >= postWelcomeQuestTargets.reverseCards;
+      const timerDone = !!state.timerUnlocked;
+
+      const part1Done = stepDone && activeDone && timeDone;
+      const part2Done = totalDone && reverseDone && timerDone;
+
+      if(part1Done && !state.part1Completed){
+        state.part1Completed = true;
+        state.completed = true;
+        state.rewardUnlocked = true;
+        localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+        localStorage.setItem('fabanki:mode_reverse_unlocked', 'true');
+        showWelcomeQuestToast('🔁 Mode Revers débloqué !', 5000);
+        refreshPostWelcomeQuestUI();
+        scheduleQuestSync();
+      }
+
+      if(part2Done && !state.part2Completed){
+        state.part2Completed = true;
+        state.randomUnlocked = true;
+        localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+        localStorage.setItem('fabanki:mode_random_unlocked', 'true');
+        showWelcomeQuestToast('🎲 Mode Aléatoire débloqué !', 5000);
+        refreshPostWelcomeQuestUI();
+        scheduleQuestSync();
+      }
+    }
+
+    function syncPostWelcomeQuestTime(){
+      try{
+        const state = initPostWelcomeQuest();
+        const totalSec = Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0);
+        if(totalSec > Number(state.timeSec || 0)){
+          state.timeSec = totalSec;
+          if(state.timeSec >= postWelcomeQuestTargets.timeSec && !state.timeRewarded){
+            addCredits(10);
+            state.timeRewarded = true;
+            showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+          }
+          localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+          refreshPostWelcomeQuestUI();
+          checkPostWelcomeQuestCompletion();
+          scheduleQuestSync();
+        }
+      }catch(e){}
+    }
+
+    function syncPostWelcomeQuestProgress({ mode, timeSec, reviewed }){
+      try{
+        const state = initPostWelcomeQuest();
+        let changed = false;
+        if(reviewed){
+          if(state.totalCards < postWelcomeQuestTargets.totalCards){
+            state.totalCards += 1;
+            changed = true;
+          }
+          if(mode === 'step' && state.stepCards < postWelcomeQuestTargets.stepCards){
+            state.stepCards += 1;
+            changed = true;
+          }
+          if(mode === 'activeMemory' && state.activeCards < postWelcomeQuestTargets.activeCards){
+            state.activeCards += 1;
+            changed = true;
+          }
+          if(mode === 'reverse' && state.reverseCards < postWelcomeQuestTargets.reverseCards){
+            state.reverseCards += 1;
+            changed = true;
+          }
+        }
+        if(state.stepCards >= postWelcomeQuestTargets.stepCards && !state.stepRewarded){
+          addCredits(10);
+          state.stepRewarded = true;
+          changed = true;
+          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+        }
+        if(state.activeCards >= postWelcomeQuestTargets.activeCards && !state.activeRewarded){
+          addCredits(10);
+          state.activeRewarded = true;
+          changed = true;
+          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+        }
+        if(timeSec && timeSec > 0){
+          const totalSec = Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0);
+          if(totalSec > Number(state.timeSec || 0)){
+            state.timeSec = totalSec;
+            changed = true;
+          }
+        }
+        if(state.timeSec >= postWelcomeQuestTargets.timeSec && !state.timeRewarded){
+          addCredits(10);
+          state.timeRewarded = true;
+          changed = true;
+          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+        }
+        if(state.totalCards >= postWelcomeQuestTargets.totalCards && !state.totalRewarded){
+          addCredits(20);
+          state.totalRewarded = true;
+          changed = true;
+          showWelcomeQuestToast('Mission accomplie ! +20 ℂ');
+        }
+        if(state.reverseCards >= postWelcomeQuestTargets.reverseCards && !state.reverseRewarded){
+          addCredits(10);
+          state.reverseRewarded = true;
+          changed = true;
+          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+        }
+        const timerUnlocked = !!localStorage.getItem('fabanki:market_mode_rappel_sous_pression');
+        if(timerUnlocked && !state.timerUnlocked){
+          state.timerUnlocked = true;
+          changed = true;
+        }
+        if(state.timerUnlocked && !state.timerRewarded){
+          addCredits(10);
+          state.timerRewarded = true;
+          changed = true;
+          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+        }
+        if(changed){
+          localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+          refreshPostWelcomeQuestUI();
+          checkPostWelcomeQuestCompletion();
+          scheduleQuestSync();
+        }
+      }catch(e){}
+    }
+
+    function renderPostWelcomeQuestCard(){
+      const welcomeState = getWelcomeQuestState();
+      if(!welcomeState || !welcomeState.completed) return null;
+      const state = initPostWelcomeQuest();
+      const timerUnlocked = !!localStorage.getItem('fabanki:market_mode_rappel_sous_pression');
+      if(timerUnlocked && !state.timerUnlocked){
+        state.timerUnlocked = true;
+        localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+      }
+      const card = document.createElement('div');
+      card.className = 'card post-welcome-quest-card';
+      card.style.cssText = 'margin-top:16px;padding:16px;';
+
+      const title = document.createElement('h2');
+      title.textContent = '🎯 Quête avancée';
+      title.style.margin = '0 0 12px 0';
+      title.style.color = 'var(--muted)';
+      title.style.fontSize = '1.2em';
+      card.appendChild(title);
+
+      const timeMinutes = Math.floor(Number(state.timeSec || 0) / 60);
+
+      const part1 = createQuestPart('Partie 1', [
+        { label: 'Réviser 25 cartes avec le mode Étape par étape', done: state.stepCards >= postWelcomeQuestTargets.stepCards, reward: '10 ℂ', progress: `${Math.min(state.stepCards, postWelcomeQuestTargets.stepCards)}/${postWelcomeQuestTargets.stepCards}` },
+        { label: 'Réviser 25 cartes avec le mode Mémoire active', done: state.activeCards >= postWelcomeQuestTargets.activeCards, reward: '10 ℂ', progress: `${Math.min(state.activeCards, postWelcomeQuestTargets.activeCards)}/${postWelcomeQuestTargets.activeCards}` },
+        { label: 'Passer 1 heure sur l\'application', done: state.timeSec >= postWelcomeQuestTargets.timeSec, reward: '10 ℂ', progress: `${Math.min(timeMinutes, 60)}/60 min` }
+      ], true, false);
+      card.appendChild(part1);
+
+      const rewardCard = createRewardCardUI({
+        title: 'Récompense',
+        subtitle: 'Mode Revers',
+        locked: !state.completed,
+        previewStyle: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)'
+      });
+      rewardCard.style.marginTop = '10px';
+      card.appendChild(rewardCard);
+
+      const part1Done = state.stepCards >= postWelcomeQuestTargets.stepCards && state.activeCards >= postWelcomeQuestTargets.activeCards && state.timeSec >= postWelcomeQuestTargets.timeSec;
+      const part2 = createQuestPart('Partie 2: Débloquer des modes', [
+        { label: 'Réviser 250 cartes', done: state.totalCards >= postWelcomeQuestTargets.totalCards, reward: '20 ℂ', progress: `${Math.min(state.totalCards, postWelcomeQuestTargets.totalCards)}/${postWelcomeQuestTargets.totalCards}` },
+        { label: 'Réviser 50 cartes en mode Revers', done: state.reverseCards >= postWelcomeQuestTargets.reverseCards, reward: '10 ℂ', progress: `${Math.min(state.reverseCards, postWelcomeQuestTargets.reverseCards)}/${postWelcomeQuestTargets.reverseCards}` },
+        { label: 'Débloquer le mode Rappel sous pression', done: state.timerUnlocked, reward: '10 ℂ' }
+      ], true, !part1Done);
+      card.appendChild(part2);
+
+      const part2Done = state.totalCards >= postWelcomeQuestTargets.totalCards && state.reverseCards >= postWelcomeQuestTargets.reverseCards && state.timerUnlocked;
+      const rewardCardPart2 = createRewardCardUI({
+        title: 'Récompense',
+        subtitle: 'Mode Aléatoire',
+        locked: !part2Done,
+        previewStyle: 'linear-gradient(135deg, #fde68a 0%, #f59e0b 100%)'
+      });
+      rewardCardPart2.style.marginTop = '10px';
+      card.appendChild(rewardCardPart2);
+
+      return card;
+    }
+
+    function refreshPostWelcomeQuestUI(){
+      try{
+        const existing = document.querySelector('.post-welcome-quest-card');
+        const welcomeState = getWelcomeQuestState();
+        if(!welcomeState || !welcomeState.completed){
+          if(existing) existing.remove();
+          return;
+        }
+        const newCard = renderPostWelcomeQuestCard();
+        if(!newCard) return;
+        if(existing){
+          existing.replaceWith(newCard);
+          return;
+        }
+        const container = document.getElementById('welcomeDecks');
+        if(!container) return;
+        const statsCard = container.querySelector('.stats-card');
+        if(statsCard && statsCard.parentNode === container){
+          statsCard.insertAdjacentElement('afterend', newCard);
+        } else {
+          container.appendChild(newCard);
+        }
+      }catch(e){}
+    }
+
+    try{ window.renderPostWelcomeQuestCard = renderPostWelcomeQuestCard; }catch(e){}
+
     // Sync onboarding completion to welcome quest
     try{
       if(localStorage.getItem('fabanki:onboarding_completed') === 'true'){
@@ -7750,6 +8470,8 @@
         streakMax: Number(localStorage.getItem('fabanki:streak_max') || 0),
         decks: collectDeckStates(),
         quests: collectQuestState(),
+        welcomeQuest: collectWelcomeQuestState(),
+        postWelcomeQuest: collectPostWelcomeQuestState(),
         inventory: collectInventory(),
         dailyProgress: collectDailyProgress(),
         lastUpdated: Date.now()
@@ -7787,6 +8509,22 @@
         const missions_date = localStorage.getItem('fabanki:missions_date') || null;
         return { daily, weekly, missions_date };
       }catch(e){ return { daily:[], weekly:[], missions_date:null } }
+    }
+
+    function collectWelcomeQuestState(){
+      try{
+        const raw = localStorage.getItem('fabanki:welcome_quest');
+        if(!raw) return null;
+        return JSON.parse(raw);
+      }catch(e){ return null }
+    }
+
+    function collectPostWelcomeQuestState(){
+      try{
+        const raw = localStorage.getItem('fabanki:post_welcome_quest');
+        if(!raw) return null;
+        return JSON.parse(raw);
+      }catch(e){ return null }
     }
 
     function collectInventory(){
@@ -7829,6 +8567,22 @@
           localStorage.setItem('fabanki:daily_missions', JSON.stringify(state.quests.daily||[]));
           localStorage.setItem('fabanki:weekly_missions', JSON.stringify(state.quests.weekly||[]));
           if(state.quests.missions_date) localStorage.setItem('fabanki:missions_date', state.quests.missions_date);
+        }
+        // Welcome quest
+        if(state.welcomeQuest){
+          localStorage.setItem('fabanki:welcome_quest', JSON.stringify(state.welcomeQuest));
+          try{ if(typeof checkWelcomeQuestCompletion === 'function') checkWelcomeQuestCompletion(); }catch(e){}
+        }
+        // Post-welcome quest
+        if(state.postWelcomeQuest){
+          localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state.postWelcomeQuest));
+          if(state.postWelcomeQuest.completed || state.postWelcomeQuest.rewardUnlocked || state.postWelcomeQuest.part1Completed){
+            localStorage.setItem('fabanki:mode_reverse_unlocked', 'true');
+          }
+          if(state.postWelcomeQuest.part2Completed || state.postWelcomeQuest.randomUnlocked){
+            localStorage.setItem('fabanki:mode_random_unlocked', 'true');
+          }
+          try{ if(typeof refreshPostWelcomeQuestUI === 'function') refreshPostWelcomeQuestUI(); }catch(e){}
         }
         // Inventory (purchased items, unlocked decks, selected title)
         if(state.inventory){
@@ -7912,6 +8666,195 @@
       }
       
       return merged;
+    }
+
+    function mergeWelcomeQuestState(localState, remoteState){
+      if(!localState && !remoteState) return null;
+      if(!localState) return remoteState;
+      if(!remoteState) return localState;
+
+      const mergePart = (l, r) => {
+        const out = { ...(r || {}) };
+        for(const k of Object.keys(l || {})){
+          if(typeof l[k] === 'boolean') out[k] = l[k] || out[k];
+          else out[k] = (out[k] == null) ? l[k] : out[k];
+        }
+        return out;
+      };
+
+      return {
+        part1: mergePart(localState.part1, remoteState.part1),
+        part2: mergePart(localState.part2, remoteState.part2),
+        part3: mergePart(localState.part3, remoteState.part3),
+        completed: !!(localState.completed || remoteState.completed),
+        totalCardsReviewed: Math.max(Number(localState.totalCardsReviewed || 0), Number(remoteState.totalCardsReviewed || 0)),
+        dailyQuestsCompleted: Math.max(Number(localState.dailyQuestsCompleted || 0), Number(remoteState.dailyQuestsCompleted || 0))
+      };
+    }
+
+    function mergePostWelcomeQuestState(localState, remoteState){
+      if(!localState && !remoteState) return null;
+      if(!localState) return remoteState;
+      if(!remoteState) return localState;
+      return {
+        stepCards: Math.max(Number(localState.stepCards || 0), Number(remoteState.stepCards || 0)),
+        activeCards: Math.max(Number(localState.activeCards || 0), Number(remoteState.activeCards || 0)),
+        timeSec: Math.max(Number(localState.timeSec || 0), Number(remoteState.timeSec || 0)),
+        totalCards: Math.max(Number(localState.totalCards || 0), Number(remoteState.totalCards || 0)),
+        reverseCards: Math.max(Number(localState.reverseCards || 0), Number(remoteState.reverseCards || 0)),
+        timerUnlocked: !!(localState.timerUnlocked || remoteState.timerUnlocked),
+        completed: !!(localState.completed || remoteState.completed),
+        rewardUnlocked: !!(localState.rewardUnlocked || remoteState.rewardUnlocked),
+        part1Completed: !!(localState.part1Completed || remoteState.part1Completed || localState.completed || remoteState.completed),
+        part2Completed: !!(localState.part2Completed || remoteState.part2Completed),
+        randomUnlocked: !!(localState.randomUnlocked || remoteState.randomUnlocked),
+        stepRewarded: !!(localState.stepRewarded || remoteState.stepRewarded),
+        activeRewarded: !!(localState.activeRewarded || remoteState.activeRewarded),
+        timeRewarded: !!(localState.timeRewarded || remoteState.timeRewarded),
+        totalRewarded: !!(localState.totalRewarded || remoteState.totalRewarded),
+        reverseRewarded: !!(localState.reverseRewarded || remoteState.reverseRewarded),
+        timerRewarded: !!(localState.timerRewarded || remoteState.timerRewarded)
+      };
+    }
+
+    function getStateSummary(st){
+      try{
+        const decks = st?.decks || {};
+        const deckCount = Object.keys(decks).length;
+        const cardCount = Object.values(decks).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
+        return {
+          decks: deckCount,
+          cards: cardCount,
+          xp: Number(st?.xp || 0),
+          credits: Number(st?.credits || 0),
+          lastUpdated: Number(st?.lastUpdated || 0)
+        };
+      }catch(e){ return { decks: 0, cards: 0, xp: 0, credits: 0, lastUpdated: 0 }; }
+    }
+
+    function isStateEmpty(st){
+      const s = getStateSummary(st);
+      return s.decks === 0 && s.cards === 0 && s.xp === 0 && s.credits === 0;
+    }
+
+    function mergeUserStates(localSt, remoteSt, uid){
+      const mergedDecks = mergeDeckStates(localSt.decks || {}, remoteSt.decks || {});
+      const mergedInventory = { ...(remoteSt.inventory || {}), ...(localSt.inventory || {}) };
+      const mergedWelcomeQuest = mergeWelcomeQuestState(localSt.welcomeQuest, remoteSt.welcomeQuest);
+      const mergedPostWelcomeQuest = mergePostWelcomeQuestState(localSt.postWelcomeQuest, remoteSt.postWelcomeQuest);
+      const remoteDailyDate = new Date(remoteSt.dailyProgress?.dailyReviewedDate || 0).getTime();
+      const localDailyDate = new Date(localSt.dailyProgress?.dailyReviewedDate || 0).getTime();
+      const mergedDailyProgress = remoteDailyDate >= localDailyDate ? (remoteSt.dailyProgress || {}) : (localSt.dailyProgress || {});
+      const remoteMissionDate = new Date(remoteSt.quests?.missions_date || 0).getTime();
+      const localMissionDate = new Date(localSt.quests?.missions_date || 0).getTime();
+      const preferRemoteQuests = remoteMissionDate >= localMissionDate;
+      return {
+        ...remoteSt,
+        mode: 'synced',
+        userId: uid,
+        decks: mergedDecks,
+        inventory: mergedInventory,
+        welcomeQuest: mergedWelcomeQuest,
+        postWelcomeQuest: mergedPostWelcomeQuest,
+        dailyProgress: mergedDailyProgress,
+        quests: preferRemoteQuests ? (remoteSt.quests || localSt.quests || {}) : (localSt.quests || remoteSt.quests || {}),
+        xp: Math.max(Number(remoteSt.xp || 0), Number(localSt.xp || 0)),
+        streakCurrent: Math.max(Number(remoteSt.streakCurrent || 0), Number(localSt.streakCurrent || 0)),
+        streakMax: Math.max(Number(remoteSt.streakMax || 0), Number(localSt.streakMax || 0)),
+        lastUpdated: Date.now()
+      };
+    }
+
+    function promptSyncChoice(localSt, remoteSt){
+      return new Promise((resolve) => {
+        try{
+          const existing = document.getElementById('syncConflictOverlay');
+          if(existing) existing.remove();
+
+          const localSum = getStateSummary(localSt);
+          const remoteSum = getStateSummary(remoteSt);
+
+          const ov = document.createElement('div');
+          ov.id = 'syncConflictOverlay';
+          ov.className = 'modal-overlay open';
+          ov.style.display = 'flex';
+          ov.style.alignItems = 'center';
+          ov.style.justifyContent = 'center';
+          ov.style.zIndex = '2600';
+
+          const m = document.createElement('div');
+          m.className = 'modal open';
+          m.style.maxWidth = '640px';
+          m.style.width = '94%';
+          m.style.padding = '20px';
+
+          const h = document.createElement('h3');
+          h.textContent = 'Choisir les donnees a conserver';
+          h.style.marginTop = '0';
+          m.appendChild(h);
+
+          const info = document.createElement('div');
+          info.className = 'muted small';
+          info.textContent = 'Les donnees locales et cloud sont differentes. Choisissez la source a conserver ou fusionnez.';
+          info.style.marginBottom = '12px';
+          m.appendChild(info);
+
+          const grid = document.createElement('div');
+          grid.style.display = 'grid';
+          grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(200px, 1fr))';
+          grid.style.gap = '12px';
+
+          const buildBox = (title, sum) => {
+            const box = document.createElement('div');
+            box.style.padding = '12px';
+            box.style.borderRadius = '10px';
+            box.style.border = '1px solid rgba(0,0,0,0.08)';
+            box.style.background = 'rgba(66, 133, 244, 0.05)';
+            const t = document.createElement('div');
+            t.style.fontWeight = '700';
+            t.textContent = title;
+            const meta = document.createElement('div');
+            meta.className = 'muted small';
+            meta.style.marginTop = '6px';
+            meta.innerHTML = `Decks: ${sum.decks}<br>Cartes: ${sum.cards}<br>XP: ${sum.xp}<br>Credits: ${sum.credits}`;
+            box.appendChild(t);
+            box.appendChild(meta);
+            return box;
+          };
+
+          grid.appendChild(buildBox('Local', localSum));
+          grid.appendChild(buildBox('Cloud', remoteSum));
+          m.appendChild(grid);
+
+          const actions = document.createElement('div');
+          actions.style.display = 'flex';
+          actions.style.gap = '8px';
+          actions.style.justifyContent = 'flex-end';
+          actions.style.marginTop = '16px';
+
+          const keepCloud = document.createElement('button');
+          keepCloud.className = 'secondary';
+          keepCloud.textContent = 'Garder Cloud';
+          keepCloud.addEventListener('click', () => { ov.remove(); resolve('cloud'); });
+
+          const mergeBtn = document.createElement('button');
+          mergeBtn.className = 'secondary';
+          mergeBtn.textContent = 'Fusionner';
+          mergeBtn.addEventListener('click', () => { ov.remove(); resolve('merge'); });
+
+          const keepLocal = document.createElement('button');
+          keepLocal.textContent = 'Garder Local';
+          keepLocal.addEventListener('click', () => { ov.remove(); resolve('local'); });
+
+          actions.appendChild(keepCloud);
+          actions.appendChild(mergeBtn);
+          actions.appendChild(keepLocal);
+          m.appendChild(actions);
+
+          ov.appendChild(m);
+          document.body.appendChild(ov);
+        }catch(e){ resolve('merge'); }
+      });
     }
 
     // Sync helpers (status + debug)
@@ -8040,9 +8983,15 @@
             const remoteLastUpdated = Number(remoteSt.lastUpdated || 0);
             
             syncLog('autoSync: checking for remote updates', { localTime: localLastUpdated, remoteTime: remoteLastUpdated });
-            
-            // If remote is newer, pull it first
-            if(remoteLastUpdated > localLastUpdated){
+            const localEmpty = isStateEmpty(localState);
+            const remoteEmpty = isStateEmpty(remoteSt);
+
+            // If local is empty and remote has data, pull remote first
+            if(localEmpty && !remoteEmpty){
+              syncLog('autoSync: local empty, pulling remote before push');
+              applyStateToLocalStorage(remoteSt);
+              localStorage.setItem('fabanki:user_state', JSON.stringify(remoteSt));
+            } else if(remoteLastUpdated > localLastUpdated){
               syncLog('autoSync: remote is newer, pulling updates before push');
               applyStateToLocalStorage(remoteSt);
               localStorage.setItem('fabanki:user_state', JSON.stringify(remoteSt));
@@ -8061,6 +9010,8 @@
         st.xp = Number(localStorage.getItem('fabanki:xp_total') || 0);
         st.credits = Number(localStorage.getItem('fabanki:credits') || 0);
         st.quests = collectQuestState();
+        st.welcomeQuest = collectWelcomeQuestState();
+        st.postWelcomeQuest = collectPostWelcomeQuestState();
         st.decks = collectDeckProgress();
         st.inventory = collectInventory();
         st.dailyProgress = collectDailyProgress();
@@ -8122,17 +9073,27 @@
         const localState = localStateRaw ? JSON.parse(localStateRaw) : null;
         const localLastUpdated = Number(localState?.lastUpdated || 0);
         const remoteLastUpdated = Number(remoteSt.lastUpdated || 0);
+        const localEmpty = isStateEmpty(localState);
+        const remoteEmpty = isStateEmpty(remoteSt);
         syncLog('Restore compare', { localLastUpdated, remoteLastUpdated });
         
         // Conflict resolution: prefer remote if newer, otherwise merge intelligently
         let shouldRestore = false;
         let mergedState = null;
         
-        if(remoteLastUpdated > localLastUpdated){
+        if(localEmpty && !remoteEmpty){
+          syncLog('Local empty, restoring from cloud');
+          shouldRestore = true;
+          mergedState = remoteSt;
+        } else if(remoteLastUpdated > localLastUpdated){
           // Remote is newer: use it directly
           syncLog('Remote is newer, restoring from cloud');
           shouldRestore = true;
-          mergedState = remoteSt;
+          mergedState = { 
+            ...remoteSt, 
+            welcomeQuest: mergeWelcomeQuestState(localState?.welcomeQuest, remoteSt?.welcomeQuest),
+            postWelcomeQuest: mergePostWelcomeQuestState(localState?.postWelcomeQuest, remoteSt?.postWelcomeQuest)
+          };
         } else if(remoteLastUpdated === localLastUpdated && !localState){
           // No local state yet: always restore from cloud
           syncLog('No local state, restoring from cloud');
@@ -8166,6 +9127,8 @@
               decks: mergedDecks,
               inventory: mergedInventory,
               dailyProgress: mergedDailyProgress,
+              welcomeQuest: mergeWelcomeQuestState(localState?.welcomeQuest, remoteSt?.welcomeQuest),
+              postWelcomeQuest: mergePostWelcomeQuestState(localState?.postWelcomeQuest, remoteSt?.postWelcomeQuest),
               // Take the higher XP value (indicates more practice completed)
               xp: Math.max(Number(remoteSt.xp || 0), Number(localState.xp || 0)),
               streakCurrent: Math.max(Number(remoteSt.streakCurrent || 0), Number(localState.streakCurrent || 0)),
@@ -8240,6 +9203,8 @@
         st.xp = Number(localStorage.getItem('fabanki:xp_total') || 0);
         st.credits = Number(localStorage.getItem('fabanki:credits') || 0);
         st.quests = collectQuestState();
+        st.welcomeQuest = collectWelcomeQuestState();
+        st.postWelcomeQuest = collectPostWelcomeQuestState();
         st.decks = collectDeckProgress();
         st.inventory = collectInventory();
         st.dailyProgress = collectDailyProgress();
@@ -8262,23 +9227,7 @@
         const { user } = await auth.signInWithEmailAndPassword(email, password);
         const uid = user.uid;
 
-        // If switching accounts, delete previous profile and leaderboard entry
-        try{
-          const prevAuthUid = localStorage.getItem('fabanki:classement_auth_uid');
-          const prevClassementId = localStorage.getItem('fabanki:classement_user_id');
-          if(prevAuthUid && prevAuthUid !== uid){
-            // Delete old profile from users collection
-            if(prevAuthUid){
-              await db.collection('users').doc(prevAuthUid).delete();
-              syncLog('Deleted old profile:', prevAuthUid);
-            }
-            // Delete old leaderboard entry
-            if(prevClassementId){
-              await db.collection('Classement').doc(prevClassementId).delete();
-              syncLog('Deleted old leaderboard entry:', prevClassementId);
-            }
-          }
-        }catch(e){ console.warn('delete old profile failed', e) }
+        // Do not delete existing profiles on login; keep cloud history safe
 
         // Ensure current leaderboard mapping
         try{
@@ -8293,46 +9242,39 @@
         const remoteSt = snap.exists ? (snap.data() || null) : null;
 
         let chosen = localSt;
-        if(remoteSt && Number(remoteSt.lastUpdated||0) > Number(localSt.lastUpdated||0)){
-          // Remote newer → merge with local, preferring remote for most fields
-          const mergedDecks = mergeDeckStates(localSt.decks || {}, remoteSt.decks || {});
-          const mergedInventory = { ...(localSt.inventory || {}), ...(remoteSt.inventory || {}) };
-          chosen = { 
-            ...remoteSt, 
-            mode: 'synced', 
-            userId: uid,
-            decks: mergedDecks,
-            inventory: mergedInventory,
-            // Take higher XP and streak values
-            xp: Math.max(Number(remoteSt.xp || 0), Number(localSt.xp || 0)),
-            streakCurrent: Math.max(Number(remoteSt.streakCurrent || 0), Number(localSt.streakCurrent || 0)),
-            streakMax: Math.max(Number(remoteSt.streakMax || 0), Number(localSt.streakMax || 0)),
-            lastUpdated: Date.now()
-          };
-          applyStateToLocalStorage(chosen);
-        } else if(remoteSt && Number(remoteSt.lastUpdated||0) === Number(localSt.lastUpdated||0)){
-          // Same timestamp: deep merge to combine data from both devices
-          const mergedDecks = mergeDeckStates(localSt.decks || {}, remoteSt.decks || {});
-          const mergedInventory = { ...(remoteSt.inventory || {}), ...(localSt.inventory || {}) };
-          chosen = {
-            ...localSt,
-            mode: 'synced',
-            userId: uid,
-            decks: mergedDecks,
-            inventory: mergedInventory,
-            xp: Math.max(Number(remoteSt.xp || 0), Number(localSt.xp || 0)),
-            streakCurrent: Math.max(Number(remoteSt.streakCurrent || 0), Number(localSt.streakCurrent || 0)),
-            streakMax: Math.max(Number(remoteSt.streakMax || 0), Number(localSt.streakMax || 0)),
-            lastUpdated: Date.now()
-          };
-          applyStateToLocalStorage(chosen);
+        if(remoteSt){
+          const localEmpty = isStateEmpty(localSt);
+          const remoteEmpty = isStateEmpty(remoteSt);
+          if(!remoteEmpty && localEmpty){
+            chosen = { ...remoteSt, mode: 'synced', userId: uid };
+            applyStateToLocalStorage(chosen);
+          } else if(remoteEmpty && !localEmpty){
+            chosen = { ...localSt, mode: 'synced', userId: uid };
+          } else if(!remoteEmpty && !localEmpty){
+            const choice = await promptSyncChoice(localSt, remoteSt);
+            if(choice === 'cloud'){
+              chosen = { ...remoteSt, mode: 'synced', userId: uid };
+              applyStateToLocalStorage(chosen);
+            } else if(choice === 'local'){
+              chosen = { ...localSt, mode: 'synced', userId: uid };
+            } else {
+              chosen = mergeUserStates(localSt, remoteSt, uid);
+              applyStateToLocalStorage(chosen);
+            }
+          } else {
+            chosen = { ...localSt, mode: 'synced', userId: uid };
+          }
         } else {
-          // Local newer or no remote → push local
-          chosen.mode = 'synced';
-          chosen.userId = uid;
-          chosen.inventory = collectInventory();
-          chosen.dailyProgress = collectDailyProgress();
+          chosen = { ...localSt, mode: 'synced', userId: uid };
         }
+
+        // Ensure we save the latest local collections
+        chosen.inventory = collectInventory();
+        chosen.dailyProgress = collectDailyProgress();
+        chosen.quests = collectQuestState();
+        chosen.welcomeQuest = collectWelcomeQuestState();
+        chosen.postWelcomeQuest = collectPostWelcomeQuestState();
+
         await saveState(chosen);
         try{ applyStateToLocalStorage(chosen); }catch(e){}
         try{ if(typeof updateMissionProgress === 'function') updateMissionProgress(); }catch(e){}
@@ -8868,11 +9810,27 @@
           mission.progress = progress;
           // Auto-complete if target reached AND mission is currently displayed
           const missionData = [...missionsData.daily, ...missionsData.weekly].find(m => m.id === missionId);
-          if(missionData && progress >= missionData.target && !mission.completed){
+          const reachedTarget = missionData && progress >= missionData.target;
+          if(reachedTarget && !mission.completed){
+            mission.completed = true;
+
+            if(type === 'daily' && !mission.welcome_counted){
+              try{
+                const questState = initWelcomeQuest();
+                const prevCount = Number(questState.dailyQuestsCompleted || 0);
+                if(prevCount < 3){
+                  questState.dailyQuestsCompleted = prevCount + 1;
+                  updateWelcomeQuest(questState);
+                  if(questState.dailyQuestsCompleted >= 3 && !questState.part3.three_daily_quests){
+                    completeWelcomeQuestMission('part3', 'three_daily_quests', 10);
+                  }
+                }
+                mission.welcome_counted = true;
+              }catch(e){ console.warn('welcome quest daily mission error', e); }
+            }
+
             // Only award credits if this mission is currently displayed
             if(isMissionDisplayed(missionId, type)){
-              mission.completed = true;
-              // Grant rewards
               if(!mission.rewards_given){
                 applyXp(missionData.reward.xp);
                 addCredits(missionData.reward.credits);
@@ -8895,10 +9853,22 @@
                 setTimeout(() => toast.remove(), 3000);
               }
             } else {
-              // Track completion but don't give rewards for hidden missions
-              mission.completed = true;
               console.log('Mission completed but not displayed, no rewards:', missionId);
             }
+          }
+          if(reachedTarget && mission.completed && type === 'daily' && !mission.welcome_counted){
+            try{
+              const questState = initWelcomeQuest();
+              const prevCount = Number(questState.dailyQuestsCompleted || 0);
+              if(prevCount < 3){
+                questState.dailyQuestsCompleted = prevCount + 1;
+                updateWelcomeQuest(questState);
+                if(questState.dailyQuestsCompleted >= 3 && !questState.part3.three_daily_quests){
+                  completeWelcomeQuestMission('part3', 'three_daily_quests', 10);
+                }
+              }
+              mission.welcome_counted = true;
+            }catch(e){ console.warn('welcome quest daily mission error', e); }
           }
           return true;
         };
@@ -8937,6 +9907,13 @@
           updateMission(dailyMissions, 'review_1', decksReviewedToday, 'daily');
           console.log('[MISSION] Updating decks reviewed:', decksReviewedToday);
         }catch(e){ console.warn('decks reviewed tracking error:', e) }
+
+        // Update session missions
+        try{
+          const sessionsToday = getSessionsCompletedToday();
+          updateMission(dailyMissions, 'session_1', sessionsToday, 'daily');
+          updateMission(dailyMissions, 'session_2', sessionsToday, 'daily');
+        }catch(e){ console.warn('session tracking error:', e) }
         
         // Update streak mission
         const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
@@ -9110,9 +10087,188 @@
         });
       }catch(e){ return [] }
     }
+
+    function ensureSelectedMissions(type = 'daily'){
+      try{
+        const key = type === 'daily' ? 'fabanki:daily_selected_missions' : 'fabanki:weekly_selected_missions';
+        let selected = JSON.parse(localStorage.getItem(key) || 'null');
+        if(!Array.isArray(selected) || selected.length === 0){
+          const allMissions = type === 'daily' ? missionsData.daily : missionsData.weekly;
+          const easy = allMissions.filter(m => m.difficulty === 'easy');
+          const medium = allMissions.filter(m => m.difficulty === 'medium');
+          const hard = allMissions.filter(m => m.difficulty === 'hard');
+          const picks = [];
+          // Pick 1 random easy, 1 medium, 1 hard
+          if(easy.length > 0) picks.push(easy[Math.floor(Math.random() * easy.length)].id);
+          if(medium.length > 0) picks.push(medium[Math.floor(Math.random() * medium.length)].id);
+          if(hard.length > 0) picks.push(hard[Math.floor(Math.random() * hard.length)].id);
+          localStorage.setItem(key, JSON.stringify(picks));
+          selected = picks;
+        }
+        return selected;
+      }catch(e){ return []; }
+    }
+
+    function getDisplayedMissions(type = 'daily'){
+      try{
+        const selectedIds = ensureSelectedMissions(type);
+        const all = getMissions(type);
+        return selectedIds.map(id => all.find(m => m.id === id)).filter(Boolean);
+      }catch(e){ return []; }
+    }
+
+    function renderWelcomeMissionsCard(){
+      try{
+        const daily = getDisplayedMissions('daily');
+        const weekly = getDisplayedMissions('weekly');
+        if(daily.length === 0 && weekly.length === 0) return null;
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.marginBottom = '12px';
+
+        const title = document.createElement('h2');
+        title.textContent = 'Missions Quotidiennes & Hebdomadaires';
+        title.style.margin = '6px 0 12px 0';
+        title.style.color = 'var(--muted)';
+        card.appendChild(title);
+
+        const tabs = document.createElement('div');
+        tabs.style.display = 'grid';
+        tabs.style.gridTemplateColumns = '1fr 1fr';
+        tabs.style.gap = '8px';
+        tabs.style.marginBottom = '10px';
+
+        const dailyBtn = document.createElement('button');
+        dailyBtn.textContent = '📅 Quotidienne';
+        const weeklyBtn = document.createElement('button');
+        weeklyBtn.textContent = '📊 Hebdomadaire';
+
+        [dailyBtn, weeklyBtn].forEach(btn => {
+          btn.className = 'secondary';
+          btn.style.padding = '10px 12px';
+          btn.style.borderRadius = '10px';
+          btn.style.fontWeight = '700';
+        });
+
+        tabs.appendChild(dailyBtn);
+        tabs.appendChild(weeklyBtn);
+        card.appendChild(tabs);
+
+        const progressRow = document.createElement('div');
+        progressRow.style.display = 'flex';
+        progressRow.style.alignItems = 'center';
+        progressRow.style.gap = '10px';
+        progressRow.style.marginBottom = '10px';
+
+        const progressLabel = document.createElement('div');
+        progressLabel.style.fontWeight = '700';
+        progressLabel.style.color = '#6b7280';
+        progressLabel.textContent = 'Progression';
+
+        const progressBar = document.createElement('div');
+        progressBar.style.flex = '1';
+        progressBar.style.height = '10px';
+        progressBar.style.background = '#e5e7eb';
+        progressBar.style.borderRadius = '999px';
+
+        const progressFill = document.createElement('div');
+        progressFill.style.height = '100%';
+        progressFill.style.width = '0%';
+        progressFill.style.background = '#5b3df6';
+        progressFill.style.borderRadius = '999px';
+        progressBar.appendChild(progressFill);
+
+        const progressCount = document.createElement('div');
+        progressCount.style.fontWeight = '700';
+
+        progressRow.appendChild(progressLabel);
+        progressRow.appendChild(progressBar);
+        progressRow.appendChild(progressCount);
+        card.appendChild(progressRow);
+
+        const list = document.createElement('div');
+        list.style.display = 'flex';
+        list.style.flexDirection = 'column';
+        list.style.gap = '10px';
+        list.style.maxHeight = '360px';
+        list.style.overflowY = 'auto';
+        list.style.paddingRight = '6px';
+        card.appendChild(list);
+
+        const setActiveTab = (type) => {
+          const isDaily = type === 'daily';
+          dailyBtn.style.background = isDaily ? '#5b3df6' : '#f3f4f6';
+          dailyBtn.style.color = isDaily ? '#fff' : '#111';
+          weeklyBtn.style.background = !isDaily ? '#5b3df6' : '#f3f4f6';
+          weeklyBtn.style.color = !isDaily ? '#fff' : '#111';
+
+          const missions = isDaily ? daily : weekly;
+          const completed = missions.filter(m => m.completed).length;
+          const total = missions.length || 1;
+          const pct = Math.round((completed / total) * 100);
+          progressFill.style.width = `${pct}%`;
+          progressCount.textContent = `${completed}/${missions.length}`;
+
+          list.innerHTML = '';
+          for(const m of missions){
+            const row = document.createElement('div');
+            row.style.padding = '10px 12px';
+            row.style.borderRadius = '10px';
+            row.style.background = '#fff';
+            row.style.boxShadow = '0 1px 6px rgba(0,0,0,0.06)';
+
+            const name = document.createElement('div');
+            name.textContent = m.name;
+            name.style.fontWeight = '700';
+            name.style.marginBottom = '6px';
+            name.style.textDecoration = m.completed ? 'line-through' : 'none';
+            name.style.color = m.completed ? '#6b7280' : '#111';
+
+            const bar = document.createElement('div');
+            bar.style.height = '8px';
+            bar.style.background = '#eef0f4';
+            bar.style.borderRadius = '999px';
+
+            const fill = document.createElement('div');
+            const target = Number(m.target || 0) || 1;
+            const cur = Math.min(Number(m.progress || 0), target);
+            const pctItem = Math.round((cur / target) * 100);
+            fill.style.height = '100%';
+            fill.style.width = `${m.completed ? 100 : pctItem}%`;
+            fill.style.background = '#5b3df6';
+            fill.style.borderRadius = '999px';
+            bar.appendChild(fill);
+
+            const meta = document.createElement('div');
+            meta.className = 'muted small';
+            meta.style.marginTop = '6px';
+            meta.textContent = `${cur}/${target} • +${m.reward?.xp || 0} XP, +${m.reward?.credits || 0} ℂ`;
+
+            row.appendChild(name);
+            row.appendChild(bar);
+            row.appendChild(meta);
+            list.appendChild(row);
+          }
+        };
+
+        dailyBtn.addEventListener('click', () => setActiveTab('daily'));
+        weeklyBtn.addEventListener('click', () => setActiveTab('weekly'));
+
+        setActiveTab('daily');
+        return card;
+      }catch(e){ return null; }
+    }
     
     function completeMission(missionId, type = 'daily'){
       try{
+        // Only grant rewards if mission is in the displayed list
+        const selectedMissions = ensureSelectedMissions(type);
+        if(!selectedMissions.includes(missionId)){
+          console.warn('Mission', missionId, 'not displayed, skipping reward');
+          return;
+        }
+        
         const key = type === 'daily' ? 'fabanki:daily_missions' : 'fabanki:weekly_missions';
         const missions = JSON.parse(localStorage.getItem(key) || '[]');
         const mission = missions.find(m => m.id === missionId);
@@ -10179,6 +11335,17 @@
           localStorage.setItem('fabanki:score_mpsi_today', '0');
           localStorage.setItem('fabanki:time_spent_today', '0');
           localStorage.setItem('fabanki:time_spent_today_sec', '0');
+
+          try{
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayKey = yesterday.toDateString();
+            const goalDoneDate = localStorage.getItem('fabanki:daily_goal_toast_date');
+            if(goalDoneDate !== yesterdayKey){
+              localStorage.setItem('fabanki:streak_current', '0');
+              localStorage.setItem('fabanki:last_active_date', (new Date()).toDateString());
+            }
+          }catch(e){}
         }
       }catch(e){}
     }
@@ -10225,6 +11392,36 @@
         return cnt;
       }catch(e){ return 0 }
     }
+    function countMasteredDecks80(){
+      try{
+        const deckStates = (typeof collectDeckStates === 'function') ? collectDeckStates() : {};
+        let total = 0;
+        for(const [deckKey, data] of Object.entries(deckStates)){
+          const cardCount = Number(localStorage.getItem(`fabanki:deck_card_count:${deckKey}`) || 0);
+          if(!cardCount) continue;
+          const cards = data && data.cards ? data.cards : {};
+          let mastered = 0;
+          for(const st of Object.values(cards)){
+            if(st && Number(st.reps || 0) >= 3) mastered++;
+          }
+          const ratio = cardCount > 0 ? (mastered / cardCount) : 0;
+          if(ratio >= 0.8) total++;
+        }
+        return total;
+      }catch(e){ return 0 }
+    }
+    function countUnlockedModes(){
+      try{
+        let count = 1; // default
+        count += 1; // active memory
+        if(localStorage.getItem('fabanki:market_mode_texte_trou')) count++;
+        if(localStorage.getItem('fabanki:market_mode_rappel_sous_pression')) count++;
+        if(localStorage.getItem('fabanki:mode_step_unlocked') === 'true') count++;
+        if((typeof isReverseModeUnlocked === 'function' && isReverseModeUnlocked()) || localStorage.getItem('fabanki:mode_reverse_unlocked') === 'true') count++;
+        if((typeof isRandomModeUnlocked === 'function' && isRandomModeUnlocked()) || localStorage.getItem('fabanki:mode_random_unlocked') === 'true') count++;
+        return count;
+      }catch(e){ return 1 }
+    }
 
     function computeBadges(stats){
       // Backwards-compatible wrapper: compute titles and return top textual badges
@@ -10267,6 +11464,11 @@
         const streakMax = Number(localStorage.getItem('fabanki:streak_max') || 0);
         const streakCurrent = Number(localStorage.getItem('fabanki:streak_current') || 0);
         const longCount = Number(localStorage.getItem('fabanki:long_answer_total') || 0);
+        const newCardsTotal = Number(localStorage.getItem('fabanki:new_cards_total') || 0);
+        const timeTotalSec = Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0);
+        const timeHours = Math.floor(timeTotalSec / 3600);
+        const unlockedModes = countUnlockedModes();
+        const masteredDecks = countMasteredDecks80();
         
         // Get consec counters for Newton and Noether
         const consecCorrectMax = Number(localStorage.getItem('fabanki:consec_correct_max') || 0);
@@ -10290,7 +11492,11 @@
           {nom:'Maxwell', th:[3,7,21,60,120], val: streakCurrent},
           {nom:'Noether', th:[50,150,400,1000,3000], val: consecNoPassMax},
           {nom:'Hadamard', th:[50,150,400,1000,3000], val: longCount},
-          {nom:'Knuth', th:[50,100,200,500,1000], val: maxDailyReviewed}
+          {nom:'Knuth', th:[50,100,200,500,1000], val: maxDailyReviewed},
+          {nom:'Curie', th:[2,8,20,50,120], val: timeHours},
+          {nom:'Turing', th:[100,250,500,1000,2500], val: newCardsTotal},
+          {nom:'Hippocrate', th:[2,4,6,8,10], val: unlockedModes},
+          {nom:'Conway', th:[3,8,15,30,50], val: masteredDecks}
         ];
         for(const d of defs){
           let tier = 0;
@@ -10396,10 +11602,6 @@
               localStorage.setItem('fabanki:streak_current', '1');
               const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), 1); localStorage.setItem('fabanki:streak_max', String(maxi));
             }
-            localStorage.setItem('fabanki:last_active_date', today);
-          } else if(!goalReached && last !== today){
-            // Goal not reached, reset streak
-            localStorage.setItem('fabanki:streak_current', '0');
             localStorage.setItem('fabanki:last_active_date', today);
           }
         }catch(e){}
@@ -10702,7 +11904,11 @@
           'Maxwell': {th:[3,7,21,60,120], desc:'Endurance — jours consécutifs d\'activité.', metric: ()=> Number(localStorage.getItem('fabanki:streak_current')||0) },
           'Noether': {th:[50,150,400,1000,3000], desc:'Zéro gaspillage — cartes révisées sans "Passer".', metric: ()=> Number(localStorage.getItem('fabanki:consec_no_pass_max')||0) },
           'Hadamard': {th:[50,150,400,1000,3000], desc:'Réponses longues (>20s) — temps passé par réponse.', metric: ()=> Number(localStorage.getItem('fabanki:long_answer_total')||0) },
-          'Knuth': {th:[50,100,200,500,1000], desc:'Nombre de cartes révisées en un jour.', metric: ()=> Number(localStorage.getItem('fabanki:max_daily_reviewed')||0) }
+          'Knuth': {th:[50,100,200,500,1000], desc:'Nombre de cartes révisées en un jour.', metric: ()=> Number(localStorage.getItem('fabanki:max_daily_reviewed')||0) },
+          'Curie': {th:[2,8,20,50,120], desc:'Temps passé à réviser (heures).', metric: ()=> Math.floor(Number(localStorage.getItem('fabanki:time_spent_total_sec')||0) / 3600) },
+          'Turing': {th:[100,250,500,1000,2500], desc:'Nouvelles cartes révisées.', metric: ()=> Number(localStorage.getItem('fabanki:new_cards_total')||0) },
+          'Hippocrate': {th:[2,4,6,8,10], desc:'Modes débloqués au total.', metric: ()=> countUnlockedModes() },
+          'Conway': {th:[3,8,15,30,50], desc:'Decks maîtrisés (≥ 80%).', metric: ()=> countMasteredDecks80() }
         };
         if(computed.titres && computed.titres.length){
           computed.titres.forEach(t=>{
@@ -10737,6 +11943,8 @@
                   // For Euler, show percentage and required cards for next tier
                   const requiredCards = def.requiredCards ? def.requiredCards[curTier] : nextThreshold;
                   label.textContent = `${cur}% — besoin de ${requiredCards} cartes vues`;
+                } else if(t.nom === 'Curie'){
+                  label.textContent = `${cur}h / ${nextThreshold}h`;
                 } else {
                   label.textContent = `${cur} / ${nextThreshold}`;
                 }
@@ -10944,6 +12152,7 @@
           // Ensure correct visibility
           if(syncBtn) syncBtn.style.display = 'inline-block';
           if(homeBtn) homeBtn.style.display = 'none';
+          setReviewTopBarVisibility(false);
         }catch(e){ console.warn('Button swap error:', e); }
         
         // remove any existing welcome first
@@ -11043,6 +12252,14 @@
               container.appendChild(welcomeQuestCard);
             }
           }catch(e){ console.warn('Welcome quest card error:', e); }
+
+          // Add daily/weekly missions card on welcome page
+          try{
+            const missionsCard = renderWelcomeMissionsCard();
+            if(missionsCard){
+              container.appendChild(missionsCard);
+            }
+          }catch(e){ console.warn('Welcome missions card error:', e); }
           
           // Create button container for Maintenant button - place AFTER level card, BEFORE decks card
           const buttonContainer = document.createElement('div');
@@ -11193,223 +12410,6 @@
         
         // Append main decks card right after level card
         container.appendChild(card);
-
-        // Add missions card
-        try{
-          const missionsCard = document.createElement('div');
-          missionsCard.className = 'card missions-card';
-          missionsCard.style.marginTop = '16px';
-          missionsCard.style.marginBottom = '12px';
-          missionsCard.style.padding = '16px';
-          missionsCard.style.flexShrink = '0';
-          missionsCard.style.display = 'flex';
-          missionsCard.style.flexDirection = 'column';
-          missionsCard.style.maxHeight = '400px';
-          
-          const missionsTitle = document.createElement('h2');
-          missionsTitle.textContent = 'Missions Quotidiennes & Hebdomadaires';
-          missionsTitle.style.margin = '6px 0 12px 0';
-          missionsTitle.style.color = 'var(--muted)';
-          missionsCard.appendChild(missionsTitle);
-          
-          // Get missions
-          const dailyMissions = getMissions('daily');
-          const weeklyMissions = getMissions('weekly');
-          
-          // Create tabs for daily and weekly (tabs moved here, no rings above)
-          const tabContainer = document.createElement('div');
-          tabContainer.style.display = 'flex';
-          tabContainer.style.gap = '8px';
-          tabContainer.style.marginBottom = '12px';
-          
-          const dailyTab = document.createElement('button');
-          dailyTab.className = 'mission-tab active';
-          dailyTab.textContent = '📅 Quotidienne';
-          dailyTab.style.flex = '1';
-          dailyTab.style.padding = '8px';
-          dailyTab.style.borderRadius = '6px';
-          dailyTab.style.border = '1px solid rgba(0,0,0,0.06)';
-          dailyTab.style.background = 'var(--accent)';
-          dailyTab.style.color = 'white';
-          dailyTab.style.cursor = 'pointer';
-          
-          const weeklyTab = document.createElement('button');
-          weeklyTab.className = 'mission-tab';
-          weeklyTab.textContent = '📊 Hebdomadaire';
-          weeklyTab.style.flex = '1';
-          weeklyTab.style.padding = '8px';
-          weeklyTab.style.borderRadius = '6px';
-          weeklyTab.style.border = '1px solid rgba(0,0,0,0.06)';
-          weeklyTab.style.background = 'transparent';
-          weeklyTab.style.color = 'var(--fg)';
-          weeklyTab.style.cursor = 'pointer';
-          
-          tabContainer.appendChild(dailyTab);
-          tabContainer.appendChild(weeklyTab);
-          missionsCard.appendChild(tabContainer);
-          
-          const missionsContent = document.createElement('div');
-          missionsContent.className = 'missions-content';
-          missionsContent.id = 'missionsContent';
-          missionsContent.style.maxHeight = '300px';
-          missionsContent.style.overflowY = 'auto';
-          missionsContent.style.paddingRight = '8px';
-          
-          // Render daily missions by difficulty - one per difficulty with progress bar
-          const renderMissions = (missions, type) => {
-            missionsContent.innerHTML = '';
-            const colors = { easy: '#22c55e', medium: '#eab308', hard: '#ef4444' };
-            const stat = getMissionCompletionStats(type);
-            
-            // Calculate overall progress
-            const totalCompleted = stat.easy.completed + stat.medium.completed + stat.hard.completed;
-            const totalMissions = stat.easy.total + stat.medium.total + stat.hard.total;
-            const overallPct = totalMissions > 0 ? Math.round((totalCompleted / totalMissions) * 100) : 0;
-            
-            // Add overall progress bar AT TOP OF CONTENT
-            const progressBarContainer = document.createElement('div');
-            progressBarContainer.style.marginBottom = '12px';
-            progressBarContainer.style.display = 'flex';
-            progressBarContainer.style.alignItems = 'center';
-            progressBarContainer.style.gap = '8px';
-            
-            const progressLabel = document.createElement('div');
-            progressLabel.style.fontSize = '0.8rem';
-            progressLabel.style.fontWeight = '600';
-            progressLabel.style.color = 'var(--muted)';
-            progressLabel.textContent = 'Progression';
-            
-            const barWrapper = document.createElement('div');
-            barWrapper.style.flex = '1';
-            barWrapper.style.height = '8px';
-            barWrapper.style.background = '#eee';
-            barWrapper.style.borderRadius = '4px';
-            barWrapper.style.overflow = 'hidden';
-            
-            const barFill = document.createElement('div');
-            barFill.style.height = '100%';
-            barFill.style.width = overallPct + '%';
-            barFill.style.background = 'var(--accent)';
-            barFill.style.borderRadius = '4px';
-            barFill.style.transition = 'width 0.3s ease';
-            barWrapper.appendChild(barFill);
-            
-            const progressText = document.createElement('div');
-            progressText.style.fontSize = '0.75rem';
-            progressText.style.fontWeight = '600';
-            progressText.style.minWidth = '35px';
-            progressText.style.textAlign = 'right';
-            progressText.textContent = totalCompleted + '/' + totalMissions;
-            
-            progressBarContainer.appendChild(progressLabel);
-            progressBarContainer.appendChild(barWrapper);
-            progressBarContainer.appendChild(progressText);
-            missionsContent.appendChild(progressBarContainer);
-            
-            // Get or create persistent quest selection for the day/week
-            const selectionKey = 'fabanki:' + type + '_selected_missions';
-            let selectedIds = JSON.parse(localStorage.getItem(selectionKey) || 'null');
-            
-            if(!selectedIds){
-              // First time today/week - randomly select one per difficulty
-              selectedIds = { easy: null, medium: null, hard: null };
-              for(const difficulty of ['easy', 'medium', 'hard']){
-                const diffMissions = missions.filter(m => m.difficulty === difficulty);
-                if(diffMissions.length > 0){
-                  const selected = diffMissions[Math.floor(Math.random() * diffMissions.length)];
-                  selectedIds[difficulty] = selected.id;
-                }
-              }
-              localStorage.setItem(selectionKey, JSON.stringify(selectedIds));
-            }
-            
-            for(const difficulty of ['easy', 'medium', 'hard']){
-              const diffMissions = missions.filter(m => m.difficulty === difficulty);
-              if(diffMissions.length === 0) continue;
-              
-              // Use the pre-selected mission for this difficulty
-              const mission = diffMissions.find(m => m.id === selectedIds[difficulty]) || diffMissions[0];
-              const diffStat = stat[difficulty];
-              
-              const missionEl = document.createElement('div');
-              missionEl.style.padding = '8px';
-              missionEl.style.background = 'rgba(0,0,0,0.02)';
-              missionEl.style.borderRadius = '6px';
-              missionEl.style.marginBottom = '8px';
-              missionEl.style.fontSize = '0.85rem';
-              
-              // Check if mission is completed
-              if(mission.completed){
-                missionEl.innerHTML = `<div style="color:#22c55e;font-weight:600;text-align:center">✅ Quête remplie</div>`;
-              } else {
-                missionEl.style.display = 'flex';
-                missionEl.style.gap = '10px';
-                missionEl.style.alignItems = 'center';
-                
-                const content = document.createElement('div');
-                content.style.flex = '1';
-                const nameEl = document.createElement('div');
-                nameEl.style.fontWeight = '600';
-                nameEl.style.marginBottom = '6px';
-                nameEl.textContent = mission.name;
-                
-                // Individual mission progress bar
-                const missionProgress = mission.progress || 0;
-                const missionGoal = mission.goal || 100;
-                const missionPct = Math.min(100, Math.round((missionProgress / missionGoal) * 100));
-                
-                const progressBarWrapper = document.createElement('div');
-                progressBarWrapper.style.marginBottom = '4px';
-                const progressBar = document.createElement('div');
-                progressBar.style.height = '6px';
-                progressBar.style.background = '#eee';
-                progressBar.style.borderRadius = '3px';
-                progressBar.style.overflow = 'hidden';
-                const progressFill = document.createElement('div');
-                progressFill.style.height = '100%';
-                progressFill.style.width = missionPct + '%';
-                progressFill.style.background = colors[difficulty];
-                progressFill.style.borderRadius = '3px';
-                progressBar.appendChild(progressFill);
-                progressBarWrapper.appendChild(progressBar);
-                
-                const rewardEl = document.createElement('div');
-                rewardEl.style.color = 'var(--muted)';
-                rewardEl.style.fontSize = '0.75rem';
-                rewardEl.innerHTML = `${missionProgress}/${missionGoal} • +${mission.reward.xp} XP, +${mission.reward.credits} ℂ`;
-                
-                content.appendChild(nameEl);
-                content.appendChild(progressBarWrapper);
-                content.appendChild(rewardEl);
-                
-                missionEl.appendChild(content);
-              }
-              
-              missionsContent.appendChild(missionEl);
-            }
-          };
-          
-          dailyTab.addEventListener('click', () => {
-            dailyTab.style.background = 'var(--accent)';
-            dailyTab.style.color = 'white';
-            weeklyTab.style.background = 'transparent';
-            weeklyTab.style.color = 'var(--fg)';
-            renderMissions(dailyMissions, 'daily');
-          });
-          
-          weeklyTab.addEventListener('click', () => {
-            weeklyTab.style.background = 'var(--accent)';
-            weeklyTab.style.color = 'white';
-            dailyTab.style.background = 'transparent';
-            dailyTab.style.color = 'var(--fg)';
-            renderMissions(weeklyMissions, 'weekly');
-          });
-          
-          renderMissions(dailyMissions, 'daily');
-          missionsCard.appendChild(missionsContent);
-          
-          container.appendChild(missionsCard);
-        }catch(e){ console.warn('missions card error:', e) }
 
         // Add last recently added deck card (if tagged to display)
         try{
@@ -11636,6 +12636,13 @@
               }
             }catch(e){ continue; }
           }
+
+          try{
+            const totalReviewedEver = getTotalReviewedCount();
+            if(totalReviewedEver > 0){
+              stats.forever.reviewed = totalReviewedEver;
+            }
+          }catch(e){}
           
           // Create tabs for time periods
           const tabContainer = document.createElement('div');
@@ -12066,6 +13073,15 @@
           container.appendChild(statsCard);
         }catch(e){ console.warn('Stats card error:', e); }
         // === END STATS CARD ===
+
+        // Add post-welcome quest card UNDER the stats card
+        try{ syncPostWelcomeQuestTime(); }catch(e){}
+        try{
+          const postWelcomeQuestCard = renderPostWelcomeQuestCard();
+          if(postWelcomeQuestCard){
+            container.appendChild(postWelcomeQuestCard);
+          }
+        }catch(e){ console.warn('Post-welcome quest card error:', e); }
         
         const host = document.querySelector('.app') || document.body;
         const footer = host.querySelector('footer') || document.querySelector('footer') || null;
