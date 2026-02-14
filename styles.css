@@ -56,6 +56,14 @@ button{background:var(--accent);color:white;border:0;padding:8px 12px;border-rad
 
 button.secondary{background:transparent;color:var(--fg);border:1px solid rgba(0,0,0,0.06)}
 
+/* Quests page styles removed */
+
+@media (max-width:640px){
+  .mode-grid{justify-content:center !important;gap:8px !important}
+  .mode-grid .mode-btn{flex:1 1 28% !important;max-width:120px;padding:8px 10px !important;min-height:48px !important;font-size:0.75em !important}
+  .mode-grid .mode-btn .mode-icon{font-size:1.2em !important}
+}
+
 .resp-buttons{display:flex;gap:8px}
 
 .resp-buttons button{flex:1}
@@ -67,6 +75,18 @@ button.secondary{background:transparent;color:var(--fg);border:1px solid rgba(0,
 .small{font-size:0.9rem}
 
 .muted{color:var(--muted)}
+
+.error-screen{background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);border:1px solid rgba(2,6,23,0.08);border-radius:14px;padding:22px;box-shadow:0 10px 24px rgba(2,6,23,0.08);display:flex;flex-direction:column;gap:10px;align-items:flex-start;margin-top:12px}
+.error-screen__icon{font-size:1.6rem;line-height:1}
+.error-screen__title{font-weight:800;font-size:1.15rem;color:#0f172a}
+.error-screen__message{color:#334155;font-size:0.95rem}
+.error-screen__details{font-size:0.85rem;color:#64748b;background:#f1f5f9;border-radius:8px;padding:10px 12px;width:100%}
+.error-screen__actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+
+[data-theme='dark'] .error-screen{background:linear-gradient(135deg,#0f172a 0%,#111827 100%);border-color:rgba(148,163,184,0.18);box-shadow:0 10px 24px rgba(0,0,0,0.35)}
+[data-theme='dark'] .error-screen__title{color:#e2e8f0}
+[data-theme='dark'] .error-screen__message{color:#cbd5f5}
+[data-theme='dark'] .error-screen__details{color:#e2e8f0;background:rgba(148,163,184,0.12)}
 
 footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-items:center}
 
