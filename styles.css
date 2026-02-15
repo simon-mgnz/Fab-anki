@@ -52,6 +52,25 @@ h1{font-size:1rem;margin:0}
 
 .buttons{display:flex;gap:8px;flex-wrap:wrap}
 
+.multiple-stack{display:flex;flex-direction:column;gap:10px}
+.multiple-block{display:flex;flex-direction:column;gap:6px}
+.multiple-separator{height:8px;background:#e5e7eb;border-radius:999px}
+.multiple-choice{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.multiple-choice-btn.selected{outline:3px solid #7c3aed;outline-offset:2px}
+[data-theme='dark'] .multiple-separator{background:#374151}
+[data-theme='dark'] .multiple-choice-btn.selected{outline-color:#a78bfa}
+
+.fsrs-disabled-card{background:#e5e7eb;color:#6b7280;border:1px solid rgba(0,0,0,0.06)}
+[data-theme='dark'] .fsrs-disabled-card{background:#2b3038;color:#cbd5e1;border-color:rgba(255,255,255,0.06)}
+
+/* Hold mode blur overlay */
+.hold-back{position:relative}
+.hold-back__inner{filter:blur(10px);transition:filter 0.15s ease}
+.hold-back--revealed .hold-back__inner{filter:blur(0)}
+.hold-blur-box{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;border-radius:8px;background:rgba(255,255,255,0.7);border:1px dashed rgba(0,0,0,0.15);color:#222;font-weight:700}
+.hold-back--revealed .hold-blur-box{opacity:0;pointer-events:none;transition:opacity 0.12s ease}
+[data-theme='dark'] .hold-blur-box{background:rgba(17,19,25,0.65);border-color:rgba(255,255,255,0.12);color:#e6eef8}
+
 button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
 
 button.secondary{background:transparent;color:var(--fg);border:1px solid rgba(0,0,0,0.06)}
@@ -816,8 +835,30 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
 
 .badge-chip{background:rgba(0,0,0,0.04);padding:4px 6px;border-radius:6px;font-size:0.8rem}
 
+/* Calcul mode LaTeX formula builder */
+#calculContainer{margin-top:16px;padding:12px;background:#f9f5ff;border-radius:8px;border:2px solid #d8c3e0}
+
+[data-theme='dark'] #calculContainer{background:#2d1b4e;border-color:#6b5778}
+
+#calculFormulaDisplay{font-size:1.2em;min-height:40px;padding:12px;background:white;border:1px solid #ddd;border-radius:6px;margin-bottom:12px;font-family:"Courier New",monospace;word-break:break-all}
+
+[data-theme='dark'] #calculFormulaDisplay{background:#1e1e2e;border-color:#444;color:#e6eef8}
+
+#calculButtonGrid{display:grid;grid-template-columns:repeat(auto-fit, minmax(60px, 1fr));gap:6px;margin-bottom:12px}
+
+#calculButtonGrid button{padding:8px;border:1px solid #9f7aea;background:white;color:#6b21a8;border-radius:4px;cursor:pointer;font-weight:600;font-size:0.9em}
+
+[data-theme='dark'] #calculButtonGrid button{background:#2d1b4e;border-color:#7c3aed;color:#c4b5fd}
+
+#calculInput{flex:1;min-width:200px;padding:10px;border:1px solid #ddd;border-radius:6px;background:white;color:#333;font-family:"Courier New",monospace;font-size:0.9em}
+
+[data-theme='dark'] #calculInput{background:#1e1e2e;border-color:#444;color:#e6eef8}
+
+#calculFeedback{padding:12px;border-radius:6px;text-align:center;font-weight:600;margin-top:8px;display:none}
+
  /* Small helper for popup open animation (profile uses .open class on modal and .open on overlay)
 
    showProfilePopup now toggles overlay.open when inserting the modal */
+
 
 
