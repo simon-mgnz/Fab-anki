@@ -1,8 +1,9 @@
-  // Single-file app implementing requested functions.
+// Single-file app implementing requested functions.
   try{ window.__fabanki_booted = true; }catch(e){}
 
   // Utility: simple DOM helpers
-  const $ = sel => document.querySelector(sel);
+  var $ = window.$ || (sel => document.querySelector(sel));
+  try{ window.$ = $; }catch(e){}
 
   // Application state
   let deckURL = null;
@@ -21,22 +22,115 @@
   let tooltipShown = false;
   let cardShownAt = Date.now();
   let showHintBox = false; // Toggle for hint box visibility
-  let reviewMode = 'default'; // 'default', 'fillblank', 'timer', 'activeMemory', 'step', 'reverse', 'random' - controls review behavior
+  let reviewMode = 'default'; // 'default', 'fillblank', 'timer', 'activeMemory', 'step', 'reverse', 'random', 'hold', 'multiple', 'calcul' - controls review behavior
   let deckHasTextTag = false; // Whether deck supports fill-in-the-blank mode
   let deckHasTimerTag = false; // Whether deck supports pressure recall mode
+  let deckHasCalculTag = false; // Whether deck supports Calcul (LaTeX formula) mode
   let timerSettings = { frontTime: 10, backTime: 5 }; // Settings for timer mode
+  let multipleSettings = { count: 2 }; // Settings for multiple mode
+  let isInitialPageLoad = true; // Track if this is the first load of the page
+  let lastSyncCardId = null; // Track which card we last synced for
 
   function getRetentionCoefficient(mode){
     const map = {
       default: 1,
       reverse: 1,
+      hold: 1,
+      multiple: 0.9,
       random: 1.1,
       activeMemory: 1.1,
       step: 1.2,
       timer: 1.2,
-      fillblank: 2
+      fillblank: 2,
+      calcul: 1.5
     };
     return map[mode] || 1;
+  }
+
+  function getDeckRetentionTarget(){
+    try{
+      if(!deckKey || deckKey === 'multideck') return 0.85;
+      const key = `fabanki:fsrs_retention:${deckKey}`;
+      const raw = localStorage.getItem(key);
+      let val = raw != null ? Number(raw) : NaN;
+      if(Number.isNaN(val)){
+        val = 0.85;
+        localStorage.setItem(key, String(val));
+      }
+      if(val > 1){
+        val = val / 100;
+      }
+      val = Math.min(0.99, Math.max(0.5, val));
+      return val;
+    }catch(e){
+      return 0.85;
+    }
+  }
+
+  function setDeckRetentionTarget(val){
+    try{
+      if(!deckKey || deckKey === 'multideck') return;
+      const norm = Math.min(0.99, Math.max(0.5, Number(val) || 0.85));
+      localStorage.setItem(`fabanki:fsrs_retention:${deckKey}`, String(norm));
+    }catch(e){}
+  }
+
+  function isFsrsDisabledForDeck(){
+    try{
+      if(!deckKey || deckKey === 'multideck') return false;
+      return localStorage.getItem(`fabanki:fsrs_disabled:${deckKey}`) === '1';
+    }catch(e){ return false; }
+  }
+
+  function setFsrsDisabledForDeck(disabled){
+    try{
+      if(!deckKey || deckKey === 'multideck') return;
+      localStorage.setItem(`fabanki:fsrs_disabled:${deckKey}`, disabled ? '1' : '0');
+    }catch(e){}
+  }
+
+  function getXmlBackFieldCount(xml){
+    try{
+      const fieldsContainer = xml.querySelector('fields');
+      if(fieldsContainer){
+        const defs = Array.from(fieldsContainer.children || []);
+        let count = 0;
+        defs.forEach((f, idx) => {
+          const sidesAttr = f.getAttribute('sides') || (f.textContent || '');
+          let sides = interpretSides(sidesAttr);
+          if(!sides || Object.keys(sides).length === 0){
+            sides = idx === 0 ? {front:true,back:false,always:false} : {front:false,back:true,always:false};
+          }
+          if(sides.back && !sides.always) count++;
+        });
+        return count;
+      }
+      const firstCard = xml.querySelector('card, note, item, entry, record');
+      if(firstCard){
+        const childCount = firstCard.children ? firstCard.children.length : 0;
+        if(childCount > 1) return Math.max(0, childCount - 1);
+      }
+    }catch(e){}
+    return 0;
+  }
+
+  function getDeckBackFieldCount(deckObj){
+    try{
+      if(deckObj && Array.isArray(deckObj.fieldDefs) && deckObj.fieldDefs.length){
+        let count = 0;
+        for(const def of deckObj.fieldDefs){
+          const sides = def.sides || {};
+          if(sides.back && !sides.always) count++;
+        }
+        return count;
+      }
+      const first = deckObj && deckObj.cards && deckObj.cards[0];
+      if(first){
+        const order = first._fieldOrder || Object.keys(first.fields || {});
+        return Math.max(0, order.length - 1);
+      }
+    }catch(e){}
+    return 0;
   }
 
   function setReviewTopBarVisibility(isReview){
@@ -230,7 +324,9 @@
       'activeMemory': '🧠',
       'step': '🪜',
       'reverse': '🔁',
-      'random': '🎲'
+      'random': '🎲',
+      'hold': '✋',
+      'multiple': '🧩'
     };
 
     const modeFullNames = {
@@ -240,7 +336,9 @@
       'activeMemory': 'Mémoire active',
       'step': 'Étape par étape',
       'reverse': 'Revers',
-      'random': 'Aléatoire'
+      'random': 'Aléatoire',
+      'hold': 'Maintient',
+      'multiple': 'Multiple'
     };
 
     modes.forEach((mode) => {
@@ -338,12 +436,18 @@
       
       // Count available modes
       const isTextModeUnlocked = localStorage.getItem('fabanki:market_mode_texte_trou');
+      const isHoldModeUnlocked = localStorage.getItem('fabanki:mode_hold_unlocked') === 'true';
+      const isMultipleModeUnlocked = localStorage.getItem('fabanki:mode_multiple_unlocked') === 'true';
+      const isCalculModeUnlocked = localStorage.getItem('fabanki:market_mode_calcul');
       const modes = [];
       const firstCard = xml.querySelector('card, note, item, entry, record');
       const fieldCount = firstCard ? (firstCard.children ? firstCard.children.length : 0) : 0;
+      const backFieldCount = getXmlBackFieldCount(xml);
       const stepModeCompatible = fieldCount > 2;
       const reverseModeCompatible = fieldCount >= 2 && fieldCount <= 4;
       const randomModeCompatible = fieldCount >= 2 && fieldCount <= 4;
+      const holdModeCompatible = backFieldCount > 0 && backFieldCount <= 3;
+      const multipleModeCompatible = fieldCount >= 2 && fieldCount <= 4;
       modes.push({id: 'default', name: 'Anki', unlocked: true});
       if(hasTextMode && isTextModeUnlocked) modes.push({id: 'fillblank', name: 'Texte', unlocked: true});
       if(hasTimerMode && isTimerModeUnlocked) modes.push({id: 'timer', name: 'Rappel', unlocked: true});
@@ -351,6 +455,9 @@
       if(isStepModeUnlocked && stepModeCompatible) modes.push({id: 'step', name: 'Étapes', unlocked: true});
       if(reverseModeCompatible && reverseUnlocked) modes.push({id: 'reverse', name: 'Revers', unlocked: true});
       if(randomModeCompatible && randomUnlocked) modes.push({id: 'random', name: 'Aléatoire', unlocked: true});
+      if(holdModeCompatible && isHoldModeUnlocked) modes.push({id: 'hold', name: 'Maintient', unlocked: true});
+      if(multipleModeCompatible && isMultipleModeUnlocked) modes.push({id: 'multiple', name: 'Multiple', unlocked: true});
+      if(deckHasCalculTag && isCalculModeUnlocked) modes.push({id: 'calcul', name: 'Calcul', unlocked: true});
       
       // If only one mode, load directly
       if(modes.length <= 1){
@@ -986,6 +1093,7 @@
       
       let idx = 0; // Counter for card IDs (same as parseXMLDeck)
       let deckFieldCount = 0;
+      const deckBackFieldCount = getXmlBackFieldCount(xml);
       
       for(const cardNode of cardNodes){
         try{
@@ -1264,6 +1372,65 @@
         <div style="display:flex;justify-content:space-between;"><span>Précision</span><strong>${accuracy}</strong></div>
       `;
       rightPanel.appendChild(stats);
+
+      // Retention slider and FSRS toggle
+      const retentionBox = document.createElement('div');
+      retentionBox.style.cssText = 'margin-bottom:16px;padding:12px;border-radius:10px;background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.12);';
+      const retentionTitle = document.createElement('div');
+      retentionTitle.style.cssText = 'font-weight:700;margin-bottom:8px;color:#1e293b;';
+      retentionTitle.textContent = 'Rétention ciblée (FSRS)';
+      retentionBox.appendChild(retentionTitle);
+
+      const retentionRow = document.createElement('div');
+      retentionRow.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
+      const retentionValue = document.createElement('div');
+      retentionValue.style.cssText = 'min-width:56px;font-weight:700;color:#2563eb;';
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = '50';
+      slider.max = '99';
+      slider.step = '1';
+      slider.style.cssText = 'flex:1;min-width:200px;';
+      const disableBtn = document.createElement('button');
+      disableBtn.className = 'secondary';
+      disableBtn.style.cssText = 'min-width:150px;';
+      retentionRow.appendChild(retentionValue);
+      retentionRow.appendChild(slider);
+      retentionRow.appendChild(disableBtn);
+      retentionBox.appendChild(retentionRow);
+
+      const retentionHint = document.createElement('div');
+      retentionHint.style.cssText = 'margin-top:6px;font-size:0.85em;color:#64748b;';
+      retentionBox.appendChild(retentionHint);
+
+      const updateRetentionUi = () => {
+        const val = Math.round(getDeckRetentionTarget() * 100);
+        slider.value = String(val);
+        retentionValue.textContent = `${val}%`;
+        const disabled = isFsrsDisabledForDeck();
+        disableBtn.textContent = disabled ? 'Activer FSRS' : 'Désactiver FSRS';
+        retentionHint.textContent = disabled
+          ? 'FSRS désactivé : affichage aléatoire, uniquement le nombre d affichages est compté.'
+          : 'Plus la valeur est haute, plus les révisions sont fréquentes. 99% est très exigeant.';
+      };
+      updateRetentionUi();
+
+      slider.addEventListener('input', () => {
+        const val = Math.min(99, Math.max(50, Number(slider.value) || 85));
+        retentionValue.textContent = `${val}%`;
+      });
+      slider.addEventListener('change', () => {
+        const val = Math.min(99, Math.max(50, Number(slider.value) || 85));
+        setDeckRetentionTarget(val / 100);
+        updateRetentionUi();
+      });
+      disableBtn.addEventListener('click', () => {
+        const nextState = !isFsrsDisabledForDeck();
+        setFsrsDisabledForDeck(nextState);
+        updateRetentionUi();
+      });
+
+      rightPanel.appendChild(retentionBox);
       
       // Check if deck is locked and show appropriate button
       const lockState = evaluateDeckLock(url);
@@ -1296,11 +1463,13 @@
       const deckTags = (typeof deckEntry === 'object' && deckEntry.tags) ? deckEntry.tags : [];
       deckHasTextTag = Array.isArray(deckTags) ? deckTags.includes('text') : false;
       deckHasTimerTag = Array.isArray(deckTags) ? deckTags.includes('timer') : false;
+      deckHasCalculTag = Array.isArray(deckTags) ? deckTags.includes('calcul') : false;
       
       console.log('DEBUG: deckEntry=', deckEntry);
       console.log('DEBUG: deckTags=', deckTags);
       console.log('DEBUG: deckHasTextTag=', deckHasTextTag);
       console.log('DEBUG: deckHasTimerTag=', deckHasTimerTag);
+      console.log('DEBUG: deckHasCalculTag=', deckHasCalculTag);
       console.log('DEBUG: manifestMeta keys=', Object.keys(manifestMeta));
       
       // Add review mode selector if deck supports it AND mode is unlocked
@@ -1324,7 +1493,10 @@
           'activeMemory': '🧠',
           'step': '🪜',
           'reverse': '🔁',
-          'random': '🎲'
+          'random': '🎲',
+          'hold': '✋',
+          'multiple': '🧩',
+          'calcul': '∫'
         };
         
         const modeFullNames = {
@@ -1334,7 +1506,10 @@
           'activeMemory': 'Mémoire active',
           'step': 'Étape par étape',
           'reverse': 'Revers',
-          'random': 'Aléatoire'
+          'random': 'Aléatoire',
+          'hold': 'Maintient',
+          'multiple': 'Multiple',
+          'calcul': 'Calcul'
         };
         
         const availableModes = [
@@ -1361,8 +1536,14 @@
         const randomUnlocked = (typeof isRandomModeUnlocked === 'function')
           ? isRandomModeUnlocked()
           : (localStorage.getItem('fabanki:mode_random_unlocked') === 'true');
+        const holdLockedByDeck = !(deckBackFieldCount > 0 && deckBackFieldCount <= 3);
+        const holdLockedByQuest = localStorage.getItem('fabanki:mode_hold_unlocked') !== 'true';
         const randomLockedByQuest = !randomUnlocked;
         const randomLocked = randomLockedByDeck || randomLockedByQuest;
+        const holdLocked = holdLockedByDeck || holdLockedByQuest;
+        const multipleLockedByDeck = deckFieldCount < 2 || deckFieldCount > 4;
+        const multipleLockedByQuest = localStorage.getItem('fabanki:mode_multiple_unlocked') !== 'true';
+        const multipleLocked = multipleLockedByDeck || multipleLockedByQuest;
         availableModes.push({
           id: 'fillblank',
           name: 'Texte à trou',
@@ -1393,6 +1574,27 @@
           name: 'Aléatoire',
           locked: randomLocked,
           lockReason: randomLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'
+        });
+        availableModes.push({
+          id: 'hold',
+          name: 'Maintient',
+          locked: holdLocked,
+          lockReason: holdLockedByDeck ? 'Deck incompatible' : 'Recompense de quete'
+        });
+        availableModes.push({
+          id: 'multiple',
+          name: 'Multiple',
+          locked: multipleLocked,
+          lockReason: multipleLockedByDeck ? 'Deck incompatible' : 'Recompense de quete'
+        });
+        const calculLockedByDeck = !deckHasCalculTag;
+        const calculLockedByPurchase = deckHasCalculTag && !localStorage.getItem('fabanki:market_mode_calcul');
+        const calculLocked = calculLockedByDeck || calculLockedByPurchase;
+        availableModes.push({
+          id: 'calcul',
+          name: 'Calcul',
+          locked: calculLocked,
+          lockReason: calculLockedByDeck ? 'Deck incompatible' : 'Mode bloque'
         });
         
         const buttons = new Map();
@@ -1498,7 +1700,9 @@
           'activeMemory': '🧠',
           'step': '🪜',
           'reverse': '🔁',
-          'random': '🎲'
+          'random': '🎲',
+          'hold': '✋',
+          'multiple': '🧩'
         };
         
         const modeFullNames = {
@@ -1506,7 +1710,9 @@
           'activeMemory': 'Mémoire active',
           'step': 'Étape par étape',
           'reverse': 'Revers',
-          'random': 'Aléatoire'
+          'random': 'Aléatoire',
+          'hold': 'Maintient',
+          'multiple': 'Multiple'
         };
         
         const stepLockedByDeck = deckFieldCount <= 2;
@@ -1522,6 +1728,12 @@
         const randomUnlocked = (typeof isRandomModeUnlocked === 'function')
           ? isRandomModeUnlocked()
           : (localStorage.getItem('fabanki:mode_random_unlocked') === 'true');
+        const holdLockedByDeck = !(deckBackFieldCount > 0 && deckBackFieldCount <= 3);
+        const holdLockedByQuest = localStorage.getItem('fabanki:mode_hold_unlocked') !== 'true';
+        const holdLocked = holdLockedByDeck || holdLockedByQuest;
+        const multipleLockedByDeck = deckFieldCount < 2 || deckFieldCount > 4;
+        const multipleLockedByQuest = localStorage.getItem('fabanki:mode_multiple_unlocked') !== 'true';
+        const multipleLocked = multipleLockedByDeck || multipleLockedByQuest;
 
         const availableModes = [
           {id: 'default', name: 'Mode Anki', locked: false},
@@ -1530,7 +1742,9 @@
           {id: 'activeMemory', name: 'Mémoire active', locked: false},
           {id: 'step', name: 'Étape par étape', locked: stepLocked, lockReason: stepLockedByDeck ? 'Deck incompatible' : 'Mode bloque'},
           {id: 'reverse', name: 'Revers', locked: reverseLocked, lockReason: reverseLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'},
-          {id: 'random', name: 'Aléatoire', locked: randomLocked, lockReason: randomLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'}
+          {id: 'random', name: 'Aléatoire', locked: randomLocked, lockReason: randomLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'},
+          {id: 'hold', name: 'Maintient', locked: holdLocked, lockReason: holdLockedByDeck ? 'Deck incompatible' : 'Recompense de quete'},
+          {id: 'multiple', name: 'Multiple', locked: multipleLocked, lockReason: multipleLockedByDeck ? 'Deck incompatible' : 'Recompense de quete'}
         ];
         
         const buttons = new Map();
@@ -2384,6 +2598,19 @@
           localStorage.setItem(`fabanki:review_mode:${deckKey}`, reviewMode);
         }
       }
+      if(reviewMode === 'multiple' && (fieldCount < 2 || fieldCount > 4)){
+        reviewMode = 'default';
+        if(typeof deckKey !== 'undefined'){
+          localStorage.setItem(`fabanki:review_mode:${deckKey}`, reviewMode);
+        }
+      }
+      const backFieldCount = getDeckBackFieldCount(deck);
+      if(reviewMode === 'hold' && (backFieldCount > 3 || backFieldCount <= 0)){
+        reviewMode = 'default';
+        if(typeof deckKey !== 'undefined'){
+          localStorage.setItem(`fabanki:review_mode:${deckKey}`, reviewMode);
+        }
+      }
     }catch(e){}
 
     // Reset session state BEFORE calling getDueCards (which checks reviewedCount)
@@ -2406,6 +2633,7 @@
     sessionCreditsGranted = false;
     setReviewTopBarVisibility(true);
     window.__timerSettingsShown = false; // Reset timer settings flag for new session
+    window.__multipleSettingsShown = false; // Reset multiple settings flag for new session
     const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
     currentIndex = 0;
     showNextCard();
@@ -2520,7 +2748,7 @@
     const prof = fsrsProfiles[profileKey];
     if(!prof) return st;
     const weights = prof.weights;
-    const targetRetention = prof.targetRetention || 0.9;
+    const targetRetention = getDeckRetentionTarget();
     const now = new Date();
     ensureFsrsState(st, profileKey);
     const response = quality <= 1 ? 0 : (quality === 3 ? 1 : (quality === 4 ? 2 : 3));
@@ -2554,6 +2782,14 @@
   }
 
   function getDueCards(){
+    if(isFsrsDisabledForDeck()){
+      const allCards = Array.isArray(deck.cards) ? deck.cards.slice() : [];
+      for(let i = allCards.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [allCards[i], allCards[j]] = [allCards[j], allCards[i]];
+      }
+      return allCards;
+    }
     // use current time so cards scheduled for now are included
     const now = new Date();
     const maintenantFromPreviousReview = []; // Cards with st.last set and due <= now
@@ -2711,6 +2947,19 @@
     const key = storageKey('card:'+cardId);
     const st = JSON.parse(localStorage.getItem(key) || '{}');
     const today = startOfDay(new Date());
+
+    if(isFsrsDisabledForDeck()){
+      st.lastQuality = quality;
+      localStorage.setItem(key, JSON.stringify(st));
+      if(!multiDeckMode){
+        if(!isReviewing){
+          dueCards = getDueCards();
+          const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
+        }
+        updateHistogram();
+      }
+      return;
+    }
 
     // FSRS profiles per subject
     const profileKey = detectFsrsProfile();
@@ -3057,14 +3306,20 @@
       'fillblank': 2,      // Texte à trou
       'timer': 1.2,        // Rappel sous pression
       'activeMemory': 1.1, // Mémoire active
-      'step': 1            // Étape par étape
+      'step': 1,           // Étape par étape
+      'hold': 1.1,         // Maintient
+      'multiple': 0.9,     // Multiple
+      'calcul': 1.8        // Calcul
     };
     const creditModifiers = {
       'default': 1,        // Mode Anki (Défaut)
       'fillblank': 1,      // Texte à trou
       'timer': 1,          // Rappel sous pression
       'activeMemory': 1,   // Mémoire active
-      'step': 1            // Étape par étape
+      'step': 1,           // Étape par étape
+      'hold': 1,           // Maintient
+      'multiple': 0.9,     // Multiple
+      'calcul': 1.5        // Calcul
     };
     const xpMultiplier = xpModifiers[reviewMode] || 1;
     const creditMultiplier = creditModifiers[reviewMode] || 1;
@@ -3095,7 +3350,18 @@
         toast.style.fontWeight = '700';
         toast.style.zIndex = '9999';
         toast.style.boxShadow = '0 8px 24px rgba(37, 99, 235, 0.35)';
-        const modeName = reviewMode === 'default' ? 'Mode Anki' : reviewMode === 'fillblank' ? 'Texte à trou' : reviewMode === 'timer' ? 'Rappel sous pression' : reviewMode === 'activeMemory' ? 'Mémoire active' : 'Étape par étape';
+        const modeNameMap = {
+          default: 'Mode Anki',
+          fillblank: 'Texte à trou',
+          timer: 'Rappel sous pression',
+          activeMemory: 'Mémoire active',
+          step: 'Étape par étape',
+          hold: 'Maintient',
+          multiple: 'Multiple',
+          reverse: 'Revers',
+          random: 'Aléatoire'
+        };
+        const modeName = modeNameMap[reviewMode] || 'Mode Anki';
         toast.textContent = `Crédits gagnés : ${grant} (${modeName} x${creditMultiplier} crédit, x${xpMultiplier} XP)`;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3500);
@@ -3312,12 +3578,52 @@
           if(typeof updateMissionProgress === 'function') updateMissionProgress();
         }catch(e){ console.warn('session mission update error', e); }
         
-        // Track welcome quest session completion
+        // Track welcome quest session completion for Part 4
         try{
-          if(typeof completeWelcomeQuestMission === 'function'){
-            completeWelcomeQuestMission('part2', 'session_completed', 5);
+          const state = initPostWelcomeQuest();
+          if(state){
+            // Increment review sessions
+            state.part4_reviewSessions = (Number(state.part4_reviewSessions || 0)) + 1;
+            
+            // Track total cards in Part 4
+            state.part4_totalCards = (Number(state.part4_totalCards || 0)) + totalReviewed;
+            
+            // Check if any sessions from this were in timer mode
+            if(reviewMode === 'timer'){
+              state.part4_timerCards = (Number(state.part4_timerCards || 0)) + totalReviewed;
+            }
+            
+            // Check if any sessions from this were in maintenance mode
+            if(reviewMode === 'hold'){
+              state.part4_maintenanceCards = (Number(state.part4_maintenanceCards || 0)) + totalReviewed;
+            }
+            
+            // Check rewards
+            if(state.part4_reviewSessions >= postWelcomeQuestTargets.part4_reviewSessions && !state.part4_sessionsRewarded){
+              addCredits(10);
+              state.part4_sessionsRewarded = true;
+              showWelcomeQuestToast('Quete extreme: 25 sessions! +10 Credits');
+            }
+            if(state.part4_totalCards >= postWelcomeQuestTargets.part4_totalCards && !state.part4_cardsRewarded){
+              addCredits(25);
+              state.part4_cardsRewarded = true;
+              showWelcomeQuestToast('Quete extreme: 500 cartes! +25 Credits');
+            }
+            if(state.part4_timerCards >= postWelcomeQuestTargets.part4_timerCards && !state.part4_timerRewarded){
+              addCredits(10);
+              state.part4_timerRewarded = true;
+              showWelcomeQuestToast('Quete extreme: 50 cartes timer! +10 Credits');
+            }
+            if(state.part4_maintenanceCards >= postWelcomeQuestTargets.part4_maintenanceCards && !state.part4_maintenanceRewarded){
+              addCredits(15);
+              state.part4_maintenanceRewarded = true;
+              showWelcomeQuestToast('Quete extreme: 50 cartes maintenance! +15 Credits');
+            }
+            
+            localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+            refreshPostWelcomeQuestUI();
           }
-        }catch(e){ console.warn('welcome quest session error', e); }
+        }catch(e){ console.warn('Part 4 session tracking error', e); }
       }
     }
 
@@ -3409,6 +3715,9 @@
   
   function showNextCard(){
     answerLocked = false;
+
+    resetHoldModeUI();
+    resetMultipleModeUI();
     
     // Check if there are any cards to show
     if(!dueCards || dueCards.length===0){ 
@@ -3429,6 +3738,12 @@
       window.__timerSettingsShown = true;
       showTimerSettingsDialog();
       return;  // Wait for Confirmer button to be clicked
+    }
+
+    if(currentIndex === 0 && reviewMode === 'multiple' && !window.__multipleSettingsShown){
+      window.__multipleSettingsShown = true;
+      showMultipleSettingsDialog();
+      return;
     }
     
     // Ensure home button is visible during review (replace sync button)
@@ -3457,7 +3772,19 @@
     if(currentIndex >= dueCards.length) currentIndex = 0;
     const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
     const cardData = multiDeckMode ? dueCards[currentIndex] : null;
-    const sa = $('#showAnswer'); if(sa) sa.style.display = (reviewMode === 'fillblank' || reviewMode === 'step') ? 'none' : 'inline-block';
+    const fsrsDisabled = isFsrsDisabledForDeck();
+    const cardArea = document.getElementById('cardArea');
+    if(cardArea) cardArea.classList.toggle('fsrs-disabled-card', !!fsrsDisabled);
+    if(fsrsDisabled && c && !multiDeckMode){
+      try{
+        const key = storageKey('card:'+c.id);
+        const st = JSON.parse(localStorage.getItem(key) || '{}');
+        st.shownCount = (st.shownCount || 0) + 1;
+        st.lastShown = (new Date()).toISOString();
+        localStorage.setItem(key, JSON.stringify(st));
+      }catch(e){}
+    }
+    const sa = $('#showAnswer'); if(sa) sa.style.display = (reviewMode === 'fillblank' || reviewMode === 'step' || reviewMode === 'hold') ? 'none' : 'inline-block';
     const nextStepBtn = document.getElementById('nextStepBtn');
     if(nextStepBtn) nextStepBtn.style.display = 'none';
     const resp = $('#respButtons'); if(resp) resp.style.display = 'none';
@@ -3487,7 +3814,11 @@
       window.__randomModeState = null;
     }
 
-    renderFront(c);
+    if(reviewMode === 'multiple'){
+      setupMultipleMode();
+    } else {
+      renderFront(c);
+    }
 
     // Setup step-by-step mode if enabled
     if(reviewMode === 'step'){
@@ -3508,6 +3839,16 @@
     if(reviewMode === 'activeMemory'){
       setupActiveMemoryMode(c);
     }
+
+    // Setup hold mode if enabled
+    if(reviewMode === 'hold'){
+      setupHoldMode(c);
+    }
+    
+    // Setup Calcul mode if enabled
+    if(reviewMode === 'calcul'){
+      setupCalculMode(c);
+    }
     
     // update card status box (Nouveau / Maintenant)
     try{ renderCardStatus(c); }catch(e){}
@@ -3519,6 +3860,11 @@
     // progress
     const pct = Math.round(((currentIndex)/Math.max(1,dueCards.length))*100);
     const pb = $('#progressBar'); if(pb) pb.style.width = pct + '%';
+    
+    // Mark initial page load as complete after first card is shown
+    if(isInitialPageLoad){
+      isInitialPageLoad = false;
+    }
     
     // Update histogram for current deck if in multi-deck mode
     if(multiDeckMode && cardData){
@@ -3622,6 +3968,516 @@
     text = text.replace(/\(\*[^*]*\*+(?:[^)*][^*]*\*+)*\)/g, '');
     
     return text.trim();
+  }
+  
+  // Helper function to normalize LaTeX formulas for comparison
+  function normalizeLatexFormula(formula){
+    // Ensure formula is a string
+    if(typeof formula !== 'string'){
+      formula = String(formula || '');
+    }
+    
+    // Normalize whitespace
+    let normalized = formula.replace(/\s+/g, '');
+    
+    // Normalize common LaTeX variants
+    const variants = {
+      '\\infty': ['\\inf'],
+      '\\sqrt': ['\\surd'],
+      '\\cdot': ['\\times', '*'],
+      '\\frac': ['\\fraction'],
+      '\\le': ['\\leq'],
+      '\\ge': ['\\geq'],
+      '\\neq': ['\\ne', '!='],
+      '\\pm': ['±'],
+      '\\sum': ['\\Sigma'],
+      '\\prod': ['\\Pi'],
+      '\\int': ['∫']
+    };
+    
+    for(const [standard, alts] of Object.entries(variants)){
+      for(const alt of alts){
+        // Escape special regex characters in alt
+        const escapedAlt = alt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escapedAlt, 'g');
+        normalized = normalized.replace(regex, standard);
+      }
+    }
+    
+    return normalized;
+  }
+  
+  // Parse LaTeX formula into tokens for comparison
+  function parseLatexFormula(formula){
+    // Ensure formula is a string
+    if(typeof formula !== 'string'){
+      formula = String(formula || '');
+    }
+    
+    const tokens = [];
+    let i = 0;
+    formula = normalizeLatexFormula(formula);
+    
+    while(i < formula.length){
+      if(formula[i] === '\\'){
+        let cmd = '';
+        i++;
+        while(i < formula.length && /[a-zA-Z]/.test(formula[i])){
+          cmd += formula[i];
+          i++;
+        }
+        tokens.push('\\' + cmd);
+      } else if(formula[i] === '{'){
+        let depth = 1;
+        let content = '';
+        i++;
+        while(i < formula.length && depth > 0){
+          if(formula[i] === '{') depth++;
+          else if(formula[i] === '}') depth--;
+          if(depth > 0) content += formula[i];
+          i++;
+        }
+        tokens.push('{' + content + '}');
+      } else if(/[a-zA-Z0-9]/.test(formula[i])){
+        tokens.push(formula[i]);
+        i++;
+      } else {
+        tokens.push(formula[i]);
+        i++;
+      }
+    }
+    return tokens;
+  }
+  
+  // Check if two formula arrays are equivalent (considering commutativity)
+  function formulasAreEquivalent(tokens1, tokens2){
+    if(tokens1.length !== tokens2.length) return false;
+    
+    // Try direct match first
+    let directMatch = tokens1.every((t, i) => t === tokens2[i]);
+    if(directMatch) return true;
+    
+    // Try to match considering commutativity of + and *
+    const split1 = splitByCommutativeOp(tokens1);
+    const split2 = splitByCommutativeOp(tokens2);
+    
+    if(split1.length !== split2.length) return false;
+    
+    // Check if all groups match
+    for(let i = 0; i < split1.length; i++){
+      const group1 = split1[i];
+      const op1 = group1.op;
+      const parts1 = group1.parts;
+      
+      const group2 = split2[i];
+      const op2 = group2.op;
+      const parts2 = group2.parts;
+      
+      if(op1 !== op2) return false;
+      if(parts1.length !== parts2.length) return false;
+      
+      // For commutative ops, check all parts match in any order
+      if(op1 === '+' || op1 === '\\times'){
+        const matched = new Set();
+        for(const p1 of parts1){
+          let found = false;
+          for(let j = 0; j < parts2.length; j++){
+            if(!matched.has(j) && tokensEqual(p1, parts2[j])){
+              matched.add(j);
+              found = true;
+              break;
+            }
+          }
+          if(!found) return false;
+        }
+      } else {
+        if(!parts1.every((p, idx) => tokensEqual(p, parts2[idx]))) return false;
+      }
+    }
+    
+    return true;
+  }
+  
+  function splitByCommutativeOp(tokens){
+    const groups = [];
+    let currentGroup = { op: '+', parts: [[]] };
+    
+    for(const token of tokens){
+      if(token === '+' || token === '\\times'){
+        currentGroup.parts.push([]);
+        currentGroup.op = token;
+      } else {
+        currentGroup.parts[currentGroup.parts.length - 1].push(token);
+      }
+    }
+    
+    return [currentGroup];
+  }
+  
+  function tokensEqual(tokens1, tokens2){
+    if(tokens1.length !== tokens2.length) return false;
+    return tokens1.every((t, i) => t === tokens2[i]);
+  }
+  
+  // Calculate difference between two LaTeX formulas
+  function calculateFormulaErrorCount(userFormula, correctFormula){
+    // Ensure both formulas are strings
+    if(typeof userFormula !== 'string'){
+      userFormula = String(userFormula || '');
+    }
+    if(typeof correctFormula !== 'string'){
+      correctFormula = String(correctFormula || '');
+    }
+    
+    const userTokens = parseLatexFormula(userFormula);
+    const correctTokens = parseLatexFormula(correctFormula);
+    
+    // Check if equivalent (including commutativity)
+    if(formulasAreEquivalent(userTokens, correctTokens)){
+      return 0;
+    }
+    
+    // Simple Levenshtein-like error count
+    const maxLen = Math.max(userTokens.length, correctTokens.length);
+    let errors = Math.abs(userTokens.length - correctTokens.length);
+    
+    for(let i = 0; i < Math.min(userTokens.length, correctTokens.length); i++){
+      if(userTokens[i] !== correctTokens[i]){
+        errors++;
+      }
+    }
+    
+    return errors;
+  }
+  
+  function setupCalculMode(card){
+    // Remove existing Calcul UI if any
+    const existingContainer = document.getElementById('calculContainer');
+    if(existingContainer) existingContainer.remove();
+    
+    const cardArea = document.getElementById('cardArea');
+    if(!cardArea) return;
+    
+    // Hide the "show answer" button initially - it will be shown as correction after validation
+    const showAnswerBtn = document.getElementById('showAnswer');
+    if(showAnswerBtn) showAnswerBtn.style.display = 'none';
+    
+    // Initialize Calcul mode state
+    if(!window.__calculModeState){
+      window.__calculModeState = {
+        formula: '',
+        cursorPos: 0,
+        showFeedback: false,
+        feedbackMessage: '',
+        feedbackType: ''
+      };
+    } else {
+      window.__calculModeState.formula = '';
+      window.__calculModeState.cursorPos = 0;
+      window.__calculModeState.showFeedback = false;
+    }
+    
+    const container = document.createElement('div');
+    container.id = 'calculContainer';
+    container.style.cssText = 'margin-top:16px;padding:12px;background:#f9f5ff;border-radius:8px;border:2px solid #d8c3e0;';
+    
+    // Merged formula display and input area
+    const formulaDisplay = document.createElement('div');
+    formulaDisplay.id = 'calculFormulaDisplay';
+    formulaDisplay.style.cssText = 'min-height:80px;padding:12px;background:white;border:1px solid #ddd;border-radius:6px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;';
+    
+    // KaTeX render area
+    const katexRender = document.createElement('div');
+    katexRender.style.cssText = 'flex:1;font-size:1.3em;text-align:center;min-height:40px;padding:8px;background:#f9f9f9;border-radius:4px;';
+    
+    // Input field (merged)
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'calculInput';
+    input.placeholder = 'Tapez votre LaTeX (ex: \\frac{1}{2}, \\sqrt{x}, etc...)';
+    input.style.cssText = 'padding:8px;border:1px solid #ddd;border-radius:4px;background:white;color:#333;font-family:"Courier New",monospace;font-size:0.9em;';
+    
+    const updateDisplay = () => {
+      const f = window.__calculModeState.formula;
+      
+      // Update input
+      input.value = f;
+      
+      // Render KaTeX
+      try {
+        if(window.katex && f.trim()){
+          katexRender.innerHTML = '';
+          window.katex.render(f, katexRender, {throwOnError: false});
+        } else {
+          katexRender.innerHTML = '<span style="color:#999;">Formule vide</span>';
+        }
+      } catch(e){
+        katexRender.innerHTML = '<span style="color:#d32f2f;">Erreur LaTeX</span>';
+      }
+    };
+    
+    input.addEventListener('input', (e) => {
+      window.__calculModeState.formula = e.target.value;
+      window.__calculModeState.cursorPos = e.target.selectionStart || window.__calculModeState.formula.length;
+      updateDisplay();
+    });
+    
+    // Create input container for formula display - wider layout
+    const inputContainer = document.createElement('div');
+    inputContainer.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px;';
+    
+    formulaDisplay.appendChild(katexRender);
+    formulaDisplay.appendChild(input);
+    formulaDisplay.style.cssText = 'min-height:120px;padding:12px;background:white;border:1px solid #ddd;border-radius:6px;display:flex;flex-direction:column;gap:8px;';
+    inputContainer.appendChild(formulaDisplay);
+    container.appendChild(inputContainer);
+    
+    // Button grid for LaTeX shortcuts and controls
+    const buttonGrid = document.createElement('div');
+    buttonGrid.id = 'calculButtonGrid';
+    buttonGrid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;';
+    
+    const buttons = [
+      { label: '½', latex: '\\frac{⬚}{⬚}' },
+      { label: '√', latex: '\\sqrt{⬚}' },
+      { label: 'π', latex: '\\pi' },
+      { label: '+', latex: '+' },
+      { label: '−', latex: '-' },
+      { label: '×', latex: '\\times' },
+      { label: '_', latex: '_' },
+      { label: '^', latex: '^{⬚}' },
+      { label: '∫', latex: '\\int_{⬚}^{⬚}' },
+      { label: 'Σ', latex: '\\sum_{⬚}^{⬚}' },
+      { label: '°', latex: '\\circ' },
+      { label: '∞', latex: '\\infty' },
+      { label: '← Retour', latex: '', isControl: true, action: 'backspace' },
+      { label: '🗑️ Effacer', latex: '', isControl: true, action: 'clear' },
+      { label: '↑', latex: '', isControl: true, action: 'navUp' },
+      { label: '↓', latex: '', isControl: true, action: 'navDown' }
+    ];
+    
+    for(const btn of buttons){
+      const button = document.createElement('button');
+      button.textContent = btn.label;
+      
+      let bgColor = '#3b82f6';
+      let hoverColor = '#2563eb';
+      if(btn.isControl){
+        if(btn.action === 'backspace') bgColor = '#ef4444';
+        else if(btn.action === 'clear') bgColor = '#f97316';
+        else if(btn.action === 'navUp' || btn.action === 'navDown') bgColor = '#8b5cf6';
+        hoverColor = bgColor.replace(/[0-9a-f]/g, m => parseInt(m, 16) > 7 ? (parseInt(m, 16) - 2).toString(16) : m);
+      }
+      
+      button.style.cssText = `padding:8px;background:${bgColor};color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:0.85em;transition:background 0.2s;`;
+      button.addEventListener('mouseover', () => button.style.background = hoverColor);
+      button.addEventListener('mouseout', () => button.style.background = bgColor);
+      button.addEventListener('click', () => {
+        const state = window.__calculModeState;
+        
+        if(btn.isControl){
+          if(btn.action === 'backspace'){
+            if(state.cursorPos > 0){
+              state.formula = state.formula.substring(0, state.cursorPos - 1) + state.formula.substring(state.cursorPos);
+              state.cursorPos--;
+            }
+          } else if(btn.action === 'clear'){
+            state.formula = '';
+            state.cursorPos = 0;
+          } else if(btn.action === 'navUp'){
+            const display = document.getElementById('calculFormulaDisplay');
+            if(display) display.focus();
+          } else if(btn.action === 'navDown'){
+            input.focus();
+          }
+        } else {
+          const latex = btn.latex;
+          state.formula = state.formula.substring(0, state.cursorPos) + latex + state.formula.substring(state.cursorPos);
+          state.cursorPos += latex.length;
+        }
+        
+        input.value = state.formula;
+        updateDisplay();
+        input.focus();
+      });
+      buttonGrid.appendChild(button);
+    }
+    container.appendChild(buttonGrid);
+    
+    // Validate button
+    const validateBtn = document.createElement('button');
+    validateBtn.textContent = 'Vérifier';
+    validateBtn.style.cssText = 'width:100%;padding:12px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:1em;margin-bottom:8px;';
+    validateBtn.addEventListener('click', () => {
+      const userFormula = window.__calculModeState.formula.trim();
+      if(!userFormula){
+        window.__calculModeState.feedbackType = 'error';
+        window.__calculModeState.feedbackMessage = 'Entrez une formule!';
+        displayFeedback();
+        return;
+      }
+      validateCalcul(card, userFormula);
+    });
+    container.appendChild(validateBtn);
+    
+    // Feedback container
+    const feedbackContainer = document.createElement('div');
+    feedbackContainer.id = 'calculFeedback';
+    feedbackContainer.style.cssText = 'padding:12px;border-radius:6px;text-align:center;font-weight:600;display:none;margin-top:8px;';
+    container.appendChild(feedbackContainer);
+    
+    const displayFeedback = () => {
+      const fb = document.getElementById('calculFeedback');
+      const state = window.__calculModeState;
+      if(!state.showFeedback){
+        fb.style.display = 'none';
+        return;
+      }
+      fb.style.display = 'block';
+      if(state.feedbackType === 'error'){
+        fb.style.background = '#fee2e2';
+        fb.style.color = '#991b1b';
+        fb.textContent = state.feedbackMessage;
+      } else if(state.feedbackType === 'success'){
+        fb.style.background = '#dcfce7';
+        fb.style.color = '#166534';
+        fb.textContent = state.feedbackMessage;
+      } else if(state.feedbackType === 'warning'){
+        fb.style.background = '#fef3c7';
+        fb.style.color = '#92400e';
+        fb.textContent = state.feedbackMessage;
+      }
+    };
+    
+    window.__calculModeState.displayFeedback = displayFeedback;
+    
+    cardArea.appendChild(container);
+    updateDisplay();
+    
+    // Focus input automatically
+    setTimeout(() => input.focus(), 100);
+  }
+  
+  function validateCalcul(card, userFormula){
+    // Get the correct answer (Tex field, usually field 1)
+    if(!card || !card.fields) return;
+    
+    const fieldOrder = card._fieldOrder || Object.keys(card.fields);
+    if(fieldOrder.length < 2) return; // Need at least field 1 for answer
+    
+    const correctFieldName = fieldOrder[1]; // Field 1 = answer
+    const correctField = card.fields[correctFieldName];
+    
+    // Extract text from field object (could be string or object with .text/.html)
+    let correctFormula = '';
+    if(typeof correctField === 'string'){
+      correctFormula = correctField;
+    } else if(correctField && correctField.text){
+      correctFormula = correctField.text;
+    } else if(correctField && correctField.html){
+      correctFormula = correctField.html.replace(/<[^>]*>/g, ''); // Remove HTML tags
+    }
+    
+    if(!correctFormula){
+      window.__calculModeState.feedbackType = 'error';
+      window.__calculModeState.feedbackMessage = 'Aucune réponse configurée pour cette carte.';
+      window.__calculModeState.showFeedback = true;
+      window.__calculModeState.displayFeedback();
+      return;
+    }
+    
+    const errorCount = calculateFormulaErrorCount(userFormula, correctFormula);
+    let quality = 0; // Raté
+    let feedbackMsg = '';
+    
+    if(errorCount === 0){
+      quality = 5; // Facile
+      feedbackMsg = '✓ Parfait! Formule correcte.';
+    } else if(errorCount === 1){
+      quality = 4; // Bon
+      feedbackMsg = '≈ Bon! Une petite erreur mais proche.';
+    } else if(errorCount <= 3){
+      quality = 3; // Difficile
+      feedbackMsg = '✗ Difficile. 2-3 erreurs détectées.';
+    } else {
+      quality = 0; // Raté
+      feedbackMsg = '✗ Raté.';
+    }
+    
+    window.__calculModeState.feedbackType = errorCount === 0 ? 'success' : (errorCount === 1 ? 'warning' : 'error');
+    window.__calculModeState.feedbackMessage = feedbackMsg;
+    window.__calculModeState.showFeedback = true;
+    window.__calculModeState.displayFeedback();
+    
+    // Hide show answer button, show correction instead
+    const showAnswerBtn = document.getElementById('showAnswer');
+    if(showAnswerBtn) showAnswerBtn.style.display = 'none';
+    
+    // Show correction box with answers
+    const calcContainer = document.getElementById('calculContainer');
+    const existingCorrectionBox = document.getElementById('calculCorrectionBox');
+    if(existingCorrectionBox) existingCorrectionBox.remove();
+    
+    const correctionBox = document.createElement('div');
+    correctionBox.id = 'calculCorrectionBox';
+    correctionBox.style.cssText = 'background:white;padding:12px;border-radius:6px;margin-top:12px;border: 1px solid #e5e7eb;';
+    
+    const userFormulaRender = document.createElement('div');
+    userFormulaRender.style.cssText = 'font-size:1.2em;text-align:center;background:#f3f4f6;padding:12px;border-radius:4px;margin-top:8px;min-height:50px;';
+    try {
+      if(window.katex && userFormula.trim()){
+        window.katex.render(userFormula, userFormulaRender, {throwOnError: false});
+      } else {
+        userFormulaRender.textContent = 'Formule vide';
+      }
+    } catch(e){
+      userFormulaRender.innerHTML = '<span style="color:#d32f2f;">Erreur LaTeX</span>';
+    }
+    
+    const correctFormulaRender = document.createElement('div');
+    correctFormulaRender.style.cssText = 'font-size:1.2em;text-align:center;background:#f3f4f6;padding:12px;border-radius:4px;margin-top:8px;min-height:50px;';
+    try {
+      if(window.katex && correctFormula.trim()){
+        window.katex.render(correctFormula, correctFormulaRender, {throwOnError: false});
+      } else {
+        correctFormulaRender.textContent = 'Formule vide';
+      }
+    } catch(e){
+      correctFormulaRender.innerHTML = '<span style="color:#d32f2f;">Erreur LaTeX</span>';
+    }
+    
+    let correctionHtml = `<div>
+      <p style="margin-top:0;"><strong>Votre formule:</strong></p>
+      </div>`;
+    correctionBox.innerHTML = correctionHtml;
+    correctionBox.appendChild(userFormulaRender);
+    correctionBox.innerHTML += `<p style="margin-top:12px;"><strong>Formule correcte:</strong></p>`;
+    correctionBox.appendChild(correctFormulaRender);
+    calcContainer.appendChild(correctionBox);
+    
+    // Add next-card button with quality grade display
+    const nextCardBtnContainer = document.createElement('div');
+    nextCardBtnContainer.style.cssText = 'display:flex;gap:8px;margin-top:12px;align-items:center;';
+    
+    const nextCardBtn = document.createElement('button');
+    nextCardBtn.textContent = 'Prochaine carte';
+    nextCardBtn.style.cssText = 'flex:1;padding:12px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:1em;';
+    nextCardBtn.addEventListener('click', () => {
+      answerCurrent(quality);
+    });
+    
+    const qualityDisplay = document.createElement('div');
+    let qualityText = '';
+    if(quality === 0) qualityText = 'Raté';
+    else if(quality === 3) qualityText = 'Difficile';
+    else if(quality === 4) qualityText = 'Bon';
+    else if(quality === 5) qualityText = 'Facile';
+    qualityDisplay.textContent = qualityText;
+    qualityDisplay.style.cssText = 'padding:12px 16px;background:#f0f0f0;border-radius:6px;font-weight:600;font-size:0.95em;min-width:100px;text-align:center;border:2px solid #ddd;';
+    
+    nextCardBtnContainer.appendChild(nextCardBtn);
+    nextCardBtnContainer.appendChild(qualityDisplay);
+    calcContainer.appendChild(nextCardBtnContainer);
   }
   
   function setupFillBlankMode(card){
@@ -3845,6 +4701,351 @@
     }
   }
 
+  function resetHoldModeUI(){
+    const backEl = $('#back');
+    if(!backEl) return;
+    backEl.classList.remove('hold-back', 'hold-back--revealed');
+    const overlay = backEl.querySelector('.hold-blur-box');
+    if(overlay) overlay.remove();
+    const inner = backEl.querySelector('.hold-back__inner');
+    if(inner){
+      while(inner.firstChild){
+        backEl.insertBefore(inner.firstChild, inner);
+      }
+      inner.remove();
+    }
+  }
+
+  function setupHoldMode(card){
+    const backEl = $('#back');
+    if(!backEl || !card) return;
+    const respButtons = $('#respButtons');
+    const showAnswerBtn = $('#showAnswer');
+    if(showAnswerBtn) showAnswerBtn.style.display = 'none';
+    if(respButtons) respButtons.style.display = 'inline-flex';
+
+    renderBack(card);
+    backEl.style.display = 'block';
+    backEl.style.flex = '1 1 auto';
+    backEl.classList.add('hold-back');
+
+    const inner = document.createElement('div');
+    inner.className = 'hold-back__inner';
+    while(backEl.firstChild){
+      inner.appendChild(backEl.firstChild);
+    }
+    backEl.appendChild(inner);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'hold-blur-box';
+    overlay.textContent = 'Maintiens pour voir la reponse';
+    backEl.appendChild(overlay);
+
+    const reveal = (ev) => {
+      try{
+        if(ev && overlay.setPointerCapture && ev.pointerId != null){
+          overlay.setPointerCapture(ev.pointerId);
+        }
+      }catch(e){}
+      backEl.classList.add('hold-back--revealed');
+    };
+    const conceal = () => {
+      backEl.classList.remove('hold-back--revealed');
+    };
+
+    if(window.PointerEvent){
+      overlay.addEventListener('pointerdown', (ev) => { ev.preventDefault(); reveal(ev); });
+      overlay.addEventListener('pointerup', conceal);
+      overlay.addEventListener('pointerleave', conceal);
+      overlay.addEventListener('pointercancel', conceal);
+    } else {
+      overlay.addEventListener('touchstart', (ev) => { ev.preventDefault(); reveal(ev); }, {passive:false});
+      overlay.addEventListener('touchend', conceal);
+      overlay.addEventListener('touchcancel', conceal);
+      overlay.addEventListener('mousedown', (ev) => { ev.preventDefault(); reveal(ev); });
+      overlay.addEventListener('mouseup', conceal);
+      overlay.addEventListener('mouseleave', conceal);
+    }
+  }
+
+  function resetMultipleModeUI(){
+    const frontEl = $('#front');
+    const backEl = $('#back');
+    if(frontEl) frontEl.classList.remove('multiple-front');
+    if(backEl) backEl.classList.remove('multiple-back');
+    const existing = document.getElementById('multipleModeContainer');
+    if(existing) existing.remove();
+    window.__multipleModeState = null;
+  }
+
+  function showMultipleSettingsDialog(){
+    try{
+      if(document.getElementById('multipleSettingsDialog')) return;
+      const savedSettings = localStorage.getItem(`fabanki:multiple_settings:${deckKey}`);
+      if(savedSettings){
+        try{ multipleSettings = JSON.parse(savedSettings); }catch(e){}
+      }
+      const overlay = document.createElement('div');
+      overlay.id = 'multipleSettingsDialog';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+
+      const dialog = document.createElement('div');
+      dialog.style.cssText = 'background:white;border-radius:12px;padding:24px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
+
+      const title = document.createElement('h2');
+      title.textContent = '🧩 Mode Multiple';
+      title.style.cssText = 'margin-top:0;margin-bottom:16px;color:#333;';
+      dialog.appendChild(title);
+
+      const desc = document.createElement('p');
+      desc.textContent = 'Choisissez le nombre de cartes a reviser en meme temps :';
+      desc.style.cssText = 'color:#666;margin-bottom:12px;';
+      dialog.appendChild(desc);
+
+      const valueRow = document.createElement('div');
+      valueRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;';
+      const valueLabel = document.createElement('div');
+      valueLabel.style.cssText = 'font-weight:700;color:#2563eb;';
+      valueLabel.textContent = String(multipleSettings.count || 2);
+      valueRow.appendChild(valueLabel);
+      dialog.appendChild(valueRow);
+
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = '2';
+      slider.max = '5';
+      slider.step = '1';
+      slider.value = String(multipleSettings.count || 2);
+      slider.style.cssText = 'width:100%;margin-bottom:16px;';
+      slider.addEventListener('input', () => {
+        valueLabel.textContent = slider.value;
+      });
+      dialog.appendChild(slider);
+
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.cssText = 'display:flex;gap:8px;justify-content:center;';
+      const confirmBtn = document.createElement('button');
+      confirmBtn.textContent = 'Confirmer';
+      confirmBtn.className = 'primary';
+      confirmBtn.style.cssText = 'flex:1;';
+      confirmBtn.addEventListener('click', () => {
+        multipleSettings.count = Math.max(2, Math.min(5, parseInt(slider.value, 10) || 2));
+        localStorage.setItem(`fabanki:multiple_settings:${deckKey}`, JSON.stringify(multipleSettings));
+        overlay.remove();
+        setTimeout(() => {
+          continueWithFirstCard();
+        }, 100);
+      });
+      buttonContainer.appendChild(confirmBtn);
+      dialog.appendChild(buttonContainer);
+
+      overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
+    }catch(e){ console.warn('Multiple settings dialog error:', e); }
+  }
+
+  function getFrontNodesForCard(card){
+    const nodes = [];
+    if(!card) return nodes;
+    const defs = deck.fieldDefs || [];
+    if(defs.length === 0){
+      const order = card._fieldOrder || Object.keys(card.fields || {});
+      if(order.length > 0){
+        const fieldName = order[0];
+        const f = card.fields && card.fields[fieldName];
+        if(f && f.html && f.html.trim().length > 0){
+          const def = {name: fieldName, type: f.type || 'rich-text', sides: {front:true,back:false,always:false}};
+          nodes.push(buildFieldElement(def, f));
+        }
+      }
+      return nodes;
+    }
+    const order = card._fieldOrder || Object.keys(card.fields || {});
+    for(const def of defs){
+      const f = card.fields && card.fields[def.name];
+      if(!f || !f.html || f.html.trim().length === 0) continue;
+      const sides = f.sides || def.sides || {};
+      if(!sides || Object.keys(sides).length === 0){
+        const isFirstField = order.findIndex(k => k === def.name) === 0;
+        if(isFirstField){
+          nodes.push(buildFieldElement(def, f));
+        }
+        continue;
+      }
+      if(sides.always || sides.front){
+        nodes.push(buildFieldElement(def, f));
+      }
+    }
+    return nodes;
+  }
+
+  function getBackNodesForCard(card){
+    const nodes = [];
+    if(!card) return nodes;
+    const defs = deck.fieldDefs || [];
+    if(defs.length === 0){
+      const order = card._fieldOrder || Object.keys(card.fields || {});
+      for(let i = 1; i < order.length; i++){
+        const fieldName = order[i];
+        const f = card.fields && card.fields[fieldName];
+        if(f && f.html && f.html.trim().length > 0){
+          const def = {name: fieldName, type: f.type || 'rich-text', sides: {front:false,back:true,always:false}};
+          nodes.push(buildFieldElement(def, f));
+        }
+      }
+      return nodes;
+    }
+    for(const def of defs){
+      const f = card.fields && card.fields[def.name];
+      if(!f || !f.html || f.html.trim().length === 0) continue;
+      const sides = f.sides || def.sides || {front:true,back:false,always:false};
+      if(sides.back && !sides.always){
+        nodes.push(buildFieldElement(def, f));
+      }
+    }
+    return nodes;
+  }
+
+  function setupMultipleMode(){
+    const frontEl = $('#front');
+    const backEl = $('#back');
+    const alwaysEl = $('#always');
+    if(!frontEl) return;
+    if(alwaysEl) alwaysEl.innerHTML = '';
+    if(backEl){ backEl.innerHTML = ''; backEl.style.display = 'none'; }
+
+    const savedSettings = localStorage.getItem(`fabanki:multiple_settings:${deckKey}`);
+    if(savedSettings){
+      try{ multipleSettings = JSON.parse(savedSettings); }catch(e){}
+    }
+
+    const maxCount = Math.max(2, Math.min(5, Number(multipleSettings.count) || 2));
+    const slice = dueCards.slice(currentIndex, currentIndex + maxCount);
+    const cards = slice.map(item => multiDeckMode ? item.card : item);
+
+    window.__multipleModeState = {
+      items: slice,
+      cards,
+      startIndex: currentIndex,
+      selections: new Map()
+    };
+
+    frontEl.innerHTML = '';
+    frontEl.classList.add('multiple-front');
+    const container = document.createElement('div');
+    container.id = 'multipleModeContainer';
+    container.className = 'multiple-stack';
+
+    cards.forEach((card, idx) => {
+      const block = document.createElement('div');
+      block.className = 'multiple-block';
+      const nodes = getFrontNodesForCard(card);
+      if(nodes.length === 0){
+        block.innerHTML = '<em>Contenu masqué côté question</em>';
+      } else {
+        nodes.forEach(node => block.appendChild(node));
+      }
+      container.appendChild(block);
+      if(idx < cards.length - 1){
+        const sep = document.createElement('div');
+        sep.className = 'multiple-separator';
+        container.appendChild(sep);
+      }
+    });
+
+    frontEl.appendChild(container);
+    try{ applyCardScroll(frontEl); }catch(e){}
+  }
+
+  function renderMultipleBackAndResponses(){
+    const state = window.__multipleModeState;
+    if(!state) return;
+    const frontEl = $('#front');
+    const backEl = $('#back');
+    const resp = $('#respButtons');
+    if(resp) resp.style.display = 'none';
+    if(!backEl) return;
+
+    backEl.innerHTML = '';
+    backEl.classList.add('multiple-back');
+
+    const container = document.createElement('div');
+    container.className = 'multiple-stack';
+
+    state.cards.forEach((card, idx) => {
+      const block = document.createElement('div');
+      block.className = 'multiple-block';
+
+      const nodes = getBackNodesForCard(card);
+      if(nodes.length === 0){
+        block.innerHTML = '<em>Contenu masqué côté réponse</em>';
+      } else {
+        nodes.forEach(node => block.appendChild(node));
+      }
+
+      const choiceRow = document.createElement('div');
+      choiceRow.className = 'multiple-choice';
+      const choices = [
+        {id:'again', label:'Raté', value:0, cls:'rate-ratte'},
+        {id:'hard', label:'Difficile', value:3, cls:'rate-difficile'},
+        {id:'good', label:'Bon', value:4, cls:'rate-bon'},
+        {id:'easy', label:'Facile', value:5, cls:'rate-facile'}
+      ];
+
+      choices.forEach(choice => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `multiple-choice-btn ${choice.cls}`;
+        btn.textContent = choice.label;
+        btn.addEventListener('click', () => {
+          state.selections.set(card.id, choice.value);
+          choiceRow.querySelectorAll('.multiple-choice-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          if(state.selections.size === state.cards.length){
+            commitMultipleSelections();
+          }
+        });
+        choiceRow.appendChild(btn);
+      });
+
+      block.appendChild(choiceRow);
+      container.appendChild(block);
+      if(idx < state.cards.length - 1){
+        const sep = document.createElement('div');
+        sep.className = 'multiple-separator';
+        container.appendChild(sep);
+      }
+    });
+
+    backEl.appendChild(container);
+
+    if(frontEl){ frontEl.style.display = 'none'; }
+    backEl.style.display = 'block';
+    backEl.style.flex = '1 1 auto';
+  }
+
+  function commitMultipleSelections(){
+    const state = window.__multipleModeState;
+    if(!state) return;
+    const startIndex = state.startIndex;
+    for(let i = 0; i < state.cards.length; i++){
+      const card = state.cards[i];
+      const quality = state.selections.get(card.id);
+      if(quality == null) return;
+      currentIndex = startIndex;
+      answerCurrent(quality, {skipLock:true, suppressNext:true});
+    }
+    answerLocked = false;
+    window.__multipleModeState = null;
+    if(dueCards.length === 0 || currentIndex >= dueCards.length){
+      updateStatus('Révision terminée pour aujourd\'hui');
+      renderEmpty();
+      return;
+    }
+    showNextCard();
+    const dueEl2 = $('#dueCount'); if(dueEl2) dueEl2.textContent = dueCards.length;
+  }
+
   function setupStepByStepMode(card){
     const frontEl = $('#front');
     const showAnswerBtn = $('#showAnswer');
@@ -4028,6 +5229,72 @@
             position: 'top'
           }
         ];
+      } else if(mode === 'hold'){
+        steps = [
+          {
+            title: '✋ Mode Maintient',
+            text: 'Bienvenue en mode Maintient! La question reste visible et la réponse est floutée.',
+            target: 'back',
+            position: 'bottom'
+          },
+          {
+            title: 'Maintiens pour reveler',
+            text: 'Maintenez votre clic ou votre doigt sur la zone floutée pour voir la réponse. Relâchez pour refaire apparaître le flou.',
+            target: 'back',
+            position: 'top'
+          },
+          {
+            title: 'Notez tout de suite',
+            text: 'Les boutons de réponse sont déjà visibles sous la carte. Il n y a pas de bouton "Afficher la réponse" dans ce mode.',
+            target: 'respButtons',
+            position: 'top'
+          },
+          {
+            title: 'Bonus XP',
+            text: 'Le mode Maintient vous rapporte 1.1x XP, sans bonus de crédits.',
+            target: 'none',
+            position: 'center'
+          }
+        ];
+      } else if(mode === 'calcul'){
+        steps = [
+          {
+            title: '∫ Mode Calcul',
+            text: 'Bienvenue en mode Calcul! Vous allez construire des formules LaTeX mathématiques.',
+            target: 'calculContainer',
+            position: 'bottom'
+          },
+          {
+            title: 'Boutons rapides',
+            text: 'Utilisez les boutons (+, −, ×, ÷, ∫, Σ, etc.) pour ajouter des opérateurs et fonctions à votre formule.',
+            target: 'calculButtonGrid',
+            position: 'top'
+          },
+          {
+            title: 'Ou tapez directement',
+            text: 'Vous pouvez aussi taper du LaTeX directement dans l\'input box pour aller plus vite.',
+            target: 'calculInput',
+            position: 'top'
+          },
+          {
+            title: 'Navigation au clavier',
+            text: 'Les flèches gauche/droite bougent votre curseur. Retour efface, Effacer réinitialise tout.',
+            target: 'calculInput',
+            position: 'top'
+          },
+          {
+            title: 'Vérification intelligente',
+            text: '0 erreurs = Facile, 1 erreur = Bon, 2-3 = Difficile, 4+ = Raté. Les variantes LaTeX (\\infty vs \\infin) sont pardonnées.',
+            target: 'calculContainer',
+            position: 'bottom'
+          },
+          {
+            title: 'Bonus important',
+            text: 'Le mode Calcul vous rapporte 1.5x retention, 1.8x XP et 1.5x crédit. Un excellent mode pour progresser!',
+            target: 'none',
+            position: 'center'
+          }
+        ];
       }
       
       if(steps.length > 0){
@@ -4111,6 +5378,35 @@
             <li>✨ Gagnez 1.1x d'XP!</li>
           </ul>
           <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>🎯 Astuce:</strong> Vérifiez votre réponse en cliquant "Afficher la réponse".</p>
+        `;
+        break;
+      case 'hold':
+        title = '✋ Mode Maintient';
+        content = `
+          <p><strong>Bienvenue en mode Maintient!</strong></p>
+          <p>La question reste visible, la reponse est floutee. Maintenez pour la voir, relachez pour la cacher.</p>
+          <ul style="text-align:left;margin:12px 0;">
+            <li>👀 La face reste visible</li>
+            <li>🫳 Maintenez pour reveler la reponse</li>
+            <li>🧊 Le flou revient au relachement</li>
+            <li>✅ Les boutons de reponse sont visibles</li>
+            <li>✨ Gagnez 1.1x d'XP</li>
+          </ul>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>💡 Conseil:</strong> Gardez le pouce sur la zone floutee pour verifier vite.</p>
+        `;
+        break;
+      case 'multiple':
+        title = '🧩 Mode Multiple';
+        content = `
+          <p><strong>Bienvenue en mode Multiple!</strong></p>
+          <p>Revisez plusieurs cartes a la fois. Les contenus sont separes par des barres grises.</p>
+          <ul style="text-align:left;margin:12px 0;">
+            <li>📚 Plusieurs faces d un coup</li>
+            <li>👀 Une seule reponse pour tout afficher</li>
+            <li>✅ Notez chaque carte avant de continuer</li>
+            <li>📉 Coefficients 0.9x retention, XP, credits</li>
+          </ul>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>💡 Conseil:</strong> Utilisez-le pour des sessions rapides.</p>
         `;
         break;
       
@@ -4923,6 +6219,10 @@
   }
   
   function escapeHtml(text){
+    // Ensure text is a string
+    if(typeof text !== 'string'){
+      text = String(text || '');
+    }
     const map = {
       '&': '&amp;',
       '<': '&lt;',
@@ -4939,6 +6239,11 @@
     showAnswerBtn.addEventListener('click', ()=>{
       const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
       try{
+        if(reviewMode === 'multiple'){
+          renderMultipleBackAndResponses();
+          showAnswerBtn.style.display = 'none';
+          return;
+        }
         console.log('showAnswer clicked - renderBack will be called once');
         renderBack(c);
         console.log('renderBack completed');
@@ -5348,7 +6653,8 @@
           mode: reviewMode,
           deckKey: currentDeckKey,
           timeSec,
-          reviewed: true
+          reviewed: true,
+          masteredDelta: 0
         });
       }catch(e){}
       updateProgressDisplay();
@@ -5389,12 +6695,12 @@
     }catch(e){ console.warn('pass error', e); }
   }
 
-  function answerCurrent(q){
+  function answerCurrent(q, options = {}){
     const cardData = multiDeckMode ? dueCards[currentIndex] : null;
     const c = cardData ? cardData.card : dueCards[currentIndex];
-    if(answerLocked) return;
+    if(answerLocked && !options.skipLock) return;
     if(!c) return;
-    answerLocked = true;
+    if(!options.skipLock) answerLocked = true;
     const origStorageKey = storageKey; // save original
     
     // If in multi-deck mode, temporarily override storageKey
@@ -5517,7 +6823,9 @@
           mode: reviewMode,
           deckKey: currentDeckKey,
           timeSec,
-          reviewed: true
+          reviewed: true,
+          masteredDelta,
+          quality: q
         });
       }catch(e){}
       
@@ -5555,6 +6863,9 @@
     // Remove answered card; next card naturally shifts into currentIndex
     dueCards.splice(currentIndex, 1);
     // Check if deck is empty after removal
+    if(options.suppressNext){
+      return;
+    }
     if(dueCards.length === 0 || currentIndex >= dueCards.length){ 
       updateStatus('Révision terminée pour aujourd\'hui'); 
       renderEmpty(); 
@@ -5715,7 +7026,7 @@
           localStorage.setItem('fabanki:time_spent_week_sec', String(newWeekSec));
           localStorage.setItem('fabanki:time_spent_week', String(Math.floor(newWeekSec / 60)));
           localStorage.setItem('fabanki:time_spent_total_sec', String(newTotalSec));
-          try{ if(typeof syncPostWelcomeQuestTime === 'function') syncPostWelcomeQuestTime(); }catch(e){}
+          // Removed syncPostWelcomeQuestTime() - only sync based on actual card reviews
           
           // Debug logging every minute
           const minutePassed = Math.floor(newDaySec / 60);
@@ -6942,8 +8253,17 @@
           localStorage.setItem(`fabanki:market_${itemId}`, 'true');
           if(onSuccess) onSuccess();
           try{
-            if(typeof completeWelcomeQuestMission === 'function'){
-              completeWelcomeQuestMission('part3', 'market_purchase', 10);
+            const state = initPostWelcomeQuest();
+            if(state && state.part3_marketPurchase < postWelcomeQuestTargets.part3_marketPurchase){
+              state.part3_marketPurchase += 1;
+              if(state.part3_marketPurchase >= postWelcomeQuestTargets.part3_marketPurchase && !state.part3_marketRewarded){
+                addCredits(10);
+                state.part3_marketRewarded = true;
+                showWelcomeQuestToast('Quête avancée: Achat au marché! +10 Crédits');
+              }
+              localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+              refreshPostWelcomeQuestUI();
+              scheduleQuestSync();
             }
           }catch(e){ console.warn('welcome quest market error', e); }
           return true;
@@ -7134,6 +8454,96 @@
         timerModeSection.appendChild(timerModeGrid);
         content.appendChild(timerModeSection);
         
+        // ===== SECTION 1C: MODE CALCUL =====
+        const calculModeSection = document.createElement('section');
+        calculModeSection.style.cssText = 'margin-bottom:40px;';
+        
+        const calculModeItemId = 'mode_calcul';
+        const calculModeCost = 100;
+        const isCalculModeUnlocked = localStorage.getItem(`fabanki:market_${calculModeItemId}`);
+        
+        const calculModeGrid = document.createElement('div');
+        calculModeGrid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:16px;';
+        
+        const calculModeCard = document.createElement('div');
+        const calculCardLayout = isMobile 
+          ? 'background:linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(79, 172, 254, 0.3);display:flex;flex-direction:column;gap:16px;color:#FFFFFF;'
+          : 'background:linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(79, 172, 254, 0.3);display:flex;align-items:center;gap:24px;color:#FFFFFF;';
+        calculModeCard.style.cssText = calculCardLayout;
+        
+        const calculIconDiv = document.createElement('div');
+        const calculIconStyle = isMobile 
+          ? 'font-size:3em;text-align:center;'
+          : 'font-size:4em;text-align:center;min-width:120px;';
+        calculIconDiv.style.cssText = calculIconStyle;
+        calculIconDiv.textContent = '∫📐';
+        calculModeCard.appendChild(calculIconDiv);
+        
+        const calculContentDiv = document.createElement('div');
+        calculContentDiv.style.cssText = isMobile ? 'flex:1;text-align:center;' : 'flex:1;';
+        
+        const calculBadge = document.createElement('div');
+        calculBadge.style.cssText = isMobile
+          ? 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.8em;font-weight:700;margin-bottom:8px;'
+          : 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.85em;font-weight:700;margin-bottom:12px;';
+        calculBadge.textContent = '🆕 NOUVEAU MODE';
+        calculContentDiv.appendChild(calculBadge);
+        
+        const calculTitle = document.createElement('h3');
+        calculTitle.textContent = 'Mode Calcul';
+        calculTitle.style.cssText = isMobile 
+          ? 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.5em;'
+          : 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.8em;';
+        calculContentDiv.appendChild(calculTitle);
+        
+        const calculDesc = document.createElement('p');
+        calculDesc.textContent = 'Construisez des formules LaTeX avec une grille de boutons ! Validez vos réponses mathématiques avec un rendu KaTeX en temps réel. Gagnez 1.8x XP supplémentaire ! Uniquement pour les decks de calculs mentaux et formules.';
+        calculDesc.style.cssText = isMobile
+          ? 'margin:0;font-size:0.9em;color:#FFFFFF;opacity:0.95;line-height:1.5;'
+          : 'margin:0;font-size:1em;color:#FFFFFF;opacity:0.95;line-height:1.5;';
+        calculContentDiv.appendChild(calculDesc);
+        
+        calculModeCard.appendChild(calculContentDiv);
+        
+        const calculBtnDiv = document.createElement('div');
+        calculBtnDiv.style.cssText = isMobile
+          ? 'display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;'
+          : 'display:flex;flex-direction:column;align-items:center;gap:8px;min-width:180px;';
+        
+        const calculPriceDiv = document.createElement('div');
+        calculPriceDiv.style.cssText = isMobile
+          ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
+          : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
+        calculPriceDiv.textContent = '100 ℂ';
+        calculBtnDiv.appendChild(calculPriceDiv);
+        
+        const calculBtn = document.createElement('button');
+        calculBtn.style.cssText = isMobile
+          ? 'width:100%;background:#FFFFFF;color:#4facfe;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
+          : 'width:100%;background:#FFFFFF;color:#4facfe;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
+        calculBtn.textContent = isCalculModeUnlocked ? '✓ Déverrouillé' : 'Débloquer';
+        calculBtn.disabled = !!isCalculModeUnlocked;
+        
+        if(!isCalculModeUnlocked){
+          calculBtn.addEventListener('click', ()=>{
+            if(purchaseItem(calculModeItemId, calculModeCost, ()=>{
+              showMarketToast('Mode "Calcul" déverrouillé ! 🎉');
+              showMarketPage();
+            })){
+              showMarketPage();
+            }
+          });
+          calculBtn.addEventListener('mouseover', ()=>{ calculBtn.style.background = '#f0f0f0'; });
+          calculBtn.addEventListener('mouseout', ()=>{ calculBtn.style.background = '#FFFFFF'; });
+        }
+        
+        calculBtnDiv.appendChild(calculBtn);
+        calculModeCard.appendChild(calculBtnDiv);
+        
+        calculModeGrid.appendChild(calculModeCard);
+        calculModeSection.appendChild(calculModeGrid);
+        content.appendChild(calculModeSection);
+        
         // ===== SECTION 2: PERSONNALISATION =====
         const personnalisationSection = document.createElement('section');
         personnalisationSection.style.cssText = 'margin-bottom:40px;';
@@ -7246,10 +8656,19 @@
               showMarketToast(`${item.name} acheté ! 🎉`);
               showMarketPage();
               
-              // Track welcome quest market purchase
+              // Track welcome quest market purchase for Part 3
               try{
-                if(typeof completeWelcomeQuestMission === 'function'){
-                  completeWelcomeQuestMission('part3', 'market_purchase', 10);
+                const state = initPostWelcomeQuest();
+                if(state && state.part3_marketPurchase < postWelcomeQuestTargets.part3_marketPurchase){
+                  state.part3_marketPurchase += 1;
+                  if(state.part3_marketPurchase >= postWelcomeQuestTargets.part3_marketPurchase && !state.part3_marketRewarded){
+                    addCredits(10);
+                    state.part3_marketRewarded = true;
+                    showWelcomeQuestToast('Quête avancée: Achat au marché! +10 Crédits');
+                  }
+                  localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+                  refreshPostWelcomeQuestUI();
+                  scheduleQuestSync();
                 }
               }catch(e){ console.warn('welcome quest market error', e); }
             });
@@ -8325,7 +9744,18 @@
       activeCards: 25,
       timeSec: 60 * 60,
       totalCards: 250,
-      reverseCards: 50
+      reverseCards: 50,
+      // Part 3: Quête avancée
+      part3_timeSec: 3 * 60 * 60,
+      part3_decksReviewed: 20,
+      part3_masteredCards: 50,
+      part3_randomCards: 100,
+      part3_marketPurchase: 1,
+      // Part 4: Quete Extreme
+      part4_reviewSessions: 25,
+      part4_totalCards: 500,
+      part4_timerCards: 50,
+      part4_maintenanceCards: 50
     };
 
     function getPostWelcomeQuestState(){
@@ -8350,13 +9780,35 @@
         rewardUnlocked: false,
         part1Completed: false,
         part2Completed: false,
+        part3Completed: false,
         randomUnlocked: false,
         stepRewarded: false,
         activeRewarded: false,
         timeRewarded: false,
         totalRewarded: false,
         reverseRewarded: false,
-        timerRewarded: false
+        timerRewarded: false,
+        // Part 3: Quête avancée
+        part3_timeSec: 0,
+        part3_decksReviewedSet: '',
+        part3_masteredCards: 0,
+        part3_randomCards: 0,
+        part3_marketPurchase: 0,
+        part3_timeRewarded: false,
+        part3_decksRewarded: false,
+        part3_masteredRewarded: false,
+        part3_randomRewarded: false,
+        part3_marketRewarded: false,
+        part3Completed: false,
+        // Part 4: Quete Extreme
+        part4_reviewSessions: 0,
+        part4_totalCards: 0,
+        part4_timerCards: 0,
+        part4_maintenanceCards: 0,
+        part4_sessionsRewarded: false,
+        part4_cardsRewarded: false,
+        part4_timerRewarded: false,
+        part4_maintenanceRewarded: false
       };
       localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
       return state;
@@ -8427,10 +9879,22 @@
           checkPostWelcomeQuestCompletion();
           scheduleQuestSync();
         }
+        // Part 3 time tracking - 3 heures
+        if(totalSec > Number(state.part3_timeSec || 0)){
+          state.part3_timeSec = totalSec;
+          if(state.part3_timeSec >= postWelcomeQuestTargets.part3_timeSec && !state.part3_timeRewarded){
+            addCredits(10);
+            state.part3_timeRewarded = true;
+            showWelcomeQuestToast('Quête avancée: 3 heures! +10 Crédits');
+            localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+            refreshPostWelcomeQuestUI();
+            scheduleQuestSync();
+          }
+        }
       }catch(e){}
     }
 
-    function syncPostWelcomeQuestProgress({ mode, timeSec, reviewed }){
+    function syncPostWelcomeQuestProgress({ mode, timeSec, reviewed, deckKey, masteredDelta, quality }){
       try{
         const state = initPostWelcomeQuest();
         const part1Done = Number(state.stepCards || 0) >= postWelcomeQuestTargets.stepCards &&
@@ -8454,6 +9918,36 @@
           if(part2Unlocked && mode === 'reverse' && state.reverseCards < postWelcomeQuestTargets.reverseCards){
             state.reverseCards += 1;
             changed = true;
+          }
+          // Part 3 tracking: Random mode cards
+          if(mode === 'random' && state.part3_randomCards < postWelcomeQuestTargets.part3_randomCards){
+            state.part3_randomCards += 1;
+            changed = true;
+          }
+          // Part 3 tracking: Different decks reviewed
+          if(deckKey && state.part3_decksReviewedSet){
+            const decksSet = new Set(state.part3_decksReviewedSet.split(',').filter(x => x));
+            decksSet.add(deckKey);
+            const newSet = Array.from(decksSet).join(',');
+            if(newSet !== state.part3_decksReviewedSet){
+              state.part3_decksReviewedSet = newSet;
+              changed = true;
+              if(decksSet.size >= postWelcomeQuestTargets.part3_decksReviewed && !state.part3_decksRewarded){
+                addCredits(10);
+                state.part3_decksRewarded = true;
+                showWelcomeQuestToast('Quête avancée: 20 decks! +10 Crédits');
+              }
+            }
+          }
+          // Part 3 tracking: Mastered cards
+          if(masteredDelta && masteredDelta > 0){
+            state.part3_masteredCards = (Number(state.part3_masteredCards || 0)) + masteredDelta;
+            changed = true;
+            if(state.part3_masteredCards >= postWelcomeQuestTargets.part3_masteredCards && !state.part3_masteredRewarded){
+              addCredits(10);
+              state.part3_masteredRewarded = true;
+              showWelcomeQuestToast('Quête avancée: 50 cartes maîtrisées! +10 Crédits');
+            }
           }
         }
         if(state.stepCards >= postWelcomeQuestTargets.stepCards && !state.stepRewarded){
@@ -8504,6 +9998,14 @@
           changed = true;
           showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
         }
+        // Part 3 reward checks
+        if(state.part3_randomCards >= postWelcomeQuestTargets.part3_randomCards && !state.part3_randomRewarded){
+          addCredits(10);
+          state.part3_randomRewarded = true;
+          changed = true;
+          showWelcomeQuestToast('Quête avancée: 100 cartes aléatoires! +10 Crédits');
+        }
+
         if(changed){
           localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
           refreshPostWelcomeQuestUI();
@@ -8563,14 +10065,88 @@
 
       const part2Done = state.totalCards >= postWelcomeQuestTargets.totalCards && state.reverseCards >= postWelcomeQuestTargets.reverseCards && state.timerUnlocked;
       const rewardCardPart2 = createRewardCardUI({
-        title: 'Récompense',
-        subtitle: 'Mode Aléatoire',
+        title: 'Recompense',
+        subtitle: 'Mode Aleatoire',
         locked: !part2Done,
         previewStyle: 'linear-gradient(135deg, #fde68a 0%, #f59e0b 100%)',
         previewEmoji: '🎲'
       });
       rewardCardPart2.style.marginTop = '10px';
       card.appendChild(rewardCardPart2);
+
+      // Part 3: Quete avancee
+      const part2Done_part3 = state.totalCards >= postWelcomeQuestTargets.totalCards && state.reverseCards >= postWelcomeQuestTargets.reverseCards && state.timerUnlocked;
+      const part3Locked = !part2Done_part3;
+      const decksReviewedSet = new Set((state.part3_decksReviewedSet || '').split(',').filter(x => x));
+      const timeMinPart3 = Math.floor(Number(state.part3_timeSec || 0) / 60);
+      const timePart3Hours = Math.floor(timeMinPart3 / 60);
+      
+      const part3 = createQuestPart('Partie 3: Quête Avancée', [
+        { label: 'Passer 3 heures sur l\'application', done: !part3Locked && state.part3_timeSec >= postWelcomeQuestTargets.part3_timeSec, reward: '10 ℂ', progress: part3Locked ? null : `${Math.min(timePart3Hours, 3)}/3 h` },
+        { label: 'éviser 20 decks différents', done: !part3Locked && decksReviewedSet.size >= postWelcomeQuestTargets.part3_decksReviewed, reward: '10 ℂ', progress: part3Locked ? null : `${Math.min(decksReviewedSet.size, 20)}/20` },
+        { label: 'Avoir 50 cartes Maîtrisées', done: !part3Locked && state.part3_masteredCards >= postWelcomeQuestTargets.part3_masteredCards, reward: '10 ℂ', progress: part3Locked ? null : `${Math.min(state.part3_masteredCards, 50)}/50` },
+        { label: 'éviser 100 cartes en mode Aléatoire', done: !part3Locked && state.part3_randomCards >= postWelcomeQuestTargets.part3_randomCards, reward: '10 ℂ', progress: part3Locked ? null : `${Math.min(state.part3_randomCards, 100)}/100` },
+        { label: 'Acheter une personnalisation dans le marché', done: !part3Locked && state.part3_marketPurchase >= postWelcomeQuestTargets.part3_marketPurchase, reward: '10 ℂ' }
+      ], true, part3Locked);
+      card.appendChild(part3);
+
+      const part3Done = state.part3_timeSec >= postWelcomeQuestTargets.part3_timeSec && 
+                        decksReviewedSet.size >= postWelcomeQuestTargets.part3_decksReviewed && 
+                        state.part3_masteredCards >= postWelcomeQuestTargets.part3_masteredCards && 
+                        state.part3_randomCards >= postWelcomeQuestTargets.part3_randomCards && 
+                        state.part3_marketPurchase >= postWelcomeQuestTargets.part3_marketPurchase;
+
+      const rewardCardPart3 = createRewardCardUI({
+        title: 'Recompense',
+        subtitle: 'Mode Maintient',
+        locked: !part3Done,
+        previewStyle: 'linear-gradient(135deg, #c084fc 0%, #a855f7 100%)',
+        previewEmoji: '✋'
+      });
+      rewardCardPart3.style.marginTop = '10px';
+      card.appendChild(rewardCardPart3);
+
+      // Unlock Hold mode when Part 3 is complete
+      if(part3Done && localStorage.getItem('fabanki:mode_hold_unlocked') !== 'true'){
+        localStorage.setItem('fabanki:mode_hold_unlocked', 'true');
+        showWelcomeQuestToast('Mode Maintient déverrouillé ! ✋');
+      }
+
+      // Part 4: Quete Extreme
+      const sessionsPart4 = Number(state.part4_reviewSessions || 0);
+      const totalCardsPart4 = Number(state.part4_totalCards || 0);
+      const timerCardsPart4 = Number(state.part4_timerCards || 0);
+      const maintenanceCardsPart4 = Number(state.part4_maintenanceCards || 0);
+      
+      const part4Sessions = sessionsPart4 >= postWelcomeQuestTargets.part4_reviewSessions;
+      const part4Cards = totalCardsPart4 >= postWelcomeQuestTargets.part4_totalCards;
+      const part4Timer = timerCardsPart4 >= postWelcomeQuestTargets.part4_timerCards;
+      const part4Maintenance = maintenanceCardsPart4 >= postWelcomeQuestTargets.part4_maintenanceCards;
+      const part4Done = part3Done && part4Sessions && part4Cards && part4Timer && part4Maintenance;
+      
+      const part4 = createQuestPart('Partie 4: Quete Extreme', [
+        { label: 'Completer 25 sessions de revisions', done: part4Sessions, reward: '10 Credits', progress: part3Done ? `${Math.min(sessionsPart4, 25)}/25` : 'Verrouillee' },
+        { label: 'Reviser 500 cartes', done: part4Cards, reward: '25 Credits', progress: part3Done ? `${Math.min(totalCardsPart4, 500)}/500` : 'Verrouillee' },
+        { label: 'Reviser 50 cartes en mode Rappel sous pression', done: part4Timer, reward: '10 Credits', progress: part3Done ? `${Math.min(timerCardsPart4, 50)}/50` : 'Verrouillee' },
+        { label: 'Reviser 50 cartes en mode Maintient', done: part4Maintenance, reward: '15 Credits', progress: part3Done ? `${Math.min(maintenanceCardsPart4, 50)}/50` : 'Verrouillee' }
+      ], true, !part3Done);
+      card.appendChild(part4);
+
+      const rewardCardPart4 = createRewardCardUI({
+        title: 'Recompense',
+        subtitle: 'Mode Multiple',
+        locked: !part4Done,
+        previewStyle: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
+        previewEmoji: '📚'
+      });
+      rewardCardPart4.style.marginTop = '10px';
+      card.appendChild(rewardCardPart4);
+
+      // Unlock Multiple mode when Part 4 is complete
+      if(part4Done && localStorage.getItem('fabanki:mode_multiple_unlocked') !== 'true'){
+        localStorage.setItem('fabanki:mode_multiple_unlocked', 'true');
+        showWelcomeQuestToast('Mode Multiple déverrouillé ! 🧩');
+      }
 
       return card;
     }
@@ -9077,6 +10653,12 @@
           return;
         }
 
+        // Only show sync overlay on initial page load, not on every sync
+        // We skip showing it on repeated syncs while reviewing cards
+        if(!isInitialPageLoad){
+          return;
+        }
+
         if(existing){
           const msg = existing.querySelector('.sync-loading__message');
           if(msg) msg.textContent = message || 'Synchronisation en cours…';
@@ -9167,6 +10749,15 @@
     // Auto-sync current data to cloud (called after card review, xp, credits changes)
     async function autoSync(){
       try{
+        // Skip syncing if we haven't changed cards
+        const currentCardId = currentIndex < dueCards.length ? dueCards[currentIndex]?.id : null;
+        if(!isInitialPageLoad && lastSyncCardId === currentCardId){
+          syncLog('autoSync: skipping - same card as last sync');
+          return;
+        }
+        
+        // Update last synced card
+        lastSyncCardId = currentCardId;
         const mode = localStorage.getItem('fabanki:mode');
         syncLog('autoSync: mode =', mode);
         if(mode !== 'synced') {
@@ -11653,6 +13244,9 @@
         if(localStorage.getItem('fabanki:mode_step_unlocked') === 'true') count++;
         if((typeof isReverseModeUnlocked === 'function' && isReverseModeUnlocked()) || localStorage.getItem('fabanki:mode_reverse_unlocked') === 'true') count++;
         if((typeof isRandomModeUnlocked === 'function' && isRandomModeUnlocked()) || localStorage.getItem('fabanki:mode_random_unlocked') === 'true') count++;
+        if(localStorage.getItem('fabanki:mode_hold_unlocked') === 'true') count++;
+        if(localStorage.getItem('fabanki:mode_multiple_unlocked') === 'true') count++;
+        if(localStorage.getItem('fabanki:market_mode_calcul')) count++;
         return count;
       }catch(e){ return 1 }
     }
