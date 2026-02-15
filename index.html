@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Fab'Anki — Flashcards sans compte</title>
+  <link rel="icon" href="/Fab'Anki/fabankilogo.png">
+  <!-- KaTeX CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <!-- Firebase (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <!-- Firebase configuration -->
+  <script src="./config.js"></script>
+  <!-- Styles -->
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app" id="app" data-theme="light">
+    <header>
+      <h1 id="appTitle" style="display:flex;align-items:center;gap:10px;"><img src="/Fab'Anki/fabankilogo.png" style="width:32px;height:32px;" alt="Logo">Fab'Anki — Flashcards (sans compte)</h1>
+      <div class="controls">
+        <!-- Hidden file picker used as a fallback when running the page from file:// -->
+        <input id="filePicker" type="file" accept=".xml,application/xml" style="display:none" />
+        <!-- swapped: Parcourir decks before Charger per user request -->
+        <button id="browseDecks" data-label-text="Parcourir decks" data-label-emoji="📚">Parcourir decks</button>
+        <button id="marketBtn" data-label-text="Marché" data-label-emoji="🛍️">Marché</button>
+        <button id="profileBtn" data-label-text="Profile" data-label-emoji="👤">Profile</button>
+        <button id="syncBtn" class="secondary" data-label-text="Synchroniser mes progrès" data-label-emoji="🔄">Synchroniser mes progrès</button>
+        <button id="homeBtn" class="secondary" data-label-text="Accueil" data-label-emoji="🏠" style="display:none">Accueil</button>
+        <!-- <button id="loadBtn" class="secondary" data-label-text="Charger" data-label-emoji="📂">Charger</button> -->
+        <button id="toggleStats" class="secondary" data-label-text="Histogramme" data-label-emoji="📊">Histogramme</button>
+      </div>
+    </header>
+
+    <main style="margin-top:12px">
+      <div id="status" class="muted small">Fournissez l'URL d'un deck via le paramètre <code>?deck=</code></div>
+
+      <div style="margin-top:12px;display:flex;gap:12px;align-items:center">
+        <div style="flex:1">
+          <div class="card" id="cardArea" aria-live="polite">
+            <div class="card-content">
+              <div id="multiDeckTitle" class="muted small" style="text-align:center;margin-bottom:12px;font-size:0.9em;color:#999;display:none;width:100%;word-break:break-word;font-weight:600"></div>
+              <div id="front" class="front"></div>
+              <div id="back" class="back" style="display:none"></div>
+              <div id="always" class="muted small" style="margin-top:8px"></div>
+            </div>
+            <div class="meta" id="meta">
+              <span id="dueInline" class="muted small">Cartes prêtes : <strong id="dueCount">0</strong></span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
+              <div class="buttons">
+                <button id="showAnswer">Afficher la réponse</button>
+                <div class="resp-buttons" id="respButtons" style="display:none;margin-left:12px">
+                  <button id="again" class="rate-ratte">Raté</button>
+                  <button id="hard" class="rate-difficile">Difficile</button>
+                  <button id="good" class="rate-bon">Bon</button>
+                  <button id="easy" class="rate-facile">Facile</button>
+                  <button id="passer" class="secondary" title="Passer cette carte">Passer</button>
+                </div>
+              </div>
+              <div class="progress-container" style="position:relative;">
+                <button id="requestModBtn" class="secondary" style="position:absolute;bottom:48px;right:8px;min-width:48px;min-height:48px;padding:3px;font-size:1.4em;border-radius:6px;display:flex;align-items:center;justify-content:center;z-index:10;box-shadow:0 2px 4px rgba(0,0,0,0.1);aspect-ratio: 1 / 1;" title="Demander une modification de cette carte">✏️</button>
+                <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+                <div id="progressInfo" class="muted small" style="text-align:center;margin-top:6px">Révisées : 0 / 0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- right panel removed: merged into main card -->
+      </div>
+    </main>
+
+    <!-- Deck browser modal (hidden) -->
+    <div id="deckBrowserOverlay" class="modal-overlay" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h3>Parcourir les decks (./decks/)</h3>
+          <div>
+            <button id="refreshDeckList" class="secondary">Rafraîchir</button>
+            <button id="closeDeckBrowser" class="secondary">Fermer</button>
+          </div>
+        </div>
+        <div id="deckBrowserMsg" class="muted small" style="margin-bottom:8px">Recherche de ./decks/ ...</div>
+        <div id="deckList" class="deck-list"></div>
+      </div>
+    </div>
+
+    <!-- Histogram / study breakdown -->
+    <section id="stats" style="max-width:900px;margin:18px auto;padding:0 18px">
+      <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:6px 0;color:var(--muted)">Répartition des cartes par échéance</h3>
+        <button id="closeStatsMobile" class="secondary">✖️</button>
+      </div>
+      <div id="histogram" class="histogram" aria-hidden="false">
+        <div class="hist-column">
+          <div id="count-new" class="hist-count">0</div>
+          <div class="hist-viewport"><div class="hist-fill" id="bar-new" style="background:linear-gradient(180deg,#e9d8ff,#d6b8ff)"></div></div>
+          <div class="hist-label">Nouveau</div>
+        </div>
+        <div class="hist-column">
+          <div id="count-now" class="hist-count">0</div>
+          <div class="hist-viewport"><div class="hist-fill" id="bar-now" style="background:#d9534f"></div></div>
+          <div class="hist-label">Maintenant</div>
+        </div>
+        <div class="hist-column">
+          <div id="count-12h" class="hist-count">0</div>
+          <div class="hist-viewport"><div class="hist-fill" id="bar-12h" style="background:#ff9b9b"></div></div>
+          <div class="hist-label">&lt;12h</div>
+        </div>
+        <div class="hist-column">
+          <div id="count-tomorrow" class="hist-count">0</div>
+          <div class="hist-viewport"><div class="hist-fill" id="bar-tomorrow" style="background:#ffd966"></div></div>
+          <div class="hist-label">Demain</div>
+        </div>
+        <div class="hist-column">
+          <div id="count-week" class="hist-count">0</div>
+          <div class="hist-viewport"><div class="hist-fill" id="bar-week" style="background:#6f8cff"></div></div>
+          <div class="hist-label">&lt;1 semaine</div>
+        </div>
+        <div class="hist-column">
+          <div id="count-long" class="hist-count">0</div>
+          <div class="hist-viewport"><div class="hist-fill" id="bar-long" style="background:#28a745"></div></div>
+          <div class="hist-label">Longtemps</div>
+        </div>
+      </div>
+    </section>
+    <!-- Hint box (kept OUTSIDE the stats section). On desktop it will appear under the chart; on mobile it's positioned above the main card via CSS. -->
+    <div id="histHint" class="muted small hist-hint-box" style="margin-top:10px">Nouvelle version : Synchronisation, Missions, Statistiques, Présentation, personnalisation et bug fixes</div>
+
+    <footer>
+      <div class="muted small" id="deckInfo"></div>
+      <div class="muted small">Fab'Anki — Fonctionne entièrement côté navigateur</div>
+      <div class="muted small">© Swiess corporation - 2026 - MPSI1 &gt;&gt; MPSI2</div>
+    </footer>
+    
+    <!-- Modification Request Modal -->
+    <div id="modRequestOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;">
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card-bg);padding:24px;border-radius:12px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;">
+          <button id="closeModModalBtn" class="secondary" style="background:none;border:none;font-size:1.2em;cursor:pointer;padding:6px 12px;color:#007AFF;flex-shrink:0;" title="Retour">← Retour</button>
+          <h2 style="margin:0;flex:1;text-align:center;">Demande de modification</h2>
+          <div style="width:48px;flex-shrink:0;"></div>
+        </div>
+        <p style="font-size:0.9em;color:var(--text-muted);margin-bottom:16px;">Modifiez les champs ci-dessous. Vos modifications seront enregistrées localement et affichées dans la console.</p>
+        <div id="modRequestFields" style="margin-bottom:16px;"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button id="cancelModBtn" class="secondary">Annuler</button>
+          <button id="submitModBtn" class="primary">Envoyer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KaTeX auto-render -->
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+  <script>
+    (function(){
+      function showFatal(title, details){
+        try{
+          if(document.getElementById('fatalErrorOverlay')) return;
+          const app = document.getElementById('app');
+          if(app) app.style.display = 'none';
+          const overlay = document.createElement('div');
+          overlay.id = 'fatalErrorOverlay';
+          overlay.className = 'error-screen-overlay';
+          const card = document.createElement('div');
+          card.className = 'error-screen error-screen--overlay';
+          const icon = document.createElement('div');
+          icon.className = 'error-screen__icon';
+          icon.textContent = '⚠️';
+          const h = document.createElement('div');
+          h.className = 'error-screen__title';
+          h.textContent = title || 'Erreur de chargement';
+          const msg = document.createElement('div');
+          msg.className = 'error-screen__message';
+          msg.textContent = 'Une erreur critique a empeche l\'application de demarrer.';
+          const det = document.createElement('div');
+          det.className = 'error-screen__details';
+          det.textContent = details || 'Veuillez recharger la page.';
+          const actions = document.createElement('div');
+          actions.className = 'error-screen__actions';
+          const reload = document.createElement('button');
+          reload.textContent = 'Recharger';
+          reload.addEventListener('click', function(){ location.reload(); });
+          actions.appendChild(reload);
+          card.appendChild(icon);
+          card.appendChild(h);
+          card.appendChild(msg);
+          card.appendChild(det);
+          card.appendChild(actions);
+          overlay.appendChild(card);
+          document.body.appendChild(overlay);
+        }catch(e){}
+      }
+
+      window.__fabanki_showFatal = showFatal;
+      window.addEventListener('error', function(ev){
+        try{
+          const msg = ev && ev.message ? ev.message : 'Erreur JavaScript';
+          const detail = ev && ev.filename ? (ev.filename + ':' + (ev.lineno || 0) + ':' + (ev.colno || 0)) : '';
+          showFatal('Erreur JavaScript', msg + (detail ? ('\n' + detail) : ''));
+        }catch(e){}
+      });
+      window.addEventListener('unhandledrejection', function(ev){
+        try{
+          const reason = ev && ev.reason ? String(ev.reason) : 'Promesse rejetee';
+          showFatal('Erreur Promise', reason);
+        }catch(e){}
+      });
+      setTimeout(function(){
+        if(!window.__fabanki_booted){
+          showFatal('Erreur de chargement', 'Le script principal n\'a pas demarre.');
+        }
+      }, 1200);
+    })();
+  </script>
+
+  <!-- Main application -->
+  <script src="./js/app.js" onerror="window.__fabanki_showFatal && window.__fabanki_showFatal('Erreur de chargement','Impossible de charger app.js')"></script>
+</body>
+</html>

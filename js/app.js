@@ -1,0 +1,14248 @@
+  // Single-file app implementing requested functions.
+  try{ window.__fabanki_booted = true; }catch(e){}
+
+  // Utility: simple DOM helpers
+  const $ = sel => document.querySelector(sel);
+
+  // Application state
+  let deckURL = null;
+  let currentFolderPath = ''; // Track current folder path for back navigation in overview
+  let deck = {title:'', cards:[]};
+  let dueCards = [];
+  let currentIndex = 0;
+  let sessionTotal = 0;
+  let reviewedCount = 0;
+    let sessionData = []; // Track per-card data for recap: {cardId, grade, timeSpent}
+  let isReviewing = false;
+  let sessionCreditsGranted = false;
+  let answerLocked = false;
+  let deckKey = null; // prefix for localStorage
+  let manifestMeta = {}; // path (relative to decks/) -> manifest entry (cost/level/tags)
+  let tooltipShown = false;
+  let cardShownAt = Date.now();
+  let showHintBox = false; // Toggle for hint box visibility
+  let reviewMode = 'default'; // 'default', 'fillblank', 'timer', 'activeMemory', 'step', 'reverse', 'random' - controls review behavior
+  let deckHasTextTag = false; // Whether deck supports fill-in-the-blank mode
+  let deckHasTimerTag = false; // Whether deck supports pressure recall mode
+  let timerSettings = { frontTime: 10, backTime: 5 }; // Settings for timer mode
+
+  function getRetentionCoefficient(mode){
+    const map = {
+      default: 1,
+      reverse: 1,
+      random: 1.1,
+      activeMemory: 1.1,
+      step: 1.2,
+      timer: 1.2,
+      fillblank: 2
+    };
+    return map[mode] || 1;
+  }
+
+  function setReviewTopBarVisibility(isReview){
+    try{
+      const marketBtn = document.getElementById('marketBtn');
+      const questsBtn = document.getElementById('questsBtn');
+      if(marketBtn) marketBtn.style.display = isReview ? 'none' : '';
+      if(questsBtn) questsBtn.style.display = isReview ? 'none' : '';
+    }catch(e){}
+  }
+
+  function isInAppBrowser(){
+    try{
+      const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+      const inApp = /(FBAN|FBAV|Instagram|Line|Twitter|Snapchat|LinkedInApp|Pinterest|MicroMessenger|WeChat|TikTok|Messenger|WhatsApp|Telegram)/i.test(ua);
+      const webView = /\bwv\b|WebView/i.test(ua);
+      return inApp || webView;
+    }catch(e){ return false }
+  }
+
+  function forceExternalBrowser(){
+    try{
+      const url = window.location.href;
+      // Best-effort: try to open in system browser
+      try{
+        const a = document.createElement('a');
+        a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        a.style.display = 'none';
+        document.body.appendChild(a); a.click(); a.remove();
+      }catch(e){}
+      try{ window.open(url, '_blank', 'noopener,noreferrer'); }catch(e){}
+
+      // Show blocking overlay with explicit action
+      const existing = document.getElementById('externalBrowserOverlay');
+      if(existing) existing.remove();
+      const ov = document.createElement('div');
+      ov.id = 'externalBrowserOverlay';
+      ov.style.position = 'fixed';
+      ov.style.left = '0';
+      ov.style.right = '0';
+      ov.style.top = '0';
+      ov.style.bottom = '0';
+      ov.style.background = 'rgba(0,0,0,0.7)';
+      ov.style.zIndex = '99999';
+      ov.style.display = 'flex';
+      ov.style.alignItems = 'center';
+      ov.style.justifyContent = 'center';
+      const box = document.createElement('div');
+      box.style.background = '#fff';
+      box.style.color = '#111';
+      box.style.padding = '20px';
+      box.style.borderRadius = '12px';
+      box.style.maxWidth = '420px';
+      box.style.width = '90%';
+      box.style.textAlign = 'center';
+      box.innerHTML = `
+        <div style="font-weight:700;margin-bottom:8px;">Ouvrir dans votre navigateur</div>
+        <div style="color:#666;margin-bottom:14px;">Cette page ne fonctionne pas dans le navigateur intégré de l'application.</div>
+      `;
+      const btn = document.createElement('a');
+      btn.href = url; btn.target = '_blank'; btn.rel = 'noopener noreferrer';
+      btn.textContent = 'Ouvrir dans le navigateur';
+      btn.style.display = 'inline-block';
+      btn.style.background = '#2563eb';
+      btn.style.color = 'white';
+      btn.style.padding = '10px 14px';
+      btn.style.borderRadius = '8px';
+      btn.style.textDecoration = 'none';
+      box.appendChild(btn);
+      ov.appendChild(box);
+      document.body.appendChild(ov);
+    }catch(e){}
+  }
+
+  function normalizeDeckPath(url){
+    let p = url || '';
+    p = p.replace(/^\.\//, '');
+    if(p.startsWith('./')) p = p.slice(2);
+    if(p.startsWith('decks/')) p = p.slice('decks/'.length);
+    p = p.replace(/^\//, '');
+    try{ p = decodeURIComponent(p); }catch(e){}
+    return p;
+  }
+  function getManifestEntryForPath(url){
+    const rel = normalizeDeckPath(url);
+    let entry = manifestMeta[rel] || null;
+    
+    // If not found, try to match by searching the path
+    if(!entry && Object.keys(manifestMeta).length > 0){
+      for(const key of Object.keys(manifestMeta)){
+        if(key.includes(rel) || rel.includes(key)){
+          entry = manifestMeta[key];
+          break;
+        }
+      }
+    }
+    
+    return entry;
+  }
+  function isDeckUnlocked(path){
+    return localStorage.getItem('fabanki:deck_unlocked:'+normalizeDeckPath(path)) === '1';
+  }
+  function setDeckUnlocked(path){
+    localStorage.setItem('fabanki:deck_unlocked:'+normalizeDeckPath(path), '1');
+  }
+  function evaluateDeckLock(path){
+    try{
+      const entry = getManifestEntryForPath(path);
+      if(!entry) return { locked:false };
+      const levelReq = Number(entry.level||0);
+      const cost = Number(entry.cost||0);
+      if(levelReq === 0 && cost === 0) return { locked:false };
+      const unlocked = isDeckUnlocked(path);
+      let currentLevel = 0;
+      let currentCredits = 0;
+      try{
+        if(typeof getXpTotal === 'function' && typeof computeLevelAndProgress === 'function'){
+          currentLevel = computeLevelAndProgress(getXpTotal()).level;
+        }
+      }catch(e){ console.warn('Level check error:', e); }
+      try{
+        currentCredits = typeof getCredits === 'function' ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+      }catch(e){ console.warn('Credits check error:', e); }
+      const lockedByLevel = levelReq > 0 && currentLevel < levelReq;
+      const lockedByCost = cost > 0 && !unlocked && !lockedByLevel;
+      return {
+        locked: lockedByLevel || lockedByCost,
+        lockedByLevel,
+        lockedByCost,
+        levelReq,
+        cost,
+        unlocked,
+        currentCredits
+      };
+    }catch(e){
+      console.warn('evaluateDeckLock error:', e);
+      return { locked:false };
+    }
+  }
+
+  // === FSRS storage key helpers ===
+  function storageKey(s){ return `fabanki:${deckKey}:${s}` }
+
+  // Ensure incLocal is defined early (fallback) to avoid ReferenceError
+  if(typeof incLocal !== 'function'){
+    var incLocal = function(key, n){ try{ const v = Number(localStorage.getItem(key) || 0) + (n||1); localStorage.setItem(key, String(v)); return v; }catch(e){ return 0 } };
+    try{ window.incLocal = incLocal; }catch(e){}
+  }
+
+  function showModeSelectionTooltip(modes, deckUrl, tempKey, triggerButton = null){
+    const existing = document.getElementById('modeSelectionTooltip');
+    if(existing) existing.remove();
+
+    // Show tooltip with modes above the clicked button
+    const tooltip = document.createElement('div');
+    tooltip.id = 'modeSelectionTooltip';
+
+    let tooltipTop = '50%';
+    let tooltipLeft = '50%';
+    let transform = 'translate(-50%, -50%)';
+
+    if(triggerButton){
+      const rect = triggerButton.getBoundingClientRect();
+      tooltipTop = Math.max(10, rect.top - 100) + 'px';
+      tooltipLeft = (rect.left + rect.width / 2) + 'px';
+      transform = 'translateX(-50%)';
+    }
+
+    tooltip.style.cssText = `position:fixed;top:${tooltipTop};left:${tooltipLeft};transform:${transform};background:white;border-radius:12px;padding:16px 20px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:10000;opacity:0;animation:tooltipFadeIn 0.2s ease forwards;`;
+
+    // Add animation keyframes if not already present
+    if(!document.getElementById('tooltipAnimationStyle')){
+      const style = document.createElement('style');
+      style.id = 'tooltipAnimationStyle';
+      style.textContent = `
+        @keyframes tooltipFadeIn {
+          from { opacity: 0; transform: ${transform} translateY(-10px); }
+          to { opacity: 1; transform: ${transform} translateY(0); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const modesContainer = document.createElement('div');
+    modesContainer.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;';
+
+    const modeIcons = {
+      'default': '📚',
+      'fillblank': '✍️',
+      'timer': '⏱️',
+      'activeMemory': '🧠',
+      'step': '🪜',
+      'reverse': '🔁',
+      'random': '🎲'
+    };
+
+    const modeFullNames = {
+      'default': 'Mode Anki',
+      'fillblank': 'Texte à trou',
+      'timer': 'Rappel sous pression',
+      'activeMemory': 'Mémoire active',
+      'step': 'Étape par étape',
+      'reverse': 'Revers',
+      'random': 'Aléatoire'
+    };
+
+    modes.forEach((mode) => {
+      const btn = document.createElement('button');
+      btn.style.cssText = 'flex:0 0 auto;padding:16px 20px;border:2px solid #ddd;border-radius:8px;background:white;color:#333;cursor:pointer;font-size:0.85em;user-select:none;transition:all 0.2s;font-weight:600;min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;';
+
+      const icon = document.createElement('div');
+      icon.style.cssText = 'font-size:1.5em;';
+      icon.textContent = modeIcons[mode.id] || '🎯';
+      btn.appendChild(icon);
+
+      const text = document.createElement('div');
+      text.style.cssText = 'font-size:0.9em;white-space:nowrap;';
+      text.textContent = modeFullNames[mode.id] || mode.name;
+      btn.appendChild(text);
+
+      btn.addEventListener('mouseenter', () => {
+        btn.style.background = '#0066ff';
+        btn.style.color = '#fff';
+        btn.style.borderColor = '#0066ff';
+        icon.style.transform = 'scale(1.1)';
+      });
+      btn.addEventListener('mouseleave', () => {
+        btn.style.background = 'white';
+        btn.style.color = '#333';
+        btn.style.borderColor = '#ddd';
+        icon.style.transform = 'scale(1)';
+      });
+
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        tooltip.remove();
+        document.removeEventListener('click', closeTooltip);
+        deckURL = deckUrl;
+        reviewMode = mode.id;
+        localStorage.setItem(`fabanki:review_mode:${tempKey}`, reviewMode);
+        // Hide welcome
+        const w = document.getElementById('welcomeDecks');
+        if(w) w.remove();
+        const mainEl = document.querySelector('main');
+        if(mainEl) mainEl.style.display = 'block';
+        const statsEl = document.getElementById('stats');
+        if(statsEl) statsEl.style.display = 'block';
+        await loadDeckFromURL(deckUrl);
+      });
+
+      modesContainer.appendChild(btn);
+    });
+
+    tooltip.appendChild(modesContainer);
+
+    // Close tooltip when clicking outside
+    const closeTooltip = (e) => {
+      if(!tooltip.contains(e.target)){
+        tooltip.remove();
+        document.removeEventListener('click', closeTooltip);
+      }
+    };
+
+    document.body.appendChild(tooltip);
+    setTimeout(() => document.addEventListener('click', closeTooltip), 0);
+  }
+
+  // === Function to open deck with mode selection ===
+  async function openDeckWithModeSelection(deckUrl, deckTitle, triggerButton = null){
+    const tempKey = fallbackSha1(deckUrl).slice(0,10);
+    try{
+      // Pre-load the deck to check available modes
+      const res = await fetch(deckUrl);
+      const text = await res.text();
+      const parser = new DOMParser();
+      let xml = parser.parseFromString(text,'application/xml');
+      if(xml.querySelector('parsererror')) xml = parser.parseFromString(text,'text/html');
+      
+      // Get deck info
+      const tempDeck = {title:'', cards:[]};
+      const titleEl = xml.querySelector('title') || xml.querySelector('name');
+      if(titleEl) tempDeck.title = titleEl.textContent?.trim() || '';
+      if(!tempDeck.title && deckTitle) tempDeck.title = deckTitle;
+      
+      // Set deckKey temporarily
+      const deckEntry = getManifestEntryForPath(deckUrl);
+      const deckTags = (typeof deckEntry === 'object' && deckEntry.tags) ? deckEntry.tags : [];
+      const hasTextMode = Array.isArray(deckTags) ? deckTags.includes('text') : false;
+      const hasTimerMode = Array.isArray(deckTags) ? deckTags.includes('timer') : false;
+      const hasActiveMemory = true; // Always available
+      const isTimerModeUnlocked = localStorage.getItem('fabanki:market_mode_rappel_sous_pression');
+      const isStepModeUnlocked = localStorage.getItem('fabanki:mode_step_unlocked') === 'true';
+      const reverseUnlocked = (typeof isReverseModeUnlocked === 'function')
+        ? isReverseModeUnlocked()
+        : (localStorage.getItem('fabanki:mode_reverse_unlocked') === 'true');
+      const randomUnlocked = (typeof isRandomModeUnlocked === 'function')
+        ? isRandomModeUnlocked()
+        : (localStorage.getItem('fabanki:mode_random_unlocked') === 'true');
+      
+      // Count available modes
+      const isTextModeUnlocked = localStorage.getItem('fabanki:market_mode_texte_trou');
+      const modes = [];
+      const firstCard = xml.querySelector('card, note, item, entry, record');
+      const fieldCount = firstCard ? (firstCard.children ? firstCard.children.length : 0) : 0;
+      const stepModeCompatible = fieldCount > 2;
+      const reverseModeCompatible = fieldCount >= 2 && fieldCount <= 4;
+      const randomModeCompatible = fieldCount >= 2 && fieldCount <= 4;
+      modes.push({id: 'default', name: 'Anki', unlocked: true});
+      if(hasTextMode && isTextModeUnlocked) modes.push({id: 'fillblank', name: 'Texte', unlocked: true});
+      if(hasTimerMode && isTimerModeUnlocked) modes.push({id: 'timer', name: 'Rappel', unlocked: true});
+      if(hasActiveMemory) modes.push({id: 'activeMemory', name: 'Mémoire', unlocked: true});
+      if(isStepModeUnlocked && stepModeCompatible) modes.push({id: 'step', name: 'Étapes', unlocked: true});
+      if(reverseModeCompatible && reverseUnlocked) modes.push({id: 'reverse', name: 'Revers', unlocked: true});
+      if(randomModeCompatible && randomUnlocked) modes.push({id: 'random', name: 'Aléatoire', unlocked: true});
+      
+      // If only one mode, load directly
+      if(modes.length <= 1){
+        deckURL = deckUrl;
+        reviewMode = 'default';
+        // Hide welcome
+        const w = document.getElementById('welcomeDecks');
+        if(w) w.remove();
+        const mainEl = document.querySelector('main');
+        if(mainEl) mainEl.style.display = 'block';
+        const statsEl = document.getElementById('stats');
+        if(statsEl) statsEl.style.display = 'block';
+        await loadDeckFromURL(deckUrl);
+        return;
+      }
+      
+      showModeSelectionTooltip(modes, deckUrl, tempKey, triggerButton);
+      
+    }catch(e){
+      console.error('Mode selection error:', e);
+      const fallbackModes = [
+        {id: 'default', name: 'Anki', unlocked: true},
+        {id: 'activeMemory', name: 'Mémoire', unlocked: true}
+      ];
+      showModeSelectionTooltip(fallbackModes, deckUrl, tempKey, triggerButton);
+    }
+  }
+
+  // === Function: loadDeckFromURL ===
+  async function loadDeckFromURL(url){
+    updateStatus('Téléchargement du deck...');
+    try{ clearErrorScreen(); }catch(e){}
+    try{
+      // Make sure we're not in multi-deck mode
+      multiDeckMode = false;
+      onlyNowMode = false;
+      
+      // Remove welcome page completely (both old and new welcome formats)
+      const welcome = document.getElementById('welcome');
+      if(welcome) welcome.remove();
+      const welcomeDecks = document.getElementById('welcomeDecks');
+      if(welcomeDecks) welcomeDecks.remove();
+      
+      // Show main content
+      const mainEl = document.querySelector('main');
+      if(mainEl) mainEl.style.display = 'block';
+      
+      const res = await fetch(url);
+      if(!res.ok){
+        if(res.status === 404){
+          showNotFoundScreen({
+            title: 'Deck introuvable',
+            message: 'Ce deck est introuvable. Verifiez le chemin ou rechargez la liste.',
+            details: `HTTP ${res.status} - ${url}`,
+            onAction: () => {
+              if(typeof openDeckBrowser === 'function') openDeckBrowser();
+              else if(typeof renderWelcomeDecks === 'function') renderWelcomeDecks();
+            }
+          });
+          return;
+        }
+        throw new Error('HTTP '+res.status);
+      }
+      const text = await res.text();
+      const parser = new DOMParser();
+      let xml = parser.parseFromString(text,'application/xml');
+      let parsererror = xml.querySelector('parsererror');
+      if(parsererror){
+        // Fallback: some exported decks contain unescaped '<' inside TeX fields
+        // which makes the file not well-formed XML. Try lenient HTML parsing.
+        updateStatus('XML invalide — tentative décodage permissif (HTML)');
+        xml = parser.parseFromString(text,'text/html');
+        parsererror = null;
+      }
+      parseXMLDeck(xml, url);
+      initFSRS();
+      updateStatus('Deck chargé — prêt pour révision');
+    }catch(err){
+      console.error(err);
+      const errMsg = err && err.message ? err.message : 'Erreur inconnue';
+      updateStatus('Erreur chargement deck: '+ errMsg);
+      deck = {title:'', cards:[]};
+      showErrorScreen({
+        title: 'Impossible de charger le deck',
+        message: 'Le fichier de deck n\'a pas pu etre charge.',
+        details: errMsg,
+        actionLabel: 'Reessayer',
+        onAction: () => loadDeckFromURL(url)
+      });
+    }
+  }
+
+  // === Multi-deck review mode ===
+  let multiDeckMode = false;
+  let multiDeckURLs = [];
+  let multiDeckCards = []; // array of {card, deckURL, deckName}
+  let cardFieldDefsMap = new Map(); // Map of cardId -> fieldDefs for multi-deck
+  let onlyNowMode = false; // when true, sessions show only due-now cards
+  
+  async function loadMultipleDeckCards(deckURLs, options = {}){
+    try{
+      try{ clearErrorScreen(); }catch(e){}
+      const onlyNow = options.onlyNow === true;
+      const limitCount = Number.isFinite(options.limitCount) ? options.limitCount : null;
+      onlyNowMode = onlyNow;
+      multiDeckMode = true;
+      multiDeckURLs = deckURLs;
+      multiDeckCards = [];
+      cardFieldDefsMap = new Map(); // Reset the map for new load
+      const allCards = [];
+      
+      // Load all decks and collect cards
+      for(const url of deckURLs){
+        try{
+          // Check if deck is locked and skip if it is
+          const lockState = evaluateDeckLock(url);
+          if(lockState.locked){
+            console.log('Skipping locked deck:', url, 'Locked by:', lockState.lockedByCost ? 'cost' : 'level');
+            continue;
+          }
+          
+          const res = await fetch(url);
+          if(!res.ok) continue;
+          const text = await res.text();
+          const parser = new DOMParser();
+          let xml = parser.parseFromString(text,'application/xml');
+          if(xml.querySelector('parsererror')) xml = parser.parseFromString(text,'text/html');
+          
+          // Parse deck with proper field definitions (like parseXMLDeck does)
+          const tempDeck = {title:'', cards:[], fieldDefs:[]};
+          const deckKey = fallbackSha1(url).slice(0,10);
+          const deckPath = normalizeDeckPath(url).replace(/\.xml$/i, '');
+          try{ localStorage.setItem(`fabanki:deck_path:${deckKey}`, deckPath); }catch(e){}
+          
+          // Title
+          const titleEl = xml.querySelector('title') || xml.querySelector('name') || xml.documentElement.getAttribute('name');
+          if(titleEl) tempDeck.title = titleEl.textContent ? titleEl.textContent.trim() : (xml.documentElement.getAttribute('name')||'');
+          const deckName = tempDeck.title || decodeURIComponent(url.split('/').pop()).replace(/\.xml$/i,'');
+          
+          // Parse field definitions
+          const fieldsContainer = xml.querySelector('fields');
+          if(fieldsContainer){
+            const defs = Array.from(fieldsContainer.children || []);
+            console.log('Loading field definitions for', deckName, '- found', defs.length, 'definitions');
+            for(const f of defs){
+              const type = (f.localName || f.tagName || '').toLowerCase();
+              const name = f.getAttribute('name') || type;
+              const sides = interpretSides(f.getAttribute('sides') || '11');
+              console.log('  Field def:', {name, type, sides});
+              tempDeck.fieldDefs.push({name, type, sides});
+            }
+          } else {
+            console.log('No field definitions container found for', deckName);
+          }
+          
+          // Parse cards with proper field mapping
+          const cardNodes = Array.from(xml.getElementsByTagName('card')).length ? Array.from(xml.getElementsByTagName('card')) : Array.from(xml.querySelectorAll('card, note, item, entry, record'));
+          let idx = 0;
+          for(const node of cardNodes){
+            try{
+              const id = node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idx++));
+              const fields = {};
+              
+              // Map card content to field definitions
+              const _fieldOrder = []; // preserve field order for multi-deck rendering
+              if(tempDeck.fieldDefs.length > 0){
+                // Use field definitions order - find matching elements for each definition
+                for(const def of tempDeck.fieldDefs){
+                  let fieldEl = null;
+                  // Try multiple strategies to find the field element:
+                  // 1) Direct child with matching name attribute
+                  fieldEl = Array.from(node.children).find(ch => (ch.getAttribute && ch.getAttribute('name') === def.name));
+                  // 2) Direct child with matching type
+                  if(!fieldEl) fieldEl = Array.from(node.children).find(ch => ((ch.localName || ch.tagName || '').toLowerCase() === def.type));
+                  // 3) Descendant with matching name attribute
+                  if(!fieldEl) fieldEl = node.querySelector(`[name="${def.name}"]`);
+                  // 4) Descendant with matching type  
+                  if(!fieldEl) fieldEl = node.querySelector(def.type);
+                  // 5) Any first child element if nothing else works
+                  if(!fieldEl && node.children && node.children.length > 0) fieldEl = node.children[0];
+                  
+                  if(fieldEl){
+                    fields[def.name] = {
+                      html: fieldEl.innerHTML,
+                      type: def.type,
+                      sides: def.sides
+                    };
+                    _fieldOrder.push(def.name);
+                  }
+                }
+              } else {
+                // No field definitions - look for rich-text or tex tags first (like parseXMLDeck does)
+                let richTexTags = Array.from(node.querySelectorAll('rich-text, tex'));
+                let fieldEls = richTexTags.length > 0 ? richTexTags : Array.from(node.children || []);
+                
+                // Filter to only element nodes (no text nodes, comments, etc)
+                const elementsOnly = fieldEls.filter(el => el.nodeType === 1 && (el.localName || el.tagName)); // nodeType 1 = ELEMENT_NODE
+                
+                // If we only got 1 element, try getting ALL children as fallback (some XMLs might wrap fields in containers)
+                let fieldsToProcess = elementsOnly;
+                if(elementsOnly.length <= 1){
+                  // Fallback: get all child elements, not just rich-text/tex
+                  fieldsToProcess = Array.from(node.children || []).filter(el => el.nodeType === 1 && (el.localName || el.tagName));
+                }
+                
+                for(let fi = 0; fi < fieldsToProcess.length; fi++){
+                  const f = fieldsToProcess[fi];
+                  const tag = (f.getAttribute && f.getAttribute('name')) || (f.localName || f.tagName || '').toLowerCase();
+                  // Keep all fields, don't skip any - we need the full structure
+                  if(!tag) continue;
+                  
+                  // First field is front, rest are back
+                  const isFront = (fi === 0);
+                  fields[tag] = {
+                    html: f.innerHTML || '',
+                    type: (f.localName || f.tagName || '').toLowerCase(),
+                    sides: {front: isFront, back: !isFront, always: false}
+                  };
+                  _fieldOrder.push(tag);
+                }
+              }
+              // Always create the card with _fieldOrder, even if empty
+              tempDeck.cards.push({id, fields, _fieldOrder: _fieldOrder.length > 0 ? _fieldOrder : Object.keys(fields)});
+            }catch(e){ continue }
+          }
+          
+          // Store total card count for deck mastery tracking
+          try{ localStorage.setItem(`fabanki:deck_card_count:${deckKey}`, String(tempDeck.cards.length)); }catch(e){}
+
+          // Get due cards for this deck
+          const now = new Date();
+          
+          // Debug: log field defs for this deck
+          if(tempDeck.fieldDefs.length > 0){
+            console.log('Loading multi-deck:', deckName, '- Field defs:', tempDeck.fieldDefs.map(d => d.name));
+          }
+          
+          for(const c of tempDeck.cards){
+            const key = `fabanki:${deckKey}:card:${c.id}`;
+            const storedData = localStorage.getItem(key);
+            let st = null;
+            if(storedData){
+              try{ st = JSON.parse(storedData); } catch(e){ st = null; }
+            }
+            const due = st && st.due ? new Date(st.due) : now;
+            // Card is new if: no state exists OR no last review but reps is 0/undefined
+            const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
+            // Store field definitions in map so renderBack can access them
+            cardFieldDefsMap.set(c.id, tempDeck.fieldDefs);
+            // Add all cards to allCards - filtering will happen later
+            allCards.push({card: c, deckURL: url, deckName, deckKey, deckPath, isNew});
+          }
+        }catch(e){ console.warn('Error loading deck:', url, e); }
+      }
+      
+      // Separate into due status groups with priority rules
+      const now = new Date();
+      const nowCards = [];
+      const newCards = [];
+      const futureCards = [];
+
+      for(const card of allCards){
+        if(card.isNew){
+          if(!onlyNow) newCards.push(card);
+          continue;
+        }
+        const st = JSON.parse(localStorage.getItem(`fabanki:${card.deckKey}:card:${card.card.id}`) || '{}');
+        const due = st && st.due ? new Date(st.due) : now;
+        if(due <= now) {
+          nowCards.push(card);
+        } else if(!onlyNow) {
+          futureCards.push({ ...card, __due: due });
+        }
+      }
+
+      const shuffle = (arr)=>{ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] } };
+      if(onlyNow){
+        shuffle(nowCards);
+        multiDeckCards = nowCards;
+      } else if(nowCards.length > 0){
+        shuffle(nowCards);
+        multiDeckCards = nowCards;
+      } else if(newCards.length > 0){
+        shuffle(newCards);
+        multiDeckCards = newCards;
+      } else {
+        futureCards.sort((a, b) => a.__due - b.__due);
+        multiDeckCards = futureCards;
+      }
+      if(limitCount && multiDeckCards.length > limitCount){
+        multiDeckCards = multiDeckCards.slice(0, limitCount);
+      }
+      
+      if(multiDeckCards.length === 0){
+        updateStatus(onlyNow ? 'Aucune carte à réviser maintenant' : 'Aucune carte à réviser');
+        renderEmpty();
+        return;
+      }
+      
+      console.log('Multi-deck loaded:', multiDeckCards.length, 'cards');
+      multiDeckCards.slice(0,3).forEach(c => {
+        console.log('  Card:', c.card.id, 'from:', c.deckName, 'has fieldDefs in map:', cardFieldDefsMap.has(c.card.id));
+      });
+      
+      // Set up pseudo-deck for display
+      deck = {title: 'Révision Multi-Deck', cards: multiDeckCards.map(x => x.card)};
+      deckKey = 'multideck';
+      dueCards = multiDeckCards;
+      sessionTotal = dueCards.length;
+      reviewedCount = 0;
+      sessionData = [];
+      isReviewing = true;
+      sessionCreditsGranted = false;
+      setReviewTopBarVisibility(true);
+      currentIndex = 0;
+      
+      // Ensure progress info element is visible and initialized
+      const progressInfo = document.getElementById('progressInfo');
+      if(progressInfo) { progressInfo.textContent = `Revisées : 0 / ${sessionTotal}`; progressInfo.style.display = 'block'; }
+      
+      updateStatus('Multi-Deck chargé — prêt pour révision');
+      showNextCard();
+      updateProgressDisplay();
+      // Update histogram for the first deck in multi-deck mode
+      if(multiDeckCards.length > 0){
+        updateHistogramForDeck(multiDeckCards[0].deckKey);
+      } else {
+        updateHistogram();
+      }
+    }catch(err){
+      console.error('Multi-deck error:', err);
+      const errMsg = err && err.message ? err.message : 'Erreur inconnue';
+      updateStatus('Erreur chargement multi-deck: '+errMsg);
+      multiDeckMode = false;
+      onlyNowMode = false;
+      showErrorScreen({
+        title: 'Impossible de charger les decks',
+        message: 'Le mode multi-deck a echoue.',
+        details: errMsg,
+        actionLabel: 'Reessayer',
+        onAction: () => loadMultipleDeckCards(deckURLs, options)
+      });
+    }
+  }
+
+
+  // === Function: parseXMLDeck ===
+  // Parse the <fields> definition (name,type,sides) and build per-card `fields` objects.
+  // Rules implemented:
+  // - Read field definitions from <fields> (order preserved) and store in deck.fieldDefs.
+  // - For each <card>, build card.fields = { [fieldName]: { html, type, sides } }.
+  // - If a field is absent in a <card>, it is omitted (robustness requirement).
+  function parseXMLDeck(xml, url){
+    // create a deckKey based on URL (use synchronous fallback hash to avoid Promise issues)
+    deckKey = fallbackSha1(url).slice(0,10);
+    try{ localStorage.setItem(`fabanki:deck_path:${deckKey}`, normalizeDeckPath(url).replace(/\.xml$/i, '')); }catch(e){}
+    deck = {title:'', cards:[], fieldDefs:[]};
+
+    // title (optional)
+    const titleEl = xml.querySelector('title') || xml.querySelector('name') || xml.documentElement.getAttribute('name');
+    if(titleEl) deck.title = titleEl.textContent ? titleEl.textContent.trim() : (xml.documentElement.getAttribute('name')||'');
+
+    // --- Read <fields> definitions ---
+    // Each child of <fields> defines a field: tag name (rich-text|tex), @name and @sides.
+    const fieldsContainer = xml.querySelector('fields');
+    if(fieldsContainer){
+      const defs = Array.from(fieldsContainer.children || []);
+      for(const f of defs){
+        // Use localName when available for robust tag detection
+        const type = (f.localName || f.tagName || '').toLowerCase(); // e.g. 'rich-text' or 'tex'
+        const name = f.getAttribute('name') || '';
+        const sidesAttr = f.getAttribute('sides') || (f.textContent||'');
+        const sides = interpretSides(sidesAttr);
+        const lang = f.getAttribute('lang') || f.getAttribute('xml:lang') || '';
+        if(name) deck.fieldDefs.push({name, type, sides, lang});
+      }
+    }
+
+    // If no field definitions detected, fall back to old heuristic to keep backwards compatibility.
+    if(deck.fieldDefs.length === 0){
+      // Find any explicit field-like tags to infer names
+      const inferred = Array.from(xml.querySelectorAll('rich-text,tex')).map(n=>({name:n.getAttribute('name')||'Front', type:n.tagName.toLowerCase(), sides:{front:true,back:false,always:false}}));
+      // If we have field definitions from <fields>, use them; otherwise create default Front/Back split
+      deck.fieldDefs = inferred.length ? inferred : [{name:'Front', type:'rich-text', sides:{front:true,back:false,always:false}},{name:'Back', type:'rich-text', sides:{front:false,back:true,always:false}}];
+      console.log('parseXMLDeck: Using fallback field definitions:', deck.fieldDefs);
+    } else {
+      // Validate that we have proper sides for each field definition
+      // If a field has no sides specified, assign based on position (first = front only, rest = back only)
+      for(let i = 0; i < deck.fieldDefs.length; i++){
+        const def = deck.fieldDefs[i];
+        if(!def.sides || Object.keys(def.sides).length === 0){
+          def.sides = i === 0 ? {front:true,back:false,always:false} : {front:false,back:true,always:false};
+        }
+      }
+      console.log('parseXMLDeck: Final field definitions:', deck.fieldDefs);
+    }
+
+    // --- Build cards from <cards><card> ---
+    // Prefer explicit <cards><card> nodes; fallback to any <card> elements anywhere
+    const cardNodes = Array.from(xml.getElementsByTagName('card'));
+    const candidates = cardNodes.length ? cardNodes : Array.from(xml.querySelectorAll('card, note, item, entry, record'));
+
+    let idx = 0;
+    for(const node of candidates){
+      try{
+        const cardObj = { id: node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idx++)), fields: {} };
+        const usedElements = new Set(); // Track which elements we've already assigned
+
+        // For each fieldDef, attempt to read the corresponding element inside this <card>
+        for(const def of deck.fieldDefs){
+          let el = null;
+          // 1) any child element with attribute name equal to field name (highest priority)
+          const byName = Array.from(node.children).find(ch => (ch.getAttribute && ch.getAttribute('name') === def.name && !usedElements.has(ch)));
+          if(byName) {
+            console.log(`  Field "${def.name}": found by name match`);
+            el = byName;
+          }
+          // 2) any child element whose localName/tag matches the expected type, but ONLY if it has no name attribute
+          // (elements with name attributes should only be matched by exact name match)
+          if(!el) {
+            const byType = Array.from(node.children).find(ch => {
+              const hasName = ch.getAttribute && ch.getAttribute('name');
+              const matchesType = (ch.localName || ch.tagName || '').toLowerCase() === def.type;
+              return matchesType && !hasName && !usedElements.has(ch);
+            });
+            if(byType) {
+              console.log(`  Field "${def.name}": found by type match (${def.type}), element has no name attribute`);
+              el = byType;
+            }
+          }
+          // 3) fallback: any descendant with name attribute matching
+          if(!el) {
+            el = node.querySelector(`[name="${def.name}"]`);
+            if(el && usedElements.has(el)) el = null;
+            if(el) console.log(`  Field "${def.name}": found by querySelector`);
+          }
+          // 4) No last resort fallback - if not found, leave empty
+          if(!el) {
+            console.log(`  Field "${def.name}": not found in card`);
+          }
+
+          if(el){
+            usedElements.add(el); // Mark this element as used
+            // For <tts> fields, preserve textContent (treat like <p>) to avoid raw HTML parsing
+            let html = '';
+            if((def.type||'').toLowerCase() === 'tts'){
+              html = (el.textContent || '').trim();
+            } else {
+              html = (el.innerHTML || '').trim();
+            }
+            const fldLang = el.getAttribute && (el.getAttribute('lang') || el.getAttribute('xml:lang')) || def.lang || '';
+            cardObj.fields[def.name] = { html, type: def.type, sides: def.sides, lang: fldLang };
+          } else {
+            // Field not found in card - add empty field so rendering logic can handle it
+            console.log(`  Field "${def.name}": not found in card, adding empty field`);
+            cardObj.fields[def.name] = { html: '', type: def.type, sides: def.sides, lang: def.lang || '' };
+          }
+        }
+
+        // Only include card if it has at least one non-empty field
+        const hasContent = Object.values(cardObj.fields).some(f => f.html && f.html.trim().length > 0);
+        if(hasContent) deck.cards.push(cardObj);
+        }catch(e){ console.warn('ignored malformed card', e); continue }
+      }
+    // If still empty, try to parse table rows as last fallback
+    if(deck.cards.length===0){
+      const rows = Array.from(xml.querySelectorAll('tr'));
+      for(const r of rows){
+        const tds = Array.from(r.querySelectorAll('td'));
+        if(tds.length>=2){
+          const cardObj = { id: 'card-'+(idx++), fields: {} };
+          cardObj.fields['Front'] = { html: tds[0].innerHTML||'', type: 'rich-text', sides: {front:true,back:false,always:false} };
+          cardObj.fields['Back']  = { html: tds[1].innerHTML||'', type: 'rich-text', sides: {front:false,back:true,always:false} };
+          deck.cards.push(cardObj);
+        }
+      }
+    }
+
+    if(deck.cards.length===0) throw new Error('Aucune carte détectée dans le fichier XML');
+
+    // Store total card count for deck mastery tracking
+    try{ localStorage.setItem(`fabanki:deck_card_count:${deckKey}`, String(deck.cards.length)); }catch(e){}
+
+    // Update UI
+    $('#deckInfo').textContent = `Deck: ${deck.title || 'non nommé'} — ${deck.cards.length} cartes`;
+  }
+
+  // === Function: interpretSides ===
+  // Accepts strings like "11","10","01", or words 'front','back','both','always'.
+  function interpretSides(s){
+    const out = {front:false, back:false, always:false};
+    if(!s) { out.front=true; out.back=false; return out; }
+    s = String(s).trim().toLowerCase();
+    if(s==='both' || s==='11' || s==='always') { out.front=true; out.back=true; out.always=true; return out; }
+    if(s==='front' || s==='f' || s==='10') { out.front=true; out.back=false; return out; }
+    if(s==='back' || s==='b' || s==='01') { out.front=false; out.back=true; return out; }
+    if(s.length===2 && /[01]{2}/.test(s)){ out.front = s[0]==='1'; out.back = s[1]==='1'; out.always = out.front && out.back; return out; }
+    // fallback: show on front
+    out.front=true; return out;
+  }
+
+  // === Function: showDeckOverview ===
+  // Shows an intermediate view with ring chart, card grid, and stats before reviewing
+  async function showDeckOverview(url){
+    try{
+      // Track welcome quest deck opening
+      try{
+        if(typeof completeWelcomeQuestMission === 'function'){
+          completeWelcomeQuestMission('part2', 'deck_opened', 3);
+        }
+      }catch(e){ console.warn('welcome quest deck open error', e); }
+      
+      // Show contextual onboarding on first open
+      setTimeout(() => {
+        if(typeof showOverviewOnboarding === 'function'){
+          showOverviewOnboarding();
+        }
+      }, 500);
+      
+      // Find and remove the welcome element completely (both old and new formats)
+      const welcome = document.getElementById('welcome');
+      if(welcome) {
+        console.log('Removing welcome element');
+        welcome.remove();
+      }
+      const welcomeDecks = document.getElementById('welcomeDecks');
+      if(welcomeDecks) {
+        console.log('Removing welcomeDecks');
+        welcomeDecks.remove();
+      }
+      
+      // Hide main and stats
+      const mainEl = document.querySelector('main');
+      if(mainEl) {
+        mainEl.style.display = 'none';
+        mainEl.style.visibility = 'hidden';
+      }
+      const statsEl = document.getElementById('stats');
+      if(statsEl) {
+        statsEl.style.display = 'none';
+        statsEl.style.visibility = 'hidden';
+      }
+      // Hide footer during overview
+      const footerEl = document.querySelector('footer');
+      if(footerEl) {
+        footerEl.style.display = 'none';
+      }
+
+      // Hide and remove aria-hidden from any open overlays/modals
+      const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
+      if(deckBrowserOverlay) {
+        deckBrowserOverlay.style.display = 'none';
+        deckBrowserOverlay.classList.remove('open');
+        deckBrowserOverlay.removeAttribute('aria-hidden');
+      }
+      
+      const modals = document.querySelectorAll('.modal-overlay, .modal.open');
+      modals.forEach(m => { 
+        m.classList.remove('open'); 
+        m.style.display = 'none'; 
+        m.style.visibility = 'hidden';
+        m.removeAttribute('aria-hidden');
+      });
+
+      // Ensure manifest metadata is available for lock checks
+      if(Object.keys(manifestMeta||{}).length === 0){
+        try{
+          const manifestRes = await fetch('./decks/manifest.json');
+          if(manifestRes && manifestRes.ok){
+            const list = await manifestRes.json();
+            if(Array.isArray(list)){
+              manifestMeta = {};
+              list.forEach(item => {
+                if(typeof item === 'string') manifestMeta[item] = { path:item };
+                else if(item && item.path) manifestMeta[item.path] = item;
+              });
+            }
+          }
+        }catch(e){}
+      }
+
+      // Lock check is now handled in the overview page button display
+      // No need to block access to overview - just show buy/lock button instead of start button
+
+      // Create overview container with high z-index to ensure visibility
+      const container = document.createElement('div');
+      container.id = 'deckOverviewContainer';
+      container.style.cssText = `
+        padding:20px;
+        overflow-y:auto;
+        max-height:90vh;
+        position:relative;
+        z-index:9999;
+        background:var(--bg);
+        width:100%;
+      `;
+
+      // Parse deck to get stats
+      const res = await fetch(url);
+      const text = await res.text();
+      const parser = new DOMParser();
+      let xml = parser.parseFromString(text,'application/xml');
+      if(xml.querySelector('parsererror')) xml = parser.parseFromString(text,'text/html');
+      
+      const tempDeck = {title:'', cards:[], fieldDefs:[]};
+      const deckKeyForStats = fallbackSha1(url).slice(0,10);
+      
+      const titleEl = xml.querySelector('title') || xml.querySelector('name');
+      if(titleEl) tempDeck.title = titleEl.textContent?.trim() || '';
+      // Fallback to URL filename if no title found in XML
+      if(!tempDeck.title) {
+        const urlParts = decodeURIComponent(url).split('/');
+        const fileName = urlParts[urlParts.length - 1].replace(/\.xml$/i, '');
+        tempDeck.title = fileName;
+      }
+      
+      const cardNodes = Array.from(xml.getElementsByTagName('card')).length 
+        ? Array.from(xml.getElementsByTagName('card')) 
+        : Array.from(xml.querySelectorAll('card, note, item, entry, record'));
+      
+      // Count cards by due status
+      const now = new Date();
+      const counts = {new:0, now:0, h12:0, tomorrow:0, week:0, long:0};
+      const cardsList = [];
+      let reviewed = 0;
+      
+      console.log('Overview: deckKeyForStats=', deckKeyForStats, 'Looking for keys like: fabanki:' + deckKeyForStats + ':card:*');
+      
+      // Show all localStorage keys that match this deck (for debugging)
+      const allKeys = Object.keys(localStorage);
+      const deckKeys = allKeys.filter(k => k.includes(deckKeyForStats));
+      console.log('Found', deckKeys.length, 'localStorage keys for this deck:', deckKeys.slice(0, 5), '...');
+      
+      let idx = 0; // Counter for card IDs (same as parseXMLDeck)
+      let deckFieldCount = 0;
+      
+      for(const cardNode of cardNodes){
+        try{
+          const childCount = cardNode.children ? cardNode.children.length : 0;
+          const inferredCount = childCount > 0 ? childCount : (cardNode.textContent && cardNode.textContent.trim().length > 0 ? 1 : 0);
+          if(inferredCount > deckFieldCount) deckFieldCount = inferredCount;
+          // USE SAME ID LOGIC AS parseXMLDeck to ensure consistency with localStorage keys
+          const cardId = cardNode.getAttribute('id') || cardNode.getAttribute('guid') || ('card-'+(idx++));
+          const key = `fabanki:${deckKeyForStats}:card:${cardId}`;
+          const storedData = localStorage.getItem(key);
+          
+          // Parse stored data - must handle null properly
+          let st = null;
+          if(storedData){
+            try{ st = JSON.parse(storedData); } catch(e){ st = null; }
+          }
+          
+          // Check if card has been reviewed (has a last review time)
+          const hasBeenReviewed = st !== null && st.last !== undefined && st.last !== null;
+          const due = (st && st.due) ? new Date(st.due) : now;
+          const isNew = !hasBeenReviewed; // Card is new only if it's never been reviewed
+          const reps = st?.reps || 0;
+          
+          // Debug logging for categorization
+          console.log('Overview card categorization:', {cardId, storedData: !!storedData, st, hasBeenReviewed, isNew, due, hrs: due ? (due - now) / (1000*60*60) : 'N/A'});
+          
+          // Count reviewed
+          if(hasBeenReviewed) reviewed++;
+          
+          // Get first field for card display
+          const firstField = cardNode.children[0]?.innerHTML || cardNode.textContent?.slice(0,60) || '...';
+          
+          // Categorize by review status first, then by due date
+          let category = 'long';
+          if(isNew) {
+            category = 'new';
+          } else if(hasBeenReviewed) {
+            // Only categorize by due date if card was already reviewed
+            if(due <= now) category = 'now';
+            else {
+              const hrs = (due - now) / (1000*60*60);
+              if(hrs <= 12) category = 'h12';
+              else if(hrs <= 24) category = 'tomorrow';
+              else if(hrs <= 24*7) category = 'week';
+              else category = 'long';
+            }
+          }
+          
+          counts[category]++;
+          cardsList.push({id:cardId, category, html:firstField, due, reps});
+        }catch(e){ console.warn('Error processing card in overview:', e); continue; }
+      }
+
+      // Color mapping
+      const colors = {new:'#a78bfa', now:'#ef4444', h12:'#f97316', tomorrow:'#eab308', week:'#22c55e', long:'#06b6d4'};
+      const labels = {new:'Nouveau', now:'Maintenant', h12:'< 12h', tomorrow:'Demain', week:'< 1 semaine', long:'Futur'};
+      
+      // Build header
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex;gap:20px;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;';
+      
+      // Ring chart
+      const chartDiv = document.createElement('div');
+      chartDiv.style.cssText = 'flex:0 0 200px;display:flex;flex-direction:column;align-items:center;';
+      const canvas = document.createElement('canvas');
+      canvas.width = 180;
+      canvas.height = 180;
+      chartDiv.appendChild(canvas);
+      
+      // Draw ring chart
+      const ctx = canvas.getContext('2d');
+      const total = Object.values(counts).reduce((a,b)=>a+b, 0);
+      let angle = 0;
+      const radius = 80;
+      const centerX = 90, centerY = 90;
+      
+      Object.entries(counts).forEach(([cat, cnt]) => {
+        if(cnt === 0) return;
+        const sliceAngle = (cnt / total) * 2 * Math.PI;
+        
+        // Draw ring segment
+        ctx.fillStyle = colors[cat];
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, angle, angle + sliceAngle);
+        ctx.arc(centerX, centerY, radius - 20, angle + sliceAngle, angle, true);
+        ctx.fill();
+        angle += sliceAngle;
+      });
+      
+      // Legend
+      const legend = document.createElement('div');
+      legend.style.cssText = 'font-size:0.85em;margin-top:12px;text-align:center;';
+      Object.entries(counts).forEach(([cat, cnt]) => {
+        if(cnt === 0) return;
+        const line = document.createElement('div');
+        line.style.cssText = `margin:4px 0;color:#666;`;
+        line.innerHTML = `<span style="display:inline-block;width:12px;height:12px;background:${colors[cat]};margin-right:6px;border-radius:2px;"></span>${labels[cat]}: ${cnt}`;
+        legend.appendChild(line);
+      });
+      chartDiv.appendChild(legend);
+      header.appendChild(chartDiv);
+      
+      // Stats and button
+      const rightPanel = document.createElement('div');
+      rightPanel.style.cssText = 'flex:1;min-width:200px;';
+      
+      // Back button and reset button in a horizontal layout
+      const buttonRow = document.createElement('div');
+      buttonRow.style.cssText = 'display:flex;gap:8px;margin-bottom:12px;';
+      
+      const backBtn = document.createElement('button');
+      backBtn.textContent = '← Retour';
+      backBtn.className = 'secondary';
+      backBtn.style.cssText = 'flex:1;padding:8px;font-size:0.9em;';
+      backBtn.addEventListener('click', async ()=>{
+        // Remove overview container
+        const overviewContainer = document.getElementById('deckOverviewContainer');
+        if(overviewContainer) overviewContainer.remove();
+        
+        // Open deck browser and restore to the folder we were in
+        if(typeof window.openDeckBrowser === 'function'){
+          try{
+            await window.openDeckBrowser();
+            
+            // Restore to the folder path we were in before opening overview
+            if(currentFolderPath && window.deckBrowserRenderPath){
+              setTimeout(() => {
+                window.deckBrowserRenderPath(currentFolderPath);
+              }, 100);
+            }
+          }catch(e){
+            console.error('Error opening deck browser:', e);
+            window.location.reload();
+          }
+        } else {
+          window.location.reload();
+        }
+      });
+      buttonRow.appendChild(backBtn);
+      
+      const resetBtn = document.createElement('button');
+      resetBtn.textContent = '♻️ Réinitialiser';
+      resetBtn.className = 'secondary';
+      resetBtn.style.cssText = 'flex:1;padding:8px;font-size:0.9em;';
+      resetBtn.addEventListener('click', ()=>{
+        if(confirm('Supprimer toutes les données locales pour ce deck ?')){
+          if(!deckKey) { alert('Aucun deck chargé'); return }
+          const prefix = `fabanki:${deckKey}:`;
+          for(const k of Object.keys(localStorage)) if(k.startsWith(prefix)) localStorage.removeItem(k);
+          alert('Données locales supprimées');
+          // Reload the overview to show fresh stats
+          showDeckOverview(url);
+        }
+      });
+      buttonRow.appendChild(resetBtn);
+      
+      rightPanel.appendChild(buttonRow);
+      
+      const title = document.createElement('h2');
+      title.textContent = tempDeck.title || 'Deck';
+      title.style.cssText = 'margin:0 0 16px 0;font-size:1.4em;';
+      rightPanel.appendChild(title);
+
+      const deckEntryForDesc = getManifestEntryForPath(url);
+      if(deckEntryForDesc && deckEntryForDesc.description){
+        const desc = document.createElement('div');
+        desc.style.cssText = 'margin:0 0 16px 0;color:#6b7280;font-size:0.95em;line-height:1.4;';
+        desc.textContent = deckEntryForDesc.description;
+        rightPanel.appendChild(desc);
+      }
+      
+      // Star rating and progress bar
+      const ratingContainer = document.createElement('div');
+      ratingContainer.style.cssText = 'margin-bottom:16px;';
+      
+      // Calculate accuracy for star rating
+      let accuracyForRating = 0;
+      if(reviewed > 0) {
+        let accuracySum = 0, reviewedTotal = 0;
+        for(const c of cardsList){
+          if(c.category === 'now') { accuracySum += 0; reviewedTotal++; }
+          else if(c.category === 'h12') { accuracySum += 5; reviewedTotal++; }
+          else if(c.category === 'tomorrow') { accuracySum += 10; reviewedTotal++; }
+          else if(c.category === 'week') { accuracySum += 15; reviewedTotal++; }
+          else if(c.category === 'long') { accuracySum += 20; reviewedTotal++; }
+        }
+        accuracyForRating = reviewedTotal > 0 ? (accuracySum / reviewedTotal) / 20 : 0; // 0-1 scale
+      }
+      
+      // Determine star count (0-3 stars based on accuracy tiers)
+      let starCount = 0;
+      if(accuracyForRating >= 0.9) starCount = 3;      // 90%+
+      else if(accuracyForRating >= 0.8) starCount = 2.5; // 80-90%
+      else if(accuracyForRating >= 0.6) starCount = 2;  // 60-80%
+      else if(accuracyForRating >= 0.2) starCount = 1;  // 20-60%
+      
+      // Star rating display
+      const starDiv = document.createElement('div');
+      starDiv.style.cssText = 'display:flex;gap:4px;align-items:center;margin-bottom:8px;';
+      
+      for(let i = 0; i < 3; i++) {
+        const star = document.createElement('span');
+        if(i < Math.floor(starCount)) {
+          star.textContent = '★';
+          star.style.color = '#fbbf24'; // Gold
+        } else if(i === Math.floor(starCount) && starCount % 1 !== 0) {
+          star.textContent = '✦'; // Half star
+          star.style.color = '#fbbf24';
+        } else {
+          star.textContent = '☆';
+          star.style.color = '#d1d5db'; // Gray
+        }
+        star.style.fontSize = '1.5em';
+        starDiv.appendChild(star);
+      }
+      
+      const ratingText = document.createElement('span');
+      ratingText.textContent = `${(accuracyForRating * 100).toFixed(0)}%`;
+      ratingText.style.cssText = 'margin-left:8px;font-weight:bold;font-size:0.9em;color:#666;';
+      starDiv.appendChild(ratingText);
+      ratingContainer.appendChild(starDiv);
+      
+      // Progress bar with tier markers
+      const progressWrapper = document.createElement('div');
+      progressWrapper.style.cssText = 'position:relative;height:24px;margin-bottom:8px;';
+      
+      const progressBar = document.createElement('div');
+      progressBar.style.cssText = 'position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg, #ef4444 0%, #f97316 33%, #eab308 66%, #22c55e 100%);border-radius:6px;border:1px solid #ddd;width:100%;';
+      progressWrapper.appendChild(progressBar);
+      
+      // Progress fill
+      const progressFill = document.createElement('div');
+      progressFill.style.cssText = `position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 100%);border-radius:6px;width:${accuracyForRating * 100}%;transition:width 0.3s ease;`;
+      progressWrapper.appendChild(progressFill);
+      
+      // Tier markers at 60%, 80%, 90%
+      const tiers = [
+        {percent: 60, label: '60%'},
+        {percent: 80, label: '80%'},
+        {percent: 90, label: '90%'}
+      ];
+      
+      tiers.forEach(tier => {
+        const marker = document.createElement('div');
+        marker.style.cssText = `position:absolute;top:-20px;left:calc(${tier.percent}% - 8px);width:16px;text-align:center;font-size:0.7em;color:#999;`;
+        marker.textContent = tier.label;
+        progressWrapper.appendChild(marker);
+      });
+      
+      // Current position indicator on progress bar
+      const positionIndicator = document.createElement('div');
+      const currentPercent = accuracyForRating * 100;
+      positionIndicator.style.cssText = `position:absolute;top:-4px;left:calc(${currentPercent}% - 6px);width:12px;height:32px;background:#fff;border:2px solid #333;border-radius:2px;box-shadow:0 2px 4px rgba(0,0,0,0.2);transition:left 0.3s ease;`;
+      progressWrapper.appendChild(positionIndicator);
+      
+      ratingContainer.appendChild(progressWrapper);
+      rightPanel.appendChild(ratingContainer);
+      
+      const stats = document.createElement('div');
+      stats.style.cssText = 'background:linear-gradient(135deg, #1e293b 0%, #334155 100%);color:#fff;padding:16px;border-radius:12px;margin-bottom:16px;font-size:0.9em;line-height:1.8;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+      
+      // Accuracy calculation
+      let accuracySum = 0, reviewedTotal = 0;
+      for(const c of cardsList){
+        if(c.category === 'now') { accuracySum += 0; reviewedTotal++; }
+        else if(c.category === 'h12') { accuracySum += 5; reviewedTotal++; }
+        else if(c.category === 'tomorrow') { accuracySum += 10; reviewedTotal++; }
+        else if(c.category === 'week') { accuracySum += 15; reviewedTotal++; }
+        else if(c.category === 'long') { accuracySum += 20; reviewedTotal++; }
+      }
+      const accuracy = reviewedTotal > 0 ? (accuracySum / reviewedTotal).toFixed(2) : 'N/A';
+      
+      stats.innerHTML = `
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Cartes révisées</span><strong>${reviewed}</strong></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Total</span><strong>${total}</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span>Précision</span><strong>${accuracy}</strong></div>
+      `;
+      rightPanel.appendChild(stats);
+      
+      // Check if deck is locked and show appropriate button
+      const lockState = evaluateDeckLock(url);
+      console.log('Lock state for', url, ':', lockState);
+      console.log('manifestMeta:', manifestMeta);
+      console.log('normalized path:', normalizeDeckPath(url));
+      
+      // Ensure manifest is loaded BEFORE checking tags (always reload to get latest)
+      try{
+        const manifestRes = await fetch('./decks/manifest.json?v=' + Date.now());
+        if(manifestRes && manifestRes.ok){
+          const list = await manifestRes.json();
+          if(Array.isArray(list)){
+            manifestMeta = {};
+            list.forEach(item => {
+              if(typeof item === 'string') manifestMeta[item] = { path:item };
+              else if(item && item.path) manifestMeta[item.path] = item;
+            });
+          }
+        }
+      }catch(e){ console.warn('Manifest load error:', e); }
+      
+      // Define deckKey for this overview session (if not already defined)
+      if(!deckKey || deckKey === 'multideck'){
+        deckKey = fallbackSha1(url).slice(0,10);
+      }
+      
+      // Check if deck has "text" tag for fill-in-the-blank mode
+      const deckEntry = getManifestEntryForPath(url);
+      const deckTags = (typeof deckEntry === 'object' && deckEntry.tags) ? deckEntry.tags : [];
+      deckHasTextTag = Array.isArray(deckTags) ? deckTags.includes('text') : false;
+      deckHasTimerTag = Array.isArray(deckTags) ? deckTags.includes('timer') : false;
+      
+      console.log('DEBUG: deckEntry=', deckEntry);
+      console.log('DEBUG: deckTags=', deckTags);
+      console.log('DEBUG: deckHasTextTag=', deckHasTextTag);
+      console.log('DEBUG: deckHasTimerTag=', deckHasTimerTag);
+      console.log('DEBUG: manifestMeta keys=', Object.keys(manifestMeta));
+      
+      // Add review mode selector if deck supports it AND mode is unlocked
+      const isTextModeUnlocked = localStorage.getItem('fabanki:market_mode_texte_trou');
+      const isTimerModeUnlocked = localStorage.getItem('fabanki:market_mode_rappel_sous_pression');
+      const isActiveMemoryUnlocked = true; // Active Memory mode is free and always available
+      const isStepModeUnlocked = localStorage.getItem('fabanki:mode_step_unlocked') === 'true';
+      
+      if((deckHasTextTag || deckHasTimerTag) && !lockState.locked){
+        const modeContainer = document.createElement('div');
+        modeContainer.style.cssText = 'margin-bottom:16px;display:flex;flex-direction:column;gap:8px;';
+        
+        const modesContainer = document.createElement('div');
+        modesContainer.className = 'mode-grid';
+        modesContainer.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start;align-items:center;';
+        
+        const modeIcons = {
+          'default': '📚',
+          'fillblank': '✍️',
+          'timer': '⏱️',
+          'activeMemory': '🧠',
+          'step': '🪜',
+          'reverse': '🔁',
+          'random': '🎲'
+        };
+        
+        const modeFullNames = {
+          'default': 'Mode Anki',
+          'fillblank': 'Texte à trou',
+          'timer': 'Rappel sous pression',
+          'activeMemory': 'Mémoire active',
+          'step': 'Étape par étape',
+          'reverse': 'Revers',
+          'random': 'Aléatoire'
+        };
+        
+        const availableModes = [
+          {id: 'default', name: 'Mode Anki', locked: false}
+        ];
+        const fillblankLockedByDeck = !deckHasTextTag;
+        const fillblankLockedByPurchase = deckHasTextTag && !isTextModeUnlocked;
+        const fillblankLocked = fillblankLockedByDeck || fillblankLockedByPurchase;
+
+        const timerLockedByDeck = !deckHasTimerTag;
+        const timerLockedByPurchase = deckHasTimerTag && !isTimerModeUnlocked;
+        const timerLocked = timerLockedByDeck || timerLockedByPurchase;
+
+        const stepLockedByDeck = deckFieldCount <= 2;
+        const stepLockedByQuest = !isStepModeUnlocked;
+        const stepLocked = stepLockedByDeck || stepLockedByQuest;
+        const reverseLockedByDeck = !(deckFieldCount >= 2 && deckFieldCount <= 4);
+        const reverseUnlocked = (typeof isReverseModeUnlocked === 'function')
+          ? isReverseModeUnlocked()
+          : (localStorage.getItem('fabanki:mode_reverse_unlocked') === 'true');
+        const reverseLockedByQuest = !reverseUnlocked;
+        const reverseLocked = reverseLockedByDeck || reverseLockedByQuest;
+        const randomLockedByDeck = !(deckFieldCount >= 2 && deckFieldCount <= 4);
+        const randomUnlocked = (typeof isRandomModeUnlocked === 'function')
+          ? isRandomModeUnlocked()
+          : (localStorage.getItem('fabanki:mode_random_unlocked') === 'true');
+        const randomLockedByQuest = !randomUnlocked;
+        const randomLocked = randomLockedByDeck || randomLockedByQuest;
+        availableModes.push({
+          id: 'fillblank',
+          name: 'Texte à trou',
+          locked: fillblankLocked,
+          lockReason: fillblankLockedByDeck ? 'Deck incompatible' : 'Mode bloque'
+        });
+        availableModes.push({
+          id: 'timer',
+          name: 'Rappel sous pression',
+          locked: timerLocked,
+          lockReason: timerLockedByDeck ? 'Deck incompatible' : 'Mode bloque'
+        });
+        availableModes.push({id: 'activeMemory', name: 'Mémoire active', locked: !isActiveMemoryUnlocked});
+        availableModes.push({
+          id: 'step',
+          name: 'Étape par étape',
+          locked: stepLocked,
+          lockReason: stepLockedByDeck ? 'Deck incompatible' : 'Mode bloque'
+        });
+        availableModes.push({
+          id: 'reverse',
+          name: 'Revers',
+          locked: reverseLocked,
+          lockReason: reverseLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'
+        });
+        availableModes.push({
+          id: 'random',
+          name: 'Aléatoire',
+          locked: randomLocked,
+          lockReason: randomLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'
+        });
+        
+        const buttons = new Map();
+        let activeMode = null;
+        const setActiveMode = (modeId) => {
+          activeMode = modeId;
+          reviewMode = modeId;
+          localStorage.setItem(`fabanki:review_mode:${deckKey}`, reviewMode);
+          buttons.forEach((btn, id) => {
+            const icon = btn.querySelector('.mode-icon');
+            if(id === modeId){
+              btn.style.background = '#0066ff';
+              btn.style.color = '#fff';
+              btn.style.borderColor = '#0066ff';
+              if(icon) icon.style.transform = 'scale(1.1)';
+            } else {
+              btn.style.background = 'white';
+              btn.style.color = '#333';
+              btn.style.borderColor = '#ddd';
+              if(icon) icon.style.transform = 'scale(1)';
+            }
+          });
+        };
+        
+        availableModes.forEach((mode) => {
+          const btn = document.createElement('button');
+          btn.className = 'mode-btn';
+          btn.style.cssText = 'flex:0 0 auto;padding:12px 16px;border:2px solid #ddd;border-radius:8px;background:white;color:#333;cursor:pointer;font-size:0.85em;user-select:none;transition:all 0.2s;font-weight:600;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;';
+          
+          const icon = document.createElement('div');
+          icon.className = 'mode-icon';
+          icon.style.cssText = 'font-size:1.4em;';
+          icon.textContent = modeIcons[mode.id] || '🎯';
+          btn.appendChild(icon);
+          
+          const text = document.createElement('div');
+          text.style.cssText = 'font-size:0.9em;white-space:nowrap;';
+          text.textContent = modeFullNames[mode.id] || mode.name;
+          btn.appendChild(text);
+
+          if(mode.locked){
+            btn.style.opacity = '0.45';
+            btn.style.cursor = 'not-allowed';
+            const lock = document.createElement('div');
+            lock.style.cssText = 'font-size:0.75em;color:#6b7280;';
+            lock.textContent = '🔒 ' + (mode.lockReason || 'Verrouillé');
+            btn.appendChild(lock);
+          }
+          
+          btn.addEventListener('mouseenter', () => {
+            if(mode.id === activeMode || mode.locked) return;
+            btn.style.background = '#0066ff';
+            btn.style.color = '#fff';
+            btn.style.borderColor = '#0066ff';
+            icon.style.transform = 'scale(1.1)';
+          });
+          btn.addEventListener('mouseleave', () => {
+            if(mode.id === activeMode || mode.locked) return;
+            btn.style.background = 'white';
+            btn.style.color = '#333';
+            btn.style.borderColor = '#ddd';
+            icon.style.transform = 'scale(1)';
+          });
+          btn.addEventListener('click', () => {
+            if(mode.locked) return;
+            setActiveMode(mode.id);
+          });
+          buttons.set(mode.id, btn);
+          modesContainer.appendChild(btn);
+        });
+        
+        const savedMode = localStorage.getItem(`fabanki:review_mode:${deckKey}`);
+        if(savedMode && buttons.has(savedMode)){
+          const savedDef = availableModes.find(m => m.id === savedMode);
+          if(savedDef && !savedDef.locked){
+            setActiveMode(savedMode);
+          } else {
+            setActiveMode('default');
+          }
+        } else {
+          setActiveMode('default');
+        }
+        
+        modeContainer.appendChild(modesContainer);
+        rightPanel.appendChild(modeContainer);
+        
+        // Add helpful hint about modes
+        const modeHint = document.createElement('div');
+        modeHint.style.cssText = 'font-size:0.85em;color:#666;margin-bottom:12px;padding:8px;background:rgba(0,0,0,0.05);border-radius:4px;';
+        modeHint.innerHTML = '💡 Sélectionnez votre mode d\'étude, puis cliquez sur le deck pour commencer. Chaque mode offre une expérience différente!';
+        rightPanel.appendChild(modeHint);
+      } else if(isActiveMemoryUnlocked && !lockState.locked){
+        // Show mode buttons even if no other modes are available
+        const modeContainer = document.createElement('div');
+        modeContainer.style.cssText = 'margin-bottom:16px;display:flex;flex-direction:column;gap:8px;';
+        
+        const modesContainer = document.createElement('div');
+        modesContainer.className = 'mode-grid';
+        modesContainer.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start;align-items:center;';
+        
+        const modeIcons = {
+          'default': '📚',
+          'activeMemory': '🧠',
+          'step': '🪜',
+          'reverse': '🔁',
+          'random': '🎲'
+        };
+        
+        const modeFullNames = {
+          'default': 'Mode Anki',
+          'activeMemory': 'Mémoire active',
+          'step': 'Étape par étape',
+          'reverse': 'Revers',
+          'random': 'Aléatoire'
+        };
+        
+        const stepLockedByDeck = deckFieldCount <= 2;
+        const stepLockedByQuest = !isStepModeUnlocked;
+        const stepLocked = stepLockedByDeck || stepLockedByQuest;
+        const reverseLockedByDeck = !(deckFieldCount >= 2 && deckFieldCount <= 4);
+        const reverseUnlocked = (typeof isReverseModeUnlocked === 'function')
+          ? isReverseModeUnlocked()
+          : (localStorage.getItem('fabanki:mode_reverse_unlocked') === 'true');
+        const reverseLockedByQuest = !reverseUnlocked;
+        const reverseLocked = reverseLockedByDeck || reverseLockedByQuest;
+        const randomLockedByDeck = !(deckFieldCount >= 2 && deckFieldCount <= 4);
+        const randomUnlocked = (typeof isRandomModeUnlocked === 'function')
+          ? isRandomModeUnlocked()
+          : (localStorage.getItem('fabanki:mode_random_unlocked') === 'true');
+
+        const availableModes = [
+          {id: 'default', name: 'Mode Anki', locked: false},
+          {id: 'fillblank', name: 'Texte à trou', locked: true, lockReason: 'Deck incompatible'},
+          {id: 'timer', name: 'Rappel sous pression', locked: true, lockReason: 'Deck incompatible'},
+          {id: 'activeMemory', name: 'Mémoire active', locked: false},
+          {id: 'step', name: 'Étape par étape', locked: stepLocked, lockReason: stepLockedByDeck ? 'Deck incompatible' : 'Mode bloque'},
+          {id: 'reverse', name: 'Revers', locked: reverseLocked, lockReason: reverseLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'},
+          {id: 'random', name: 'Aléatoire', locked: randomLocked, lockReason: randomLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'}
+        ];
+        
+        const buttons = new Map();
+        let activeMode = null;
+        const setActiveMode = (modeId) => {
+          activeMode = modeId;
+          reviewMode = modeId;
+          localStorage.setItem(`fabanki:review_mode:${deckKey}`, reviewMode);
+          buttons.forEach((btn, id) => {
+            const icon = btn.querySelector('.mode-icon');
+            if(id === modeId){
+              btn.style.background = '#0066ff';
+              btn.style.color = '#fff';
+              btn.style.borderColor = '#0066ff';
+              if(icon) icon.style.transform = 'scale(1.1)';
+            } else {
+              btn.style.background = 'white';
+              btn.style.color = '#333';
+              btn.style.borderColor = '#ddd';
+              if(icon) icon.style.transform = 'scale(1)';
+            }
+          });
+        };
+        
+        availableModes.forEach((mode) => {
+          const btn = document.createElement('button');
+          btn.className = 'mode-btn';
+          btn.style.cssText = 'flex:0 0 auto;padding:12px 16px;border:2px solid #ddd;border-radius:8px;background:white;color:#333;cursor:pointer;font-size:0.85em;user-select:none;transition:all 0.2s;font-weight:600;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;';
+          
+          const icon = document.createElement('div');
+          icon.className = 'mode-icon';
+          icon.style.cssText = 'font-size:1.4em;';
+          icon.textContent = modeIcons[mode.id] || '🎯';
+          btn.appendChild(icon);
+          
+          const text = document.createElement('div');
+          text.style.cssText = 'font-size:0.9em;white-space:nowrap;';
+          text.textContent = modeFullNames[mode.id] || mode.name;
+          btn.appendChild(text);
+
+          if(mode.locked){
+            btn.style.opacity = '0.45';
+            btn.style.cursor = 'not-allowed';
+            const lock = document.createElement('div');
+            lock.style.cssText = 'font-size:0.75em;color:#6b7280;';
+            lock.textContent = '🔒 ' + (mode.lockReason || 'Verrouille');
+            btn.appendChild(lock);
+          }
+          
+          btn.addEventListener('mouseenter', () => {
+            if(mode.id === activeMode || mode.locked) return;
+            btn.style.background = '#0066ff';
+            btn.style.color = '#fff';
+            btn.style.borderColor = '#0066ff';
+            icon.style.transform = 'scale(1.1)';
+          });
+          btn.addEventListener('mouseleave', () => {
+            if(mode.id === activeMode || mode.locked) return;
+            btn.style.background = 'white';
+            btn.style.color = '#333';
+            btn.style.borderColor = '#ddd';
+            icon.style.transform = 'scale(1)';
+          });
+          btn.addEventListener('click', () => {
+            if(mode.locked) return;
+            setActiveMode(mode.id);
+          });
+          buttons.set(mode.id, btn);
+          modesContainer.appendChild(btn);
+        });
+        
+        const savedMode = localStorage.getItem(`fabanki:review_mode:${deckKey}`);
+        if(savedMode && buttons.has(savedMode)){
+          const savedDef = availableModes.find(m => m.id === savedMode);
+          if(savedDef && !savedDef.locked){
+            setActiveMode(savedMode);
+          } else {
+            setActiveMode('default');
+          }
+        } else {
+          setActiveMode('default');
+        }
+        
+        modeContainer.appendChild(modesContainer);
+        rightPanel.appendChild(modeContainer);
+        
+        // Add helpful hint about modes
+        const modeHint = document.createElement('div');
+        modeHint.style.cssText = 'font-size:0.85em;color:#666;margin-bottom:12px;padding:8px;background:rgba(0,0,0,0.05);border-radius:4px;';
+        modeHint.innerHTML = '💡 Sélectionnez votre mode d\'étude, puis cliquez sur le deck pour commencer. Chaque mode offre une expérience différente!';
+        rightPanel.appendChild(modeHint);
+      }
+      
+      const startBtn = document.createElement('button');
+      
+      if(lockState.locked && lockState.lockedByCost){
+        // Show buy button
+        startBtn.textContent = `Acheter pour ${lockState.cost} ℂ`;
+        startBtn.className = lockState.currentCredits >= lockState.cost ? 'primary' : 'secondary';
+        startBtn.disabled = lockState.currentCredits < lockState.cost;
+        startBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;';
+        startBtn.addEventListener('click', ()=>{
+          const freshState = evaluateDeckLock(url);
+          if(freshState.currentCredits < freshState.cost){
+            alert(`Crédits insuffisants. Vous avez ${freshState.currentCredits} ℂ, il en faut ${freshState.cost} ℂ`);
+            return;
+          }
+          if(typeof addCredits === 'function') addCredits(-freshState.cost);
+          setDeckUnlocked(url);
+          alert(`Deck débloqué ! Il vous reste ${freshState.currentCredits - freshState.cost} ℂ`);
+          // Reload the overview to show the start button
+          showDeckOverview(url);
+        });
+      } else if(lockState.locked && lockState.lockedByLevel){
+        // Show level requirement
+        startBtn.textContent = `🔒 Niveau ${lockState.levelReq} requis`;
+        startBtn.className = 'secondary';
+        startBtn.disabled = true;
+        startBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;opacity:0.6;cursor:not-allowed;';
+      } else {
+        // Show start button (deck is unlocked)
+        startBtn.textContent = 'Démarrer';
+        startBtn.className = 'primary';
+        startBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;';
+        startBtn.addEventListener('click', ()=>{ 
+          console.log('Démarrer clicked - starting review');
+        
+        // Replace sync button with home button during review
+        try{
+          const syncBtn = document.getElementById('syncBtn');
+          const homeBtn = document.getElementById('homeBtn');
+          if(syncBtn && homeBtn) {
+            // Swap the buttons in the DOM
+            const parent = syncBtn.parentNode;
+            const syncBtnNextSibling = syncBtn.nextSibling;
+            parent.removeChild(syncBtn);
+            parent.insertBefore(homeBtn, syncBtnNextSibling);
+            homeBtn.style.display = 'inline-block';
+          }
+        }catch(e){}
+        
+        // Hide the overview container completely
+        const overviewContainer = document.getElementById('deckOverviewContainer');
+        if(overviewContainer) {
+          overviewContainer.remove();
+          console.log('Overview removed');
+        }
+        
+        // Exit multi-deck mode
+        multiDeckMode = false;
+        
+        // Remove welcome page completely (both formats)
+        const welcome = document.getElementById('welcome');
+        if(welcome) {
+          welcome.remove();
+          console.log('Welcome removed');
+        }
+        const welcomeDecks = document.getElementById('welcomeDecks');
+        if(welcomeDecks) {
+          welcomeDecks.remove();
+          console.log('WelcomeDecks removed');
+        }
+        
+        // Show main content - be aggressive
+        const mainEl = document.querySelector('main');
+        if(mainEl) {
+          mainEl.style.display = 'block';
+          mainEl.style.visibility = 'visible';
+          console.log('Main shown');
+        }
+        
+        // Also hide stats
+        const statsEl = document.getElementById('stats');
+        if(statsEl) statsEl.style.display = 'none';
+        
+        // Load the deck (which will call showNextCard internally)
+        deckURL = url;
+        loadDeckFromURL(url);
+      });
+      }
+      rightPanel.appendChild(startBtn);
+      
+      header.appendChild(rightPanel);
+      container.appendChild(header);
+      
+      // Card grid
+      const gridTitle = document.createElement('h3');
+      gridTitle.textContent = 'Cartes';
+      gridTitle.style.cssText = 'margin:24px 0 12px 0;';
+      container.appendChild(gridTitle);
+      
+      // Sort cardsList by category in the specified order
+      const categoryOrder = {now: 0, h12: 1, tomorrow: 2, week: 3, long: 4, new: 5};
+      cardsList.sort((a, b) => categoryOrder[a.category] - categoryOrder[b.category]);
+      
+      const grid = document.createElement('div');
+      grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;';
+      
+      for(const card of cardsList){
+        const cardEl = document.createElement('div');
+        cardEl.style.cssText = `
+          background:${colors[card.category]};
+          color:white;
+          padding:12px;
+          border-radius:12px;
+          font-size:0.85em;
+          word-wrap:break-word;
+          opacity:0.9;
+          position:relative;
+          cursor:pointer;
+        `;
+        
+        // Render card content with KaTeX support
+        const contentDiv = document.createElement('div');
+        contentDiv.innerHTML = card.html;
+        
+        // Try to render KaTeX if available
+        if(typeof katex !== 'undefined' && typeof renderMathInElement !== 'undefined'){
+          try{
+            renderMathInElement(contentDiv, {
+              delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false},
+                {left: '\\[', right: '\\]', display: true},
+                {left: '\\(', right: '\\)', display: false}
+              ],
+              throwOnError: false
+            });
+          }catch(e){ console.warn('KaTeX render error:', e); }
+        }
+        
+        // Get text preview (preserve HTML with rendered KaTeX, but truncate)
+        let preview = contentDiv.innerHTML;
+        const textContent = contentDiv.textContent.replace(/<[^>]*>/g,'');
+        const truncatedText = textContent.slice(0,60);
+        
+        // Clear and set content properly
+        cardEl.innerHTML = '';
+        
+        // Create preview container with KaTeX support
+        const previewEl = document.createElement('div');
+        previewEl.style.cssText = 'overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;';
+        
+        // Add the rendered HTML (with KaTeX)
+        previewEl.innerHTML = preview;
+        
+        // Truncate text if needed
+        if(textContent.length > 60){
+          previewEl.textContent = truncatedText + '...';
+        }
+        
+        cardEl.appendChild(previewEl);
+        
+        // Add tooltip on hover
+        const tooltip = document.createElement('div');
+        tooltip.style.cssText = `
+          position:absolute;
+          bottom:100%;
+          left:50%;
+          transform:translateX(-50%);
+          background:#333;
+          color:#fff;
+          padding:8px 12px;
+          border-radius:6px;
+          font-size:0.75em;
+          white-space:nowrap;
+          z-index:10000;
+          pointer-events:none;
+          opacity:0;
+          transition:opacity 0.2s;
+          margin-bottom:8px;
+        `;
+        
+        // Calculate relative time strings
+        const now = new Date();
+        const formatRelativeTime = (date) => {
+          const diff = date - now;
+          if(diff < 0) return 'maintenant';
+          
+          const ms = diff;
+          const mins = Math.floor(ms / (1000*60));
+          const hrs = Math.floor(ms / (1000*60*60));
+          const days = Math.floor(ms / (1000*60*60*24));
+          
+          if(days > 0) return days + 'j';
+          if(hrs > 0) return hrs + 'h';
+          if(mins > 0) return mins + 'min';
+          return 'maintenant';
+        };
+        
+        // Get stored data for this card
+        const storedKey = `fabanki:${deckKeyForStats}:card:${card.id}`;
+        const storedData = localStorage.getItem(storedKey);
+        let tooltipText = 'Aucune donnée';
+        if(storedData){
+          try{
+            const st = JSON.parse(storedData);
+            tooltipText = '';
+            if(st.due) tooltipText = `Prochain: ${formatRelativeTime(new Date(st.due))}`;
+            if(st.last) tooltipText += (tooltipText ? ' | ' : '') + `Dernier: ${formatRelativeTime(new Date(st.last))}`;
+            if(!tooltipText) tooltipText = 'Aucune donnée';
+          }catch(e){ tooltipText = 'Erreur'; }
+        }
+        
+        tooltip.textContent = tooltipText;
+        cardEl.appendChild(tooltip);
+        
+        // Show tooltip on hover
+        cardEl.addEventListener('mouseenter', () => {
+          tooltip.style.opacity = '1';
+          // Auto-hide after 3 seconds
+          setTimeout(() => { tooltip.style.opacity = '0'; }, 3000);
+        });
+        cardEl.addEventListener('mouseleave', () => {
+          tooltip.style.opacity = '0';
+        });
+        
+        
+        grid.appendChild(cardEl);
+      }
+      container.appendChild(grid);
+      
+      // Add to page with explicit styling to ensure visibility
+      // Remove any previous overview
+      const oldContainer = document.getElementById('deckOverviewContainer');
+      if(oldContainer) oldContainer.remove();
+      
+      // Append directly to body so it's on top of everything
+      document.body.appendChild(container);
+      
+      // Scroll to top
+      window.scrollTo(0, 0);
+      
+      updateStatus(`${tempDeck.title} - ${total} cartes`);
+    }catch(e){
+      console.error('Deck overview error:', e);
+      updateStatus('Erreur: ' + e.message);
+    }
+  }
+
+  // === Function: renderFront ===
+  // Render fields that are allowed on the front side according to their `sides`.
+  // Each card now has `card.fields` where keys are field names and values are {html,type,sides}.
+  function applyCardScroll(el){
+    if(!el) return;
+    requestAnimationFrame(() => {
+      const overflowX = el.scrollWidth > el.clientWidth + 2;
+      const overflowY = el.scrollHeight > el.clientHeight + 2;
+      if(overflowX || overflowY){
+        el.style.overflow = 'auto';
+        el.style.alignItems = 'flex-start';
+        el.style.justifyContent = 'flex-start';
+      } else {
+        el.style.overflow = 'hidden';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+      }
+    });
+  }
+  function isReverseModeActive(){
+    if(reviewMode === 'reverse') return true;
+    if(reviewMode === 'random'){
+      return !!(window.__randomModeState && window.__randomModeState.reverse);
+    }
+    return false;
+  }
+  function normalizeSidesForMode(sides, isReversed){
+    if(!sides || !isReversed) return sides;
+    return { front: !!sides.back, back: !!sides.front, always: false };
+  }
+  function getOrderedFieldNames(card, defs){
+    if(defs && defs.length){
+      const names = defs.map(d => d.name).filter(name => card.fields && card.fields[name]);
+      if(names.length) return names;
+    }
+    if(card._fieldOrder && card._fieldOrder.length) return card._fieldOrder.slice();
+    if(card.fields) return Object.keys(card.fields);
+    return [];
+  }
+  function renderFront(card){
+    const frontEl = $('#front');
+    const alwaysEl = $('#always');
+    if(!card) { frontEl.innerHTML=''; alwaysEl.textContent=''; return }
+
+    // Clear previous content AGGRESSIVELY
+    frontEl.innerHTML = '';
+    alwaysEl.innerHTML = '';
+    // Also remove all child nodes to be absolutely sure
+    while(frontEl.firstChild) frontEl.removeChild(frontEl.firstChild);
+    while(alwaysEl.firstChild) alwaysEl.removeChild(alwaysEl.firstChild);
+    
+    console.log('renderFront: Cleared DOM, starting fresh');
+
+    const defs = deck.fieldDefs || [];
+    let anyAlways = false;
+
+    if(reviewMode === 'step'){
+      const stepNodes = [];
+      if(defs.length === 0){
+        if(card.fields && card._fieldOrder && card._fieldOrder.length > 0){
+          for(const fieldName of card._fieldOrder){
+            const f = card.fields[fieldName];
+            if(!f || !f.html || f.html.trim().length === 0) continue;
+            const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: true, back: true}};
+            stepNodes.push(buildFieldElement(def, f));
+          }
+        } else if(card.fields){
+          for(const fieldName in card.fields){
+            const f = card.fields[fieldName];
+            if(!f || !f.html || f.html.trim().length === 0) continue;
+            const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: true, back: true}};
+            stepNodes.push(buildFieldElement(def, f));
+          }
+        }
+      } else {
+        console.log('renderFront: Processing field definitions. Card fields:', Object.keys(card.fields), 'Defs:', defs.map(d => d.name));
+        for(const def of defs){
+          const f = card.fields && card.fields[def.name];
+          if(!f) {
+            console.log(`  Field "${def.name}" not found in card, skipping`);
+            continue;
+          }
+          if(!f.html || f.html.trim().length === 0) {
+            continue;
+          }
+          console.log(`Step Field "${def.name}"`);
+          stepNodes.push(buildFieldElement(def, f));
+        }
+        console.log('renderFront: Done');
+      }
+
+      window.__stepModeState = { nodes: stepNodes, index: 0, cardId: card.id || null };
+      if(stepNodes[0]) frontEl.appendChild(stepNodes[0]);
+      alwaysEl.textContent = '';
+      try{ applyCardScroll(frontEl); }catch(e){}
+      return;
+    }
+    
+    const isReversed = isReverseModeActive();
+    if(isReversed){
+      const orderedNames = getOrderedFieldNames(card, defs);
+      for(let i = 1; i < orderedNames.length; i++){
+        const fieldName = orderedNames[i];
+        const f = card.fields && card.fields[fieldName];
+        if(!f || !f.html || f.html.trim().length === 0) continue;
+        const def = (defs || []).find(d => d.name === fieldName) || {name: fieldName, type: f.type || 'rich-text'};
+        const node = buildFieldElement(def, f);
+        frontEl.appendChild(node);
+      }
+      alwaysEl.textContent = '';
+      try{ applyCardScroll(frontEl); }catch(e){}
+      return;
+    }
+    if(defs.length === 0){
+      // No field definitions: show first field on front (multi-deck fallback)
+      // Use _fieldOrder if available for correct ordering
+      if(isReversed){
+        if(card.fields && card._fieldOrder && card._fieldOrder.length > 1){
+          for(let i = 1; i < card._fieldOrder.length; i++){
+            const fieldName = card._fieldOrder[i];
+            const f = card.fields[fieldName];
+            if(f){
+              const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: true, back: false}};
+              const node = buildFieldElement(def, f);
+              frontEl.appendChild(node);
+            }
+          }
+        } else if(card.fields){
+          let isFirst = true;
+          for(const fieldName in card.fields){
+            if(isFirst){
+              isFirst = false;
+              continue;
+            }
+            const f = card.fields[fieldName];
+            if(f){
+              const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: true, back: false}};
+              const node = buildFieldElement(def, f);
+              frontEl.appendChild(node);
+            }
+          }
+        }
+      } else if(card.fields && card._fieldOrder && card._fieldOrder.length > 0){
+        const fieldName = card._fieldOrder[0];
+        const f = card.fields[fieldName];
+        if(f){
+          const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: true, back: false}};
+          const node = buildFieldElement(def, f);
+          frontEl.appendChild(node);
+        }
+      } else if(card.fields){
+        // Fallback if _fieldOrder not available
+        let isFirst = true;
+        for(const fieldName in card.fields){
+          if(isFirst){
+            const f = card.fields[fieldName];
+            if(f){
+              const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: true, back: false}};
+              const node = buildFieldElement(def, f);
+              frontEl.appendChild(node);
+            }
+            isFirst = false;
+            break;
+          }
+        }
+      }
+    } else {
+      // Use field definitions - ONLY show fields that are marked for front
+        console.log('renderFront: Processing field definitions. Card fields:', Object.keys(card.fields), 'Defs:', defs.map(d => d.name));
+      
+      for(const def of defs){
+        const f = card.fields && card.fields[def.name];
+        if(!f) {
+          console.log(`  Field "${def.name}" not found in card, skipping`);
+          continue;
+        }
+        
+        // Skip empty fields
+        if(!f.html || f.html.trim().length === 0) {
+          continue;
+        }
+        
+        // Get sides from field or definition
+        const sides = normalizeSidesForMode((f.sides || def.sides), isReversed);
+        
+        console.log(`Front Field "${def.name}": sides=`, sides);
+        
+        // Skip if no sides specified and not first field
+        if(!sides){
+          const isFirstField = Object.keys(card.fields).findIndex(k => k === def.name) === 0;
+          if(!isFirstField) {
+            console.log(`  -> Skipping "${def.name}" (no sides, not first)`);
+            continue;
+          }
+          if(isReversed){
+            console.log(`  -> Skipping "${def.name}" (first field, reversed)`);
+            continue;
+          }
+          // First field with no sides - render it
+          console.log(`  -> Rendering "${def.name}" (first field, no sides)`);
+          const node = buildFieldElement(def, f);
+          frontEl.appendChild(node);
+        } 
+        // Show if field is marked for front (always or front)
+        else if(sides.always || sides.front){
+          console.log(`  -> Rendering "${def.name}" (always=${sides.always}, front=${sides.front})`);
+          const node = buildFieldElement(def, f);
+          frontEl.appendChild(node);
+          if(sides.always) anyAlways = true;
+        } else {
+          console.log(`  -> Skipping "${def.name}" (back-only: front=${sides.front}, back=${sides.back})`);
+        }
+        // Otherwise skip (back-only field)
+      }
+      console.log('renderFront: Done');
+    }
+
+    alwaysEl.textContent = '';
+    try{ applyCardScroll(frontEl); }catch(e){}
+  }
+
+  // === Function: renderBack ===
+  // Similar to renderFront but shows fields allowed on the back side.
+  function renderBack(card){
+    const backEl = $('#back');
+    if(!card){ backEl.innerHTML=''; return }
+
+    backEl.innerHTML = '';
+    // In multi-deck mode, get field defs from the map using card.id
+    let defs = [];
+    if(multiDeckMode && card && card.id){
+      defs = cardFieldDefsMap.get(card.id) || [];
+    }
+    if(!defs || defs.length === 0){
+      defs = deck.fieldDefs || [];
+    }
+    
+    let anyContent = false;
+    const frontVisible = (function(){ try{ const fe = document.getElementById('front'); return fe && fe.style.display !== 'none'; }catch(e){ return false } })();
+    
+    const isReversed = isReverseModeActive();
+    if(isReversed){
+      const orderedNames = getOrderedFieldNames(card, defs);
+      if(orderedNames.length > 0){
+        const fieldName = orderedNames[0];
+        const f = card.fields && card.fields[fieldName];
+        if(f && f.html && f.html.trim().length > 0){
+          const def = (defs || []).find(d => d.name === fieldName) || {name: fieldName, type: f.type || 'rich-text'};
+          const node = buildFieldElement(def, f);
+          backEl.appendChild(node);
+          anyContent = true;
+        }
+      }
+      if(!anyContent){ backEl.innerHTML = '<em>Contenu masqué côté réponse</em>'; }
+      try{ applyCardScroll(backEl); }catch(e){}
+      return;
+    }
+    if(defs.length === 0){
+      // No field definitions: show all fields except first on back (multi-deck)
+      // Use _fieldOrder if available to preserve XML order
+      if(isReversed){
+        if(card.fields && card._fieldOrder && card._fieldOrder.length > 0){
+          const fieldName = card._fieldOrder[0];
+          const f = card.fields[fieldName];
+          if(f){
+            const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
+            const node = buildFieldElement(def, f);
+            backEl.appendChild(node);
+            anyContent = true;
+          }
+        } else if(card.fields){
+          let isFirst = true;
+          for(const fieldName in card.fields){
+            if(isFirst){
+              const f = card.fields[fieldName];
+              if(f){
+                const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
+                const node = buildFieldElement(def, f);
+                backEl.appendChild(node);
+                anyContent = true;
+              }
+              break;
+            }
+          }
+        }
+      } else if(card.fields && card._fieldOrder && card._fieldOrder.length > 1){
+        // Multiple fields - show all except first
+        for(let i = 1; i < card._fieldOrder.length; i++){
+          const fieldName = card._fieldOrder[i];
+          const f = card.fields[fieldName];
+          if(f){
+            const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
+            const node = buildFieldElement(def, f);
+            backEl.appendChild(node);
+            anyContent = true;
+          }
+        }
+      } else if(card.fields && card._fieldOrder && card._fieldOrder.length === 1){
+        // Only one field - nothing to show on back
+        anyContent = false;
+      } else if(card.fields){
+        // Fallback if _fieldOrder not available - try to find additional fields
+        let isFirst = true;
+        for(const fieldName in card.fields){
+          if(!isFirst){
+            const f = card.fields[fieldName];
+            if(f){
+              const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
+              const node = buildFieldElement(def, f);
+              backEl.appendChild(node);
+              anyContent = true;
+            }
+          } else {
+            isFirst = false;
+          }
+        }
+      }
+    } else {
+      // Use field definitions - show fields marked for back
+      // FIRST: Check if any field definitions actually match card fields
+      const cardFieldKeys = card.fields ? Object.keys(card.fields) : [];
+      const defsMatch = defs.some(d => card.fields && card.fields[d.name]);
+      
+      if(!defsMatch && cardFieldKeys.length > 0){
+        // Field definitions don't match card fields - use actual card field names instead
+        if(isReversed){
+          const fieldName = cardFieldKeys[0];
+          const f = card.fields[fieldName];
+          if(f){
+            const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
+            const node = buildFieldElement(def, f);
+            backEl.appendChild(node);
+            anyContent = true;
+          }
+        } else {
+          // Show all fields except first
+          let isFirst = true;
+          for(const fieldName of cardFieldKeys){
+            if(isFirst){
+              isFirst = false;
+              continue;
+            }
+            const f = card.fields[fieldName];
+            if(f){
+              const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: false, back: true}};
+              const node = buildFieldElement(def, f);
+              backEl.appendChild(node);
+              anyContent = true;
+            }
+          }
+        }
+      } else {
+        // Field definitions match - use them
+        let foundAny = false;
+        let fieldsShown = 0;
+        
+        console.log('renderBack: Processing field definitions. Card fields:', Object.keys(card.fields), 'Defs:', defs.map(d => d.name));
+        
+        for(const def of defs){
+          const f = card.fields && card.fields[def.name];
+          if(!f) {
+            console.warn('Field not found for def:', def.name, 'available fields:', Object.keys(card.fields || {}));
+            continue;
+          }
+          
+          // Skip empty fields
+          if(!f.html || f.html.trim().length === 0) {
+            continue;
+          }
+          
+          foundAny = true;
+          // Get sides info, defaulting to {front:true,back:false} if not specified (don't show duplicates)
+          const sides = normalizeSidesForMode((f.sides || def.sides || {front: true, back: false}), isReversed);
+          
+          console.log(`Field "${def.name}": sides=`, sides, 'frontVisible=', frontVisible);
+          
+          // Skip if only on front and front is visible
+          if(sides.front && !sides.back && frontVisible) {
+            console.log(`  -> Skipping "${def.name}" (front-only, front is visible)`);
+            continue;
+          }
+          // Show if marked for back, but NOT if 'always' (always fields go to alwaysEl, not back)
+          if(sides.back && !sides.always){
+            console.log(`  -> Rendering "${def.name}" on back`);
+            const node = buildFieldElement(def, f);
+            backEl.appendChild(node);
+            anyContent = true;
+            fieldsShown++;
+          } else {
+            console.log(`  -> Skipping "${def.name}" (sides.back=${sides.back}, sides.always=${sides.always})`);
+          }
+        }
+        
+        console.log(`renderBack: Rendered ${fieldsShown} fields`);
+      }
+    }
+
+    if(!anyContent){ backEl.innerHTML = '<em>Contenu masqué côté réponse</em>'; }
+    try{ applyCardScroll(backEl); }catch(e){}
+  }
+
+  // Helper: buildFieldElement(def, f)
+  // === Function: decodeHTMLEntities ===
+  // Decodes HTML entities like &lt;, &gt;, &amp;, &quot;, &#39; to their actual characters
+  function decodeHTMLEntities(text){
+    if(!text || typeof text !== 'string') return text;
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+  }
+
+  // Returns an HTMLElement for a given field definition and card field value.
+  function buildFieldElement(def, f){
+    const wrapper = document.createElement('div');
+    wrapper.className = 'field field-'+def.name.replace(/\s+/g,'-').toLowerCase();
+    // Treat only explicit 'tex'/'math' types as TeX — avoid matching 'text'
+    const ttype = (f.type||def.type||'').toLowerCase();
+    const isTexType = ['tex','math','latex'].includes(ttype);
+    const isTTS = (ttype === 'tts');
+    const isPlainText = (ttype === 'text');
+    
+    // Decode HTML entities first (needed for proper KaTeX rendering)
+    const decodedHtml = decodeHTMLEntities(f.html || '');
+    const containsBlockTags = /<(p|div|ul|ol|li|table|tr|td|br|h[1-6])\b/i.test(decodedHtml);
+    
+    if(isTTS){
+      // Render <tts> as a paragraph with plain text and add a play button
+      const p = document.createElement('p');
+      p.textContent = f.html || '';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'tts-play secondary';
+      btn.title = 'Lire le texte';
+      btn.textContent = '🔊';
+      btn.addEventListener('click', ()=>{
+        try{
+          if(!('speechSynthesis' in window)){ alert('TTS non supporté dans ce navigateur'); return }
+          // If currently speaking, cancel (acts as stop)
+          if(window.speechSynthesis.speaking){ window.speechSynthesis.cancel(); btn.textContent = '🔊'; return }
+          const text = (f.html||'').trim();
+          if(!text) return;
+          const u = new SpeechSynthesisUtterance(text);
+          // prefer English by default for TTS unless field specifies otherwise
+          u.lang = 'en-US';
+          // prefer default voice; user can modify in browser
+          btn.textContent = '⏸';
+          u.onend = ()=>{ try{ btn.textContent = '🔊' }catch(e){} };
+          u.onerror = ()=>{ try{ btn.textContent = '🔊' }catch(e){} };
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(u);
+        }catch(e){ console.warn('TTS error', e); alert('Erreur TTS: '+(e && e.message || e)); }
+      });
+      wrapper.appendChild(p);
+      wrapper.appendChild(btn);
+    } else if(isPlainText){
+      // Render explicit <text> fields as plain text (do not attempt KaTeX)
+      const p = document.createElement('p'); p.textContent = decodedHtml || ''; wrapper.appendChild(p);
+    } else if(isTexType && !containsBlockTags){
+      // Safe to render with KaTeX (no block HTML inside)
+      const texSrc = decodedHtml.trim();
+      const span = document.createElement('div');
+      span.style.cssText = 'display:flex;justify-content:center;align-items:center;min-height:60px;';
+      try{
+        if(window.katex && typeof katex.render === 'function'){
+          const display = /\\\\\[|\\\\\]|\$\$|\n/.test(texSrc) || texSrc.split(/\\n|\n/).length>1;
+          katex.render(texSrc, span, {throwOnError:false, displayMode: display});
+          // Center the rendered KaTeX
+          span.style.justifyContent = 'center';
+        } else { span.textContent = texSrc }
+      }catch(e){ span.textContent = texSrc }
+      wrapper.appendChild(span);
+    } else {
+      // Render as HTML (rich-text) — decode entities first
+      wrapper.innerHTML = decodedHtml || '';
+    }
+    return wrapper;
+  }
+
+  // === Function: renderKaTeX ===
+  // Uses auto-render with throwOnError:false to avoid breaking on invalid TeX.
+  function renderKaTeX(container){
+    // No-op: we render only explicit <tex> fields using katex.render()
+    return;
+  }
+
+  // === FSRS implementation (SM-2-like) ===
+  function initFSRS(){
+    // ensure per-card state exists
+    for(const c of deck.cards){
+      const key = storageKey('card:'+c.id);
+      if(!localStorage.getItem(key)){
+        const state = {reps:0,interval:0,ef:2.5,due: (new Date()).toISOString(), last: null};
+        // FSRS fields for Maths deck (initialized lazily as well)
+        state.stability = 1.5; // days
+        state.difficulty = 7.5; // higher default difficulty for Maths
+        localStorage.setItem(key, JSON.stringify(state));
+      }
+    }
+    
+    // Disable step mode for 2-field decks (front/back only)
+    try{
+      const defsCount = Array.isArray(deck.fieldDefs) ? deck.fieldDefs.length : 0;
+      let fieldCount = defsCount;
+      if(!fieldCount && deck.cards && deck.cards[0]){
+        const order = deck.cards[0]._fieldOrder || Object.keys(deck.cards[0].fields || {});
+        fieldCount = order.length;
+      }
+      if(reviewMode === 'step' && fieldCount <= 2){
+        reviewMode = 'default';
+        if(typeof deckKey !== 'undefined'){
+          localStorage.setItem(`fabanki:review_mode:${deckKey}`, reviewMode);
+        }
+      }
+    }catch(e){}
+
+    // Reset session state BEFORE calling getDueCards (which checks reviewedCount)
+    reviewedCount = 0;
+    sessionData = [];
+    
+    dueCards = getDueCards();
+    
+    // Load timer settings if they exist for this deck
+    const savedTimerSettings = localStorage.getItem(`fabanki:timer_settings:${deckKey}`);
+    if(savedTimerSettings){
+      try{
+        timerSettings = JSON.parse(savedTimerSettings);
+      }catch(e){ console.warn('Error loading timer settings:', e); }
+    }
+    
+    // sessionTotal should equal number of due cards at session start
+    sessionTotal = dueCards.length;
+    isReviewing = true;
+    sessionCreditsGranted = false;
+    setReviewTopBarVisibility(true);
+    window.__timerSettingsShown = false; // Reset timer settings flag for new session
+    const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
+    currentIndex = 0;
+    showNextCard();
+    updateProgressDisplay();
+    updateHistogram();
+  }
+
+  // --- FSRS profiles per subject ---
+  const fsrsProfiles = {
+    maths: {
+      targetRetention: 0.92,
+      initStability: 1.5,
+      initDifficulty: 7.5,
+      weights: {
+        w0: 0.35, w1: 1.40, w2: 2.45, w3: 6.30, w4: 0.40,
+        w5: 1.60, w6: 0.20, w7: 1.25, w8: 0.78, w9: 1.00,
+        w10: 1.22, w11: 0.60, w12: 0.35, w13: 1.15, w14: 0.18,
+        w15: 0.12, w16: 1.05, w17: 0.10
+      }
+    },
+    physique: {
+      targetRetention: 0.86,
+      initStability: 1.4,
+      initDifficulty: 6.3,
+      weights: {
+        w0: 0.32, w1: 1.20, w2: 2.60, w3: 6.80, w4: 0.38,
+        w5: 1.40, w6: 0.18, w7: 1.22, w8: 0.82, w9: 1.00,
+        w10: 1.25, w11: 0.75, w12: 0.30, w13: 1.12, w14: 0.17,
+        w15: 0.11, w16: 1.08, w17: 0.10
+      }
+    },
+    anglais: {
+      targetRetention: 0.84,
+      initStability: 1.2,
+      initDifficulty: 5.5,
+      weights: {
+        w0: 0.28, w1: 1.05, w2: 2.90, w3: 7.30, w4: 0.36,
+        w5: 1.20, w6: 0.16, w7: 1.20, w8: 0.74, w9: 1.00,
+        w10: 1.32, w11: 0.85, w12: 0.25, w13: 1.10, w14: 0.16,
+        w15: 0.10, w16: 1.05, w17: 0.10
+      }
+    },
+    francais: {
+      targetRetention: 0.85,
+      initStability: 1.3,
+      initDifficulty: 6.0,
+      weights: {
+        w0: 0.30, w1: 1.10, w2: 2.60, w3: 7.10, w4: 0.37,
+        w5: 1.30, w6: 0.17, w7: 1.18, w8: 0.80, w9: 1.00,
+        w10: 1.24, w11: 0.78, w12: 0.28, w13: 1.11, w14: 0.17,
+        w15: 0.10, w16: 1.06, w17: 0.10
+      }
+    },
+    si: {
+      targetRetention: 0.89,
+      initStability: 1.4,
+      initDifficulty: 6.5,
+      weights: {
+        w0: 0.33, w1: 1.25, w2: 2.55, w3: 7.00, w4: 0.42,
+        w5: 1.45, w6: 0.19, w7: 1.22, w8: 0.82, w9: 1.00,
+        w10: 1.20, w11: 0.68, w12: 0.32, w13: 1.12, w14: 0.17,
+        w15: 0.11, w16: 1.08, w17: 0.10
+      }
+    },
+    info: {
+      targetRetention: 0.85,
+      initStability: 1.3,
+      initDifficulty: 6.0,
+      weights: {
+        w0: 0.30, w1: 1.10, w2: 2.70, w3: 7.10, w4: 0.38,
+        w5: 1.30, w6: 0.18, w7: 1.20, w8: 0.80, w9: 1.00,
+        w10: 1.25, w11: 0.80, w12: 0.28, w13: 1.11, w14: 0.17,
+        w15: 0.10, w16: 1.07, w17: 0.10
+      }
+    }
+  };
+
+  function detectFsrsProfile(){
+    const title = (deck && deck.title ? deck.title : '').toLowerCase();
+    const url = (deckURL || '').toLowerCase();
+
+    // Extract first folder under /decks/ if present
+    let folder = '';
+    const m = url.match(/\/decks\/([^/]+)/);
+    if(m && m[1]) folder = m[1].toLowerCase();
+
+    // Primary detection: exact folder name under decks/
+    if(folder === 'maths') return 'maths';
+    if(folder === 'physique') return 'physique';
+    if(folder === 'anglais') return 'anglais';
+    if(folder === 'français' || folder === 'francais') return 'francais';
+    if(folder === 'sciences industrielles' || folder === 'si') return 'si';
+    if(folder === 'informatique' || folder === 'info') return 'info';
+
+    // Fallback: title/URL substring detection
+    if(title.includes('math') || url.includes('/maths/') || url.includes('maths')) return 'maths';
+    if(title.includes('phys') || url.includes('/physique') || url.includes('physique')) return 'physique';
+    if(title.includes('anglais') || title.includes('english') || url.includes('/anglais') || url.includes('english')) return 'anglais';
+    if(title.includes('français') || title.includes('francais') || title.includes('french') || url.includes('/français') || url.includes('/francais')) return 'francais';
+    if(title.includes('sciences industrielles') || title.includes('si ') || title.endsWith(' si') || url.includes('/sciences industrielles') || url.includes('/si/')) return 'si';
+    if(title.includes('info') || title.includes('informatique') || title.includes('computer') || title.includes('algo') || url.includes('/informatique') || url.includes('/info/')) return 'info';
+    return null;
+  }
+
+  function ensureFsrsState(st, profileKey){
+    const prof = fsrsProfiles[profileKey] || fsrsProfiles.maths;
+    if(st.stability == null || Number.isNaN(st.stability)) st.stability = prof.initStability;
+    if(st.difficulty == null || Number.isNaN(st.difficulty)) st.difficulty = prof.initDifficulty;
+  }
+
+  function fsrsScheduleGeneric(st, quality, profileKey){
+    const prof = fsrsProfiles[profileKey];
+    if(!prof) return st;
+    const weights = prof.weights;
+    const targetRetention = prof.targetRetention || 0.9;
+    const now = new Date();
+    ensureFsrsState(st, profileKey);
+    const response = quality <= 1 ? 0 : (quality === 3 ? 1 : (quality === 4 ? 2 : 3));
+    const lastReview = st.last ? new Date(st.last) : null;
+    const elapsedDays = lastReview ? Math.max(0.01, (now - lastReview) / (1000*60*60*24)) : 0;
+
+    const retrievability = st.stability > 0 ? Math.exp(Math.log(targetRetention) * elapsedDays / st.stability) : targetRetention;
+
+    const diffDelta = response === 0 ? 0.30 : response === 1 ? 0.05 : response === 2 ? -0.05 : -0.10;
+    st.difficulty = Math.min(9.5, Math.max(1.5, st.difficulty + diffDelta * weights.w5));
+
+    let newStability;
+    if(response === 0){
+      newStability = Math.max(1, st.stability * weights.w11);
+    } else {
+      const growth = weights.w2 * Math.exp(-weights.w4 * st.stability) * (1 - retrievability);
+      const buttonMult = response === 1 ? weights.w8 : response === 2 ? weights.w9 : weights.w10;
+      const base = 1 + growth;
+      newStability = Math.max(1, st.stability * base * buttonMult * weights.w7);
+    }
+
+    const retentionCoeff = getRetentionCoefficient(reviewMode);
+    const intervalDays = Math.max(1, Math.round(newStability * retentionCoeff));
+
+    st.stability = newStability;
+    st.interval = intervalDays;
+    st.reps = (st.reps || 0) + 1;
+    st.last = now.toISOString();
+    st.due = addDays(startOfDay(now), intervalDays).toISOString();
+    return st;
+  }
+
+  function getDueCards(){
+    // use current time so cards scheduled for now are included
+    const now = new Date();
+    const maintenantFromPreviousReview = []; // Cards with st.last set and due <= now
+    const nouveau = []; // Cards never reviewed (no st.last)
+    const futureList = []; // Cards due in the future (sorted by due)
+    
+    for(const c of deck.cards){
+      const key = storageKey('card:'+c.id);
+      const st = JSON.parse(localStorage.getItem(key) || '{}');
+      const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
+      const due = st && st.due ? new Date(st.due) : new Date();
+      const wasReviewedBefore = st && st.last; // has previous review history
+      
+      // Categorize cards
+      if(isNew){
+        // New card - never reviewed
+        nouveau.push(c);
+      } else if(wasReviewedBefore && due <= now){
+        // Maintenant from previous review: was reviewed before AND is due now
+        maintenantFromPreviousReview.push(c);
+      } else if(!wasReviewedBefore && due <= now){
+        // This case shouldn't happen (new cards don't have due dates), but include just in case
+        maintenantFromPreviousReview.push(c);
+      } else {
+        futureList.push({ card: c, due });
+      }
+    }
+    
+    // shuffle within each bucket
+    const shuffle = (arr)=>{ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] } };
+    shuffle(maintenantFromPreviousReview); 
+    shuffle(nouveau);
+    
+    // Priority logic:
+    // 1. If there are maintenant cards from previous reviews, show ONLY them
+    if(maintenantFromPreviousReview.length > 0){
+      return maintenantFromPreviousReview;
+    }
+    // 2. Else if there are nouveau cards, show ONLY them
+    if(nouveau.length > 0){
+      return nouveau;
+    }
+    // 3. Else show all remaining cards sorted by due date (closest first)
+    futureList.sort((a, b) => a.due - b.due);
+    return futureList.map(item => item.card);
+  }
+
+  // === Histogram helper ===
+  function updateHistogram(){
+    if(!deck || !deck.cards) return;
+    const now = new Date();
+    const counts = {new:0, now:0, h12:0, tomorrow:0, week:0, long:0};
+    for(const c of deck.cards){
+      const key = storageKey('card:'+c.id);
+      const st = JSON.parse(localStorage.getItem(key) || '{}');
+      if(!st || (!st.last && (st.reps===0 || st.reps===undefined))){ counts.new++; continue }
+      const due = st && st.due ? new Date(st.due) : now;
+      const hrs = (due - now) / (1000*60*60);
+      if(due <= now) counts.now++;
+      else if(hrs <= 12) counts.h12++;
+      else if(hrs <= 24) counts.tomorrow++;
+      else if(hrs <= 24*7) counts.week++;
+      else counts.long++;
+    }
+    // compute max for scaling
+    const max = Math.max(1, counts.new, counts.now, counts.h12, counts.tomorrow, counts.week, counts.long);
+    // set fills heights and counts above bars
+    const setCol = (fillId, countId, val) => {
+      const fill = document.getElementById(fillId);
+      const cnt = document.getElementById(countId);
+      if(cnt) cnt.textContent = val;
+      if(!fill) return;
+      const pct = Math.round((val / max) * 100);
+      if(window.innerWidth <= 640){
+        // mobile: horizontal bars (width-based)
+        fill.style.width = pct + '%';
+        fill.style.height = '100%';
+      } else {
+        // desktop: vertical bars (height-based)
+        fill.style.height = pct + '%';
+        fill.style.width = '';
+      }
+      fill.title = val + ' cartes';
+    };
+    setCol('bar-new','count-new', counts.new);
+    setCol('bar-now','count-now', counts.now);
+    setCol('bar-12h','count-12h', counts.h12);
+    setCol('bar-tomorrow','count-tomorrow', counts.tomorrow);
+    setCol('bar-week','count-week', counts.week);
+    setCol('bar-long','count-long', counts.long);
+    // Also update session total display if it hasn't been set (fallback)
+    const infoEl = document.getElementById('progressInfo');
+    if(infoEl && sessionTotal === 0){ infoEl.textContent = `Révisées : ${reviewedCount} / ${sessionTotal}` }
+  }
+  
+  // Update histogram for a specific deck (used in multi-deck mode)
+  function updateHistogramForDeck(deckKey){
+    const now = new Date();
+    const counts = {new:0, now:0, h12:0, tomorrow:0, week:0, long:0};
+    
+    // Get all cards from localStorage for this deck
+    const prefix = `fabanki:${deckKey}:card:`;
+    for(const k of Object.keys(localStorage)){
+      if(!k.startsWith(prefix)) continue;
+      try{
+        const st = JSON.parse(localStorage.getItem(k) || '{}');
+        if(!st || (!st.last && (st.reps===0 || st.reps===undefined))){ counts.new++; continue }
+        const due = st && st.due ? new Date(st.due) : now;
+        const hrs = (due - now) / (1000*60*60);
+        if(due <= now) counts.now++;
+        else if(hrs <= 12) counts.h12++;
+        else if(hrs <= 24) counts.tomorrow++;
+        else if(hrs <= 24*7) counts.week++;
+        else counts.long++;
+      }catch(e){ continue }
+    }
+    
+    // compute max for scaling
+    const max = Math.max(1, counts.new, counts.now, counts.h12, counts.tomorrow, counts.week, counts.long);
+    // set fills heights and counts above bars
+    const setCol = (fillId, countId, val) => {
+      const fill = document.getElementById(fillId);
+      const cnt = document.getElementById(countId);
+      if(cnt) cnt.textContent = val;
+      if(!fill) return;
+      const pct = Math.round((val / max) * 100);
+      if(window.innerWidth <= 640){
+        fill.style.width = pct + '%';
+        fill.style.height = '100%';
+      } else {
+        fill.style.height = pct + '%';
+        fill.style.width = '';
+      }
+      fill.title = val + ' cartes';
+    };
+    setCol('bar-new','count-new', counts.new);
+    setCol('bar-now','count-now', counts.now);
+    setCol('bar-12h','count-12h', counts.h12);
+    setCol('bar-tomorrow','count-tomorrow', counts.tomorrow);
+    setCol('bar-week','count-week', counts.week);
+    setCol('bar-long','count-long', counts.long);
+  }
+
+  function updateProgressDisplay(){
+    const infoEl = document.getElementById('progressInfo');
+    const pb = document.getElementById('progressBar');
+    const total = sessionTotal || 0;
+    const done = reviewedCount || 0;
+    if(infoEl) infoEl.textContent = `Révisées : ${done} / ${total}`;
+    if(pb){ const pct = total>0? Math.round((done/total)*100): 0; pb.style.width = pct + '%'; }
+  }
+
+  function scheduleCard(cardId, quality){
+    // quality: 0..5 following SM-2 mapping. We'll expect mapping from buttons.
+    const key = storageKey('card:'+cardId);
+    const st = JSON.parse(localStorage.getItem(key) || '{}');
+    const today = startOfDay(new Date());
+
+    // FSRS profiles per subject
+    const profileKey = detectFsrsProfile();
+    if(profileKey){
+      const prevDue = st && st.due ? new Date(st.due) : null;
+      fsrsScheduleGeneric(st, quality, profileKey);
+      localStorage.setItem(key, JSON.stringify(st));
+      const now = new Date();
+      try{
+        if(prevDue && prevDue > now && new Date(st.due) <= now){ sessionTotal = (sessionTotal||0) + 1; updateProgressDisplay(); }
+      }catch(e){}
+      if(!multiDeckMode){
+        if(!isReviewing){
+          dueCards = getDueCards();
+          const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
+        }
+        updateHistogram();
+      }
+      return;
+    }
+
+    if(quality < 3){
+      // Raté: reset and make due immediately
+      st.reps = 0; st.interval = 0; // due now
+    } else {
+      // Conservative FSRS adjustments to better separate qualities:
+      // - Hard (3): small bonus, penalize ef
+      // - Good (4): normal behavior
+      // - Easy (5): larger bonus and ensure first-success moves to >= tomorrow
+      if(!st.reps) st.reps = 0;
+      if(st.reps === 0){
+        if(quality === 5) st.interval = 2; // Easy: at least 2 days on first success
+        else if(quality === 4) st.interval = 1; // Good: tomorrow
+        else st.interval = 1; // Hard: tomorrow but conservative
+      } else if(st.reps === 1){
+        if(quality === 5) st.interval = 8; // reward Easy with larger second interval
+        else if(quality === 4) st.interval = 6; // standard
+        else st.interval = 3; // Hard: limited bonus
+      } else {
+        const baseMult = (st.ef || 2.5);
+        let mult = baseMult;
+        if(quality === 3) mult = Math.max(1.1, baseMult * 0.8); // Hard -> conservative growth
+        else if(quality === 4) mult = Math.max(1.15, baseMult * 0.95);
+        else if(quality === 5) mult = baseMult * 1.2; // Easy -> larger growth
+        st.interval = Math.max(1, Math.round(st.interval * mult));
+      }
+      st.reps = (st.reps || 0) + 1;
+      // update ef but apply stronger penalties/bonuses depending on quality
+      st.ef = (st.ef || 2.5) + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+      if(quality === 3) st.ef = (st.ef || 2.5) - 0.15; // penalize for Hard
+      if(quality === 5) st.ef = (st.ef || 2.5) + 0.12; // boost for Easy
+      if(st.ef < 1.3) st.ef = 1.3;
+
+      if((st.interval || 0) > 0){
+        const retentionCoeff = getRetentionCoefficient(reviewMode);
+        st.interval = Math.max(1, Math.round(st.interval * retentionCoeff));
+      }
+    }
+    // set due
+    let next;
+    const prevDue = st && st.due ? new Date(st.due) : null;
+    const now = new Date();
+    if((st.interval || 0) === 0){
+      next = new Date(); // immediate
+    } else {
+      next = addDays(today, st.interval || 1);
+    }
+    st.due = next.toISOString();
+    st.last = (new Date()).toISOString();
+    st.lastQuality = quality;  // Store quality for accuracy tracking
+    localStorage.setItem(key, JSON.stringify(st));
+    
+    // Auto-sync after card review
+    setTimeout(() => {
+      if(typeof autoSync === 'function') autoSync().catch(e => console.warn('autoSync failed:', e));
+    }, 100);
+    
+    // If this card moved from future to 'now' during the session, include it in session total
+    try{
+      if(prevDue && prevDue > now && next <= now){ sessionTotal = (sessionTotal||0) + 1; updateProgressDisplay(); }
+    }catch(e){}
+    // update due list and UI - but NOT in multi-deck mode (we manage dueCards directly)
+    if(!multiDeckMode){
+      if(!isReviewing){
+        dueCards = getDueCards();
+        const dueEl = $('#dueCount'); if(dueEl) dueEl.textContent = dueCards.length;
+      }
+      updateHistogram();
+    }
+  }
+
+  // random integer helper
+  function randInt(min, max){ return Math.floor(Math.random()*(max-min+1)) + min }
+
+  // === Helpers ===
+  // updateStatus: set status text and ensure on mobile the status appears above the hint box
+    function updateStatus(t){
+    try{
+      const s = document.getElementById('status'); if(!s) return; s.textContent = t;
+      const hint = document.getElementById('histHint');
+      // Show status and hint in normal document flow above the main card (mobile and desktop).
+      // Avoid using fixed positioning which overlays the card content.
+      if(s){ s.style.position = ''; s.style.top = ''; s.style.left = ''; s.style.right = ''; s.style.zIndex = ''; s.style.background = ''; s.style.padding = t ? '8px' : ''; s.style.borderRadius = t ? '6px' : ''; s.style.boxShadow = t ? '0 6px 18px rgba(0,0,0,0.04)' : ''; s.style.display = t ? 'block' : ''; }
+      if(hint){ hint.style.position = ''; hint.style.top = ''; hint.style.left = ''; hint.style.right = ''; hint.style.zIndex = ''; hint.style.display = t ? 'block' : ''; }
+    }catch(e){ try{ $('#status').textContent = t }catch(e){} }
+  }
+  function clearErrorScreen(){
+    try{
+      const overlay = document.getElementById('errorScreenOverlay');
+      if(overlay) overlay.remove();
+      const err = document.getElementById('errorScreen');
+      if(err) err.remove();
+      const mainEl = document.querySelector('main'); if(mainEl) mainEl.style.display = 'block';
+      const cardArea = document.getElementById('cardArea'); if(cardArea) cardArea.style.display = '';
+      const status = document.getElementById('status'); if(status) status.style.display = '';
+      const stats = document.getElementById('stats'); if(stats) stats.style.display = '';
+      const hint = document.getElementById('histHint'); if(hint) hint.style.display = '';
+      const header = document.querySelector('header'); if(header) header.style.display = '';
+      const footer = document.querySelector('footer'); if(footer) footer.style.display = '';
+    }catch(e){}
+  }
+  function showErrorScreen(options = {}){
+    try{
+      clearErrorScreen();
+      const mainEl = document.querySelector('main');
+      if(!mainEl) return;
+      mainEl.style.display = 'none';
+      const cardArea = document.getElementById('cardArea'); if(cardArea) cardArea.style.display = 'none';
+      const status = document.getElementById('status'); if(status) status.style.display = 'none';
+      const stats = document.getElementById('stats'); if(stats) stats.style.display = 'none';
+      const hint = document.getElementById('histHint'); if(hint) hint.style.display = 'none';
+      const header = document.querySelector('header'); if(header) header.style.display = 'none';
+      const footer = document.querySelector('footer'); if(footer) footer.style.display = 'none';
+
+      const wrap = document.createElement('div');
+      wrap.id = 'errorScreen';
+      wrap.className = 'error-screen';
+      if(options.className){
+        const classes = Array.isArray(options.className)
+          ? options.className
+          : String(options.className).split(' ').filter(Boolean);
+        classes.forEach(c => wrap.classList.add(c));
+      }
+      wrap.classList.add('error-screen--overlay');
+
+      const icon = document.createElement('div');
+      icon.className = 'error-screen__icon';
+      icon.textContent = options.icon || '⚠️';
+      if(options.iconClass) icon.classList.add(options.iconClass);
+
+      const title = document.createElement('div');
+      title.className = 'error-screen__title';
+      title.textContent = options.title || 'Erreur';
+
+      const message = document.createElement('div');
+      message.className = 'error-screen__message';
+      message.textContent = options.message || 'Une erreur est survenue.';
+
+      const details = document.createElement('div');
+      details.className = 'error-screen__details';
+      details.textContent = options.details || '';
+      if(!details.textContent) details.style.display = 'none';
+
+      const actions = document.createElement('div');
+      actions.className = 'error-screen__actions';
+
+      if(typeof options.onAction === 'function'){
+        const retry = document.createElement('button');
+        retry.textContent = options.actionLabel || 'Reessayer';
+        if(options.actionClass) retry.className = options.actionClass;
+        retry.addEventListener('click', ()=>{
+          clearErrorScreen();
+          try{ options.onAction(); }catch(e){}
+        });
+        actions.appendChild(retry);
+      }
+
+      if(options.showBrowseButton !== false){
+        const browse = document.createElement('button');
+        browse.className = 'secondary';
+        browse.textContent = 'Parcourir decks';
+        browse.addEventListener('click', ()=>{
+          clearErrorScreen();
+          if(typeof openDeckBrowser === 'function') openDeckBrowser();
+          else if(typeof renderWelcomeDecks === 'function') renderWelcomeDecks();
+        });
+        actions.appendChild(browse);
+      }
+
+      if(options.showHomeButton !== false){
+        const home = document.createElement('button');
+        home.className = 'secondary';
+        home.textContent = 'Retour accueil';
+        home.addEventListener('click', ()=>{
+          clearErrorScreen();
+          if(typeof renderWelcomeDecks === 'function') renderWelcomeDecks();
+        });
+        actions.appendChild(home);
+      }
+
+      wrap.appendChild(icon);
+      wrap.appendChild(title);
+      wrap.appendChild(message);
+      wrap.appendChild(details);
+      wrap.appendChild(actions);
+      const overlay = document.createElement('div');
+      overlay.id = 'errorScreenOverlay';
+      overlay.className = 'error-screen-overlay';
+      overlay.appendChild(wrap);
+      document.body.appendChild(overlay);
+    }catch(e){ console.warn('showErrorScreen error:', e); }
+  }
+
+  // Global error capture to ensure the error screen is visible on uncaught failures.
+  (function setupGlobalErrorScreen(){
+    if(window.__fabanki_global_error_screen) return;
+    window.__fabanki_global_error_screen = true;
+    let lastErrorAt = 0;
+    const showGlobal = (title, message, details) => {
+      const now = Date.now();
+      if(now - lastErrorAt < 800) return;
+      lastErrorAt = now;
+      try{
+        showErrorScreen({
+          title: title || 'Erreur inattendue',
+          message: message || 'Une erreur est survenue pendant l\'execution.',
+          details: details || ''
+        });
+      }catch(e){}
+    };
+
+    window.addEventListener('error', (event) => {
+      try{
+        const msg = event && event.message ? event.message : 'Erreur JavaScript';
+        const detail = event && event.filename ? `${event.filename}:${event.lineno || 0}:${event.colno || 0}` : '';
+        showGlobal('Erreur JavaScript', msg, detail);
+      }catch(e){}
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      try{
+        const reason = event && event.reason ? String(event.reason) : 'Promesse rejetee';
+        showGlobal('Erreur Promise', 'Une operation a echoue.', reason);
+      }catch(e){}
+    });
+  })();
+  function showNotFoundScreen(options = {}){
+    const details = options.details || 'Le fichier demande est introuvable (404).';
+    showErrorScreen({
+      icon: '404',
+      iconClass: 'error-screen__icon--code',
+      className: ['error-screen--page', 'error-screen--404'],
+      title: options.title || 'Page introuvable',
+      message: options.message || 'Le contenu demande n\'existe pas ou a ete deplace.',
+      details,
+      actionLabel: options.actionLabel || 'Retour accueil',
+      actionClass: 'primary',
+      onAction: options.onAction || (()=>{ try{ window.location.href = 'https://fabanki.fr/'; }catch(e){ if(typeof renderWelcomeDecks === 'function') renderWelcomeDecks(); } }),
+      showHomeButton: false,
+      showBrowseButton: true
+    });
+  }
+  function renderEmpty(options = {}){
+    const skipSessionTracking = !!options.skipSessionTracking;
+    isReviewing = false;
+    setReviewTopBarVisibility(false);
+    // Increment decks reviewed counter for missions
+    try{
+      const decksCount = incrementDecksReviewed();
+      if(typeof updateMissionProgress === 'function') updateMissionProgress();
+    }catch(e){ console.warn('Error incrementing decks reviewed:', e); }
+    
+    // Restore top bar buttons (swap home back to sync)
+    try{
+      const syncBtn = document.getElementById('syncBtn');
+      const homeBtn = document.getElementById('homeBtn');
+      
+      // If home button is visible (in DOM and displayed), swap it with sync
+      if(homeBtn && syncBtn && homeBtn.style.display !== 'none' && homeBtn.parentNode){
+        const parent = homeBtn.parentNode;
+        const homeBtnNextSibling = homeBtn.nextSibling;
+        parent.removeChild(homeBtn);
+        parent.insertBefore(syncBtn, homeBtnNextSibling);
+      }
+      
+      // Ensure correct visibility
+      if(syncBtn) syncBtn.style.display = 'inline-block';
+      if(homeBtn) homeBtn.style.display = 'none';
+    }catch(e){ console.warn('Button swap error in renderEmpty:', e); }
+    
+    const front = $('#front');
+    const back = $('#back');
+    try{
+      const timerContainer = document.getElementById('timerModeContainer');
+      if(timerContainer) timerContainer.remove();
+    }catch(e){}
+    try{
+      const activeMemoryContainer = document.getElementById('activeMemoryTimerContainer');
+      if(activeMemoryContainer) activeMemoryContainer.remove();
+    }catch(e){}
+    const resp = $('#respButtons'); if(resp) resp.style.display='none';
+    const sa = $('#showAnswer'); if(sa) sa.style.display='none';
+    const multiTitle = document.getElementById('multiDeckTitle'); if(multiTitle) multiTitle.style.display = 'none';
+    // Hide elements that should not appear in recap
+    const cardStatus = document.getElementById('cardStatus');
+    if(cardStatus){
+      cardStatus.style.display='none';
+      cardStatus.style.visibility='hidden';
+      cardStatus.style.pointerEvents='none';
+    }
+    const progressContainer = document.getElementById('progressContainer');
+    if(progressContainer){
+      progressContainer.style.display='none';
+      progressContainer.style.visibility='hidden';
+      progressContainer.style.pointerEvents='none';
+    }
+    const requestModBtn = document.getElementById('requestModBtn'); if(requestModBtn) requestModBtn.style.display='none';
+    const dueInline = document.getElementById('dueInline'); if(dueInline) dueInline.style.display='none';
+    const status = document.getElementById('status'); if(status) { status.style.display='none'; status.style.padding=''; status.style.borderRadius=''; status.style.background=''; status.style.boxShadow=''; status.textContent=''; }
+    const hint = document.getElementById('histHint'); if(hint) { hint.style.display='none'; hint.style.position=''; hint.style.marginBottom=''; }
+    // Hide the "Répartition des cartes par échéance" section
+    try{
+      const allH3s = document.querySelectorAll('h3');
+      for(const h3 of allH3s){
+        if(h3.textContent.includes('Répartition des cartes par échéance')){
+          const parent = h3.parentElement;
+          if(parent) parent.style.display='none';
+          h3.style.display='none';
+        }
+      }
+    }catch(e){}
+    // Hide any lingering toasts
+    document.querySelectorAll('[style*="position: fixed"][style*="zIndex"]').forEach(el => {
+      if(el.id && (el.id.includes('toast') || el.textContent.includes('Objectif') || el.textContent.includes('Quête'))) el.style.display='none';
+    });
+    const deckTitle = multiDeckMode ? 'Multideck' : (deck && deck.title ? deck.title : 'Deck');
+
+    const totalReviewed = sessionData.length || reviewedCount || 0;
+    const totalTimeSec = sessionData.reduce((sum, it) => sum + (Number(it.timeSpent) || 0), 0);
+    
+    // Calculate XP and Credit modifiers based on review mode
+    const xpModifiers = {
+      'default': 1,        // Mode Anki (Défaut)
+      'fillblank': 2,      // Texte à trou
+      'timer': 1.2,        // Rappel sous pression
+      'activeMemory': 1.1, // Mémoire active
+      'step': 1            // Étape par étape
+    };
+    const creditModifiers = {
+      'default': 1,        // Mode Anki (Défaut)
+      'fillblank': 1,      // Texte à trou
+      'timer': 1,          // Rappel sous pression
+      'activeMemory': 1,   // Mémoire active
+      'step': 1            // Étape par étape
+    };
+    const xpMultiplier = xpModifiers[reviewMode] || 1;
+    const creditMultiplier = creditModifiers[reviewMode] || 1;
+    
+    // Grant credits once per completed review session
+    if(!sessionCreditsGranted && totalReviewed > 0){
+      const x = Math.max(0, totalReviewed);
+      const raw = Math.pow(x, 0.3) - Math.pow(x, 0.15);
+      const base = Math.max(0, Math.floor(raw));
+      const frac = raw - base;
+      let grant = base;
+      if(Math.random() < frac) grant += 1;
+      
+      // Apply credit multiplier
+      grant = Math.floor(grant * creditMultiplier);
+      
+      if(grant > 0 && typeof addCredits === 'function') addCredits(grant);
+      try{
+        const toast = document.createElement('div');
+        toast.style.position = 'fixed';
+        toast.style.bottom = '24px';
+        toast.style.left = '50%';
+        toast.style.transform = 'translateX(-50%)';
+        toast.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+        toast.style.color = 'white';
+        toast.style.padding = '12px 18px';
+        toast.style.borderRadius = '10px';
+        toast.style.fontWeight = '700';
+        toast.style.zIndex = '9999';
+        toast.style.boxShadow = '0 8px 24px rgba(37, 99, 235, 0.35)';
+        const modeName = reviewMode === 'default' ? 'Mode Anki' : reviewMode === 'fillblank' ? 'Texte à trou' : reviewMode === 'timer' ? 'Rappel sous pression' : reviewMode === 'activeMemory' ? 'Mémoire active' : 'Étape par étape';
+        toast.textContent = `Crédits gagnés : ${grant} (${modeName} x${creditMultiplier} crédit, x${xpMultiplier} XP)`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3500);
+      }catch(e){}
+      sessionCreditsGranted = true;
+      try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
+    }
+    // Also ensure cardStatus and progressContainer stay hidden even if page re-renders
+    setTimeout(() => {
+      const cardSt = document.getElementById('cardStatus');
+      if(cardSt){ cardSt.style.display='none'; cardSt.style.visibility='hidden'; cardSt.style.pointerEvents='none'; }
+      const progCont = document.getElementById('progressContainer');
+      if(progCont){ progCont.style.display='none'; progCont.style.visibility='hidden'; progCont.style.pointerEvents='none'; }
+    }, 50);
+    const avgTimeSec = totalReviewed > 0 ? (totalTimeSec / totalReviewed) : 0;
+
+    // Calculate credits granted this session
+    let sessionCreditsGranted_Amount = 0;
+    if(totalReviewed > 0){
+      const x = Math.max(0, totalReviewed);
+      const raw = Math.pow(x, 0.3) - Math.pow(x, 0.15);
+      const base = Math.max(0, Math.floor(raw));
+      const frac = raw - base;
+      sessionCreditsGranted_Amount = base + (Math.random() < frac ? 1 : 0);
+    }
+
+    let failCount = 0, hardCount = 0, goodCount = 0, easyCount = 0;
+    let scoreSum = 0;
+    let correctCount = 0;
+    for(const it of sessionData){
+      const q = Number(it.grade) || 0;
+      if(q < 3) failCount++;
+      else if(q === 3) hardCount++;
+      else if(q === 4) goodCount++;
+      else if(q === 5) easyCount++;
+
+      if(q >= 3) correctCount++;
+      const score = (q < 3) ? 0 : (q === 3 ? 1 : (q === 4 ? 2 : 3));
+      scoreSum += score;
+    }
+    const meanGrade = totalReviewed > 0 ? (scoreSum / totalReviewed) : 0;
+    const precision = totalReviewed > 0 ? Math.round((correctCount / totalReviewed) * 100) : 0;
+    const note20 = totalReviewed > 0 ? (meanGrade / 3) * 20 : 0;
+
+    // Memory duration: average interval or stability (days)
+    let memSum = 0, memCount = 0;
+    for(const it of sessionData){
+      try{
+        const key = it.deckKey ? `fabanki:${it.deckKey}:card:${it.cardId}` : storageKey('card:'+it.cardId);
+        const st = JSON.parse(localStorage.getItem(key) || '{}');
+        if(st && st.interval != null && !Number.isNaN(Number(st.interval))){
+          memSum += Number(st.interval);
+          memCount++;
+        } else if(st && st.stability != null && !Number.isNaN(Number(st.stability))){
+          memSum += Number(st.stability);
+          memCount++;
+        }
+      }catch(e){}
+    }
+    const memAvg = memCount > 0 ? (memSum / memCount) : 0;
+
+    // Stars based on mean grade thresholds
+    let starsFilled = 0;
+    if(meanGrade >= 2.5) starsFilled = 3;
+    else if(meanGrade >= 2.0) starsFilled = 2;
+    else if(meanGrade >= 1.5) starsFilled = 1;
+
+    const stars = '★'.repeat(starsFilled) + '☆'.repeat(3 - starsFilled);
+    const maxCount = Math.max(1, failCount, hardCount, goodCount, easyCount);
+
+    // Note difference vs last session
+    let noteDeltaText = 'N/A';
+    try{
+      const noteKey = multiDeckMode ? 'fabanki:last_note:multi' : `fabanki:last_note:${deckKey || 'default'}`;
+      const lastNote = Number(localStorage.getItem(noteKey));
+      if(!Number.isNaN(lastNote)){
+        const delta = note20 - lastNote;
+        const sign = delta > 0 ? '+' : '';
+        noteDeltaText = `${sign}${delta.toFixed(1)}/20`;
+      }
+      localStorage.setItem(noteKey, note20.toFixed(2));
+    }catch(e){}
+
+    const formatTime = (sec) => {
+      const s = Math.max(0, Math.round(sec || 0));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      if(m === 0) return `${r}s`;
+      if(m < 60) return `${m}m ${r}s`;
+      const h = Math.floor(m / 60);
+      const mm = m % 60;
+      return `${h}h ${mm}m`;
+    };
+
+    if(front){
+      front.style.display = 'flex';
+      front.style.alignItems = 'stretch';
+      front.style.justifyContent = 'flex-start';
+      front.innerHTML = `
+        <div style="width:100%;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <div>
+              <div style="font-size:0.95em;color:#6b7280;font-weight:600;">Récapitulatif</div>
+              <div style="font-size:1.4em;font-weight:700;">${deckTitle}</div>
+            </div>
+            <div style="font-size:1.4em;color:#fbbf24;letter-spacing:2px;">${stars}</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+            <div id="recap-stat-reviewed" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Cartes révisées</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${totalReviewed}</div>
+            </div>
+            <div id="recap-stat-time" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Temps total</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${formatTime(totalTimeSec)}</div>
+            </div>
+            <div id="recap-stat-avgtime" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Temps moyen / carte</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${formatTime(avgTimeSec)}</div>
+            </div>
+            <div id="recap-stat-precision" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Précision</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${precision}%</div>
+            </div>
+            <div id="recap-stat-note" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Note</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${note20.toFixed(1)}/20</div>
+            </div>
+            <div id="recap-stat-delta" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Δ Note</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${noteDeltaText}</div>
+            </div>
+            <div id="recap-stat-duration" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+              <div style="color:#64748b;font-size:0.8em;">Durée mémoire</div>
+              <div style="font-weight:700;font-size:1.1em;color:#111;">${memAvg ? `${memAvg.toFixed(1)} j` : 'N/A'}</div>
+            </div>
+            <div id="recap-stat-credits" class="recap-stat-box" style="background:linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 100%);border-radius:10px;padding:12px;cursor:pointer;border:1px solid rgba(59, 130, 246, 0.2);">
+              <div style="color:#64748b;font-size:0.8em;">Crédits gagnés</div>
+              <div style="font-weight:700;font-size:1.3em;color:#2563eb;">${sessionCreditsGranted_Amount}ℂ</div>
+            </div>
+          </div>
+
+          <div id="recap-distribution" style="background:rgba(66, 133, 244, 0.08);border-radius:12px;padding:12px;cursor:pointer;">
+            <div style="font-weight:600;margin-bottom:8px;color:#111;">Répartition des réponses</div>
+            <div style="display:flex;gap:8px;align-items:flex-end;">
+              <div style="flex:1;text-align:center;">
+                <div style="height:${Math.round((failCount/maxCount)*80)}px;background:#fecaca;border-radius:6px;transition:height .2s;"></div>
+                <div style="font-size:0.75em;color:#dc2626;">Raté</div>
+                <div style="font-size:0.8em;font-weight:600;color:#111;">${failCount}</div>
+              </div>
+              <div style="flex:1;text-align:center;">
+                <div style="height:${Math.round((hardCount/maxCount)*80)}px;background:#fde68a;border-radius:6px;transition:height .2s;"></div>
+                <div style="font-size:0.75em;color:#d97706;">Difficile</div>
+                <div style="font-size:0.8em;font-weight:600;color:#111;">${hardCount}</div>
+              </div>
+              <div style="flex:1;text-align:center;">
+                <div style="height:${Math.round((goodCount/maxCount)*80)}px;background:#bfdbfe;border-radius:6px;transition:height .2s;"></div>
+                <div style="font-size:0.75em;color:#2563eb;">Bon</div>
+                <div style="font-size:0.8em;font-weight:600;color:#111;">${goodCount}</div>
+              </div>
+              <div style="flex:1;text-align:center;">
+                <div style="height:${Math.round((easyCount/maxCount)*80)}px;background:#bbf7d0;border-radius:6px;transition:height .2s;"></div>
+                <div style="font-size:0.75em;color:#059669;">Facile</div>
+                <div style="font-size:0.8em;font-weight:600;color:#111;">${easyCount}</div>
+              </div>
+            </div>
+          </div>
+
+          <button id="recapHomeBtn" class="secondary" style="width:100%;max-width:100%;padding:12px;font-size:1em;display:block;margin:0 auto;align-self:stretch;">Accueil</button>
+        </div>
+      `;
+      const homeBtn = document.getElementById('recapHomeBtn');
+      if(homeBtn){
+        homeBtn.addEventListener('click', () => {
+          // Stop both timer mode and active memory timers
+          if(window.timerModeState && window.timerModeState.animationHandle){
+            cancelAnimationFrame(window.timerModeState.animationHandle);
+            window.timerModeState.animationHandle = null;
+          }
+          if(window.timerModeState && window.timerModeState.timeoutHandle){
+            clearTimeout(window.timerModeState.timeoutHandle);
+            window.timerModeState.timeoutHandle = null;
+          }
+          if(window.__activeMemoryTimerState){
+            if(window.__activeMemoryTimerState.animationHandle){
+              cancelAnimationFrame(window.__activeMemoryTimerState.animationHandle);
+            }
+            if(window.__activeMemoryTimerState.timeoutHandle){
+              clearTimeout(window.__activeMemoryTimerState.timeoutHandle);
+            }
+          }
+          window.location.href = window.location.origin + window.location.pathname;
+        });
+      }
+      // Show recap onboarding on first completion
+      if(!localStorage.getItem('fabanki:recap_onboarding_completed') && typeof showRecapOnboarding === 'function'){
+        setTimeout(() => {
+          try{ showRecapOnboarding(); }catch(e){ console.warn('showRecapOnboarding error', e); }
+        }, 500);
+      }
+      
+      if(!skipSessionTracking && reviewedCount >= 1){
+        // Grant mission "Réviser au moins un deck"
+        try{
+          if(typeof completeMission === 'function'){
+            completeMission('review_one_deck', 'daily');
+          }
+        }catch(e){ console.warn('mission grant error', e); }
+
+        // Track session completion for daily missions
+        try{
+          incrementSessionsCompleted();
+          if(typeof updateMissionProgress === 'function') updateMissionProgress();
+        }catch(e){ console.warn('session mission update error', e); }
+        
+        // Track welcome quest session completion
+        try{
+          if(typeof completeWelcomeQuestMission === 'function'){
+            completeWelcomeQuestMission('part2', 'session_completed', 5);
+          }
+        }catch(e){ console.warn('welcome quest session error', e); }
+      }
+    }
+
+    if(back){ back.innerHTML=''; back.style.display = 'none'; }
+  }
+  function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x }
+  function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x }
+
+  // sha1 small implementation (for id generation). Use subtle crypto if available.
+  function sha1(msg){
+    try{
+      const enc = new TextEncoder();
+      const data = enc.encode(msg);
+      return crypto.subtle.digest('SHA-1', data)
+        .then(buf => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join(''))
+        .catch(() => fallbackSha1(msg));
+    }catch(e){
+      return fallbackSha1(msg);
+    }
+  }
+
+  function fallbackSha1(s){
+    // crude fallback hash for environments without crypto.subtle
+    let h = 0;
+    for(let i=0;i<s.length;i++){
+      h = ((h<<5)-h) + s.charCodeAt(i);
+      h |= 0;
+    }
+    return (h>>>0).toString(16);
+  }
+
+  // Because crypto.subtle returns a Promise, wrap sha1 usage accordingly in parseXMLDeck id creation.
+  // For simplicity where sha1 is used synchronously above, ensure fallback string is returned; this is acceptable for IDs.
+
+  // === UI flow ===
+  
+  function incrementDecksReviewed(){
+    try{
+      const key = 'fabanki:decks_reviewed_today';
+      const today = new Date().toISOString().split('T')[0];
+      const lastDate = localStorage.getItem('fabanki:decks_reviewed_date');
+      let count = 0;
+      
+      // Reset if new day
+      if(lastDate !== today){
+        localStorage.setItem('fabanki:decks_reviewed_date', today);
+        count = 1;
+      } else {
+        count = Number(localStorage.getItem(key) || 0) + 1;
+      }
+      
+      localStorage.setItem(key, String(count));
+      console.log('[MISSION] Decks reviewed today:', count);
+      return count;
+    }catch(e){ console.warn('incrementDecksReviewed error:', e); return 0; }
+  }
+
+  function incrementSessionsCompleted(){
+    try{
+      const key = 'fabanki:sessions_completed_today';
+      const today = new Date().toISOString().split('T')[0];
+      const lastDate = localStorage.getItem('fabanki:sessions_completed_date');
+      let count = 0;
+      if(lastDate !== today){
+        localStorage.setItem('fabanki:sessions_completed_date', today);
+        count = 1;
+      } else {
+        count = Number(localStorage.getItem(key) || 0) + 1;
+      }
+      localStorage.setItem(key, String(count));
+      return count;
+    }catch(e){ console.warn('incrementSessionsCompleted error:', e); return 0; }
+  }
+
+  function getSessionsCompletedToday(){
+    try{
+      const today = new Date().toISOString().split('T')[0];
+      const lastDate = localStorage.getItem('fabanki:sessions_completed_date');
+      if(lastDate !== today) return 0;
+      return Number(localStorage.getItem('fabanki:sessions_completed_today') || 0);
+    }catch(e){ return 0; }
+  }
+  
+  function continueWithFirstCard(){
+    // This function is called after timer settings dialog is confirmed
+    // It proceeds with displaying the first card
+    showNextCard();
+  }
+  
+  function showNextCard(){
+    answerLocked = false;
+    
+    // Check if there are any cards to show
+    if(!dueCards || dueCards.length===0){ 
+      // If we've reviewed at least 1 card this session, show recap
+      // Otherwise show "no cards available"
+      if(reviewedCount >= 1){
+        updateStatus('Révision terminée pour aujourd\'hui');
+      } else {
+        updateStatus('Aucune carte à réviser aujourd\'hui');
+      }
+      renderEmpty(); 
+      return;
+    }
+    
+    // Show timer settings dialog on first card if timer mode is active
+    // But don't proceed with card display - wait for confirmation
+    if(currentIndex === 0 && reviewMode === 'timer' && !window.__timerSettingsShown){
+      window.__timerSettingsShown = true;
+      showTimerSettingsDialog();
+      return;  // Wait for Confirmer button to be clicked
+    }
+    
+    // Ensure home button is visible during review (replace sync button)
+    try{
+      const syncBtn = document.getElementById('syncBtn');
+      const homeBtn = document.getElementById('homeBtn');
+      if(syncBtn) syncBtn.style.display = 'none';
+      if(homeBtn){
+        homeBtn.style.display = 'inline-block';
+        if(syncBtn && syncBtn.parentNode && homeBtn.parentNode !== syncBtn.parentNode){
+          const parent = syncBtn.parentNode;
+          const syncBtnNextSibling = syncBtn.nextSibling;
+          parent.insertBefore(homeBtn, syncBtnNextSibling);
+        }
+      }
+    }catch(e){}
+    
+    // Show mode-specific onboarding on first card
+    if(currentIndex === 0 && typeof showModeOnboarding === 'function'){
+      showModeOnboarding(reviewMode);
+    }
+    
+    // Setup active memory mode for every card (reset the card-specific flag)
+    window.__activeMemoryCardSetup = false;
+    
+    if(currentIndex >= dueCards.length) currentIndex = 0;
+    const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
+    const cardData = multiDeckMode ? dueCards[currentIndex] : null;
+    const sa = $('#showAnswer'); if(sa) sa.style.display = (reviewMode === 'fillblank' || reviewMode === 'step') ? 'none' : 'inline-block';
+    const nextStepBtn = document.getElementById('nextStepBtn');
+    if(nextStepBtn) nextStepBtn.style.display = 'none';
+    const resp = $('#respButtons'); if(resp) resp.style.display = 'none';
+    const backEl = $('#back'); if(backEl) backEl.style.display = 'none';
+    
+    // Display deck name if in multi-deck mode
+    if(multiDeckMode && cardData){
+      const deckTitle = document.getElementById('multiDeckTitle');
+      if(deckTitle){
+        deckTitle.textContent = cardData.deckName;
+        deckTitle.style.display = 'block';
+      }
+    } else {
+      const deckTitle = document.getElementById('multiDeckTitle');
+      if(deckTitle) deckTitle.style.display = 'none';
+    }
+
+    
+    if(reviewMode === 'random'){
+      try{
+        const key = (cardData && cardData.deckKey ? cardData.deckKey + '::' : '') + (c && c.id ? c.id : String(currentIndex));
+        if(!window.__randomModeState || window.__randomModeState.key !== key){
+          window.__randomModeState = { key, reverse: Math.random() < 0.5 };
+        }
+      }catch(e){ window.__randomModeState = { key: String(currentIndex), reverse: Math.random() < 0.5 }; }
+    } else {
+      window.__randomModeState = null;
+    }
+
+    renderFront(c);
+
+    // Setup step-by-step mode if enabled
+    if(reviewMode === 'step'){
+      setupStepByStepMode(c);
+    }
+    
+    // Setup fill-in-the-blank mode if enabled
+    if(reviewMode === 'fillblank'){
+      setupFillBlankMode(c);
+    }
+    
+    // Setup timer mode if enabled
+    if(reviewMode === 'timer'){
+      setupTimerMode(c);
+    }
+    
+    // Setup active memory mode if enabled
+    if(reviewMode === 'activeMemory'){
+      setupActiveMemoryMode(c);
+    }
+    
+    // update card status box (Nouveau / Maintenant)
+    try{ renderCardStatus(c); }catch(e){}
+    // record when this card was shown to compute XP based on time spent
+    try{ cardShownAt = Date.now(); }catch(e){}
+    // Ensure front is visible (might have been hidden after showing an answer)
+    const frontEl = $('#front'); if(frontEl){ frontEl.style.display = 'flex'; frontEl.style.flex = '1 1 auto'; }
+    // do not show per-card index (user requested removal)
+    // progress
+    const pct = Math.round(((currentIndex)/Math.max(1,dueCards.length))*100);
+    const pb = $('#progressBar'); if(pb) pb.style.width = pct + '%';
+    
+    // Update histogram for current deck if in multi-deck mode
+    if(multiDeckMode && cardData){
+      updateHistogramForDeck(cardData.deckKey);
+    }
+  }
+  
+  function showTimerSettingsDialog(){
+    try{
+      if(document.getElementById('timerSettingsDialog')) return;
+      
+      const overlay = document.createElement('div');
+      overlay.id = 'timerSettingsDialog';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+      
+      const dialog = document.createElement('div');
+      dialog.style.cssText = 'background:white;border-radius:12px;padding:24px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
+      
+      const title = document.createElement('h2');
+      title.textContent = '⏱️ Temps de révision';
+      title.style.cssText = 'margin-top:0;margin-bottom:16px;color:#333;';
+      dialog.appendChild(title);
+      
+      const desc = document.createElement('p');
+      desc.textContent = 'Définissez le temps maximum pour voir chaque côté de la carte :';
+      desc.style.cssText = 'color:#666;margin-bottom:20px;';
+      dialog.appendChild(desc);
+      
+      // Front time input
+      const frontLabel = document.createElement('label');
+      frontLabel.textContent = 'Temps pour la face (secondes) :';
+      frontLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:#333;';
+      dialog.appendChild(frontLabel);
+      
+      const frontInput = document.createElement('input');
+      frontInput.type = 'number';
+      frontInput.value = timerSettings.frontTime;
+      frontInput.min = '1';
+      frontInput.max = '60';
+      frontInput.style.cssText = 'width:100%;padding:8px;border:1px solid var(--border-color);border-radius:4px;margin-bottom:16px;box-sizing:border-box;';
+      dialog.appendChild(frontInput);
+      
+      // Back time input
+      const backLabel = document.createElement('label');
+      backLabel.textContent = 'Temps pour le revers (secondes) :';
+      backLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:#333;';
+      dialog.appendChild(backLabel);
+      
+      const backInput = document.createElement('input');
+      backInput.type = 'number';
+      backInput.value = timerSettings.backTime;
+      backInput.min = '1';
+      backInput.max = '60';
+      backInput.style.cssText = 'width:100%;padding:8px;border:1px solid var(--border-color);border-radius:4px;margin-bottom:20px;box-sizing:border-box;';
+      dialog.appendChild(backInput);
+      
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.cssText = 'display:flex;gap:8px;justify-content:center;';
+      
+      const confirmBtn = document.createElement('button');
+      confirmBtn.textContent = 'Confirmer';
+      confirmBtn.className = 'primary';
+      confirmBtn.style.cssText = 'flex:1;';
+      confirmBtn.addEventListener('click', () => {
+        timerSettings.frontTime = Math.max(1, parseInt(frontInput.value) || 10);
+        timerSettings.backTime = Math.max(1, parseInt(backInput.value) || 5);
+        localStorage.setItem(`fabanki:timer_settings:${deckKey}`, JSON.stringify(timerSettings));
+        overlay.remove();
+        
+        // Continue to first card after dialog is closed
+        setTimeout(() => {
+          continueWithFirstCard();
+        }, 100);
+      });
+      buttonContainer.appendChild(confirmBtn);
+      
+      dialog.appendChild(buttonContainer);
+      overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
+    }catch(e){ console.warn('Timer settings dialog error:', e); }
+  }
+  
+  function extractCodeContent(htmlContent){
+    // For Informatique folder: extract code content only, ignore comments
+    const div = document.createElement('div');
+    div.innerHTML = htmlContent;
+    
+    // Get text content
+    let text = div.textContent || '';
+    
+    // Remove lines starting with # (ignore everything after #)
+    text = text.split('\n').map(line => {
+      const hashIndex = line.indexOf('#');
+      if(hashIndex !== -1){
+        return line.substring(0, hashIndex).trim();
+      }
+      return line;
+    }).join('\n');
+    
+    // Remove OCaml-style comments (* ... *)
+    text = text.replace(/\(\*[^*]*\*+(?:[^)*][^*]*\*+)*\)/g, '');
+    
+    return text.trim();
+  }
+  
+  function setupFillBlankMode(card){
+    // Remove existing fill-blank UI if any
+    const existingContainer = document.getElementById('fillBlankContainer');
+    if(existingContainer) existingContainer.remove();
+    
+    const cardArea = document.getElementById('cardArea');
+    if(!cardArea) return;
+    
+    // Create container for input and button
+    const container = document.createElement('div');
+    container.id = 'fillBlankContainer';
+    container.style.cssText = 'display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;';
+    
+    // Create input field
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'fillBlankInput';
+    input.placeholder = 'Entrez votre réponse...';
+    input.style.cssText = 'flex:1;min-width:200px;padding:10px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg);color:var(--text);font-size:1em;';
+    input.addEventListener('keypress', (e) => {
+      if(e.key === 'Enter') validateFillBlank(card);
+    });
+    
+    // Create validate button
+    const validateBtn = document.createElement('button');
+    validateBtn.textContent = 'Valider';
+    validateBtn.style.cssText = 'padding:10px 16px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;';
+    validateBtn.addEventListener('click', () => validateFillBlank(card));
+    
+    container.appendChild(input);
+    container.appendChild(validateBtn);
+    
+    cardArea.appendChild(container);
+    
+    // Focus input automatically
+    setTimeout(() => input.focus(), 100);
+  }
+  
+  function setupTimerMode(card){
+    // Load saved timer settings
+    const savedSettings = localStorage.getItem(`fabanki:timer_settings:${deckKey}`);
+    if(savedSettings){
+      try{
+        timerSettings = JSON.parse(savedSettings);
+      }catch(e){}
+    }
+    
+    // Calculate adjusted time based on card size
+    let adjustedFrontTime = timerSettings.frontTime;
+    let adjustedBackTime = timerSettings.backTime;
+    
+    // Get card content length
+    if(card && card.fields){
+      const fieldOrder = card._fieldOrder || Object.keys(card.fields);
+      const meanCardLength = 200; // Approximate mean character count for a card
+      
+      if(fieldOrder.length > 0){
+        const frontFieldName = fieldOrder[0];
+        const frontField = card.fields[frontFieldName];
+        const frontContent = typeof frontField === 'string' ? frontField : '';
+        const frontLength = frontContent.replace(/<[^>]*>/g, '').length; // Remove HTML
+        
+        if(frontLength > 1.5 * meanCardLength){
+          adjustedFrontTime = timerSettings.frontTime * 1.3; // Add 30% time
+        }
+      }
+      
+      if(fieldOrder.length > 1){
+        const backFieldName = fieldOrder[1];
+        const backField = card.fields[backFieldName];
+        const backContent = typeof backField === 'string' ? backField : '';
+        const backLength = backContent.replace(/<[^>]*>/g, '').length; // Remove HTML
+        
+        if(backLength > 1.5 * meanCardLength){
+          adjustedBackTime = timerSettings.backTime * 1.3; // Add 30% time
+        }
+      }
+    }
+    
+    // Initialize timer state
+    if(!window.timerModeState){
+      window.timerModeState = {
+        cardStartTime: Date.now(),
+        frontCardStartTime: Date.now(),
+        isShowingBack: false,
+        currentTimeLimit: adjustedFrontTime * 1000,
+        autoClickActive: false,
+        timeoutHandle: null,
+        animationHandle: null,
+        fixedButtonState: null
+      };
+    }else{
+      window.timerModeState.cardStartTime = Date.now();
+      window.timerModeState.frontCardStartTime = Date.now();
+      window.timerModeState.isShowingBack = false;
+      window.timerModeState.currentTimeLimit = adjustedFrontTime * 1000;
+      window.timerModeState.fixedButtonState = null;
+    }
+    
+    // Remove existing timer UI
+    const existingTimer = document.getElementById('timerModeContainer');
+    if(existingTimer) existingTimer.remove();
+    
+    const cardArea = document.getElementById('cardArea');
+    if(!cardArea) return;
+    
+    // Create timer container
+    const container = document.createElement('div');
+    container.id = 'timerModeContainer';
+    container.style.cssText = 'margin-top:16px;padding:12px;background:#f0f9ff;border-radius:8px;border:1px solid #bfdbfe;';
+    
+    // Timer bar
+    const timerBar = document.createElement('div');
+    timerBar.id = 'timerBar';
+    timerBar.style.cssText = 'width:100%;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;margin-bottom:8px;';
+    
+    const timerFill = document.createElement('div');
+    timerFill.id = 'timerFill';
+    timerFill.style.cssText = 'height:100%;background:#10b981;width:0%;transition:width 0.1s linear;';
+    
+    timerBar.appendChild(timerFill);
+    container.appendChild(timerBar);
+    
+    // Timer text
+    const timerText = document.createElement('div');
+    timerText.id = 'timerText';
+    timerText.style.cssText = 'font-size:0.85em;color:#666;text-align:center;';
+    timerText.textContent = `Face: ${Math.ceil(adjustedFrontTime)}s`;
+    container.appendChild(timerText);
+    
+    cardArea.appendChild(container);
+    
+    // Start timer animation (only if not paused for onboarding)
+    if(!window.__timerPausedForOnboarding){
+      startTimerAnimation();
+    }
+  }
+  
+  function setupActiveMemoryMode(card){
+    // Complete welcome quest: launch active memory mode (only once)
+    if(typeof completeWelcomeQuestMission === 'function'){
+      completeWelcomeQuestMission('part3', 'active_memory_launched', 10);
+    }
+    
+    // Show front for 3 seconds with blue progress bar timer, then hide it until "Afficher la Réponse" is clicked
+    // Skip if paused for onboarding
+    if(window.__activeMemoryPausedForOnboarding) return;
+    
+    const frontEl = $('#front');
+    if(frontEl){
+      frontEl.style.display = 'flex';
+      
+      // Remove any existing timer container and create a fresh one for each card
+      const existingContainer = document.getElementById('activeMemoryTimerContainer');
+      if(existingContainer) existingContainer.remove();
+      
+      const timerContainer = document.createElement('div');
+      timerContainer.id = 'activeMemoryTimerContainer';
+      timerContainer.style.cssText = 'margin-top:12px;padding:8px;background:#f0f9ff;border-radius:8px;border:1px solid #bfdbfe;';
+      
+      const timerBar = document.createElement('div');
+      timerBar.id = 'activeMemoryBar';
+      timerBar.style.cssText = 'width:100%;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;';
+      
+      const fillDiv = document.createElement('div');
+      fillDiv.id = 'activeMemoryFill';
+      fillDiv.style.cssText = 'width:0%;height:100%;background:#3b82f6;';
+      timerBar.appendChild(fillDiv);
+      
+      timerContainer.appendChild(timerBar);
+      
+      // Insert timer below the card content (find cardArea and append after it)
+      const cardArea = document.getElementById('cardArea');
+      if(cardArea){
+        cardArea.appendChild(timerContainer);
+      }
+      
+      const timerFill = document.getElementById('activeMemoryFill');
+      const startTime = Date.now();
+      const duration = 3000; // Always 3 seconds for each card
+      
+      // Store the timer state for this card
+      window.__activeMemoryTimerState = {
+        startTime: startTime,
+        duration: duration,
+        timerContainer: timerContainer,
+        timerFill: timerFill,
+        frontEl: frontEl,
+        animationHandle: null,
+        timeoutHandle: null
+      };
+      
+      const updateTimer = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(100, (elapsed / duration) * 100);
+        if(timerFill){
+          timerFill.style.width = progress + '%';
+        }
+        
+        if(progress < 100){
+          window.__activeMemoryTimerState.animationHandle = requestAnimationFrame(updateTimer);
+        } else {
+          if(timerContainer) timerContainer.style.display = 'none';
+        }
+      };
+      
+      window.__activeMemoryTimerState.animationHandle = requestAnimationFrame(updateTimer);
+      
+      // Hide front after 3 seconds
+      const hideTimeout = setTimeout(() => {
+        if(frontEl && reviewMode === 'activeMemory'){
+          frontEl.style.display = 'none';
+          frontEl.style.flex = '0 0 auto';
+        }
+        if(timerContainer) timerContainer.style.display = 'none';
+      }, duration);
+      
+      window.__activeMemoryTimerState.timeoutHandle = hideTimeout;
+    }
+  }
+
+  function setupStepByStepMode(card){
+    const frontEl = $('#front');
+    const showAnswerBtn = $('#showAnswer');
+    const respButtons = $('#respButtons');
+    if(!frontEl || !showAnswerBtn) return;
+
+    let nextBtn = document.getElementById('nextStepBtn');
+    if(!nextBtn){
+      nextBtn = document.createElement('button');
+      nextBtn.id = 'nextStepBtn';
+      nextBtn.textContent = 'Prochaine étape';
+      nextBtn.style.cssText = 'padding:10px 16px;border:2px solid #2563eb;border-radius:8px;background:#2563eb;color:#fff;cursor:pointer;font-size:0.95em;font-weight:700;transition:all 0.2s;';
+      if(showAnswerBtn.parentNode){
+        showAnswerBtn.parentNode.insertBefore(nextBtn, showAnswerBtn);
+      }
+    }
+
+    const state = window.__stepModeState;
+    const total = state && Array.isArray(state.nodes) ? state.nodes.length : 0;
+
+    const updateButtons = () => {
+      if(!state || total === 0){
+        nextBtn.style.display = 'none';
+        showAnswerBtn.style.display = 'none';
+        if(respButtons) respButtons.style.display = 'none';
+        return;
+      }
+      if(state.index < total - 1){
+        nextBtn.style.display = 'inline-block';
+        showAnswerBtn.style.display = 'none';
+        if(respButtons) respButtons.style.display = 'none';
+      } else {
+        nextBtn.style.display = 'none';
+        showAnswerBtn.style.display = 'none';
+        if(respButtons) respButtons.style.display = 'flex';
+      }
+    };
+
+    nextBtn.onclick = () => {
+      if(!state || !Array.isArray(state.nodes)) return;
+      const nextIndex = state.index + 1;
+      if(nextIndex < state.nodes.length){
+        state.index = nextIndex;
+        frontEl.appendChild(state.nodes[nextIndex]);
+        try{ applyCardScroll(frontEl); }catch(e){}
+      }
+      updateButtons();
+    };
+
+    updateButtons();
+  }
+  
+  // Show onboarding specific to each mode (fillblank, timer, activeMemory)
+  function showModeOnboarding(mode){
+    try{
+      if(!mode || mode === 'default') return;
+      
+      const flag = `fabanki:mode_onboarding_${mode}`;
+      if(localStorage.getItem(flag) === 'true') {
+        // Onboarding already shown, make sure pause flags are cleared
+        window.__timerPausedForOnboarding = false;
+        window.__activeMemoryPausedForOnboarding = false;
+        return;
+      }
+      
+      localStorage.setItem(flag, 'true');
+      
+      let steps = [];
+      
+      if(mode === 'fillblank'){
+        steps = [
+          {
+            title: '✍️ Mode entrée libre',
+            text: 'Bienvenue en mode entrée libre! Vous allez devoir réécrire les mots ou les phrases. Soyez précis!',
+            target: 'front',
+            position: 'bottom'
+          },
+          {
+            title: 'Tapez votre réponse',
+            text: 'Écrivez les lettres manquantes exactement. Les accents et majuscules comptent! Une fois satisfait, appuyez sur Entrée ou cliquez Valider.',
+            target: 'fillBlankInput',
+            position: 'top'
+          },
+          {
+            title: 'Validation intelligente',
+            text: 'Notre système comprend les petites erreurs (accents, majuscules). Si vous avez 80%+ correct, c\'est "Bon"! Sinon si c\'est 50%+, c\'est "Partiel".',
+            target: 'back',
+            position: 'top'
+          },
+          {
+            title: 'Double récompense',
+            text: 'Le mode entrée libre vous rapporte 2x plus d\'XP et 2.5x plus de crédits! Cela récompense votre précision. Plus difficile = plus lucratif!',
+            target: 'none',
+            position: 'center'
+          }
+        ];
+      } else if(mode === 'timer'){
+        steps = [
+          {
+            title: '⏱️ Mode Rappel sous pression',
+            text: 'Bienvenue en mode Rappel sous pression! Vous avez un temps limité pour répondre. Testez votre rapidité!',
+            target: 'timerModeContainer',
+            position: 'bottom'
+          },
+          {
+            title: 'Barre de progression colorée',
+            text: 'La barre du bas change de couleur: Vert (Facile) → Bleu (Bon) → Orange (Difficile). Cela vous montre le temps restant rapidement.',
+            target: 'timerBar',
+            position: 'bottom'
+          },
+          {
+            title: 'Soyez rapide!',
+            text: 'Vous n\'avez que peu de temps pour répondre. Plus vous cliquez vite sur "Afficher la réponse", plus vous pouvez vous mettre une bonne note.',
+            target: 'respButtons',
+            position: 'top'
+          },
+          {
+            title: 'Auto-avance automatique',
+            text: 'Au revers, si le temps expire, votre résultat est clické automatiquement (on part du principe que ce n\'est pas raté). Vous pouvez aussi répondre manuellement avant la fin.',
+            target: 'respButtons',
+            position: 'top'
+          },
+          {
+            title: 'Bonus XP',
+            text: 'Le mode Rappel sous pression vous rapporte 1.2x XP supplémentaire. Bonne révision!',
+            target: 'none',
+            position: 'center'
+          }
+        ];
+      } else if(mode === 'activeMemory'){
+        steps = [
+          {
+            title: '🧠 Mode Mémoire active',
+            text: 'Bienvenue en mode Mémoire active! Vous avez 3 secondes pour lire la question, puis elle disparaît. Engagez votre mémoire!',
+            target: 'front',
+            position: 'bottom'
+          },
+          {
+            title: 'Compte à rebours de 3 secondes',
+            text: 'Une barre bleue progresse pendant 3 secondes. Lisez vite et mémorisez bien car elle disparaîtra après!',
+            target: 'activeMemoryTimerContainer',
+            position: 'bottom'
+          },
+          {
+            title: 'La question disparaît',
+            text: 'Une fois les 3 secondes écoulées, la question disparaît. Vous ne verrez que le bouton "Afficher la réponse".',
+            target: 'showAnswer',
+            position: 'top'
+          },
+          {
+            title: 'Répondez de mémoire',
+            text: 'Essayez de répondre sans voir la question. Cliquez "Afficher la réponse" quand vous êtes prêt.',
+            target: 'showAnswer',
+            position: 'top'
+          },
+          {
+            title: 'Amélioration de la rétention',
+            text: 'Ce mode force votre cerveau à former des connexions plus fortes. Vous mémoriserez mieux à long terme! Bonus de 1.1x XP pour ce mode.',
+            target: 'none',
+            position: 'center'
+          }
+        ];
+      } else if(mode === 'step'){
+        steps = [
+          {
+            title: '🪜 Mode Etape par etape',
+            text: 'Chaque champ de la carte apparait un par un. Prenez le temps d y repondre avant de passer au suivant.',
+            target: 'front',
+            position: 'bottom'
+          },
+          {
+            title: 'Prochaine etape',
+            text: 'Cliquez sur "Prochaine etape" pour reveler le champ suivant.',
+            target: 'nextStepBtn',
+            position: 'top'
+          },
+          {
+            title: 'Evaluation finale',
+            text: 'Une fois tous les champs affiches, vous retrouvez les boutons Facile, Bon, Difficile, Rate.',
+            target: 'respButtons',
+            position: 'top'
+          }
+        ];
+      }
+      
+      if(steps.length > 0){
+        // Pause timer modes before showing onboarding
+        const wasPaused = window.__timerPausedForOnboarding;
+        if(!wasPaused && window.timerModeState && window.timerModeState.animationHandle){
+          cancelAnimationFrame(window.timerModeState.animationHandle);
+          window.timerModeState.animationHandle = null;
+          window.__timerPausedForOnboarding = true;
+        }
+        // Also pause active memory timer if running
+        window.__activeMemoryPausedForOnboarding = true;
+        
+        createContextualOnboarding(steps, flag);
+      }
+    }catch(e){ console.warn('mode onboarding error:', e) }
+  }
+  
+  // Onboarding system - shows contextual help for each mode
+  function showReviewOnboarding(){
+    const mode = reviewMode || 'default';
+    const onboardingShown = localStorage.getItem(`fabanki:onboarding_${mode}`) === 'true';
+    
+    // Show onboarding only once per mode
+    if(onboardingShown) return;
+    localStorage.setItem(`fabanki:onboarding_${mode}`, 'true');
+    
+    const ov = document.createElement('div');
+    ov.className = 'modal-overlay';
+    ov.style.cssText = 'display:flex;align-items:center;justify-content:center;z-index:2500;';
+    
+    const m = document.createElement('div');
+    m.className = 'modal';
+    m.style.cssText = 'max-width:500px;';
+    
+    let title = '';
+    let content = '';
+    
+    switch(mode){
+      case 'fillblank':
+        title = '✍️ Mode Texte à trou';
+        content = `
+          <p><strong>Bienvenue en mode Texte à trou!</strong></p>
+          <p>Complétez les mots manquants dans les phrases. Vous devez écrire exactement ce qui manque.</p>
+          <ul style="text-align:left;margin:12px 0;">
+            <li>📝 Lisez la phrase avec les trous</li>
+            <li>⌨️ Tapez les lettres manquantes</li>
+            <li>✅ Validez votre réponse</li>
+            <li>💰 Gagnez 2x plus d'XP pour cette précision!</li>
+          </ul>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>💡 Conseil:</strong> Les lettres manquantes s'affichent en vert après révélation.</p>
+        `;
+        break;
+      
+      case 'timer':
+        title = '⏱️ Mode Rappel sous pression';
+        content = `
+          <p><strong>Bienvenue en mode Rappel sous pression!</strong></p>
+          <p>Testez votre rapidité sous pression temporelle. Plus vous êtes rapide, meilleure votre note!</p>
+          <ul style="text-align:left;margin:12px 0;">
+            <li>👀 Un chronomètre compte à rebours</li>
+            <li>🎨 Barre verte → bleue → orange</li>
+            <li>📌 Un seul bouton visible à la fois</li>
+            <li>⚡ Auto-avance à la fin du chrono</li>
+            <li>💫 Gagnez 1.2x d'XP!</li>
+          </ul>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>🔵 Note:</strong> Le côté Revers reste toujours bleu (moins de pression).</p>
+        `;
+        break;
+      
+      case 'activeMemory':
+        title = '🧠 Mode Mémoire active';
+        content = `
+          <p><strong>Bienvenue en mode Mémoire active!</strong></p>
+          <p>3 secondes pour lire la question, puis elle disparaît. Engagez votre mémoire!</p>
+          <ul style="text-align:left;margin:12px 0;">
+            <li>⏱️ 3 secondes pour lire l'avant</li>
+            <li>💭 L'avant se cache après les 3 sec</li>
+            <li>🔵 Une barre de progression bleue</li>
+            <li>📚 Répondez de mémoire</li>
+            <li>✨ Gagnez 1.1x d'XP!</li>
+          </ul>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>🎯 Astuce:</strong> Vérifiez votre réponse en cliquant "Afficher la réponse".</p>
+        `;
+        break;
+      
+      default:
+        title = '📚 Bienvenue dans Fab\'Anki!';
+        content = `
+          <p><strong>Vous êtes en mode Anki (Défaut).</strong></p>
+          <p>Mode classique de révision avec l'algorithme SM-2. Pas de pression, apprenez à votre rythme.</p>
+          <ul style="text-align:left;margin:12px 0;">
+            <li>📖 Lisez la question</li>
+            <li>🤔 Réfléchissez à la réponse</li>
+            <li>👀 Cliquez "Afficher la réponse"</li>
+            <li>⭐ Notez votre réponse: Facile, Bon, Difficile, Raté</li>
+            <li>💯 Gagnez de l'XP!</li>
+          </ul>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>💡 Conseil:</strong> Essayez d'autres modes depuis "Parcourir decks"!</p>
+        `;
+        break;
+    }
+    
+    const h = document.createElement('h3');
+    h.textContent = title;
+    h.style.cssText = 'margin-top:0;margin-bottom:16px;';
+    m.appendChild(h);
+    
+    const desc = document.createElement('div');
+    desc.innerHTML = content;
+    desc.style.cssText = 'font-size:0.95rem;line-height:1.6;';
+    m.appendChild(desc);
+    
+    const btnWrap = document.createElement('div');
+    btnWrap.style.cssText = 'display:flex;gap:8px;margin-top:20px;justify-content:flex-end;';
+    
+    const btn1 = document.createElement('button');
+    btn1.textContent = 'Ne plus afficher';
+    btn1.className = 'secondary';
+    btn1.addEventListener('click', () => ov.remove());
+    btnWrap.appendChild(btn1);
+    
+    const btn2 = document.createElement('button');
+    btn2.textContent = 'Compris!';
+    btn2.addEventListener('click', () => ov.remove());
+    btnWrap.appendChild(btn2);
+    
+    m.appendChild(btnWrap);
+    ov.appendChild(m);
+    document.body.appendChild(ov);
+  }
+  
+  function showMarketOnboarding(){
+    try{
+      if(localStorage.getItem('fabanki:market_onboarding_completed')) return;
+      if(document.getElementById('onboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: 'Bienvenue au Marché!',
+          text: 'Le Marché vous permet d\'acheter des fonctionnalités premium avec les crédits (ℂ) que vous gagnez en révisant!',
+          position: 'center'
+        },
+        {
+          title: 'Modes d\'étude',
+          text: 'Plein de modes d\'étude à débloquer : Certains sont compatibles avec tous les decks, d\'autres sont spécifiques à certains types de cartes (ex: Texte à trou pour les cartes avec du texte long). Essayez-les tous!',
+          position: 'center'
+        },
+        {
+          title: 'Personnalisations',
+          text: 'Débloquez des Couleurs de fond, Motifs, Polices, Couleurs de cartes et Animations!',
+          position: 'center'
+        },
+        {
+          title: 'Titres aléatoires',
+          text: 'Débloquez des titres aléatoires à différents niveaux de rareté. Votre titre s\'affiche sur le leaderboard pour montrer votre prestige!',
+          position: 'center'
+        },
+        {
+          title: 'Conseil',
+          text: 'Montez de niveau pour débloquer plus de personnalisations gratuites! Soyez régulier dans vos révisions pour accumuler crédits et XP rapidement.',
+          position: 'center'
+        }
+      ];
+      
+      createContextualOnboarding(steps, 'fabanki:market_onboarding_completed');
+    }catch(e){ console.warn('market onboarding error:', e) }
+  }
+  
+  function createTimerParticles(){
+    try{
+      const container = document.getElementById('timerModeContainer');
+      if(!container) return;
+      
+      // Create 8-10 particles
+      for(let i = 0; i < 10; i++){
+        const particle = document.createElement('div');
+        particle.style.cssText = `
+          position: fixed;
+          pointer-events: none;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #ef4444;
+          box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+          z-index: 1000;
+        `;
+        
+        // Random starting position near the timer
+        const rect = container.getBoundingClientRect();
+        const startX = rect.left + Math.random() * rect.width;
+        const startY = rect.top + rect.height / 2;
+        
+        particle.style.left = startX + 'px';
+        particle.style.top = startY + 'px';
+        
+        document.body.appendChild(particle);
+        
+        // Animate particle upward
+        const duration = 1000 + Math.random() * 500;
+        const startTime = Date.now();
+        const vx = (Math.random() - 0.5) * 200;
+        const vy = -100 - Math.random() * 150;
+        
+        const animateParticle = () => {
+          const elapsed = Date.now() - startTime;
+          const progress = elapsed / duration;
+          
+          if(progress >= 1){
+            particle.remove();
+            return;
+          }
+          
+          const x = startX + vx * progress;
+          const y = startY + vy * progress + 50 * progress * progress;
+          const opacity = 1 - progress;
+          
+          particle.style.left = x + 'px';
+          particle.style.top = y + 'px';
+          particle.style.opacity = opacity;
+          
+          requestAnimationFrame(animateParticle);
+        };
+        
+        animateParticle();
+      }
+    }catch(e){ console.warn('Particle effect error:', e); }
+  }
+  
+  function startTimerAnimation(){
+    if(!window.timerModeState) return;
+    
+    const animate = () => {
+      const state = window.timerModeState;
+      const elapsed = Date.now() - state.cardStartTime;
+      const progress = Math.min(100, (elapsed / state.currentTimeLimit) * 100);
+      
+      const fill = document.getElementById('timerFill');
+      const text = document.getElementById('timerText');
+      
+      if(fill){
+        fill.style.width = progress + '%';
+        
+        // Change color based on progress: Green → Blue → Orange → Red
+        if(progress < 30){
+          fill.style.background = '#10b981';  // Green
+        } else if(progress < 60){
+          fill.style.background = '#3b82f6';  // Blue
+        } else if(progress < 95){
+          fill.style.background = '#f6c73b';  // Orange
+        } else {
+          fill.style.background = '#ef4444';  // Red
+        }
+      }
+      
+      if(text){
+        const remaining = Math.max(0, Math.ceil((state.currentTimeLimit - elapsed) / 1000));
+        const side = state.isShowingBack ? 'Revers' : 'Face';
+        text.textContent = `${side}: ${remaining}s`;
+      }
+      
+      // Update button visibility based on time progress
+      updateTimerButtonVisibility(progress);
+      
+      // Create particles at 75% progress
+      if(progress > 75 && !state.particlesStarted){
+        state.particlesStarted = true;
+        createTimerParticles();
+      }
+      
+      // Auto-click when time expires (ONLY on back side, not front)
+      if(progress >= 100 && !state.autoClickActive && state.isShowingBack){
+        autoClickTimerButton();
+      }
+      
+      state.animationHandle = requestAnimationFrame(animate);
+    };
+    
+    window.timerModeState.animationHandle = requestAnimationFrame(animate);
+  }
+  
+  function autoClickTimerButton(){
+    if(!window.timerModeState) return;
+    window.timerModeState.autoClickActive = true;
+    
+    // Get all response buttons (Facile > Bon > Difficile > Raté)
+    const easyBtn = document.getElementById('easy');
+    const goodBtn = document.getElementById('good');
+    const hardBtn = document.getElementById('hard');
+    const failBtn = document.getElementById('again');
+    
+    // Check visibility and priority (from best to worst)
+    // Only click if button is actually visible (not just display !== 'none')
+    let buttonToClick = null;
+    
+    const isVisible = (btn) => {
+      if(!btn) return false;
+      const style = window.getComputedStyle(btn);
+      return style.display !== 'none' && style.visibility !== 'hidden';
+    };
+    
+    if(isVisible(easyBtn)){
+      buttonToClick = easyBtn;
+    } else if(isVisible(goodBtn)){
+      buttonToClick = goodBtn;
+    } else if(isVisible(hardBtn)){
+      buttonToClick = hardBtn;
+    } else if(isVisible(failBtn)){
+      buttonToClick = failBtn;
+    }
+    
+    if(buttonToClick && !buttonToClick.disabled){
+      buttonToClick.click();
+      // Note: Button click handlers already call showNextCard(), no need to manually advance
+    }
+  }
+  
+  function updateTimerButtonVisibility(progress){
+    const easyBtn = document.getElementById('easy');
+    const goodBtn = document.getElementById('good');
+    const hardBtn = document.getElementById('hard');
+    const failBtn = document.getElementById('again');
+    
+    // If button state is fixed (answer has been shown), show the fixed button PLUS always show Raté
+    if(window.timerModeState && window.timerModeState.fixedButtonState){
+      const fixed = window.timerModeState.fixedButtonState;
+      
+      if(easyBtn) easyBtn.style.display = fixed === 'easy' ? 'inline-block' : 'none';
+      if(goodBtn) goodBtn.style.display = fixed === 'good' ? 'inline-block' : 'none';
+      if(hardBtn) hardBtn.style.display = fixed === 'hard' ? 'inline-block' : 'none';
+      // Always show Raté button when back content is shown
+      if(failBtn) failBtn.style.display = 'inline-block';
+      return;
+    }
+    
+    // Hide all buttons by default
+    if(easyBtn) easyBtn.style.display = 'none';
+    if(goodBtn) goodBtn.style.display = 'none';
+    if(hardBtn) hardBtn.style.display = 'none';
+    if(failBtn) failBtn.style.display = 'none';
+    
+    // Show only appropriate button based on progress (before answer is shown)
+    if(progress < 20 && easyBtn){
+      easyBtn.style.display = 'inline-block';
+    } else if(progress < 60 && goodBtn){
+      goodBtn.style.display = 'inline-block';
+    } else if(progress < 100 && hardBtn){
+      hardBtn.style.display = 'inline-block';
+    } else if(progress >= 100 && failBtn){
+      failBtn.style.display = 'inline-block';
+    }
+  }
+  
+  function validateFillBlank(card){
+    const input = document.getElementById('fillBlankInput');
+    if(!input) return;
+    
+    const userAnswer = input.value;
+    const backEl = $('#back');
+    if(!backEl) return;
+    
+    // Get correct answer from back content
+    let correctAnswer = '';
+    if(card.fields){
+      // Get the second field (first is front, second is back)
+      const fieldOrder = card._fieldOrder || Object.keys(card.fields);
+      if(fieldOrder.length > 1){
+        const backFieldName = fieldOrder[1];
+        const backField = card.fields[backFieldName];
+        if(backField){
+          correctAnswer = backField.html || '';
+        }
+      }
+    }
+    
+    if(!correctAnswer){
+      alert('Erreur: réponse correcte non trouvée');
+      return;
+    }
+    
+    // Check if this is an Informatique deck - extract code only
+    const isInformatiqueDeck = deckURL && deckURL.includes('Informatique/');
+    if(isInformatiqueDeck){
+      correctAnswer = extractCodeContent(correctAnswer);
+    }
+    
+    // Validate the answer
+    const result = validateFillBlankAnswer(userAnswer, correctAnswer);
+    
+    // Show back content with feedback
+    backEl.style.display = 'block';
+    backEl.innerHTML = '';
+    
+    // Show the back content
+    const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
+    renderBack(c);
+    
+    // Add feedback overlay
+    renderFillBlankFeedback(userAnswer, correctAnswer, result);
+    
+    // Hide input and show response buttons
+    const fillBlankContainer = document.getElementById('fillBlankContainer');
+    if(fillBlankContainer) fillBlankContainer.style.display = 'none';
+    
+    const respButtons = $('#respButtons');
+    if(respButtons){
+      respButtons.style.display = 'inline-flex';
+      respButtons.style.gap = '8px';
+      respButtons.innerHTML = '';
+      
+      // Create buttons based on result quality
+      const qualityToGrade = {
+        5: { text: '✓ Validé', quality: 5, cls: 'rate-facile' },
+        4: { text: 'Bon', quality: 4, cls: 'rate-bon' },
+        3: { text: 'Hard', quality: 3, cls: 'rate-difficile' },
+        0: { text: 'Raté', quality: 0, cls: 'rate-ratte' }
+      };
+      
+      const gradeInfo = qualityToGrade[result.quality];
+      if(gradeInfo){
+        const btn = document.createElement('button');
+        btn.textContent = gradeInfo.text;
+        btn.className = gradeInfo.cls;
+        btn.style.cssText = 'padding:10px 16px;cursor:pointer;font-weight:600;';
+        btn.addEventListener('click', () => answerCurrent(gradeInfo.quality));
+        respButtons.appendChild(btn);
+      }
+      
+      // Add manual override button
+      const overrideBtn = document.createElement('button');
+      overrideBtn.textContent = '🔧 Corriger';
+      overrideBtn.className = 'secondary';
+      overrideBtn.style.cssText = 'padding:10px 16px;cursor:pointer;font-size:0.85em;';
+      overrideBtn.addEventListener('click', () => {
+        // Show all quality options
+        respButtons.innerHTML = '';
+        
+        const qualities = [
+          { text: 'Facile', quality: 5, cls: 'rate-facile' },
+          { text: 'Bon', quality: 4, cls: 'rate-bon' },
+          { text: 'Difficile', quality: 3, cls: 'rate-difficile' },
+          { text: 'Raté', quality: 0, cls: 'rate-ratte' }
+        ];
+        
+        qualities.forEach(q => {
+          const btn = document.createElement('button');
+          btn.textContent = q.text;
+          btn.className = q.cls;
+          btn.style.cssText = 'padding:10px 16px;cursor:pointer;font-weight:600;';
+          btn.addEventListener('click', () => answerCurrent(q.quality));
+          respButtons.appendChild(btn);
+        });
+        
+        // Re-add pass button
+        const passBtn = document.createElement('button');
+        passBtn.textContent = 'Passer';
+        passBtn.className = 'secondary';
+        passBtn.style.cssText = 'padding:10px 16px;cursor:pointer;';
+        passBtn.addEventListener('click', () => passCurrent());
+        respButtons.appendChild(passBtn);
+      });
+      respButtons.appendChild(overrideBtn);
+      
+      // Add "Pass" button
+      const passBtn = document.createElement('button');
+      passBtn.textContent = 'Passer';
+      passBtn.className = 'secondary';
+      passBtn.style.cssText = 'padding:10px 16px;cursor:pointer;';
+      passBtn.addEventListener('click', () => passCurrent());
+      respButtons.appendChild(passBtn);
+    }
+  }
+
+  // Render or update the small persistent card status box
+  function renderCardStatus(card){
+    try{
+      if(!card) return;
+      const cardArea = document.getElementById('cardArea'); if(!cardArea) return;
+      let stEl = document.getElementById('cardStatus');
+      if(!stEl){ stEl = document.createElement('div'); stEl.id = 'cardStatus'; stEl.className = 'card-status'; cardArea.appendChild(stEl); cardArea.style.position = cardArea.style.position || 'relative'; }
+      const key = storageKey('card:'+card.id);
+      const st = JSON.parse(localStorage.getItem(key) || '{}');
+      const now = new Date();
+      let txt = '';
+      let cls = 'status-upcoming';
+      const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
+      if(onlyNowMode){
+        txt = 'Maintenant'; cls = 'status-now';
+      } else if(isNew){ txt = 'Nouveau'; cls = 'status-new'; }
+      else {
+        const due = st && st.due ? new Date(st.due) : now;
+        const hrs = (due - now) / (1000*60*60);
+        if(due <= now){ txt = 'Maintenant'; cls = 'status-now'; }
+        else if(hrs <= 12){ txt = '<12h'; cls = 'status-12h'; }
+        else if(hrs <= 24){ txt = 'Demain'; cls = 'status-tomorrow'; }
+        else if(hrs <= 24*7){ txt = '<1 sem'; cls = 'status-week'; }
+        else { txt = 'Longtemps'; cls = 'status-long'; }
+      }
+      stEl.textContent = txt; stEl.className = 'card-status ' + cls;
+    }catch(e){ console.warn('renderCardStatus', e) }
+  }
+
+  // === FILL-IN-THE-BLANK MODE FUNCTIONS ===
+  function cleanPunctuation(text){
+    // Remove HTML tags
+    text = text.replace(/<[^>]*>/g, '');
+    // Remove ellipsis (...)
+    text = text.replace(/\.\.\./g, '');
+    // Normalize dashes/hyphens
+    text = text.replace(/[-–—]/g, '-');
+    return text.trim();
+  }
+  
+  function validateFillBlankAnswer(userAnswer, correctAnswer){
+    // Normalize the correct answer (remove HTML tags, punctuation)
+    const normalized = cleanPunctuation(correctAnswer).toLowerCase();
+    const userNormalized = cleanPunctuation(userAnswer).toLowerCase();
+    
+    // Split by "/" to get multiple acceptable answers
+    const answers = normalized.split('/').map(a => a.trim()).filter(a => a.length > 0);
+    
+    if(answers.length === 0) return { quality: 4, message: 'Bon', isCorrect: false };
+    
+    // Check each possible answer with advanced logic
+    for(let i = 0; i < answers.length; i++){
+      const answer = answers[i];
+      const result = checkAnswerVariant(userNormalized, answer);
+      
+      // If exact match or special case (Facile/Bon), return immediately
+      if(result.quality >= 4) return result;
+      
+      // If hard (quality 3), continue to check other options but remember this result
+      if(result.quality === 3 && i === answers.length - 1){
+        return result; // Return hard if it's the last option
+      }
+    }
+    
+    // None matched perfectly, return worst result
+    return checkAnswerVariant(userNormalized, answers[0]);
+  }
+  
+  function alignAndCompareLetters(userAnswer, correctAnswer){
+    // For detecting offset letters when a word is missing
+    // Example: user has "sits" but correct is "stands" - should detect 'sit' matching
+    // or if correct is "The stands" and user has "stands" - should be Bon
+    
+    // Split into words
+    const userWords = userAnswer.split(/\s+/).filter(w => w.length > 0);
+    const correctWords = correctAnswer.split(/\s+/).filter(w => w.length > 0);
+    
+    if(userWords.length === correctWords.length){
+      // Same number of words - compare position by position
+      let totalMatchRatio = 0;
+      for(let i = 0; i < userWords.length; i++){
+        const userWord = userWords[i];
+        const correctWord = correctWords[i];
+        const similarity = calculateWordSimilarity(userWord, correctWord);
+        totalMatchRatio += similarity;
+      }
+      return totalMatchRatio / userWords.length;
+    } else {
+      // Different number of words - find best alignment
+      // Try to find which words match which
+      let bestRatio = 0;
+      
+      // Try to find contiguous matching words
+      for(let startCorrect = 0; startCorrect <= correctWords.length - userWords.length; startCorrect++){
+        let ratio = 0;
+        for(let i = 0; i < userWords.length; i++){
+          const userWord = userWords[i];
+          const correctWord = correctWords[startCorrect + i];
+          ratio += calculateWordSimilarity(userWord, correctWord);
+        }
+        ratio /= userWords.length;
+        bestRatio = Math.max(bestRatio, ratio);
+      }
+      
+      return bestRatio;
+    }
+  }
+  
+  function calculateWordSimilarity(word1, word2){
+    // Return a number 0-1 representing how similar two words are
+    const lcs = getLongestCommonSubsequence(word1, word2);
+    const maxLen = Math.max(word1.length, word2.length);
+    return maxLen > 0 ? lcs.length / maxLen : (word1 === word2 ? 1 : 0);
+  }
+  
+  function checkAnswerVariant(userAnswer, correctAnswer){
+    // SPECIAL CASE: Handle phrases with special keywords like "emphasizes / lays emphasis on"
+    // If the correct answer contains patterns like "word1 / word2 pattern", apply advanced matching
+    
+    // Clean punctuation for both answers
+    const userCleaned = cleanPunctuation(userAnswer).toLowerCase();
+    const correctCleaned = cleanPunctuation(correctAnswer).toLowerCase();
+    
+    // Exact match -> Validé (quality 5)
+    if(userCleaned === correctCleaned){
+      return { quality: 5, message: 'Validé', isCorrect: true };
+    }
+    
+    // Check for special patterns (e.g., "He emphasizes / lays emphasis on...")
+    const specialPatternResult = checkSpecialPattern(userCleaned, correctCleaned);
+    if(specialPatternResult) return specialPatternResult;
+    
+    // Count character differences
+    const similarity = calculateSimilarity(userCleaned, correctCleaned);
+    const charErrorRate = similarity.errorRate;
+    
+    // Special characters only (accents, -, _, !, ?) -> Bon (quality 4)
+    if(similarity.specialCharsOnly){
+      return { quality: 4, message: 'Bon', isCorrect: false, diff: similarity.diff };
+    }
+    
+    // More than 95% correct -> Bon (quality 4)
+    if(charErrorRate < 0.20){
+      return { quality: 4, message: 'Bon', isCorrect: false, diff: similarity.diff };
+    }
+    
+    // Check if this is a case of missing words with matching letters
+    // If user has fewer words but the letters align well with some words, it might be Bon
+    const letterAlignment = alignAndCompareLetters(userCleaned, correctCleaned);
+    if(letterAlignment > 0.85){
+      return { quality: 4, message: 'Bon', isCorrect: false, diff: similarity.diff };
+    }
+    
+    // Less than 50% character errors -> Hard (quality 3)
+    if(charErrorRate < 0.50){
+      return { quality: 3, message: 'Partiel', isCorrect: false, diff: similarity.diff };
+    }
+    
+    // Check each part before slashes
+    const parts = correctCleaned.split('/').map(p => p.trim()).filter(p => p.length > 0);
+    let bestPartialMatch = null;
+    for(const part of parts){
+      const partSimilarity = calculateSimilarity(userCleaned, part);
+      // If one variant matches exactly, it's valid (Validé)
+      if(userCleaned === part){
+        return { quality: 5, message: 'Validé', isCorrect: true };
+      }
+      // If variant matches with <20% errors, it's Good (Bon) - user got one of the options
+      if(partSimilarity.errorRate < 0.20){
+        return { quality: 4, message: 'Bon', isCorrect: false, diff: partSimilarity.diff };
+      }
+      // Check letter alignment for this part too
+      const partLetterAlignment = alignAndCompareLetters(userCleaned, part);
+      if(partLetterAlignment > 0.85){
+        return { quality: 4, message: 'Bon', isCorrect: false, diff: partSimilarity.diff };
+      }
+      // If variant matches with <50% errors, remember as best partial match
+      if(partSimilarity.errorRate < 0.50 && !bestPartialMatch){
+        bestPartialMatch = { quality: 3, message: 'Partiel', isCorrect: false, diff: partSimilarity.diff };
+      }
+    }
+    
+    // If we found a partial match, return it
+    if(bestPartialMatch) return bestPartialMatch;
+    
+    // Default: Raté (quality 0)
+    return { quality: 0, message: 'Raté', isCorrect: false, diff: similarity.diff };
+  }
+  
+  function checkSpecialPattern(userAnswer, correctAnswer){
+    // Handle patterns like: "word1 pattern / word2 pattern..."
+    // Example: "He emphasizes / lays emphasis on" or "emphasizes / lays emphasis on..."
+    // Note: userAnswer and correctAnswer are already lowercase at this point
+    
+    // Split by "/" to get all variants
+    const variants = correctAnswer.split('/').map(v => v.trim()).filter(v => v.length > 0);
+    if(variants.length < 2) return null; // Only for multiple choice patterns
+    
+    // Try exact match with each variant
+    for(const variant of variants){
+      if(userAnswer === variant){
+        return { quality: 5, message: 'Facile', isCorrect: true };
+      }
+    }
+    
+    // Try to match substrings and extract patterns
+    // Example: If user says "lays emphasis on" and answer is "He emphasizes / lays emphasis on..."
+    // We should give "Bon" because they have the core phrase
+    
+    for(let i = 0; i < variants.length; i++){
+      const variant = variants[i];
+      
+      // Extract the last 2-3 words as "core phrase"
+      const words = variant.split(' ');
+      
+      // For longer answers, try to find the core matching
+      if(words.length >= 3){
+        // Try matching last N words (for patterns ending with "...")
+        for(let wordCount = 2; wordCount <= Math.min(4, words.length); wordCount++){
+          const corePhrase = words.slice(-wordCount).join(' ').replace(/\.\.\.$/, '').trim();
+          
+          if(userAnswer.includes(corePhrase) || corePhrase.includes(userAnswer)){
+            // Check how much of the pattern matches
+            const matchRatio = corePhrase.length > 0 ? 
+              Math.min(userAnswer.length, corePhrase.length) / Math.max(userAnswer.length, corePhrase.length) 
+              : 0;
+            
+            if(matchRatio > 0.7){
+              return { quality: 4, message: 'Bon', isCorrect: false };
+            }
+          }
+        }
+      }
+    }
+    
+    return null;
+  }
+  
+  function calculateSimilarity(user, correct){
+    // Improved: use Levenshtein-like distance but track actual missing/extra chars
+    const userChars = user.split('');
+    const correctChars = correct.split('');
+    
+    // Use a more intelligent matching algorithm
+    // Find longest common subsequence to identify extra/missing chars
+    const lcs = getLongestCommonSubsequence(user, correct);
+    const matchedChars = lcs.length;
+    
+    const maxLen = Math.max(user.length, correct.length);
+    const errorRate = maxLen > 0 ? (maxLen - matchedChars) / maxLen : 0;
+    
+    // Identify which specific chars are extra/missing
+    let extraChars = [];
+    let missingChars = [];
+    
+    // Find extra chars (in user but not in LCS properly aligned)
+    const correctLcs = getLongestCommonSubsequence(correct, user);
+    for(let i = 0; i < userChars.length; i++){
+      if(!lcs.includes(userChars[i]) || userChars.filter(c => c === userChars[i]).length > correctLcs.split('').filter(c => c === userChars[i]).length){
+        extraChars.push({idx: i, char: userChars[i]});
+      }
+    }
+    
+    // Find missing chars (in correct but not in user)
+    for(let i = 0; i < correctChars.length; i++){
+      if(!lcs.includes(correctChars[i]) || correctChars.filter(c => c === correctChars[i]).length > userChars.filter(c => c === correctChars[i]).length){
+        missingChars.push({idx: i, char: correctChars[i]});
+      }
+    }
+    
+    // Simplify: count actual extra/missing by character frequency
+    const userFreq = {};
+    const correctFreq = {};
+    
+    for(let c of userChars) userFreq[c] = (userFreq[c] || 0) + 1;
+    for(let c of correctChars) correctFreq[c] = (correctFreq[c] || 0) + 1;
+    
+    extraChars = [];
+    missingChars = [];
+    
+    for(let c in userFreq){
+      const extra = userFreq[c] - (correctFreq[c] || 0);
+      if(extra > 0){
+        for(let i = 0; i < extra; i++){
+          const idx = user.lastIndexOf(c);
+          extraChars.push({idx, char: c});
+        }
+      }
+    }
+    
+    for(let c in correctFreq){
+      const missing = correctFreq[c] - (userFreq[c] || 0);
+      if(missing > 0){
+        for(let i = 0; i < missing; i++){
+          missingChars.push({idx: correct.lastIndexOf(c), char: c});
+        }
+      }
+    }
+    
+    const specialCharRegex = /[.éèêëàâäùûüôöçœæñ\-_!?]/i;
+    const onlySpecialDiff = extraChars.concat(missingChars).every(d => specialCharRegex.test(d.char));
+    
+    return {
+      errorRate,
+      specialCharsOnly: onlySpecialDiff && (extraChars.length > 0 || missingChars.length > 0),
+      diff: { extra: extraChars, missing: missingChars },
+      matchedChars,
+      lcsLength: matchedChars
+    };
+  }
+  
+  function getLongestCommonSubsequence(str1, str2){
+    const m = str1.length;
+    const n = str2.length;
+    const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+    
+    for(let i = 1; i <= m; i++){
+      for(let j = 1; j <= n; j++){
+        if(str1[i - 1] === str2[j - 1]){
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+    
+    // Reconstruct LCS
+    let lcs = '';
+    let i = m, j = n;
+    while(i > 0 && j > 0){
+      if(str1[i - 1] === str2[j - 1]){
+        lcs = str1[i - 1] + lcs;
+        i--; j--;
+      } else if(dp[i - 1][j] > dp[i][j - 1]){
+        i--;
+      } else {
+        j--;
+      }
+    }
+    
+    return lcs;
+  }
+  
+  function renderFillBlankFeedback(userAnswer, correctAnswer, result){
+    const backEl = $('#back');
+    const feedbackEl = document.createElement('div');
+    feedbackEl.style.cssText = 'margin-top:16px;padding:12px;border-radius:8px;';
+    
+    // Result header
+    const resultDiv = document.createElement('div');
+    const resultColors = {
+      'Validé': '#2ecc71',
+      'Bon': '#3498db',
+      'BON': '#3498db',
+      'Hard': '#f39c12',
+      'Raté': '#e74c3c'
+    };
+    const color = resultColors[result.message] || '#999';
+    resultDiv.style.cssText = `background:${color}20;border-left:4px solid ${color};padding:8px;margin-bottom:12px;font-weight:700;color:${color};`;
+    resultDiv.textContent = `Résultat: ${result.message}`;
+    feedbackEl.appendChild(resultDiv);
+    
+    // Back content (correct answer)
+    const correctDiv = document.createElement('div');
+    correctDiv.style.cssText = 'margin-bottom:12px;padding:8px;background:#f0f0f0;border-radius:4px;';
+    correctDiv.innerHTML = `<strong>Réponse correcte:</strong><br>${correctAnswer}`;
+    feedbackEl.appendChild(correctDiv);
+    
+    // User's answer with visual feedback
+    const userDiv = document.createElement('div');
+    userDiv.style.cssText = 'margin-bottom:12px;padding:8px;background:#f9f9f9;border-radius:4px;';
+    userDiv.innerHTML = '<strong>Votre réponse:</strong><br>';
+    
+    // Render user answer with strike-through extra chars and green missing chars
+    if(result.diff){
+      const userRendered = renderAnswerDiff(userAnswer, result.diff);
+      userDiv.innerHTML += userRendered;
+    } else {
+      userDiv.innerHTML += `<span>${userAnswer}</span>`;
+    }
+    
+    feedbackEl.appendChild(userDiv);
+    
+    backEl.appendChild(feedbackEl);
+    return feedbackEl;
+  }
+  
+  function renderAnswerDiff(userAnswer, diff){
+    let html = '';
+    const chars = userAnswer.split('');
+    const extraSet = new Set(diff.extra.map(e => e.idx));
+    const missingMap = new Map(diff.missing.map(m => [m.idx, m.char]));
+    
+    // Build string with missing characters inserted at correct positions
+    let resultChars = [];
+    for(let i = 0; i < chars.length; i++){
+      if(extraSet.has(i)){
+        resultChars.push({char: chars[i], type: 'extra'});
+      } else {
+        resultChars.push({char: chars[i], type: 'normal'});
+      }
+      // Insert missing character after this position if it exists
+      if(missingMap.has(i)){
+        resultChars.push({char: missingMap.get(i), type: 'missing'});
+      }
+    }
+    
+    // Render with proper styling
+    resultChars.forEach((item) => {
+      if(item.type === 'extra'){
+        html += `<span style="text-decoration:line-through;color:#e74c3c;">${escapeHtml(item.char)}</span>`;
+      } else if(item.type === 'missing'){
+        html += `<span style="color:#2ecc71;">${escapeHtml(item.char)}</span>`;
+      } else {
+        html += escapeHtml(item.char);
+      }
+    });
+    
+    return html;
+  }
+  
+  function escapeHtml(text){
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+  }
+
+  // Button handlers
+  const showAnswerBtn = $('#showAnswer');
+  if(showAnswerBtn){
+    showAnswerBtn.addEventListener('click', ()=>{
+      const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
+      try{
+        console.log('showAnswer clicked - renderBack will be called once');
+        renderBack(c);
+        console.log('renderBack completed');
+        
+        // For Active Memory mode, stop the timer
+        if(reviewMode === 'activeMemory' && window.__activeMemoryTimerState){
+          if(window.__activeMemoryTimerState.animationHandle){
+            cancelAnimationFrame(window.__activeMemoryTimerState.animationHandle);
+          }
+          if(window.__activeMemoryTimerState.timeoutHandle){
+            clearTimeout(window.__activeMemoryTimerState.timeoutHandle);
+          }
+        }
+        
+        // For timer mode, update timer state with adjusted back time
+        if(reviewMode === 'timer' && window.timerModeState && c){
+          let adjustedBackTime = timerSettings.backTime;
+          
+          // Check back content length for size adjustment
+          if(c.fields){
+            const fieldOrder = c._fieldOrder || Object.keys(c.fields);
+            const meanCardLength = 200;
+            
+            if(fieldOrder.length > 1){
+              const backFieldName = fieldOrder[1];
+              const backField = c.fields[backFieldName];
+              const backContent = typeof backField === 'string' ? backField : '';
+              const backLength = backContent.replace(/<[^>]*>/g, '').length;
+              
+              if(backLength > 1.5 * meanCardLength){
+                adjustedBackTime = timerSettings.backTime * 1.3;
+              }
+            }
+          }
+          
+          window.timerModeState.isShowingBack = true;
+          window.timerModeState.cardStartTime = Date.now();
+          window.timerModeState.currentTimeLimit = adjustedBackTime * 1000;
+          window.timerModeState.autoClickActive = false;
+          
+          // FIX BUTTON VISIBILITY based on time spent on front
+          const timeSpentOnFront = (Date.now() - window.timerModeState.frontCardStartTime) / 1000;
+          const totalFrontTime = timerSettings.frontTime;
+          const frontProgress = Math.min(100, (timeSpentOnFront / totalFrontTime) * 100);
+          
+          // Determine which button to show and lock it
+          let buttonToShow = null;
+          if(frontProgress < 20){
+            buttonToShow = 'easy';
+          } else if(frontProgress < 60){
+            buttonToShow = 'good';
+          } else if(frontProgress < 100){
+            buttonToShow = 'hard';
+          } else {
+            buttonToShow = 'fail';
+          }
+          
+          window.timerModeState.fixedButtonState = buttonToShow;
+        }
+        
+        const frontEl = $('#front');
+        const backEl = $('#back');
+        const respBtn = $('#respButtons');
+        const showBtn = $('#showAnswer');
+        if(window.innerWidth <= 640){
+          // mobile: show front AND back (don't auto-hide front)
+          if(frontEl){ frontEl.style.display = 'block'; frontEl.style.flex = '0 0 auto'; }
+          if(backEl){ backEl.style.display = 'block'; backEl.style.flex = '0 0 auto'; }
+        } else {
+          // desktop: show only back
+          if(frontEl){ frontEl.style.display = 'none'; }
+          if(backEl){ backEl.style.display = 'block'; backEl.style.flex = '1 1 auto'; }
+        }
+        if(respBtn) respBtn.style.display = 'inline-flex';
+        if(showBtn) showBtn.style.display = 'none';
+      }catch(e){ console.warn('showAnswer error', e); }
+    });
+  }
+  
+  // Cancel modification request
+  const cancelModBtn = document.getElementById('cancelModBtn');
+  if(cancelModBtn){
+    cancelModBtn.addEventListener('click', ()=>{
+      const overlay = document.getElementById('modRequestOverlay');
+      if(overlay) overlay.style.display = 'none';
+    });
+  }
+  
+  // Close modal button (back button in header)
+  const closeModModalBtn = document.getElementById('closeModModalBtn');
+  if(closeModModalBtn){
+    closeModModalBtn.addEventListener('click', ()=>{
+      const overlay = document.getElementById('modRequestOverlay');
+      if(overlay) overlay.style.display = 'none';
+    });
+  }
+  
+  // Submit modification request
+  const submitModBtn = document.getElementById('submitModBtn');
+  if(submitModBtn){
+    submitModBtn.addEventListener('click', async ()=>{
+      const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
+      if(!c) return;
+      
+      const fieldsContainer = document.getElementById('modRequestFields');
+      if(!fieldsContainer) return;
+      
+      const textareas = fieldsContainer.querySelectorAll('textarea');
+      const modifications = {};
+      textareas.forEach(ta => {
+        const fieldName = ta.getAttribute('data-field-name');
+        modifications[fieldName] = ta.value;
+      });
+      
+      // Create modification request object
+      const request = {
+        timestamp: new Date().toISOString(),
+        deckTitle: deck?.title || 'Unknown Deck',
+        deckURL: deckURL || 'Unknown URL',
+        cardId: c.id || 'Unknown ID',
+        originalFields: c.fields || {},
+        modifiedFields: modifications,
+        userPseudo: localStorage.getItem('fabanki:pseudo') || 'Anonymous'
+      };
+      
+      // Store modification request locally and sync to cloud
+      try{
+        const existingRequests = JSON.parse(localStorage.getItem('fabanki:modification_requests') || '[]');
+        existingRequests.push(request);
+        localStorage.setItem('fabanki:modification_requests', JSON.stringify(existingRequests));
+        
+        // Log to console for developer
+        console.log('=== MODIFICATION REQUEST ===');
+        console.log(JSON.stringify(request, null, 2));
+        console.log('============================');
+        
+        // Sync to Firestore if available (syncs to shared developer collection)
+        if(window.__fabanki_firestore){
+          try{
+            console.log('Attempting to sync to Firestore...');
+            const docRef = await window.__fabanki_firestore.collection('modification_requests').add({
+              timestamp: request.timestamp,
+              deckTitle: request.deckTitle,
+              deckURL: request.deckURL,
+              cardId: request.cardId,
+              originalFields: request.originalFields,
+              modifiedFields: request.modifiedFields,
+              userPseudo: request.userPseudo,
+              submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              status: 'pending'
+            });
+            console.log('✔️ Modification request synced to cloud with ID:', docRef.id);
+          }catch(cloudError){
+            console.error('Failed to sync modification request to cloud:', cloudError);
+            alert('Avertissement: La demande a été enregistrée localement mais n\'a pas pu être synchronisée avec le cloud. Erreur: ' + cloudError.message);
+          }
+        } else {
+          console.warn('Firestore not available - modification saved locally only');
+        }
+        
+        alert('Demande de modification enregistrée ! Le développeur sera notifié.');
+        
+        // Close overlay
+        const overlay = document.getElementById('modRequestOverlay');
+        if(overlay) overlay.style.display = 'none';
+      }catch(e){
+        console.error('Failed to save modification request:', e);
+        alert('Erreur lors de l\'enregistrement de la demande.');
+      }
+    });
+  }
+
+  // Console command to display all modification requests with admin panel UI
+  window.showModificationRequests = function(){
+    try{
+      const requests = JSON.parse(localStorage.getItem('fabanki:modification_requests') || '[]');
+      
+      // Log to console for reference
+      console.log(`=== ${requests.length} DEMANDE(S) DE MODIFICATION ===`);
+      if(requests.length === 0){
+        console.log('Aucune demande de modification enregistrée.');
+        alert('Aucune demande de modification.');
+        return;
+      }
+      
+      // Create admin panel overlay
+      const existingPanel = document.getElementById('adminModRequestPanel');
+      if(existingPanel) existingPanel.remove();
+      
+      const panel = document.createElement('div');
+      panel.id = 'adminModRequestPanel';
+      panel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99999;overflow-y:auto;padding:20px;';
+      
+      const container = document.createElement('div');
+      container.style.cssText = 'max-width:1200px;margin:0 auto;background:var(--card-bg);padding:24px;border-radius:12px;';
+      
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;';
+      header.innerHTML = `<h2 style="margin:0;">🛠️ Admin Panel - Demandes de Modification (${requests.length})</h2>`;
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.textContent = '✕ Fermer';
+      closeBtn.className = 'secondary';
+      closeBtn.style.cssText = 'padding:8px 16px;';
+      closeBtn.addEventListener('click', () => panel.remove());
+      header.appendChild(closeBtn);
+      
+      container.appendChild(header);
+      
+      // Function to remove a request from localStorage
+      const removeRequest = (index) => {
+        const updatedRequests = JSON.parse(localStorage.getItem('fabanki:modification_requests') || '[]');
+        updatedRequests.splice(index, 1);
+        localStorage.setItem('fabanki:modification_requests', JSON.stringify(updatedRequests));
+        panel.remove();
+        showModificationRequests(); // Reload panel with updated data
+      };
+      
+      // Display each request
+      requests.forEach((req, index) => {
+        const reqCard = document.createElement('div');
+        reqCard.style.cssText = 'border:1px solid var(--border-color);border-radius:8px;padding:16px;margin-bottom:16px;background:var(--bg);';
+        
+        const reqHeader = document.createElement('div');
+        reqHeader.style.cssText = 'display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;';
+        
+        const reqInfo = document.createElement('div');
+        reqInfo.innerHTML = `
+          <h3 style="margin:0 0 8px 0;color:var(--primary);">#${index + 1} - ${req.deckTitle}</h3>
+          <div style="font-size:0.85em;color:var(--text-muted);">
+            <div><strong>Date:</strong> ${new Date(req.timestamp).toLocaleString('fr-FR')}</div>
+            <div><strong>Utilisateur:</strong> ${req.userPseudo}</div>
+            <div><strong>Card ID:</strong> ${req.cardId}</div>
+            <div><strong>URL:</strong> <a href="${req.deckURL}" target="_blank" style="color:var(--primary);">${req.deckURL}</a></div>
+          </div>
+        `;
+        reqHeader.appendChild(reqInfo);
+        
+        // Action buttons (Accept/Reject)
+        const actionBtns = document.createElement('div');
+        actionBtns.style.cssText = 'display:flex;gap:8px;';
+        
+        const acceptBtn = document.createElement('button');
+        acceptBtn.innerHTML = '✔️ Accepter';
+        acceptBtn.className = 'primary';
+        acceptBtn.style.cssText = 'padding:6px 12px;font-size:0.9em;background:#16a34a;';
+        acceptBtn.addEventListener('click', () => {
+          if(confirm('Accepter cette modification ?')){
+            console.log('✅ ACCEPTED:', req);
+            removeRequest(index);
+          }
+        });
+        actionBtns.appendChild(acceptBtn);
+        
+        const rejectBtn = document.createElement('button');
+        rejectBtn.innerHTML = '❌ Refuser';
+        rejectBtn.className = 'secondary';
+        rejectBtn.style.cssText = 'padding:6px 12px;font-size:0.9em;background:#dc2626;color:#fff;';
+        rejectBtn.addEventListener('click', () => {
+          if(confirm('Refuser cette modification ?')){
+            console.log('❌ REJECTED:', req);
+            removeRequest(index);
+          }
+        });
+        actionBtns.appendChild(rejectBtn);
+        
+        reqHeader.appendChild(actionBtns);
+        reqCard.appendChild(reqHeader);
+        
+        // Display modified fields
+        const fieldsContainer = document.createElement('div');
+        fieldsContainer.style.cssText = 'margin-top:16px;';
+        
+        Object.keys(req.modifiedFields).forEach(fieldName => {
+          const fieldDetails = document.createElement('details');
+          fieldDetails.style.cssText = 'margin-bottom:12px;border:1px solid var(--border-color);border-radius:4px;padding:8px;';
+          
+          const summary = document.createElement('summary');
+          summary.style.cssText = 'cursor:pointer;font-weight:600;padding:4px;';
+          summary.textContent = fieldName;
+          fieldDetails.appendChild(summary);
+          
+          const comparison = document.createElement('div');
+          comparison.style.cssText = 'margin-top:8px;';
+          comparison.innerHTML = `
+            <div style="margin-bottom:8px;">
+              <strong style="color:#dc2626;">Original:</strong>
+              <pre style="background:#fef2f2;padding:8px;border-radius:4px;overflow-x:auto;font-size:0.8em;white-space:pre-wrap;">${(req.originalFields[fieldName]?.html || 'N/A').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+            </div>
+            <div>
+              <strong style="color:#16a34a;">Modifié:</strong>
+              <pre style="background:#f0fdf4;padding:8px;border-radius:4px;overflow-x:auto;font-size:0.8em;white-space:pre-wrap;">${req.modifiedFields[fieldName].replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+            </div>
+          `;
+          fieldDetails.appendChild(comparison);
+          fieldsContainer.appendChild(fieldDetails);
+        });
+        
+        reqCard.appendChild(fieldsContainer);
+        container.appendChild(reqCard);
+      });
+      
+      panel.appendChild(container);
+      document.body.appendChild(panel);
+      
+      // Also log to console
+      console.log('Admin panel ouvert. Demandes:');
+      requests.forEach((req, i) => console.log(`#${i+1}:`, req));
+      
+    }catch(e){
+      console.error('Erreur lors de l\'affichage des demandes:', e);
+      alert('Erreur: ' + e.message);
+    }
+  };
+  console.log('💡 Admin: Tapez showModificationRequests() pour ouvrir le panneau d\'administration.');
+
+  const againBtn = $('#again');
+  if(againBtn) againBtn.addEventListener('click', ()=>{ answerCurrent(0) });
+  
+  const hardBtn = $('#hard');
+  if(hardBtn) hardBtn.addEventListener('click', ()=>{ answerCurrent(3) });
+  
+  const goodBtn = $('#good');
+  if(goodBtn) goodBtn.addEventListener('click', ()=>{ answerCurrent(4) });
+  
+  const easyBtn = $('#easy');
+  if(easyBtn) easyBtn.addEventListener('click', ()=>{ answerCurrent(5) });
+  
+  // Pass current card: mark as 'Never' (far future) and remove from session
+  const passerBtn = $('#passer');
+  if(passerBtn) passerBtn.addEventListener('click', ()=>{ passCurrent() });
+  
+  function showModificationRequestModal(card){
+    const overlay = document.getElementById('modRequestOverlay');
+    const fieldsContainer = document.getElementById('modRequestFields');
+    if(!overlay || !fieldsContainer) return;
+    
+    // Clear previous content
+    fieldsContainer.innerHTML = '';
+    
+    // Create editable fields for each field in the card
+    const fields = card.fields || {};
+    Object.keys(fields).forEach(fieldName => {
+      const field = fields[fieldName];
+      const fieldDiv = document.createElement('div');
+      fieldDiv.style.cssText = 'margin-bottom:16px;';
+      
+      const label = document.createElement('label');
+      label.textContent = fieldName;
+      label.style.cssText = 'display:block;font-weight:600;margin-bottom:4px;';
+      fieldDiv.appendChild(label);
+      
+      const textarea = document.createElement('textarea');
+      textarea.value = field.html || '';
+      textarea.style.cssText = 'width:100%;min-height:80px;padding:8px;border:1px solid var(--border-color);border-radius:4px;font-family:monospace;font-size:0.85em;background:var(--bg);color:var(--text);';
+      textarea.setAttribute('data-field-name', fieldName);
+      fieldDiv.appendChild(textarea);
+      
+      fieldsContainer.appendChild(fieldDiv);
+    });
+    
+    // Show overlay
+    overlay.style.display = 'block';
+  }
+
+  function passCurrent(){
+    try{
+      if(answerLocked) return;
+      const cardData = multiDeckMode ? dueCards[currentIndex] : null;
+      const c = cardData ? cardData.card : dueCards[currentIndex];
+      if(!c) return;
+      answerLocked = true;
+      
+      // For Active Memory mode: stop the current timer
+      if(reviewMode === 'activeMemory' && window.__activeMemoryTimerState){
+        if(window.__activeMemoryTimerState.animationHandle){
+          cancelAnimationFrame(window.__activeMemoryTimerState.animationHandle);
+        }
+        if(window.__activeMemoryTimerState.timeoutHandle){
+          clearTimeout(window.__activeMemoryTimerState.timeoutHandle);
+        }
+      }
+      
+      const origStorageKey = storageKey; // save original
+      
+      // If in multi-deck mode, temporarily override storageKey
+      if(multiDeckMode && cardData){
+        const deckKeyLocal = cardData.deckKey;
+        storageKey = (s) => `fabanki:${deckKeyLocal}:${s}`;
+      }
+      
+      // mark card as never due again by setting a far-future date
+      const key = storageKey('card:'+c.id);
+      const st = JSON.parse(localStorage.getItem(key) || '{}');
+      st.never = true;
+      st.due = new Date(9999,11,31,23,59,59).toISOString();
+      st.last = (new Date()).toISOString();
+      localStorage.setItem(key, JSON.stringify(st));
+      // count this as reviewed for session
+      reviewedCount = (reviewedCount || 0) + 1; 
+      // Track for recap: passed cards get grade 0
+      const timeSec = Math.max(0, (Date.now() - (cardShownAt||Date.now())) / 1000);
+      sessionData.push({cardId: c.id, grade: 0, timeSpent: timeSec, deckKey: cardData ? cardData.deckKey : null});
+      try{
+        const currentDeckKey = (multiDeckMode && cardData) ? cardData.deckKey : deckKey;
+        syncPostWelcomeQuestProgress({
+          mode: reviewMode,
+          deckKey: currentDeckKey,
+          timeSec,
+          reviewed: true
+        });
+      }catch(e){}
+      updateProgressDisplay();
+      try{ incLocal('fabanki:pass_total', 1); resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = -6; const cur = Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta; localStorage.setItem('fabanki:score_mpsi_semaine', String(cur)); const curM = Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta; localStorage.setItem('fabanki:score_mpsi_mois', String(curM)); }catch(e){}
+      try{ incLocal('fabanki:cards_since_streak_reset',1); }catch(e){}
+      try{ localStorage.setItem('fabanki:consec_correct','0'); localStorage.setItem('fabanki:consec_difficult','0'); localStorage.setItem('fabanki:consec_no_pass','0'); }catch(e){}
+      try{ const deltaToday = -6; const curD = Number(localStorage.getItem('fabanki:score_mpsi_today')||0) + deltaToday; localStorage.setItem('fabanki:score_mpsi_today', String(curD)); }catch(e){}
+      // remove from due list and show next
+      dueCards.splice(currentIndex, 1);
+      if(currentIndex >= dueCards.length){ updateStatus('Révision terminée pour aujourd\'hui'); renderEmpty(); }
+      else { showNextCard(); }
+      const dueEl2 = $('#dueCount'); if(dueEl2) dueEl2.textContent = dueCards.length;
+      // In multi-deck mode, update histogram for current deck after moving to next card
+      if(multiDeckMode && dueCards.length > 0){
+        const nextCardData = dueCards[currentIndex];
+        if(nextCardData) updateHistogramForDeck(nextCardData.deckKey);
+      } else {
+        updateHistogram();
+      }
+      try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
+      try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+      try{
+        // apply penalty XP for pass action
+        const section = (typeof window.getDeckSection === 'function') ? window.getDeckSection() : '';
+        const pen = (typeof window.computePenaltyForSection === 'function') ? window.computePenaltyForSection(section) : (section? -2 : -2);
+        const applied = (typeof window.applyXp === 'function') ? window.applyXp(pen) : 0;
+        if(applied) { try{ window.showXpToast(applied); }catch(e){} }
+        if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
+      }catch(e){}
+      
+      // Sync card review progress to cloud
+      if(typeof autoSync === 'function') autoSync().catch(e => syncLog('autoSync in passCurrent failed:', e));
+      
+      // Restore original storageKey if it was overridden for multi-deck
+      if(multiDeckMode && cardData){
+        storageKey = origStorageKey;
+      }
+    }catch(e){ console.warn('pass error', e); }
+  }
+
+  function answerCurrent(q){
+    const cardData = multiDeckMode ? dueCards[currentIndex] : null;
+    const c = cardData ? cardData.card : dueCards[currentIndex];
+    if(answerLocked) return;
+    if(!c) return;
+    answerLocked = true;
+    const origStorageKey = storageKey; // save original
+    
+    // If in multi-deck mode, temporarily override storageKey
+    if(multiDeckMode && cardData){
+      const deckKey = cardData.deckKey;
+      storageKey = (s) => `fabanki:${deckKey}:${s}`;
+    }
+    
+    // count this attempt for session progress
+    reviewedCount = (reviewedCount || 0) + 1;
+    // Track for recap
+    const timeSec = Math.max(0, (Date.now() - (cardShownAt||Date.now())) / 1000);
+    sessionData.push({cardId: c.id, grade: q, timeSpent: timeSec, deckKey: cardData ? cardData.deckKey : null});
+    
+    // Track daily goal progress and check for milestone
+    try{
+      if(q >= 3){  // only count correct answers
+        const reviewed = incrementTodayReviewedCount();
+        
+        // Track welcome quest card reviews
+        try{
+          if(typeof updateWelcomeQuest === 'function'){
+            const questState = initWelcomeQuest();
+            const part1Done = questState.part1.onboarding_done && questState.part1.profile_opened && questState.part1.market_opened && questState.part1.goal_set;
+            if(part1Done){
+              questState.totalCardsReviewed = (questState.totalCardsReviewed || 0) + 1;
+              updateWelcomeQuest(questState);
+              
+              // Check if 50 cards milestone reached
+              if(questState.totalCardsReviewed >= 50 && !questState.part2.cards_50_reviewed){
+                completeWelcomeQuestMission('part2', 'cards_50_reviewed', 5);
+              }
+            }
+          }
+        }catch(e){ console.warn('welcome quest tracking error', e); }
+        
+        // Check daily goal completion for welcome quest
+        const dailyGoal = getDailyGoal();
+        if(dailyGoal > 0 && reviewed >= dailyGoal){
+          try{
+            if(typeof completeWelcomeQuestMission === 'function'){
+              completeWelcomeQuestMission('part3', 'daily_goal_completed', 10);
+            }
+          }catch(e){ console.warn('welcome quest daily goal error', e); }
+        }
+        
+        // Update streak on first review only when no daily goal is set
+        if(dailyGoal <= 0 && reviewed === 1){
+          try{
+            const today = new Date().toDateString();
+            const last = localStorage.getItem('fabanki:last_active_date');
+            if(last !== today){
+              const yesterday = new Date();
+              yesterday.setDate(yesterday.getDate()-1);
+              if(last === yesterday.toDateString()){
+                // Consecutive day: increment streak
+                const cur = Number(localStorage.getItem('fabanki:streak_current')||0) + 1;
+                localStorage.setItem('fabanki:streak_current', String(cur));
+                const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), cur);
+                localStorage.setItem('fabanki:streak_max', String(maxi));
+              } else {
+                // Streak broken or new streak: reset to 1
+                localStorage.setItem('fabanki:streak_current', '1');
+                const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), 1);
+                localStorage.setItem('fabanki:streak_max', String(maxi));
+              }
+              localStorage.setItem('fabanki:last_active_date', today);
+              try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
+            }
+          }catch(e){ console.warn('streak tracking', e); }
+        }
+        
+        const goal = getDailyGoal();
+        if(goal > 0 && reviewed >= goal){
+          showDailyGoalMilestoneToast(reviewed, goal);
+          try{ if(typeof updateDailyStreakOnGoalReached === 'function') updateDailyStreakOnGoalReached(); }catch(e){}
+          try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
+        }
+      }
+    }catch(e){ console.warn('daily goal tracking', e); }
+    
+    updateProgressDisplay();
+    // capture previous review time (hours since last review) to compute XP multiplier
+    let prevReviewHours = null;
+    let stPrev = null;
+    try{
+      const keyPrev = storageKey('card:'+c.id);
+      stPrev = JSON.parse(localStorage.getItem(keyPrev) || '{}');
+      if(stPrev && stPrev.last){ const lastD = new Date(stPrev.last); prevReviewHours = (new Date() - lastD) / (1000*60*60); }
+      else if(stPrev && stPrev.due){ const pd = new Date(stPrev.due); prevReviewHours = (new Date() - pd) / (1000*60*60); }
+    }catch(e){}
+    scheduleCard(c.id, q);
+    // update local counters for ranking
+    // Robustly update local counters and titles metrics
+    try{
+      const keyPrev = storageKey('card:'+c.id);
+      const stNow = JSON.parse(localStorage.getItem(keyPrev) || '{}');
+      const wasNew = (!stPrev || (!stPrev.last && (stPrev.reps===0 || stPrev.reps===undefined)));
+      if(wasNew) { try{ incLocal('fabanki:new_cards_total', 1); }catch(e){} }
+      let masteredDelta = 0;
+      // mastered detection: became mastered if reps crossed threshold (>=3)
+      try{
+        const prevReps = (typeof stPrev !== 'undefined' && stPrev && stPrev.reps) ? Number(stPrev.reps) : 0;
+        const nowReps = (stNow && stNow.reps) ? Number(stNow.reps) : 0;
+        if(prevReps < 3 && nowReps >= 3){ incLocal('fabanki:mastered_total',1); masteredDelta = 1; }
+      }catch(e){}
+
+      try{ incLocal('fabanki:cards_since_streak_reset',1); }catch(e){}
+
+      // compute time spent on card for Hadamard (long answers)
+      let timeSec = 0;
+      try{ timeSec = Math.max(0, (Date.now() - (cardShownAt||Date.now())) / 1000); }catch(e){}
+      
+            // Accumulate time spent for mission tracking (seconds-based)
+            try{ accumulateTimeSpent(timeSec); }catch(e){}
+      
+      try{
+        const currentDeckKey = (multiDeckMode && cardData) ? cardData.deckKey : deckKey;
+        syncPostWelcomeQuestProgress({
+          mode: reviewMode,
+          deckKey: currentDeckKey,
+          timeSec,
+          reviewed: true
+        });
+      }catch(e){}
+      
+      try{ if(timeSec > 20) incLocal('fabanki:long_answer_total', 1); }catch(e){}
+
+      // quality handling
+      if(q < 3){
+        incLocal('fabanki:fail_total',1);
+        try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
+        try{ localStorage.setItem('fabanki:consec_correct','0'); }catch(e){}
+        try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = -4; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
+      } else if(q === 3){
+        incLocal('fabanki:difficult_total',1);
+        try{ const cd = incLocal('fabanki:consec_difficult',1); if(cd >= 100) localStorage.setItem('fabanki:objective_Feynman','1'); }catch(e){}
+        try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
+        try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = 1; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
+      } else if(q === 4){
+        incLocal('fabanki:good_total',1);
+        try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
+        try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
+        try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = 2; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
+      } else if(q === 5){
+        incLocal('fabanki:good_total',1);
+        try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
+        try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
+        try{ resetWeeklyIfNeeded(); resetMonthlyIfNeeded(); const delta = 3; localStorage.setItem('fabanki:score_mpsi_semaine', String(Number(localStorage.getItem('fabanki:score_mpsi_semaine')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_today', String(Number(localStorage.getItem('fabanki:score_mpsi_today')||0)+delta)); localStorage.setItem('fabanki:score_mpsi_mois', String(Number(localStorage.getItem('fabanki:score_mpsi_mois')||0)+delta)); }catch(e){}
+      }
+      // Noether: consecutive reviews without using "Passer"
+      try{
+        const consecNoPass = incLocal('fabanki:consec_no_pass',1);
+        const maxNoPass = Math.max(Number(localStorage.getItem('fabanki:consec_no_pass_max')||0), consecNoPass);
+        localStorage.setItem('fabanki:consec_no_pass_max', String(maxNoPass));
+      }catch(e){}
+    }catch(e){ console.warn('answerCurrent counters', e) }
+    // Remove answered card; next card naturally shifts into currentIndex
+    dueCards.splice(currentIndex, 1);
+    // Check if deck is empty after removal
+    if(dueCards.length === 0 || currentIndex >= dueCards.length){ 
+      updateStatus('Révision terminée pour aujourd\'hui'); 
+      renderEmpty(); 
+      answerLocked = false;
+      return;
+    }
+    showNextCard();
+    const dueEl2 = $('#dueCount'); if(dueEl2) dueEl2.textContent = dueCards.length;
+    updateProgressDisplay();
+    try{
+      // compute XP for this successful review (only for qualities 3/4/5)
+      if([3,4,5].includes(q)){
+        try{
+          const timeSec = Math.max(0, (Date.now() - (cardShownAt||Date.now())) / 1000);
+          
+                    // Time already accumulated above
+          
+          // track long answers (>20s) for Hadamard titre
+          try{ if(timeSec > 20) incLocal('fabanki:long_answer_total', 1); }catch(e){}
+          const section = (typeof window.getDeckSection === 'function') ? window.getDeckSection() : '';
+          let xp = (typeof window.computeXpForQuality === 'function') ? window.computeXpForQuality(section, q, timeSec, prevReviewHours) : 0;
+          
+          // Apply XP boosters if active
+          try{
+            const boosterIds = ['booster_1h', 'booster_15m', 'booster_5m'];
+            const boosterMultipliers = {booster_1h: 1.5, booster_15m: 2, booster_5m: 5};
+            
+            for(const boosterId of boosterIds){
+              const boosterData = localStorage.getItem(`fabanki:market_${boosterId}`);
+              if(boosterData){
+                try{
+                  const parsed = JSON.parse(boosterData);
+                  if(parsed.expiry && parsed.expiry > Date.now()){
+                    const mult = boosterMultipliers[boosterId] || 1;
+                    xp = Math.floor(xp * mult);
+                    console.log(`[BOOSTER] Applied ${boosterId}: ×${mult} multiplier, total XP: ${xp}`);
+                    break; // Only apply one booster at a time
+                  }
+                }catch(e){}
+              }
+            }
+          }catch(e){ console.warn('booster calc', e); }
+          
+          const applied = (typeof window.applyXp === 'function') ? window.applyXp(xp) : 0;
+          if(applied) { try{ window.showXpToast(applied); }catch(e){} }
+        }catch(e){ console.warn('xp calc', e); }
+      }
+      if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
+      try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+    }catch(e){}
+    
+    // Sync card review progress to cloud
+    if(typeof autoSync === 'function') autoSync().catch(e => syncLog('autoSync in answerCurrent failed:', e));
+    
+    // Restore original storageKey if it was overridden for multi-deck
+    if(multiDeckMode && cardData){
+      storageKey = origStorageKey;
+    }
+  }
+
+  // Load deck from URL param on start
+  function param(key){ const p = new URLSearchParams(location.search); return p.get(key) }
+  window.addEventListener('load', async ()=>{
+  if(isInAppBrowser()){
+    forceExternalBrowser();
+    return;
+  }
+  // === BACKGROUND TIME TRACKING FOR MISSIONS ===
+  // Track time spent on site (active and idle time)
+  try{
+    let lastActivityTime = Date.now();
+    const IDLE_THRESHOLD = 5 * 60 * 1000; // 5 minutes of no activity = idle
+    let isIdle = false;
+    
+    // Reset daily time at midnight
+    function resetDailyTimeIfNeeded(){
+      const today = new Date().toISOString().split('T')[0];
+      const lastDateStored = localStorage.getItem('fabanki:time_tracking_date');
+      if(lastDateStored !== today){
+        localStorage.setItem('fabanki:time_tracking_date', today);
+        localStorage.setItem('fabanki:time_spent_today_sec', '0');
+        localStorage.setItem('fabanki:time_spent_today', '0');
+      }
+    }
+    
+    // Reset weekly time at start of week (Monday)
+    function resetWeeklyTimeIfNeeded(){
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay()); // Monday
+      weekStart.setHours(0, 0, 0, 0);
+      const weekStartStr = weekStart.toISOString().split('T')[0];
+      const lastWeekStart = localStorage.getItem('fabanki:time_tracking_week_start');
+      if(lastWeekStart !== weekStartStr){
+        localStorage.setItem('fabanki:time_tracking_week_start', weekStartStr);
+        localStorage.setItem('fabanki:time_spent_week_sec', '0');
+        localStorage.setItem('fabanki:time_spent_week', '0');
+      }
+    }
+    
+    // Track user activity (mouse, keyboard, touch)
+    function recordActivity(){
+      lastActivityTime = Date.now();
+      if(isIdle){
+        isIdle = false;
+        console.log('[TIME] User is active again');
+      }
+    }
+    
+    document.addEventListener('mousemove', recordActivity, { passive: true });
+    document.addEventListener('keydown', recordActivity, { passive: true });
+    document.addEventListener('touchstart', recordActivity, { passive: true });
+    document.addEventListener('click', recordActivity, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if(!document.hidden){
+        lastActivityTime = Date.now();
+        if(isIdle){
+          isIdle = false;
+          console.log('[TIME] User is active again');
+        }
+      }
+    });
+    
+    // Background time accumulator - runs every 10 seconds
+    setInterval(() => {
+      try{
+        resetDailyTimeIfNeeded();
+        resetWeeklyTimeIfNeeded();
+
+        if(document.hidden){
+          if(!isIdle){
+            isIdle = true;
+            console.log('[TIME] Tab hidden, time tracking paused');
+          }
+          return;
+        }
+        
+        const now = Date.now();
+        const timeSinceLastActivity = now - lastActivityTime;
+        
+        // Only count time if user is active (not idle for more than threshold)
+        if(timeSinceLastActivity < IDLE_THRESHOLD){
+          if(isIdle){
+            isIdle = false;
+            console.log('[TIME] User is active again');
+          }
+          // Add 10 seconds to time tracking
+          const addSeconds = 10;
+          const currentDaySec = Number(localStorage.getItem('fabanki:time_spent_today_sec') || 0);
+          const currentWeekSec = Number(localStorage.getItem('fabanki:time_spent_week_sec') || 0);
+          const currentTotalSec = Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0);
+          const newDaySec = currentDaySec + addSeconds;
+          const newWeekSec = currentWeekSec + addSeconds;
+          const newTotalSec = currentTotalSec + addSeconds;
+          
+          localStorage.setItem('fabanki:time_spent_today_sec', String(newDaySec));
+          localStorage.setItem('fabanki:time_spent_today', String(Math.floor(newDaySec / 60)));
+          localStorage.setItem('fabanki:time_spent_week_sec', String(newWeekSec));
+          localStorage.setItem('fabanki:time_spent_week', String(Math.floor(newWeekSec / 60)));
+          localStorage.setItem('fabanki:time_spent_total_sec', String(newTotalSec));
+          try{ if(typeof syncPostWelcomeQuestTime === 'function') syncPostWelcomeQuestTime(); }catch(e){}
+          
+          // Debug logging every minute
+          const minutePassed = Math.floor(newDaySec / 60);
+          if(newDaySec % 60 === 0 && newDaySec > 0){
+            console.log(`[TIME] Site time tracking: ${minutePassed}m today, ${Math.floor(newWeekSec / 60)}m this week`);
+          }
+        } else if(!isIdle && timeSinceLastActivity >= IDLE_THRESHOLD){
+          isIdle = true;
+          console.log('[TIME] User is idle, time tracking paused');
+        }
+      }catch(e){ console.warn('[TIME] Time tracking error:', e); }
+    }, 10000); // Check every 10 seconds
+  }catch(e){ console.warn('Background time tracking init error:', e); }
+  
+  // Migrate localStorage from old domain (simon-mgnz.github.io/fabanki) to new domain (fabanki.fr)
+  try{
+    const oldDomain = 'simon-mgnz.github.io';
+    const migrationKey = 'fabanki:migrated_from_old_domain';
+    if(!localStorage.getItem(migrationKey)){
+      // Check if we're on the new domain
+      if(window.location.hostname === 'fabanki.fr' || window.location.hostname === 'www.fabanki.fr'){
+        console.log('Attempting to migrate data from old domain...');
+        // Note: Due to same-origin policy, we cannot directly access localStorage from another domain
+        // However, if the user has data from the old GitHub Pages site in their browser,
+        // it would have been stored with that origin. Since we can't access it directly,
+        // we'll mark migration as attempted.
+        localStorage.setItem(migrationKey, 'true');
+        console.log('Migration check completed. If you had data on the old site, please export and import it manually.');
+      }
+    }
+  }catch(e){ console.warn('Migration check failed:', e); }
+  
+  // Set CSS variable for iOS viewport fix
+  function updateVh(){
+    try{
+      const vh = window.visualViewport?.height ? (window.visualViewport.height / 100) : (window.innerHeight / 100);
+      document.documentElement.style.setProperty('--vh', vh + 'px');
+    }catch(e){ try{ document.documentElement.style.setProperty('--vh', (window.innerHeight / 100) + 'px'); }catch(e2){} }
+  }
+  updateVh();
+  window.addEventListener('resize', updateVh);
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', updateVh);
+  
+  // wire UI
+  try{ ensurePseudo(); resetWeeklyIfNeeded(); resetDailyIfNeeded(); }catch(e){}
+    // Load button now opens file picker to add a local deck
+    const loadBtn = $('#loadBtn');
+    if(loadBtn){
+      loadBtn.addEventListener('click', ()=>{
+        const picker = document.getElementById('filePicker');
+        if(picker) { picker.value = ''; picker.click(); updateStatus('Sélectionnez un fichier XML à charger...') }
+      });
+    }
+
+    // Hidden file picker: read local XML and parse
+    const filePicker = document.getElementById('filePicker');
+    if(filePicker){
+      filePicker.addEventListener('change', (ev)=>{
+        const f = ev.target.files && ev.target.files[0];
+        if(!f) return;
+        const reader = new FileReader();
+        reader.onload = (e)=>{
+          try{
+            const text = e.target.result;
+            const parser = new DOMParser();
+            let xml = parser.parseFromString(text,'application/xml');
+            let parsererror = xml.querySelector('parsererror');
+            if(parsererror){
+              // Try lenient HTML parse as fallback for malformed XML (unescaped '<' in TeX)
+              updateStatus('XML invalide — utilisation d\u00e9codage permissif pour le fichier local');
+              xml = parser.parseFromString(text,'text/html');
+              parsererror = null;
+            }
+            parseXMLDeck(xml, f.name);
+            initFSRS();
+            updateStatus('Deck chargé depuis fichier local');
+            // set deckURL for consistency but do not try to write to ./decks/
+            deckURL = './decks/'+f.name;
+            history.replaceState(null,'', '?deck='+encodeURIComponent(f.name));
+          }catch(err){ console.error(err); updateStatus('Erreur lecture du fichier local'); }
+        };
+        reader.readAsText(f);
+      });
+    }
+    // Reset button removed from top bar - now in overview page
+    
+    // Home button - return to welcome page and restore sync button
+    const homeBtn = document.getElementById('homeBtn');
+    if(homeBtn){
+      homeBtn.addEventListener('click', (ev)=>{
+        try{ ev.preventDefault(); ev.stopPropagation(); }catch(e){}
+        // Stop timer and active memory UI when leaving mid-session
+        try{
+          if(window.timerModeState && window.timerModeState.animationHandle){
+            cancelAnimationFrame(window.timerModeState.animationHandle);
+            window.timerModeState.animationHandle = null;
+          }
+          if(window.timerModeState && window.timerModeState.timeoutHandle){
+            clearTimeout(window.timerModeState.timeoutHandle);
+            window.timerModeState.timeoutHandle = null;
+          }
+          const timerContainer = document.getElementById('timerModeContainer');
+          if(timerContainer) timerContainer.remove();
+        }catch(e){}
+        try{
+          if(window.__activeMemoryTimerState){
+            if(window.__activeMemoryTimerState.animationHandle){
+              cancelAnimationFrame(window.__activeMemoryTimerState.animationHandle);
+            }
+            if(window.__activeMemoryTimerState.timeoutHandle){
+              clearTimeout(window.__activeMemoryTimerState.timeoutHandle);
+            }
+          }
+          const activeMemoryContainer = document.getElementById('activeMemoryTimerContainer');
+          if(activeMemoryContainer) activeMemoryContainer.remove();
+        }catch(e){}
+        // Show recap instead of welcome page
+        renderEmpty({ skipSessionTracking: true });
+      });
+    }
+    
+    // Toggle hint box visibility
+    const toggleHintBtn = $('#toggleHint');
+    if(toggleHintBtn){
+      toggleHintBtn.addEventListener('click', ()=>{
+        showHintBox = !showHintBox;
+        const hint = document.getElementById('histHint');
+        if(hint) {
+          hint.style.display = showHintBox ? 'block' : 'none';
+        }
+        const label = showHintBox ? 'Info' : 'Info (masquée)';
+        toggleHintBtn.setAttribute('data-label-text', label);
+        try{ if(typeof updateTopBarLabels === 'function') updateTopBarLabels(); }catch(e){}
+      });
+    }
+
+    const toggleBtn = $('#toggleTheme');
+    if(toggleBtn){
+      // ensure document root inherits initial theme
+      document.documentElement.setAttribute('data-theme', document.getElementById('app')?.getAttribute('data-theme') || 'light');
+        toggleBtn.addEventListener('click', ()=>{
+        const appEl = document.getElementById('app');
+        if(!appEl) return;
+        const current = document.documentElement.getAttribute('data-theme') || 'light';
+        const t = current === 'light' ? 'dark' : 'light';
+        // set on root so CSS variables apply globally, and on app for scoped selectors
+        document.documentElement.setAttribute('data-theme', t);
+        appEl.setAttribute('data-theme', t);
+        localStorage.setItem('fabanki:theme', t);
+        const themeLabel = t==='dark' ? 'Mode clair' : 'Mode sombre';
+        toggleBtn.setAttribute('data-label-text', themeLabel);
+        
+        // Auto-switch color to matching theme variant
+        const currentColorName = localStorage.getItem('fabanki:current_color_name');
+        if (currentColorName) {
+          const colors = [
+            { name: 'Clair (défaut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
+            { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
+            { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
+            { name: 'Vert', light: '#e8f5e9', dark: '#0d2818', level: 5 },
+            { name: 'Rose', light: '#fce4ec', dark: '#2a0e1f', level: 10 },
+            { name: 'Jaune', light: '#fffde7', dark: '#332d00', level: 10 },
+            { name: 'Pourpre', light: '#f3e5f5', dark: '#25071a', level: 15 },
+            { name: 'Indigo profond', light: '#e7e4f7', dark: '#1a0754', level: 0 },
+            { name: 'Cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 20 },
+            { name: 'Orange', light: '#ffe0b2', dark: '#2d1b0a', level: 20 },
+            { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 25 },
+            { name: 'Corail', light: '#ffebee', dark: '#2d0a0a', level: 25 },
+            { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 30 },
+            { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 30 },
+            { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 35 },
+            { name: 'Gradient Doré', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35 },
+            { name: 'Gradient Rose-Vert', light: 'linear-gradient(135deg, #f8bbd0 0%, #a5d6a7 100%)', dark: 'linear-gradient(135deg, #4a0e2a 0%, #1d3a1f 100%)', level: 40 },
+            { name: 'Gradient Prisma', light: 'linear-gradient(135deg, #e8f4f8 0%, #fce4ec 50%, #f3e5f5 100%)', dark: 'linear-gradient(135deg, #0a1a2e 0%, #2a0e1f 50%, #25071a 100%)', level: 45 },
+            { name: 'Gradient Bleu Royal', light: 'linear-gradient(135deg, #64b5f6 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0a2558 0%, #1a2a3a 100%)', level: 45 },
+            { name: 'Gradient Aurora', light: 'linear-gradient(135deg, #e0f2f1 0%, #fffde7 50%, #ffebee 100%)', dark: 'linear-gradient(135deg, #0d1816 0%, #332d00 50%, #2d0a0a 100%)', level: 48 },
+            { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
+            { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
+          ];
+          const color = colors.find(c => c.name === currentColorName);
+          if (color) {
+            const newColorValue = t === 'dark' ? color.dark : color.light;
+            localStorage.setItem('fabanki:bg_color', newColorValue);
+          }
+        }
+        
+        // Auto-switch card color to matching theme variant
+        const currentCardColorName = localStorage.getItem('fabanki:current_card_color_name');
+        if (currentCardColorName) {
+          const cardColors = [
+            { name: 'Défaut', id: 'default', light: '#fff', dark: '#111319', level: 0 },
+            { name: 'Bleu clair', id: 'lightblue', light: '#e4f1fa', dark: '#1a2a3a', level: 5 },
+            { name: 'Vert clair', id: 'lightgreen', light: '#e8f5e9', dark: '#1b2d1f', level: 10 },
+            { name: 'Rose clair', id: 'lightpink', light: '#fce4ec', dark: '#3a1f2e', level: 15 },
+            { name: 'Amber', id: 'amber', light: '#fff8e1', dark: '#3a3000', level: 20 },
+            { name: 'Indigo', id: 'indigo', light: '#e8eaf6', dark: '#1a1535', level: 25 },
+            { name: 'Indigo profond', id: 'indigo_deep', light: '#d8d3f0', dark: '#1a0754', level: 0 },
+            { name: 'Cyan', id: 'cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 28 },
+            { name: 'Orange pâle', id: 'pale_orange', light: '#ffe0b2', dark: '#2d1b0a', level: 22 },
+            { name: 'Menthe', id: 'mint', light: '#e0f2f1', dark: '#0d1816', level: 30 },
+            { name: 'Lavande', id: 'lavender', light: '#f3e5f5', dark: '#2a0e3a', level: 32 },
+            { name: 'Pêche', id: 'peach', light: '#ffd7a8', dark: '#3a1f0a', level: 35 },
+            { name: 'Ciel', id: 'sky', light: '#b3e5fc', dark: '#0a3a4a', level: 38 },
+            { name: 'Turquoise', id: 'turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 40 },
+            { name: 'Or pâle', id: 'gold', light: '#ffecb3', dark: '#3d2d00', level: 42 },
+            { name: 'Vert sapin', id: 'fir', light: '#a5d6a7', dark: '#1d3a1f', level: 45 },
+            { name: 'Rose vif', id: 'hotpink', light: '#f8bbd0', dark: '#4a0e2a', level: 45 },
+            { name: 'Bleu royal', id: 'royal', light: '#64b5f6', dark: '#0a2558', level: 48 },
+            { name: 'Sunrise', id: 'sunrise', light: '#ffcc80', dark: '#4d2600', level: 50 },
+            { name: 'Gradient Océan', id: 'gradient_ocean', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 55 },
+            { name: 'Gradient Forêt', id: 'gradient_forest', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 55 }
+          ];
+          const cardColor = cardColors.find(c => c.name === currentCardColorName);
+          if (cardColor) {
+            const newCardColorValue = t === 'dark' ? cardColor.dark : cardColor.light;
+            localStorage.setItem('fabanki:card_color', newCardColorValue);
+          }
+        }
+        
+        // Update card color when theme changes to ensure gradient colors adapt
+        try{ if(typeof applyCustomization === 'function') applyCustomization(); }catch(e){}
+        try{ if(typeof updateTopBarLabels === 'function') updateTopBarLabels(); }catch(e){}
+      });
+
+    }
+
+    // Update app title for mobile vs desktop (mobile shows short title)
+    function updateAppTitle(){
+      try{
+        const el = document.getElementById('appTitle'); if(!el) return;
+        const text = (window.innerWidth <= 640) ? "Fab'Anki" : "Fab'Anki — Flashcards";
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.gap = '8px';
+        el.innerHTML = `<img src="./fabankilogo.png" alt="Logo" style="width:44px;height:44px;" /><span>${text}</span>`;
+      }catch(e){}  
+    }
+    updateAppTitle();
+    window.addEventListener('resize', updateAppTitle);
+    // Ensure status/hint positions update on resize
+    window.addEventListener('resize', ()=>{ try{ updateStatus(document.getElementById('status')?.textContent || '') }catch(e){} });
+
+    // Move grading buttons into main card area so they appear with the card
+    try{
+      const resp = document.getElementById('respButtons');
+      const mainButtons = document.querySelector('#cardArea .buttons');
+      if(resp && mainButtons){
+        mainButtons.appendChild(resp);
+        resp.style.display = 'none';
+        resp.style.marginTop = '8px';
+      }
+    }catch(e){ /* ignore */ }
+
+    // Swipe gestures: disabled by default. Set `swipeEnabled = true` to re-enable.
+    try{
+      const swipeEnabled = false;
+      let touchStartY = 0, touchStartX = 0, touching = false;
+      const cardArea = document.getElementById('cardArea');
+      const statsSection = document.getElementById('stats');
+      if(swipeEnabled && cardArea && statsSection){
+        cardArea.addEventListener('touchstart', (ev)=>{ if(window.innerWidth<=640){ const t = ev.touches[0]; touchStartY = t.clientY; touchStartX = t.clientX; touching = true } });
+        cardArea.addEventListener('touchmove', (ev)=>{ if(!touching) return; const t = ev.touches[0]; const dy = t.clientY - touchStartY; const dx = t.clientX - touchStartX; if(dy > 80 && Math.abs(dy) > Math.abs(dx)){ statsSection.classList.add('visible'); touching = false } });
+        // allow hiding with swipe up inside stats overlay
+        statsSection.addEventListener('touchstart', (ev)=>{ if(window.innerWidth<=640){ const t = ev.touches[0]; touchStartY = t.clientY; touching = true } });
+        statsSection.addEventListener('touchmove', (ev)=>{ if(!touching) return; const t = ev.touches[0]; const dy = t.clientY - touchStartY; if(dy < -80){ statsSection.classList.remove('visible'); touching = false } });
+      }
+    }catch(e){ /* ignore */ }
+
+    // Global function to restore folder browser (accessible from overview back button)
+    window.restoreFolderBrowser = async function(folderPath){
+      // Simply open the deck browser - it will show the saved folder path
+      try{
+        if(typeof window.openDeckBrowser === 'function'){
+          await window.openDeckBrowser();
+        } else {
+          console.warn('openDeckBrowser not available');
+          window.location.href = window.location.origin + window.location.pathname;
+        }
+      }catch(e){
+        console.warn('Error restoring folder browser:', e);
+        // Fallback to welcome page
+        window.location.href = window.location.origin + window.location.pathname;
+      }
+    };
+    
+    // Wire Browse Decks modal
+    const browseBtn = document.getElementById('browseDecks');
+    const overlay = document.getElementById('deckBrowserOverlay');
+    const deckList = document.getElementById('deckList');
+    const deckMsg = document.getElementById('deckBrowserMsg');
+    const closeBtn = document.getElementById('closeDeckBrowser');
+    const refreshBtn = document.getElementById('refreshDeckList');
+    async function fetchDirectory(path){
+      // Try manifest first (recommended for GitHub Pages)
+      try{
+        const manifestRes = await fetch((path.replace(/\/$/, '') + '/manifest.json'));
+        if(manifestRes && manifestRes.ok){
+          const list = await manifestRes.json();
+          if(Array.isArray(list)){
+            manifestMeta = {};
+            list.forEach(item => {
+              if(typeof item === 'string'){
+                manifestMeta[item] = { path: item };
+              } else if(item && item.path){
+                manifestMeta[item.path] = item;
+              }
+            });
+            // Support both old format (strings) and new format (objects with path/tags/cost/level)
+            return list.map(item => typeof item === 'string' ? item : item.path);
+          }
+        }
+      }catch(e){ console.log('[fetchDirectory] Manifest fetch error:', e); }
+      // If no manifest, clear metadata to avoid stale locks
+      manifestMeta = {};
+      try{
+        const res = await fetch(path);
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const text = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text,'text/html');
+        const anchors = Array.from(doc.querySelectorAll('a'));
+        const entries = [];
+        for(const a of anchors){
+          let href = a.getAttribute('href')||'';
+          if(!href) continue;
+          // normalize
+          if(href.startsWith('./')) href = href.slice(2);
+          // ignore parent links
+          if(href === '../' || href === '/') continue;
+          // trim trailing slash for folders
+          if(href.endsWith('/')) href = href;
+          entries.push(href);
+        }
+        return Array.from(new Set(entries));
+      }catch(err){
+        throw err;
+      }
+    }
+
+    async function openDeckBrowser(){
+      if(!overlay) return;
+      
+      // Hide review content when opening browser
+      const mainEl = document.querySelector('main');
+      if(mainEl) mainEl.style.display = 'none';
+      const statsEl = document.getElementById('stats');
+      if(statsEl) statsEl.style.display = 'none';
+      
+      // Show or create welcome page
+      let welcomeEl = document.getElementById('welcomeDecks');
+      if(!welcomeEl){
+        // Recreate welcome page if it was removed
+        welcomeEl = document.createElement('div');
+        welcomeEl.id = 'welcomeDecks';
+        welcomeEl.style.cssText = 'padding:20px;text-align:center;';
+        welcomeEl.innerHTML = '<h2>Fab\'Anki</h2><p>Choisissez un deck pour commencer</p>';
+        document.body.insertBefore(welcomeEl, document.body.firstChild);
+      }
+      welcomeEl.style.display = 'block';
+      
+      // Show contextual onboarding on first open
+      setTimeout(() => {
+        if(typeof showBrowseOnboarding === 'function'){
+          showBrowseOnboarding();
+        }
+      }, 300);
+      
+      overlay.style.display = 'flex'; 
+      overlay.style.visibility = 'visible'; // Override CSS hidden visibility
+      overlay.setAttribute('aria-hidden','false'); 
+      overlay.classList.add('open');
+      console.log('[DECK BROWSER] Overlay display set to flex, classList:', overlay.classList.value);
+      console.log('[DECK BROWSER] Overlay computed display:', window.getComputedStyle(overlay).display);
+      console.log('[DECK BROWSER] Overlay visibility:', window.getComputedStyle(overlay).visibility);
+      console.log('[DECK BROWSER] Overlay zIndex:', window.getComputedStyle(overlay).zIndex);
+      
+      const modalEl = overlay.querySelector('.modal');
+      if(modalEl){
+        modalEl.classList.add('open');
+        modalEl.style.display = 'block';
+        modalEl.style.backgroundColor = 'white';
+        modalEl.style.color = '#333';
+        modalEl.style.padding = '20px';
+        modalEl.style.borderRadius = '8px';
+        modalEl.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+      }
+      deckList.innerHTML = '';
+      deckList.style.visibility = 'visible';
+      deckList.style.backgroundColor = 'white';
+      deckMsg.textContent = 'Recherche de ./decks/ ...';
+      try{
+        const entries = await fetchDirectory('./decks/');
+        if(!entries || entries.length===0){ 
+          deckMsg.textContent = 'Aucun fichier trouvé dans ./decks/'; 
+          return;
+        }
+        deckMsg.textContent = '';
+        const manifestMode = entries.some(e=> typeof e === 'string' && e.includes('/'));
+        if(manifestMode){
+          overlay._manifestEntries = entries.slice();
+          window.deckBrowserEntries = entries.slice();
+          renderPath('');
+        } else {
+          renderList(entries, './decks/');
+        }
+
+        function renderPath(path){
+          deckList.innerHTML = '';
+          deckList.style.visibility = 'visible';
+          const entries = window.deckBrowserEntries || overlay._manifestEntries || [];
+          const prefix = path;
+          const files = new Set();
+          const folders = new Set();
+          for(const p of entries){
+            if(!p.startsWith(prefix)) continue;
+            const tail = p.slice(prefix.length);
+            const parts = tail.split('/');
+            if(parts.length === 1){ files.add(parts[0]); }
+            else { folders.add(parts[0] + '/'); }
+          }
+          // parent link
+          if(prefix){
+            const back = document.createElement('div'); back.className='deck-entry';
+            const nm = document.createElement('div'); nm.textContent = '..';
+            const act = document.createElement('div');
+              const b = document.createElement('button'); b.className='secondary'; b.textContent='Retour';
+            b.addEventListener('click', ()=>{ const up = prefix.replace(/[^\/]+\/$/, ''); renderPath(up); currentFolderPath = up; });
+            act.appendChild(b); back.appendChild(nm); back.appendChild(act); deckList.appendChild(back);
+          }
+          // folders with due counts and badge
+          Array.from(folders).sort().forEach(folder=>{
+            const row = document.createElement('div'); row.className='deck-entry';
+            const nm = document.createElement('div'); 
+            const folderName = decodeURIComponent((prefix+folder).replace(/\+/g,' ')).replace(/\/$/,'');
+            nm.textContent = folderName;
+            
+            // Calculate folder due count with badge
+            const folderPath = prefix + folder;
+            const badge = document.createElement('span');
+            badge.className = 'due-badge';
+            badge.innerHTML = `<div class="due-num"></div><div class="due-label">à faire</div>`;
+            
+            const act = document.createElement('div');
+            const b = document.createElement('button'); b.className='secondary'; b.textContent='Ouvrir';
+            b.addEventListener('click', ()=>{ renderPath(prefix+folder); currentFolderPath = prefix+folder; });
+            act.appendChild(badge);
+            act.appendChild(b); 
+            row.appendChild(nm); 
+            row.appendChild(act); 
+            deckList.appendChild(row);
+            
+            // Asynchronously calculate total dues for all files in this folder
+            (async ()=>{
+              try{
+                let totalDue = 0;
+                for(const p of entries){
+                  if(!p.startsWith(folderPath) || !p.toLowerCase().endsWith('.xml')) continue;
+                  const n = await countDueNowForDeck('./decks/'+p);
+                  if(typeof n === 'number') totalDue += n;
+                }
+                if(totalDue > 0){
+                  badge.querySelector('.due-num').textContent = totalDue;
+                  badge.querySelector('.due-label').style.display = 'block';
+                } else {
+                  badge.querySelector('.due-num').textContent = '';
+                  badge.querySelector('.due-label').style.display = 'none';
+                }
+              }catch(e){ /* ignore */ }
+            })();
+          });
+          // files (limit to first 10)
+          Array.from(files).sort().forEach(file=>{
+            const row = document.createElement('div'); row.className='deck-entry';
+            const dec = decodeURIComponent((prefix+file).replace(/\+/g,' '));
+            // Extract just the deck name (without parent path) if the full path is too long
+            const fullDeckName = dec.replace(/\.xml$/i,'');
+            const shortDeckName = fullDeckName.split('/').pop(); // Just the filename
+            // Use short name if full path is longer than 40 characters
+            const displayName = fullDeckName.length > 40 ? shortDeckName : fullDeckName;
+            const nm = document.createElement('div'); 
+            nm.textContent = displayName;
+            nm.title = fullDeckName; // Show full path on hover
+            const act = document.createElement('div');
+              if(file.toLowerCase().endsWith('.xml')){ const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
+                const b=document.createElement('button'); b.className='secondary';
+                b.textContent = (window.innerWidth <= 640) ? '▶️' : 'Accéder';
+                b.addEventListener('click', async ()=>{ 
+                  const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
+                  if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
+                  const deckUrl = './decks/'+prefix+file;
+                  await showDeckOverview(deckUrl);
+                });
+                act.appendChild(dueBadge); act.appendChild(b);
+                // asynchronously compute number of cards due now for this deck and display
+                (async ()=>{
+                  try{
+                    const url = './decks/'+prefix+file;
+                    const n = await countDueNowForDeck(url);
+                    if(typeof n === 'number' && n>=0){
+                      dueBadge.querySelector('.due-num').textContent = n>0? n : '';
+                      // hide label when zero
+                      dueBadge.querySelector('.due-label').style.display = n>0? 'block' : 'none';
+                    } else { dueBadge.querySelector('.due-num').textContent = ''; dueBadge.querySelector('.due-label').style.display = 'none' }
+                  }catch(e){ /* ignore */ }
+                })();
+              }
+            row.appendChild(nm); row.appendChild(act); deckList.appendChild(row);
+          });
+          
+          // Add "Review all decks in this folder" button if there are any XML files
+          const xmlFiles = Array.from(files).filter(f => f.toLowerCase().endsWith('.xml'));
+          if(xmlFiles.length > 0){
+            const allBtn = document.createElement('div'); allBtn.className = 'deck-entry'; allBtn.style.marginTop = '12px'; allBtn.style.borderTop = '1px solid rgba(0,0,0,0.06)'; allBtn.style.paddingTop = '12px';
+            const allBtnText = document.createElement('div'); allBtnText.textContent = '📚 Réviser tous les decks du dossier'; allBtnText.style.fontWeight = '600';
+            const allBtnAct = document.createElement('div');
+            const reviewAllBtn = document.createElement('button'); reviewAllBtn.className = 'secondary'; reviewAllBtn.textContent = 'Commencer';
+            reviewAllBtn.addEventListener('click', async ()=>{
+              try{
+                // Collect all XML files from this folder
+                const deckURLs = xmlFiles.map(f => './decks/' + prefix + f);
+                // Close modal
+                await removeWelcome();
+                overlay.querySelector('.modal')?.classList.remove('open');
+                overlay.classList.remove('open');
+                overlay.style.display='none';
+                overlay.setAttribute('aria-hidden','true');
+                // Start multi-deck review
+                await loadMultipleDeckCards(deckURLs);
+              }catch(e){ console.warn('Review all error:', e); }
+            });
+            allBtnAct.appendChild(reviewAllBtn);
+            allBtn.appendChild(allBtnText);
+            allBtn.appendChild(allBtnAct);
+            deckList.appendChild(allBtn);
+          }
+          
+          deckMsg.textContent = '';
+        }
+        
+        // Expose renderPath globally so Retour button can restore folder view
+        window.deckBrowserRenderPath = renderPath;
+
+        async function renderList(list, base){
+          deckList.innerHTML = '';
+          for(const e of (list.slice ? list : list)){
+            const row = document.createElement('div'); row.className='deck-entry';
+            const decoded = (()=>{ try{ return decodeURIComponent(e.replace(/\+/g,' ')) }catch(x){ return e } })();
+            const name = document.createElement('div'); name.textContent = decoded.replace(/\.xml$/i,'');
+            const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
+            name.appendChild(dueBadge);
+            const actions = document.createElement('div');
+            if(e.endsWith('.xml')){ const dueBadge2 = document.createElement('span'); dueBadge2.className = 'due-badge'; dueBadge2.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
+              const btn = document.createElement('button'); btn.className='secondary';
+              try{
+                const relPath = normalizeDeckPath(base+e);
+                const lockState = evaluateDeckLock(relPath);
+                if(lockState.locked){
+                  if(lockState.lockedByLevel){
+                    btn.textContent = `🔒 Niveau ${lockState.levelReq}`;
+                    btn.disabled = true;
+                    btn.title = 'Atteignez le niveau requis pour débloquer ce deck';
+                  } else if(lockState.lockedByCost){
+                    btn.textContent = `Acheter ${lockState.cost}ℂ`;
+                    btn.disabled = lockState.currentCredits < lockState.cost;
+                    btn.title = lockState.currentCredits < lockState.cost ? 'Crédits insuffisants' : 'Débloquer ce deck';
+                    btn.addEventListener('click', ()=>{
+                      const freshState = evaluateDeckLock(relPath);
+                      if(freshState.lockedByLevel) return;
+                      if(freshState.currentCredits < freshState.cost) return;
+                      if(typeof addCredits === 'function') addCredits(-freshState.cost);
+                      setDeckUnlocked(relPath);
+                      renderList(list, base);
+                    });
+                  }
+                } else {
+                  btn.textContent = (window.innerWidth <= 640) ? '📂' : 'Accéder';
+                  btn.addEventListener('click', async ()=>{ 
+                    const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
+                    if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
+                    const deckUrl = base+e;
+                    await showDeckOverview(deckUrl);
+                  });
+                }
+              }catch(err){
+                console.warn('Lock check error for', e, err);
+                btn.textContent = (window.innerWidth <= 640) ? '📂' : 'Accéder';
+                btn.addEventListener('click', async ()=>{ 
+                  const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
+                  if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
+                  const deckUrl = base+e;
+                  await showDeckOverview(deckUrl);
+                });
+              }
+              actions.appendChild(dueBadge2); actions.appendChild(btn);
+                (async ()=>{ try{ const n = await countDueNowForDeck(base+e); if(typeof n === 'number' && n>=0){ dueBadge2.querySelector('.due-num').textContent = n>0? n : ''; dueBadge2.querySelector('.due-label').style.display = n>0? 'block' : 'none'; }else{ dueBadge2.querySelector('.due-num').textContent=''; dueBadge2.querySelector('.due-label').style.display='none'; } }catch(err){} })();
+            }
+            else { const btn = document.createElement('button'); btn.className='secondary'; btn.textContent='Ouvrir'; btn.addEventListener('click', async ()=>{ deckMsg.textContent = 'Exploration de '+base+e+' ...'; try{ const sub = await fetchDirectory(base+e); renderList(sub, base+e); }catch(err){ deckMsg.textContent = 'Impossible d\'explorer le dossier: '+err.message } }); actions.appendChild(btn); }
+            row.appendChild(name); row.appendChild(actions); deckList.appendChild(row);
+          }
+        }
+      }catch(err){ deckMsg.textContent = 'Impossible d\'accéder à ./decks/ — invoquez via un serveur HTTP (non supporté en file://)'; }
+    }
+    if(browseBtn) browseBtn.addEventListener('click', openDeckBrowser);
+    // Expose openDeckBrowser and renderPath globally for retour button
+    try{ 
+      window.openDeckBrowser = openDeckBrowser;
+      // Expose renderPath from within the closure after it's defined
+      window.deckBrowserRenderPath = null; // Will be set after openDeckBrowser is called
+    }catch(e){}
+    // show tooltip first-time to indicate where to change deck
+    function showDeckTooltipOnce(){
+      try{
+        const key = 'fabanki_seenDeckTooltip_v1';
+        if(localStorage.getItem(key)) return;
+        const btn = document.getElementById('browseDecks');
+        if(!btn) return;
+        const r = btn.getBoundingClientRect();
+        const tip = document.createElement('div'); tip.className='tooltip'; tip.id='deckTooltip';
+        tip.textContent = 'Cliquer ici pour choisir un deck';
+        document.body.appendChild(tip);
+        // position above the button
+        tip.style.left = (r.left + window.scrollX) + 'px';
+        tip.style.top = (r.bottom + window.scrollY + 8) + 'px';
+        setTimeout(()=>{ try{ tip.style.opacity='0'; tip.remove(); localStorage.setItem(key,'1') }catch(e){} }, 3800);
+      }catch(e){}
+    }
+    showDeckTooltipOnce();
+    if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(overlay){ overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); } });
+    if(overlay){ overlay.addEventListener('click', (ev)=>{ if(ev.target === overlay){ overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); } }); }
+    if(refreshBtn) refreshBtn.addEventListener('click', ()=>{ openDeckBrowser(); });
+    
+    // Helper: parse card ids from an XML document (lightweight, used by deck browser counts)
+    function parseCardIdsFromXML(xml){
+      const cardNodes = Array.from(xml.getElementsByTagName('card'));
+      const candidates = cardNodes.length ? cardNodes : Array.from(xml.querySelectorAll('card, note, item, entry, record'));
+      const ids = [];
+      let idx = 0;
+      for(const node of candidates){
+        try{ const id = node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idx++)); ids.push(id); }catch(e){ continue }
+      }
+      return ids;
+    }
+
+    // Count number of cards due now for a deck URL (considers localStorage state for that deck)
+    async function countDueNowForDeck(url){
+      try{
+        const res = await fetch(url);
+        if(!res.ok) return 0;
+        const text = await res.text();
+        const parser = new DOMParser();
+        let xml = parser.parseFromString(text,'application/xml');
+        if(xml.querySelector && xml.querySelector('parsererror')) xml = parser.parseFromString(text,'text/html');
+        const ids = parseCardIdsFromXML(xml);
+        const keyPrefix = 'fabanki:' + fallbackSha1(url).slice(0,10) + ':';
+        const now = new Date();
+        let cnt = 0;
+        let debugInfo = {total: ids.length, new: 0, reviewed: 0, dueNow: 0, dueLater: 0};
+        for(const id of ids){
+          try{
+            const key = keyPrefix + 'card:' + id;
+            const st = JSON.parse(localStorage.getItem(key) || '{}');
+            const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
+            // Skip new cards - only count "Maintenant" category (reviewed cards that are due now)
+            if(isNew) {
+              debugInfo.new++;
+              continue;
+            }
+            debugInfo.reviewed++;
+            const due = st && st.due ? new Date(st.due) : now;
+            if(due <= now) {
+              cnt++;
+              debugInfo.dueNow++;
+            } else {
+              debugInfo.dueLater++;
+            }
+          }catch(e){ continue }
+        }
+        console.log('countDueNowForDeck:', url.split('/').pop(), 'result:', cnt, 'breakdown:', debugInfo);
+        return cnt;
+      }catch(e){ console.error('countDueNowForDeck error:', e); return 0 }
+    }
+    // toggle histogram button (mobile: overlay, desktop: scroll)
+    const toggleStatsBtn = document.getElementById('toggleStats');
+    if(toggleStatsBtn){
+      toggleStatsBtn.addEventListener('click', ()=>{
+        const stats = document.getElementById('stats');
+        if(!stats) return;
+        if(window.innerWidth <= 640){ stats.classList.toggle('visible'); }
+        else { stats.scrollIntoView({behavior:'smooth'}); }
+      });
+    }
+
+    // Mobile-only: replace top-bar button labels with emojis.
+    function updateTopBarLabels(){
+      try{
+        const isMobile = window.innerWidth <= 640;
+        const buttons = document.querySelectorAll('header .controls button[data-label-text]');
+        buttons.forEach(btn=>{
+          const text = btn.getAttribute('data-label-text') || btn.textContent;
+          const emoji = btn.getAttribute('data-label-emoji') || text;
+          btn.textContent = isMobile ? emoji : text;
+        });
+        // no inline profile badge; profile info shown in popup on click
+      }catch(e){}
+    }
+    updateTopBarLabels();
+    window.addEventListener('resize', updateTopBarLabels);
+    // Hide status and hint when mobile stats overlay is visible
+    (function(){
+      try{
+        const statsEl = document.getElementById('stats');
+        if(!statsEl) return;
+        const handle = ()=>{
+          const isVis = statsEl.classList.contains('visible');
+          const isMobile = window.innerWidth <= 640;
+          const s = document.getElementById('status');
+          const hint = document.getElementById('histHint');
+          if(isMobile && isVis){ if(s) s.style.display='none'; if(hint) hint.style.display='none'; }
+          else { if(s) s.style.display=''; if(hint) hint.style.display=''; try{ updateStatus(s?.textContent || '') }catch(e){} }
+        };
+        // observe class changes
+        const mo = new MutationObserver(handle);
+        mo.observe(statsEl, { attributes: true, attributeFilter: ['class'] });
+        // also run once to sync initial state
+        window.addEventListener('load', handle);
+        window.addEventListener('resize', handle);
+      }catch(e){}
+    })();
+    // Hide card status when any modal or stats overlay is visible
+    (function(){
+      function anyModalOpen(){
+        try{
+          const overlays = Array.from(document.querySelectorAll('.modal-overlay'));
+          for(const o of overlays){
+            const aria = o.getAttribute('aria-hidden');
+            const disp = (o.style && o.style.display) || getComputedStyle(o).display;
+            if(aria === 'false' || disp !== 'none') return true;
+          }
+          const stats = document.getElementById('stats'); if(stats && stats.classList.contains('visible')) return true;
+        }catch(e){}
+        return false;
+      }
+      function syncCardStatus(){
+        try{
+          const st = document.getElementById('cardStatus'); if(!st) return;
+          if(anyModalOpen()) st.style.display = 'none'; else st.style.display = '';
+        }catch(e){}
+      }
+      try{
+        const mo = new MutationObserver(syncCardStatus);
+        mo.observe(document.body, {subtree:true, childList:true, attributes:true, attributeFilter:['style','aria-hidden','class']});
+      }catch(e){}
+      setTimeout(syncCardStatus, 120);
+      window.addEventListener('resize', syncCardStatus);
+    })();
+
+    // Also hide status/hint when the deck browser overlay is visible on mobile
+    (function(){
+      try{
+        const deckOverlay = document.getElementById('deckBrowserOverlay');
+        if(!deckOverlay) return;
+        const handleDeck = ()=>{
+          const isOpen = deckOverlay.style.display === 'flex' || deckOverlay.getAttribute('aria-hidden') === 'false';
+          const isMobile = window.innerWidth <= 640;
+          const s = document.getElementById('status');
+          const hint = document.getElementById('histHint');
+          if(isMobile && isOpen){ if(s) s.style.display='none'; if(hint) hint.style.display='none'; }
+          else { if(s) s.style.display=''; if(hint) hint.style.display=''; try{ updateStatus(s?.textContent || '') }catch(e){} }
+        };
+        const mo2 = new MutationObserver(handleDeck);
+        mo2.observe(deckOverlay, { attributes:true, attributeFilter:['style','aria-hidden'] });
+        window.addEventListener('resize', handleDeck);
+        window.addEventListener('load', handleDeck);
+      }catch(e){}
+    })();
+    // close button for mobile histogram overlay
+    const closeStatsBtn = document.getElementById('closeStatsMobile');
+    if(closeStatsBtn){
+      closeStatsBtn.addEventListener('click', ()=>{
+        const stats = document.getElementById('stats'); if(!stats) return; stats.classList.remove('visible');
+      });
+    }
+
+    // check URL param
+    const pdeck = param('deck');
+    // Profile & XP helpers
+    function getTotalReviewedCount(){
+      try{
+        const fail = Number(localStorage.getItem('fabanki:fail_total') || 0);
+        const hard = Number(localStorage.getItem('fabanki:difficult_total') || 0);
+        const good = Number(localStorage.getItem('fabanki:good_total') || 0);
+        return Math.max(0, fail + hard + good);
+      }catch(e){ return 0 }
+    }
+    function getProfileStats(){
+      let total = 0, today = 0;
+      const now = new Date();
+      for(const k of Object.keys(localStorage)){
+        // support keys like 'fabanki:<deckKey>:card:<id>' and older 'fabanki:card:<id>'
+        if(!k.includes(':card:')) continue;
+        try{
+          const st = JSON.parse(localStorage.getItem(k) || '{}');
+          // Count as reviewed if it has reps>0 OR it was seen (has last) — include Pass actions
+          if(st && ((st.reps && st.reps>0) || st.last)) total++;
+          if(st && st.last){ const d = new Date(st.last); if(d.toDateString() === now.toDateString()) today++; }
+        }catch(e){}
+      }
+      const xp = Number(localStorage.getItem('fabanki:xp_total') || 0);
+      const totalFromCounters = getTotalReviewedCount();
+      return {totalReviewed: totalFromCounters > 0 ? totalFromCounters : total, todayReviewed: today, xpTotal: xp};
+    }
+
+    function setThemeMode(theme){
+      try{
+        const appEl = document.getElementById('app');
+        if(!appEl) return;
+        const t = (theme === 'dark') ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+        appEl.setAttribute('data-theme', t);
+        localStorage.setItem('fabanki:theme', t);
+        const toggleBtn = document.getElementById('toggleTheme');
+        if(toggleBtn){
+          const themeLabel = t==='dark' ? 'Mode clair' : 'Mode sombre';
+          toggleBtn.setAttribute('data-label-text', themeLabel);
+        }
+        // Auto-switch color to matching theme variant
+        const currentColorName = localStorage.getItem('fabanki:current_color_name');
+        if(currentColorName) {
+          const colors = [
+            { name: 'Clair (défaut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
+            { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
+            { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
+            { name: 'Vert', light: '#e8f5e9', dark: '#0d2818', level: 5 },
+            { name: 'Rose', light: '#fce4ec', dark: '#2a0e1f', level: 10 },
+            { name: 'Jaune', light: '#fffde7', dark: '#332d00', level: 10 },
+            { name: 'Pourpre', light: '#f3e5f5', dark: '#25071a', level: 15 },
+            { name: 'Indigo profond', light: '#e7e4f7', dark: '#1a0754', level: 0 },
+            { name: 'Cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 20 },
+            { name: 'Orange', light: '#ffe0b2', dark: '#2d1b0a', level: 20 },
+            { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 25 },
+            { name: 'Corail', light: '#ffebee', dark: '#2d0a0a', level: 25 },
+            { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 30 },
+            { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 30 },
+            { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 35 },
+            { name: 'Gradient Doré', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35 },
+            { name: 'Gradient Rose-Vert', light: 'linear-gradient(135deg, #f8bbd0 0%, #a5d6a7 100%)', dark: 'linear-gradient(135deg, #4a0e2a 0%, #1d3a1f 100%)', level: 40 },
+            { name: 'Gradient Prisma', light: 'linear-gradient(135deg, #e8f4f8 0%, #fce4ec 50%, #f3e5f5 100%)', dark: 'linear-gradient(135deg, #0a1a2e 0%, #2a0e1f 50%, #25071a 100%)', level: 45 },
+            { name: 'Gradient Bleu Royal', light: 'linear-gradient(135deg, #64b5f6 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0a2558 0%, #1a2a3a 100%)', level: 45 },
+            { name: 'Gradient Aurora', light: 'linear-gradient(135deg, #e0f2f1 0%, #fffde7 50%, #ffebee 100%)', dark: 'linear-gradient(135deg, #0d1816 0%, #332d00 50%, #2d0a0a 100%)', level: 48 },
+            { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
+            { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
+          ];
+          const found = colors.find(c => c.name === currentColorName);
+          if(found){
+            const value = (t === 'dark') ? found.dark : found.light;
+            localStorage.setItem('fabanki:bg_color', value);
+          }
+        }
+        applyCustomization();
+      }catch(e){ console.warn('setThemeMode error', e); }
+    }
+
+    function showProfilePopup(){
+      try{
+        // prevent duplicates
+        if(document.getElementById('profileOverlay')) return;
+        
+        // Show contextual onboarding on first open
+        setTimeout(() => {
+          if(typeof showProfileOnboarding === 'function'){
+            showProfileOnboarding();
+          }
+        }, 300);
+        
+        const stats = getProfileStats();
+        const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='1200';
+        const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='420px'; m.style.width='90%';
+        const h = document.createElement('h3'); h.textContent='👤 Profil'; h.style.marginTop='0'; h.style.marginBottom='16px'; h.style.fontSize='1.5rem'; m.appendChild(h);
+        // Pseudo display (from localStorage)
+        const userPseudo = localStorage.getItem('pseudo') || '';
+        const p0 = document.createElement('div'); p0.id='profilePseudo'; p0.className='muted small'; p0.style.marginBottom='6px'; p0.textContent = `Pseudo: ${userPseudo}`;
+        // modifier button
+        const editBtn = document.createElement('button'); editBtn.className='secondary'; editBtn.style.marginLeft='8px'; editBtn.textContent = 'Modifier';
+        editBtn.addEventListener('click', ()=>{
+          try{
+            const cur = localStorage.getItem('pseudo') || '';
+            const input = document.createElement('input'); input.type='text'; input.value = cur; input.style.width='60%'; input.style.marginLeft='8px';
+            const save = document.createElement('button'); save.className='secondary'; save.textContent='Enregistrer'; save.style.marginLeft='6px';
+            const cancel = document.createElement('button'); cancel.className='secondary'; cancel.textContent='Annuler'; cancel.style.marginLeft='6px';
+            p0.textContent = 'Pseudo : '; p0.appendChild(input); p0.appendChild(save); p0.appendChild(cancel);
+            save.addEventListener('click', ()=>{ const v = (input.value||'').trim(); if(!v) return input.focus(); localStorage.setItem('pseudo', v); if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){} });
+            cancel.addEventListener('click', ()=>{ p0.textContent = `Pseudo: ${localStorage.getItem('pseudo') || ''}` });
+          }catch(e){ console.warn('edit pseudo', e) }
+        });
+        const pWrap = document.createElement('div'); pWrap.style.display='flex'; pWrap.style.alignItems='center'; pWrap.appendChild(p0); pWrap.appendChild(editBtn); m.appendChild(pWrap);
+        
+        // Stats box with dark theme
+        const statsBox = document.createElement('div');
+        statsBox.style.cssText = 'padding:16px;background:linear-gradient(135deg, #1e293b 0%, #334155 100%);color:white;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+        
+        const p1 = document.createElement('div'); p1.className='profile-total'; p1.style.marginBottom='8px'; p1.innerHTML = `<strong>📚 Cartes lues:</strong> ${stats.totalReviewed}`; statsBox.appendChild(p1);
+        const p2 = document.createElement('div'); p2.className='profile-today'; p2.style.marginBottom='8px'; p2.innerHTML = `<strong>📅 Aujourd'hui:</strong> ${stats.todayReviewed}`; statsBox.appendChild(p2);
+        const p3 = document.createElement('div'); p3.className='profile-xp'; p3.style.marginBottom='8px'; p3.innerHTML = `<strong>✨ XP:</strong> ${stats.xpTotal}`; statsBox.appendChild(p3);
+        const p4 = document.createElement('div'); p4.className='profile-streak'; p4.innerHTML = `<strong>🔥 Série:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} jours`; statsBox.appendChild(p4);
+        
+        m.appendChild(statsBox);
+
+        // Title selector section
+        const titleSelectorBox = document.createElement('div');
+        titleSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin:12px 0;';
+        const titleSelectorLabel = document.createElement('div');
+        titleSelectorLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:#333;';
+        titleSelectorLabel.textContent = '👑 Titre sélectionné';
+        titleSelectorBox.appendChild(titleSelectorLabel);
+        
+        // Get all unlocked titles
+        const unlockedTitles = [];
+        const mathematicianTiers = {
+          1: { name: 'Bronze', mathematicians: ['Lagrange', 'Laplace', 'Fourier', 'Cauchy', 'Riemann'] },
+          2: { name: 'Silver', mathematicians: ['Ramanujan', 'Cantor', 'Hilbert', 'Leibniz', 'Boole'] },
+          3: { name: 'Gold', mathematicians: ['Descartes', 'Bernoulli', 'Weierstrass', 'Dirichlet', 'Archimedes'] },
+          4: { name: 'Platinum', mathematicians: ['Euclid', 'Pythagoras', 'Al-Khwarizmi', 'Galois', 'Grothendieck'] },
+          5: { name: 'Diamond', mathematicians: ['Euler', 'Newton', 'Gauss', 'Fibonacci', 'Pascal'] }
+        };
+        
+        for(const [tierKey, tierData] of Object.entries(mathematicianTiers)){
+          const titleStorageKey = `fabanki:title_chosen_${tierKey}`;
+          const chosenTitle = localStorage.getItem(titleStorageKey);
+          if(chosenTitle){
+            unlockedTitles.push({name: chosenTitle, tier: tierKey, tierName: tierData.name});
+          }
+        }
+        
+        if(unlockedTitles.length > 0){
+          const select = document.createElement('select');
+          select.style.cssText = 'width:100%;padding:8px;border-radius:6px;border:1px solid #ccc;margin-bottom:8px;';
+          
+          // Add option for no title
+          const noneOption = document.createElement('option');
+          noneOption.value = '';
+          noneOption.textContent = '(Aucun titre)';
+          select.appendChild(noneOption);
+          
+          // Add unlocked titles
+          unlockedTitles.forEach(title => {
+            const option = document.createElement('option');
+            option.value = title.name;
+            option.textContent = `${title.name} (${title.tierName})`;
+            select.appendChild(option);
+          });
+          
+          // Load current selection
+          const currentTitle = localStorage.getItem('fabanki:selected_title') || '';
+          select.value = currentTitle;
+          
+          select.addEventListener('change', (e) => {
+            const selectedTitle = e.target.value;
+            if(selectedTitle){
+              localStorage.setItem('fabanki:selected_title', selectedTitle);
+              showXpToast(`Titre sélectionné: ${selectedTitle}`);
+              // Trigger sync to update leaderboard
+              try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+            } else {
+              localStorage.removeItem('fabanki:selected_title');
+              showXpToast('Aucun titre sélectionné');
+              // Trigger sync to update leaderboard
+              try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+            }
+            if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
+          });
+          
+          titleSelectorBox.appendChild(select);
+          
+          // Display current selection
+          const currentDisplay = document.createElement('div');
+          currentDisplay.style.cssText = 'font-size:0.9em;color:#666;';
+          currentDisplay.textContent = currentTitle ? `Actuel: ${currentTitle}` : 'Actuel: aucun';
+          titleSelectorBox.appendChild(currentDisplay);
+        } else {
+          const noTitlesMsg = document.createElement('div');
+          noTitlesMsg.style.cssText = 'font-size:0.9em;color:#999;';
+          noTitlesMsg.textContent = 'Aucun titre déverrouillé pour le moment.';
+          titleSelectorBox.appendChild(noTitlesMsg);
+        }
+        
+        m.appendChild(titleSelectorBox);
+
+        // Theme toggle (moved from top bar)
+        const themeBox = document.createElement('div');
+        themeBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+        const themeLabel = document.createElement('div');
+        themeLabel.style.cssText = 'font-weight:700;color:#333;';
+        themeLabel.textContent = '🌙 Mode sombre';
+        themeBox.appendChild(themeLabel);
+
+        const themeToggle = document.createElement('button');
+        themeToggle.id = 'profileThemeToggle';
+        themeToggle.type = 'button';
+        themeToggle.setAttribute('role', 'switch');
+        themeToggle.style.cssText = 'width:52px;height:28px;border-radius:999px;border:1px solid #d1d5db;background:#e5e7eb;position:relative;cursor:pointer;display:inline-flex;align-items:center;padding:2px;transition:background 0.2s,border-color 0.2s;';
+        const themeThumb = document.createElement('span');
+        themeThumb.className = 'theme-thumb';
+        themeThumb.style.cssText = 'width:22px;height:22px;border-radius:50%;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.25);transform:translateX(0);transition:transform 0.2s;display:block;';
+        themeToggle.appendChild(themeThumb);
+
+        const applyThemeToggleUI = (isDark) => {
+          themeToggle.setAttribute('aria-checked', isDark ? 'true' : 'false');
+          themeToggle.style.background = isDark ? '#111827' : '#e5e7eb';
+          themeToggle.style.borderColor = isDark ? '#111827' : '#d1d5db';
+          themeThumb.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
+        };
+        applyThemeToggleUI((document.documentElement.getAttribute('data-theme') || 'light') === 'dark');
+
+        themeToggle.addEventListener('click', ()=>{
+          const current = document.documentElement.getAttribute('data-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          setThemeMode(next);
+          applyThemeToggleUI(next === 'dark');
+        });
+
+        themeBox.appendChild(themeToggle);
+        m.appendChild(themeBox);
+
+        // Classement button
+        const rankBtnWrap = document.createElement('div'); 
+        rankBtnWrap.style.marginTop = '10px'; 
+        rankBtnWrap.style.display = 'flex'; 
+        rankBtnWrap.style.gap = '8px';
+        rankBtnWrap.style.flexWrap = 'wrap';
+        const rankBtn = document.createElement('button'); rankBtn.className = 'secondary'; rankBtn.textContent = 'Classement';
+        rankBtn.addEventListener('click', ()=>{ try{ showLeaderboardPopup(); }catch(e){ console.warn(e) } });
+        rankBtnWrap.appendChild(rankBtn);
+        // Titres button
+        const titlesBtn = document.createElement('button'); titlesBtn.className='secondary'; titlesBtn.textContent = 'Titres';
+        titlesBtn.addEventListener('click', ()=>{ try{ showTitlesPopup(); }catch(e){ console.warn(e) } });
+        rankBtnWrap.appendChild(titlesBtn);
+        // Tutorial button
+        const tutorialBtn = document.createElement('button'); tutorialBtn.className='secondary'; tutorialBtn.textContent='📖';
+        tutorialBtn.title = 'Tutoriel';
+        tutorialBtn.addEventListener('click', ()=>{
+          try{
+            // Close profile popup first
+            const profileOverlay = document.getElementById('profileOverlay');
+            if(profileOverlay) profileOverlay.remove();
+            // Start tutorial after a short delay
+            setTimeout(() => {
+              if(typeof showOnboarding === 'function'){
+                showOnboarding();
+              }
+            }, 200);
+          }catch(e){ console.warn('tutorial error', e) }
+        });
+        rankBtnWrap.appendChild(tutorialBtn);
+        // Customization button
+        const customizeBtn = document.createElement('button'); customizeBtn.className='secondary'; customizeBtn.textContent='⚙️';
+        customizeBtn.title = 'Personnaliser';
+        customizeBtn.addEventListener('click', ()=>{
+          try{
+            if(typeof showCustomizationModal === 'function'){
+              showCustomizationModal();
+            }
+          }catch(e){ console.warn('customize error', e) }
+        });
+        rankBtnWrap.appendChild(customizeBtn);
+        // Theme personalization button
+        const themeBtn = document.createElement('button'); themeBtn.className='secondary'; themeBtn.textContent='🎨';
+        themeBtn.title = 'Personnalisation du thème';
+        themeBtn.addEventListener('click', ()=>{
+          try{
+            if(typeof showCustomizationModal === 'function'){
+              showCustomizationModal();
+            }
+          }catch(e){ console.warn('theme popup error', e) }
+        });
+        rankBtnWrap.appendChild(themeBtn);
+        // Daily goal button
+        const dailyGoalBtn = document.createElement('button'); dailyGoalBtn.className='secondary'; dailyGoalBtn.textContent='🎯';
+        dailyGoalBtn.title = 'Objectif quotidien';
+        dailyGoalBtn.addEventListener('click', ()=>{
+          try{
+            if(typeof showDailyGoalDialog === 'function'){
+              showDailyGoalDialog();
+            }
+          }catch(e){ console.warn('daily goal error', e) }
+        });
+        rankBtnWrap.appendChild(dailyGoalBtn);
+        m.appendChild(rankBtnWrap);
+
+        // Level box: ring + info
+        try{
+          const lvl = computeLevelAndProgress(stats.xpTotal || 0);
+          const levelBox = document.createElement('div'); levelBox.className = 'level-box';
+          const ring = document.createElement('div'); ring.className = 'level-ring';
+          const circ = 2 * Math.PI * 42;
+          const pct = Math.max(0, Math.min(100, Math.round(lvl.pct || 0)));
+          const offset = Math.round(circ * (1 - pct/100));
+          const color = getLevelColor(lvl.level);
+          ring.innerHTML = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" stroke="#eee" stroke-width="8" fill="none"></circle><circle class="ring-fill" cx="50" cy="50" r="42" stroke="${color}" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"></circle></svg><div class="level-num">${lvl.level}</div>`;
+          const info = document.createElement('div'); info.className='level-info';
+          const next = document.createElement('div'); next.className='next muted small'; next.textContent = `Prochain niveau dans ${lvl.toNext} XP`;
+          const rem = document.createElement('div'); rem.className='progress-remaining'; rem.textContent = `${lvl.progress}/${lvl.need} (${pct}%)`;
+          info.appendChild(next); info.appendChild(rem);
+          levelBox.appendChild(ring); levelBox.appendChild(info);
+          m.appendChild(levelBox);
+        }catch(e){ /* ignore level rendering errors */ }
+
+        const close = document.createElement('div'); close.style.display='flex'; close.style.justifyContent='flex-end'; close.style.marginTop='12px';
+        const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='Fermer'; cb.addEventListener('click', ()=>{ ov.remove(); }); close.appendChild(cb);
+        m.appendChild(close);
+        ov.appendChild(m); document.body.appendChild(ov);
+        // mark overlay open so CSS fade can run, then animate modal open
+        try{ ov.classList.add('open'); ov.setAttribute('aria-hidden','false'); m.classList.add('open');
+          const anim = localStorage.getItem('fabanki:popup_animation') || 'none';
+          if(anim !== 'none') m.setAttribute('data-animation', anim);
+        }catch(e){}
+        ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
+      }catch(e){ console.warn('profile popup error', e); }
+    }
+
+    function updateProfilePopupIfOpen(){
+      try{
+        const ov = document.getElementById('profileOverlay');
+        if(!ov) return;
+        const stats = getProfileStats();
+        const pseudoNode = ov.querySelector('#profilePseudo'); if(pseudoNode) pseudoNode.textContent = `Pseudo: ${localStorage.getItem('pseudo') || ''}`;
+        const totalNode = ov.querySelector('.profile-total'); if(totalNode) totalNode.textContent = `Cartes lues: ${stats.totalReviewed}`;
+        const todayNode = ov.querySelector('.profile-today'); if(todayNode) todayNode.textContent = `Cartes lues aujourd'hui: ${stats.todayReviewed}`;
+        const xpNode = ov.querySelector('.profile-xp'); if(xpNode) xpNode.innerHTML = `<strong>XP:</strong> ${stats.xpTotal}`;
+        try{
+          const themeToggle = ov.querySelector('#profileThemeToggle');
+          const themeThumb = ov.querySelector('#profileThemeToggle .theme-thumb');
+          if(themeToggle && themeThumb){
+            const isDark = (document.documentElement.getAttribute('data-theme') || 'light') === 'dark';
+            themeToggle.setAttribute('aria-checked', isDark ? 'true' : 'false');
+            themeToggle.style.background = isDark ? '#111827' : '#e5e7eb';
+            themeToggle.style.borderColor = isDark ? '#111827' : '#d1d5db';
+            themeThumb.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
+          }
+        }catch(e){}
+        // update level ring if present
+        try{
+          const lvl = computeLevelAndProgress(stats.xpTotal || 0);
+          const ringFill = ov.querySelector('.level-ring .ring-fill');
+          const levelNum = ov.querySelector('.level-ring .level-num');
+          const nextTxt = ov.querySelector('.level-info .next');
+          const remTxt = ov.querySelector('.level-info .progress-remaining');
+          if(ringFill){ const circ = 2 * Math.PI * 42; const pct = Math.max(0, Math.min(100, Math.round(lvl.pct || 0))); ringFill.style.stroke = getLevelColor(lvl.level); ringFill.setAttribute('stroke-dasharray', String(circ)); ringFill.setAttribute('stroke-dashoffset', String(Math.round(circ * (1 - pct/100)))); }
+          if(levelNum) levelNum.textContent = String(lvl.level);
+          if(nextTxt) nextTxt.textContent = `Prochain niveau dans ${lvl.toNext} XP`;
+          if(remTxt) remTxt.textContent = `${lvl.progress}/${lvl.need} (${Math.round(lvl.pct||0)}%)`;
+        }catch(e){}
+        // refresh pseudo display (target the specific element, not the first div)
+        try{ const p0 = ov.querySelector('#profilePseudo'); if(p0) p0.textContent = `Pseudo: ${localStorage.getItem('pseudo') || ''}` }catch(e){}
+        try{ const s = ov.querySelector('.profile-streak'); if(s) s.textContent = `Jours consécutifs: ${Number(localStorage.getItem('fabanki:streak_current')||0)}` }catch(e){}
+      }catch(e){}
+    }
+
+    // expose helpers globally so other handlers (outside load) can use them
+    try{ window.applyXp = applyXp; window.computeXpForQuality = computeXpForQuality; window.getDeckSection = getDeckSection; window.showXpToast = showXpToast; window.getXpTotal = getXpTotal; window.updateProfilePopupIfOpen = updateProfilePopupIfOpen; window.computePenaltyForSection = computePenaltyForSection; window.computeLevelAndProgress = computeLevelAndProgress; window.getLevelColor = getLevelColor; }catch(e){}
+
+    // expose leaderboard helpers
+    try{ window.ensurePseudo = ensurePseudo; window.syncClassement = syncClassement; window.showLeaderboardPopup = showLeaderboardPopup; }catch(e){}
+
+    // Toast notification for market
+    function showMarketToast(message){
+      try{
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#333;color:white;padding:12px 16px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:10000;max-width:300px;word-wrap:break-word;animation:fadeInOut 3s ease-in-out;';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(()=>{ try{ toast.remove(); }catch(e){} }, 3000);
+      }catch(e){}
+    }
+
+    // === MARKET PAGE ===
+    async function showMarketPage(){
+      try{
+        // Show onboarding on first visit
+        if(typeof showMarketOnboarding === 'function'){
+          setTimeout(() => showMarketOnboarding(), 200);
+        }
+        
+        // Prevent duplicates
+        if(document.getElementById('marketContainer')) return;
+        
+        const container = document.createElement('div');
+        container.id = 'marketContainer';
+        container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);overflow-y:auto;z-index:1000;padding:20px;box-sizing:border-box;';
+        
+        // Header with back button
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;max-width:1200px;margin-left:auto;margin-right:auto;';
+        const title = document.createElement('h2');
+        title.textContent = '🛍️ Marché';
+        title.style.cssText = 'margin:0;font-size:2em;';
+        header.appendChild(title);
+        
+        const backBtn = document.createElement('button');
+        backBtn.textContent = '← Retour';
+        backBtn.className = 'secondary';
+        backBtn.addEventListener('click', ()=>{ container.remove(); });
+        header.appendChild(backBtn);
+        container.appendChild(header);
+        
+        // Main content wrapper
+        const content = document.createElement('div');
+        content.style.cssText = 'max-width:1200px;margin:0 auto;';
+        
+        // Helper function to get current credits - directly call getCredits function
+        const getBalance = () => {
+          const credits = getCredits();
+          console.log('DEBUG getBalance() called, returning:', credits);
+          return credits;
+        };
+        
+        // Helper function to purchase items
+        const purchaseItem = (itemId, cost, onSuccess) => {
+          const balance = getBalance();
+          if(balance < cost){
+            alert(`Crédits insuffisants. Vous avez ${balance} ℂ, il en faut ${cost} ℂ`);
+            return false;
+          }
+          if(typeof addCredits === 'function') addCredits(-cost);
+          localStorage.setItem(`fabanki:market_${itemId}`, 'true');
+          if(onSuccess) onSuccess();
+          try{
+            if(typeof completeWelcomeQuestMission === 'function'){
+              completeWelcomeQuestMission('part3', 'market_purchase', 10);
+            }
+          }catch(e){ console.warn('welcome quest market error', e); }
+          return true;
+        };
+        
+        // ===== SECTION 1: MODE TEXTE À TROU (TOP) =====
+        const textModeSection = document.createElement('section');
+        textModeSection.style.cssText = 'margin-bottom:40px;';
+        
+        const textModeItemId = 'mode_texte_trou';
+        const textModeCost = 100;
+        const isTextModeUnlocked = localStorage.getItem(`fabanki:market_${textModeItemId}`);
+        
+        const textModeGrid = document.createElement('div');
+        textModeGrid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:16px;';
+        
+        const textModeCard = document.createElement('div');
+        // Responsive layout: horizontal on desktop, vertical on mobile
+        const isMobile = window.innerWidth <= 768;
+        const cardLayout = isMobile 
+          ? 'background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(102, 126, 234, 0.3);display:flex;flex-direction:column;gap:16px;color:#FFFFFF;'
+          : 'background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(102, 126, 234, 0.3);display:flex;align-items:center;gap:24px;color:#FFFFFF;';
+        textModeCard.style.cssText = cardLayout;
+        
+        // Icon/emojis section
+        const iconDiv = document.createElement('div');
+        const iconStyle = isMobile 
+          ? 'font-size:3em;text-align:center;'
+          : 'font-size:4em;text-align:center;min-width:120px;';
+        iconDiv.style.cssText = iconStyle;
+        iconDiv.textContent = '✨📝';
+        textModeCard.appendChild(iconDiv);
+        
+        // Content section
+        const contentDiv = document.createElement('div');
+        contentDiv.style.cssText = isMobile ? 'flex:1;text-align:center;' : 'flex:1;';
+        
+        const modeBadge = document.createElement('div');
+        modeBadge.style.cssText = isMobile
+          ? 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.8em;font-weight:700;margin-bottom:8px;'
+          : 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.85em;font-weight:700;margin-bottom:12px;';
+        modeBadge.textContent = '🆕 NOUVEAU MODE';
+        contentDiv.appendChild(modeBadge);
+        
+        const modeTitle = document.createElement('h3');
+        modeTitle.textContent = 'Mode Texte à trou';
+        modeTitle.style.cssText = isMobile 
+          ? 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.5em;'
+          : 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.8em;';
+        contentDiv.appendChild(modeTitle);
+        
+        const modeDesc = document.createElement('p');
+        modeDesc.textContent = 'Remplissez les blancs et validez vos réponses. Disponible sur tous les decks compatibles avec ce mode. Une nouvelle manière d\'apprendre !';
+        modeDesc.style.cssText = isMobile
+          ? 'margin:0;font-size:0.9em;color:#FFFFFF;opacity:0.95;line-height:1.5;'
+          : 'margin:0;font-size:1em;color:#FFFFFF;opacity:0.95;line-height:1.5;';
+        contentDiv.appendChild(modeDesc);
+        
+        textModeCard.appendChild(contentDiv);
+        
+        // Button section
+        const btnDiv = document.createElement('div');
+        btnDiv.style.cssText = isMobile
+          ? 'display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;'
+          : 'display:flex;flex-direction:column;align-items:center;gap:8px;min-width:180px;';
+        
+        const priceDiv = document.createElement('div');
+        priceDiv.style.cssText = isMobile
+          ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
+          : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
+        priceDiv.textContent = '100 ℂ';
+        btnDiv.appendChild(priceDiv);
+        
+        const modeBtn = document.createElement('button');
+        modeBtn.style.cssText = isMobile
+          ? 'width:100%;background:#FFFFFF;color:#667eea;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
+          : 'width:100%;background:#FFFFFF;color:#667eea;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
+        modeBtn.textContent = isTextModeUnlocked ? '✓ Déverrouillé' : 'Débloquer';
+        modeBtn.disabled = !!isTextModeUnlocked;
+        
+        if(!isTextModeUnlocked){
+          modeBtn.addEventListener('click', ()=>{
+            if(purchaseItem(textModeItemId, textModeCost, ()=>{
+              showMarketToast('Mode "Texte à trou" déverrouillé ! 🎉');
+              showMarketPage();
+            })){
+              showMarketPage();
+            }
+          });
+          modeBtn.addEventListener('mouseover', ()=>{ modeBtn.style.background = '#f0f0f0'; });
+          modeBtn.addEventListener('mouseout', ()=>{ modeBtn.style.background = '#FFFFFF'; });
+        }
+        
+        btnDiv.appendChild(modeBtn);
+        textModeCard.appendChild(btnDiv);
+        
+        textModeGrid.appendChild(textModeCard);
+        textModeSection.appendChild(textModeGrid);
+        content.appendChild(textModeSection);
+        
+        // ===== SECTION 1B: MODE RAPPEL SOUS PRESSION =====
+        const timerModeSection = document.createElement('section');
+        timerModeSection.style.cssText = 'margin-bottom:40px;';
+        
+        const timerModeItemId = 'mode_rappel_sous_pression';
+        const timerModeCost = 100;
+        const isTimerModeUnlocked = localStorage.getItem(`fabanki:market_${timerModeItemId}`);
+        
+        const timerModeGrid = document.createElement('div');
+        timerModeGrid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:16px;';
+        
+        const timerModeCard = document.createElement('div');
+        const timerCardLayout = isMobile 
+          ? 'background:linear-gradient(135deg, #FF6B6B 0%, #FF8E72 100%);border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(255, 107, 107, 0.3);display:flex;flex-direction:column;gap:16px;color:#FFFFFF;'
+          : 'background:linear-gradient(135deg, #FF6B6B 0%, #FF8E72 100%);border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(255, 107, 107, 0.3);display:flex;align-items:center;gap:24px;color:#FFFFFF;';
+        timerModeCard.style.cssText = timerCardLayout;
+        
+        const timerIconDiv = document.createElement('div');
+        const timerIconStyle = isMobile 
+          ? 'font-size:3em;text-align:center;'
+          : 'font-size:4em;text-align:center;min-width:120px;';
+        timerIconDiv.style.cssText = timerIconStyle;
+        timerIconDiv.textContent = '⏱️🔥';
+        timerModeCard.appendChild(timerIconDiv);
+        
+        const timerContentDiv = document.createElement('div');
+        timerContentDiv.style.cssText = isMobile ? 'flex:1;text-align:center;' : 'flex:1;';
+        
+        const timerBadge = document.createElement('div');
+        timerBadge.style.cssText = isMobile
+          ? 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.8em;font-weight:700;margin-bottom:8px;'
+          : 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.85em;font-weight:700;margin-bottom:12px;';
+        timerBadge.textContent = '🆕 NOUVEAU MODE';
+        timerContentDiv.appendChild(timerBadge);
+        
+        const timerTitle = document.createElement('h3');
+        timerTitle.textContent = 'Mode Rappel sous pression';
+        timerTitle.style.cssText = isMobile 
+          ? 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.5em;'
+          : 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.8em;';
+        timerContentDiv.appendChild(timerTitle);
+        
+        const timerDesc = document.createElement('p');
+        timerDesc.textContent = 'Testez votre rapidité ! Vous avez un temps limité pour chaque question. Répondez avant que le temps s\'écoule. Gagnez 1.2x XP supplémentaire !';
+        timerDesc.style.cssText = isMobile
+          ? 'margin:0;font-size:0.9em;color:#FFFFFF;opacity:0.95;line-height:1.5;'
+          : 'margin:0;font-size:1em;color:#FFFFFF;opacity:0.95;line-height:1.5;';
+        timerContentDiv.appendChild(timerDesc);
+        
+        timerModeCard.appendChild(timerContentDiv);
+        
+        const timerBtnDiv = document.createElement('div');
+        timerBtnDiv.style.cssText = isMobile
+          ? 'display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;'
+          : 'display:flex;flex-direction:column;align-items:center;gap:8px;min-width:180px;';
+        
+        const timerPriceDiv = document.createElement('div');
+        timerPriceDiv.style.cssText = isMobile
+          ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
+          : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
+        timerPriceDiv.textContent = '100 ℂ';
+        timerBtnDiv.appendChild(timerPriceDiv);
+        
+        const timerBtn = document.createElement('button');
+        timerBtn.style.cssText = isMobile
+          ? 'width:100%;background:#FFFFFF;color:#FF6B6B;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
+          : 'width:100%;background:#FFFFFF;color:#FF6B6B;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
+        timerBtn.textContent = isTimerModeUnlocked ? '✓ Déverrouillé' : 'Débloquer';
+        timerBtn.disabled = !!isTimerModeUnlocked;
+        
+        if(!isTimerModeUnlocked){
+          timerBtn.addEventListener('click', ()=>{
+            if(purchaseItem(timerModeItemId, timerModeCost, ()=>{
+              showMarketToast('Mode "Rappel sous pression" déverrouillé ! 🎉');
+              showMarketPage();
+            })){
+              showMarketPage();
+            }
+          });
+          timerBtn.addEventListener('mouseover', ()=>{ timerBtn.style.background = '#f0f0f0'; });
+          timerBtn.addEventListener('mouseout', ()=>{ timerBtn.style.background = '#FFFFFF'; });
+        }
+        
+        timerBtnDiv.appendChild(timerBtn);
+        timerModeCard.appendChild(timerBtnDiv);
+        
+        timerModeGrid.appendChild(timerModeCard);
+        timerModeSection.appendChild(timerModeGrid);
+        content.appendChild(timerModeSection);
+        
+        // ===== SECTION 2: PERSONNALISATION =====
+        const personnalisationSection = document.createElement('section');
+        personnalisationSection.style.cssText = 'margin-bottom:40px;';
+        
+        const personneTitle = document.createElement('h3');
+        personneTitle.textContent = '🎨 Personnalisation';
+        personneTitle.style.cssText = 'margin-bottom:20px;font-size:1.6em;';
+        personnalisationSection.appendChild(personneTitle);
+        
+        const stats = getProfileStats();
+        const currentLevel = computeLevelAndProgress(stats.xpTotal || 0).level;
+        const currentCredits = getBalance();
+        
+        // Helper to create purchasable items
+        const createPersonalizationCard = (item, type) => {
+          const isPurchased = item.credit ? localStorage.getItem(`fabanki:market_${type}_${item.id}`) : true;
+          const isLockedByLevel = item.level > currentLevel;
+          const isLockedByPurchase = item.credit && !isPurchased;
+          const isLocked = isLockedByLevel || isLockedByPurchase;
+          
+          const card = document.createElement('div');
+          card.style.cssText = 'background:white;border:2px solid #e0e0e0;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.1);display:flex;flex-direction:column;gap:10px;transition:all 0.3s;';
+          
+          // Preview box
+          const preview = document.createElement('div');
+          preview.style.cssText = 'height:80px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.8em;color:#666;border:1px solid #e0e0e0;';
+          
+          if(type === 'color'){
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const colorValue = isDark ? item.dark : item.light;
+            preview.style.background = colorValue;
+            preview.style.color = isDark ? '#fff' : '#333';
+            preview.textContent = item.name;
+          } else if(type === 'pattern'){
+            if(item.pattern !== 'none'){
+              preview.style.backgroundImage = item.pattern;
+              preview.style.backgroundColor = '#f6f7fb';
+              preview.style.backgroundSize = item.id === 'dots' ? '20px 20px' : 'auto';
+            }
+            preview.textContent = item.name;
+          } else if(type === 'card_pattern'){
+            if(item.pattern !== 'none'){
+              preview.style.backgroundImage = item.pattern;
+              preview.style.backgroundColor = '#ffffff';
+              preview.style.backgroundSize = '120px 120px';
+            }
+            preview.textContent = item.name;
+          } else if(type === 'animation'){
+            preview.textContent = '✨ ' + item.name;
+            preview.style.fontWeight = '600';
+          } else if(type === 'font'){
+            preview.style.fontFamily = item.stack;
+            preview.textContent = item.name;
+            preview.style.fontSize = '1em';
+          }
+          
+          card.appendChild(preview);
+          
+          // Name and level requirement
+          const infoDiv = document.createElement('div');
+          infoDiv.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+          
+          const nameDiv = document.createElement('div');
+          nameDiv.style.cssText = 'font-weight:700;color:#333;';
+          nameDiv.textContent = item.name;
+          infoDiv.appendChild(nameDiv);
+          
+          const reqDiv = document.createElement('div');
+          reqDiv.style.cssText = 'font-size:0.85em;color:#666;';
+          if(isLockedByLevel){
+            reqDiv.textContent = `🔒 Niveau ${item.level}`;
+          } else if(isLockedByPurchase){
+            reqDiv.textContent = `${item.credit} ℂ`;
+          } else if(item.level > 0){
+            reqDiv.textContent = `Niveau ${item.level}`;
+          } else {
+            reqDiv.textContent = 'Gratuit';
+          }
+          infoDiv.appendChild(reqDiv);
+          
+          card.appendChild(infoDiv);
+          
+          // Button
+          const btn = document.createElement('button');
+          btn.style.cssText = 'padding:10px 16px;border-radius:6px;font-weight:700;cursor:pointer;transition:all 0.3s;border:none;';
+          
+          if(isPurchased){
+            btn.textContent = '✓ Acheté';
+            btn.disabled = true;
+            btn.style.background = '#e0e0e0';
+            btn.style.color = '#999';
+            btn.style.cursor = 'not-allowed';
+          } else if(isLockedByLevel){
+            btn.textContent = '🔒 Verrouillé';
+            btn.disabled = true;
+            btn.style.background = '#e0e0e0';
+            btn.style.color = '#999';
+            btn.style.cursor = 'not-allowed';
+          } else {
+            btn.textContent = `Acheter ${item.credit} ℂ`;
+            btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            btn.style.color = 'white';
+            btn.addEventListener('click', () => {
+              if(currentCredits < item.credit){
+                alert(`Crédits insuffisants. Vous avez ${getBalance()} ℂ, il en faut ${item.credit} ℂ`);
+                return;
+              }
+              if(typeof addCredits === 'function') addCredits(-item.credit);
+              localStorage.setItem(`fabanki:market_${type}_${item.id}`, 'true');
+              showMarketToast(`${item.name} acheté ! 🎉`);
+              showMarketPage();
+              
+              // Track welcome quest market purchase
+              try{
+                if(typeof completeWelcomeQuestMission === 'function'){
+                  completeWelcomeQuestMission('part3', 'market_purchase', 10);
+                }
+              }catch(e){ console.warn('welcome quest market error', e); }
+            });
+            btn.addEventListener('mouseover', () => { btn.style.opacity = '0.9'; });
+            btn.addEventListener('mouseout', () => { btn.style.opacity = '1'; });
+          }
+          
+          card.appendChild(btn);
+          return card;
+        };
+        
+        // Fonts subsection
+        const fontsSubtitle = document.createElement('h4');
+        fontsSubtitle.textContent = '✏️ Polices de caractère';
+        fontsSubtitle.style.cssText = 'margin:20px 0 12px 0;font-size:1.2em;color:#555;';
+        personnalisationSection.appendChild(fontsSubtitle);
+        
+        const fonts = [
+          { name: 'Moderne', id: 'modern', stack: '"Inter", "Helvetica", "Arial", sans-serif', level: 10, credit: 30 },
+          { name: 'Confortable', id: 'comfortable', stack: '"Segoe UI", "Tahoma", sans-serif', level: 25, credit: 35 },
+          { name: 'Futuriste', id: 'futuristic', stack: '"Trebuchet MS", "Lucida Grande", sans-serif', level: 40, credit: 50 }
+        ];
+        
+        const fontsGrid = document.createElement('div');
+        fontsGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:24px;';
+        fonts.forEach(f => fontsGrid.appendChild(createPersonalizationCard(f, 'font')));
+        personnalisationSection.appendChild(fontsGrid);
+        
+        // Colors subsection
+        const colorsSubtitle = document.createElement('h4');
+        colorsSubtitle.textContent = '🎨 Couleurs de fond';
+        colorsSubtitle.style.cssText = 'margin:20px 0 12px 0;font-size:1.2em;color:#555;';
+        personnalisationSection.appendChild(colorsSubtitle);
+        
+        const colors = [
+          { name: 'Rose', id: 'rose', light: '#fce4ec', dark: '#2a0e1f', level: 10, credit: 30 },
+          { name: 'Cyan', id: 'cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 20, credit: 40 },
+          { name: 'Menthe', id: 'menthe', light: '#e0f2f1', dark: '#0d1816', level: 25, credit: 50 },
+          { name: 'Pêche', id: 'peche', light: '#ffd7a8', dark: '#3a1f0a', level: 30, credit: 60 },
+          { name: 'Gradient Doré', id: 'gradient_dore', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35, credit: 80 }
+        ];
+        
+        const colorsGrid = document.createElement('div');
+        colorsGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:24px;';
+        colors.forEach(c => colorsGrid.appendChild(createPersonalizationCard(c, 'color')));
+        personnalisationSection.appendChild(colorsGrid);
+        
+        // Patterns subsection
+        const patternsSubtitle = document.createElement('h4');
+        patternsSubtitle.textContent = '🖼️ Motifs de fond';
+        patternsSubtitle.style.cssText = 'margin:20px 0 12px 0;font-size:1.2em;color:#555;';
+        personnalisationSection.appendChild(patternsSubtitle);
+        
+        const patterns = [
+          { name: 'Grille', id: 'grid', pattern: 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)', level: 10, credit: 25 },
+          { name: 'Vagues', id: 'waves', pattern: 'repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.02) 0, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 40px)', level: 30, credit: 35 },
+          { name: 'Carrés', id: 'squares', pattern: 'linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.03))', level: 35, credit: 45 },
+          { name: 'Chevrons', id: 'chevron', pattern: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.02), rgba(0,0,0,0.02) 2px, transparent 2px, transparent 8px, rgba(0,0,0,0.02) 8px, rgba(0,0,0,0.02) 10px, transparent 10px, transparent 16px)', level: 32, credit: 40 },
+          { name: 'Topographie', id: 'hero_topography', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M0 60 Q30 40 60 60 T120 60' fill='none' stroke='%2399a' stroke-opacity='0.18' stroke-width='2'/><path d='M0 80 Q30 60 60 80 T120 80' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><path d='M0 40 Q30 20 60 40 T120 40' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/></svg>\")", level: 45, credit: 45 },
+          { name: 'Hexagones', id: 'hero_hex', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='90' viewBox='0 0 100 90'><path d='M25 5 L75 5 L95 45 L75 85 L25 85 L5 45 Z' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/></svg>\")", level: 50, credit: 50 },
+          { name: 'Circuit', id: 'hero_circuit', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 20 H60 V10 H110' fill='none' stroke='%2399a' stroke-opacity='0.16' stroke-width='2'/><path d='M10 80 H50 V110 H110' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><circle cx='60' cy='10' r='3' fill='%2399a' fill-opacity='0.25'/><circle cx='50' cy='110' r='3' fill='%2399a' fill-opacity='0.25'/><circle cx='60' cy='20' r='3' fill='%2399a' fill-opacity='0.2'/></svg>\")", level: 55, credit: 55 },
+          { name: 'Puzzle', id: 'hero_jigsaw', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 10 H50 V30 H70 V10 H110 V110 H70 V90 H50 V110 H10 Z' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/><circle cx='60' cy='30' r='6' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/></svg>\")", level: 60, credit: 60 },
+          { name: '42 Pattern 🎯', id: 'welcome42', pattern: 'url(css/42pattern.png)', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_42_pattern') === 'true' }
+        ];
+        
+        const patternsGrid = document.createElement('div');
+        patternsGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:24px;';
+        patterns.filter(p => !p.special || p.unlocked).forEach(p => patternsGrid.appendChild(createPersonalizationCard(p, 'pattern')));
+        personnalisationSection.appendChild(patternsGrid);
+
+        // Card patterns subsection
+        const cardPatternsSubtitle = document.createElement('h4');
+        cardPatternsSubtitle.textContent = '🃏 Motifs des cartes';
+        cardPatternsSubtitle.style.cssText = 'margin:20px 0 12px 0;font-size:1.2em;color:#555;';
+        personnalisationSection.appendChild(cardPatternsSubtitle);
+
+        const cardPatternsMarket = [
+          { name: 'Topographie', id: 'hero_topography', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M0 60 Q30 40 60 60 T120 60' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><path d='M0 80 Q30 60 60 80 T120 80' fill='none' stroke='%2399a' stroke-opacity='0.08' stroke-width='2'/><path d='M0 40 Q30 20 60 40 T120 40' fill='none' stroke='%2399a' stroke-opacity='0.08' stroke-width='2'/></svg>\")", level: 35, credit: 35 },
+          { name: 'Hexagones', id: 'hero_hex', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='90' viewBox='0 0 100 90'><path d='M25 5 L75 5 L95 45 L75 85 L25 85 L5 45 Z' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/></svg>\")", level: 40, credit: 40 },
+          { name: 'Circuit', id: 'hero_circuit', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 20 H60 V10 H110' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><path d='M10 80 H50 V110 H110' fill='none' stroke='%2399a' stroke-opacity='0.08' stroke-width='2'/><circle cx='60' cy='10' r='3' fill='%2399a' fill-opacity='0.2'/><circle cx='50' cy='110' r='3' fill='%2399a' fill-opacity='0.2'/><circle cx='60' cy='20' r='3' fill='%2399a' fill-opacity='0.18'/></svg>\")", level: 50, credit: 50 },
+          { name: 'Puzzle', id: 'hero_jigsaw', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 10 H50 V30 H70 V10 H110 V110 H70 V90 H50 V110 H10 Z' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><circle cx='60' cy='30' r='6' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/></svg>\")", level: 60, credit: 60 }
+        ];
+
+        const cardPatternsGrid = document.createElement('div');
+        cardPatternsGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:24px;';
+        cardPatternsMarket.forEach(p => cardPatternsGrid.appendChild(createPersonalizationCard(p, 'card_pattern')));
+        personnalisationSection.appendChild(cardPatternsGrid);
+        
+        // Animations subsection
+        const animationsSubtitle = document.createElement('h4');
+        animationsSubtitle.textContent = '✨ Animations';
+        animationsSubtitle.style.cssText = 'margin:20px 0 12px 0;font-size:1.2em;color:#555;';
+        personnalisationSection.appendChild(animationsSubtitle);
+        
+        const animations = [
+          { name: 'Rebond', id: 'bounce', level: 20, credit: 25 },
+          { name: 'Ressort', id: 'spring', level: 30, credit: 30 },
+          { name: 'Zoom', id: 'zoom', level: 35, credit: 35 },
+          { name: 'Flip', id: 'flip', level: 40, credit: 40 },
+          { name: 'Pulse', id: 'pulse', level: 45, credit: 45 },
+          { name: 'Wobble', id: 'wobble', level: 50, credit: 50 },
+          { name: 'Shake', id: 'shake', level: 55, credit: 55 }
+        ];
+        
+        const animationsGrid = document.createElement('div');
+        animationsGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:24px;';
+        animations.forEach(a => animationsGrid.appendChild(createPersonalizationCard(a, 'animation')));
+        personnalisationSection.appendChild(animationsGrid);
+        
+        // ===== SECTION 1C: MODE MÉMOIRE ACTIVE =====
+        const activeMemoryModeSection = document.createElement('section');
+        activeMemoryModeSection.style.cssText = 'margin-bottom:40px;';
+        
+        const activeMemoryModeItemId = 'mode_memoire_active';
+        const isActiveMemoryModeUnlocked = localStorage.getItem(`fabanki:market_${activeMemoryModeItemId}`) || 'true'; // Already unlocked
+        
+        const activeMemoryModeGrid = document.createElement('div');
+        activeMemoryModeGrid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:16px;';
+        
+        const activeMemoryModeCard = document.createElement('div');
+        const activeMemoryCardLayout = isMobile 
+          ? 'background:linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%);border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(108, 92, 231, 0.3);display:flex;flex-direction:column;gap:16px;color:#FFFFFF;'
+          : 'background:linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%);border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(108, 92, 231, 0.3);display:flex;align-items:center;gap:24px;color:#FFFFFF;';
+        activeMemoryModeCard.style.cssText = activeMemoryCardLayout;
+        
+        const activeMemoryIconDiv = document.createElement('div');
+        const activeMemoryIconStyle = isMobile 
+          ? 'font-size:3em;text-align:center;'
+          : 'font-size:4em;text-align:center;min-width:120px;';
+        activeMemoryIconDiv.style.cssText = activeMemoryIconStyle;
+        activeMemoryIconDiv.textContent = '🧠💡';
+        activeMemoryModeCard.appendChild(activeMemoryIconDiv);
+        
+        const activeMemoryContentDiv = document.createElement('div');
+        activeMemoryContentDiv.style.cssText = isMobile ? 'flex:1;text-align:center;' : 'flex:1;';
+        
+        const activeMemoryBadge = document.createElement('div');
+        activeMemoryBadge.style.cssText = isMobile
+          ? 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.8em;font-weight:700;margin-bottom:8px;'
+          : 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.85em;font-weight:700;margin-bottom:12px;';
+        activeMemoryBadge.textContent = '✓ DÉVERROUILLÉ';
+        activeMemoryContentDiv.appendChild(activeMemoryBadge);
+        
+        const activeMemoryTitle = document.createElement('h3');
+        activeMemoryTitle.textContent = 'Mode Mémoire active';
+        activeMemoryTitle.style.cssText = isMobile 
+          ? 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.5em;'
+          : 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.8em;';
+        activeMemoryContentDiv.appendChild(activeMemoryTitle);
+        
+        const activeMemoryDesc = document.createElement('p');
+        activeMemoryDesc.textContent = 'Entraînez votre mémoire active ! Vous avez 3 secondes pour mémoriser la question avant qu\'elle disparaisse. Relèvez le défi et gagnez 1.1x XP !';
+        activeMemoryDesc.style.cssText = isMobile
+          ? 'margin:0;font-size:0.9em;color:#FFFFFF;opacity:0.95;line-height:1.5;'
+          : 'margin:0;font-size:1em;color:#FFFFFF;opacity:0.95;line-height:1.5;';
+        activeMemoryContentDiv.appendChild(activeMemoryDesc);
+        
+        activeMemoryModeCard.appendChild(activeMemoryContentDiv);
+        
+        const activeMemoryBtnDiv = document.createElement('div');
+        activeMemoryBtnDiv.style.cssText = isMobile
+          ? 'display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;'
+          : 'display:flex;flex-direction:column;align-items:center;gap:8px;min-width:180px;';
+        
+        const activeMemoryStatusDiv = document.createElement('div');
+        activeMemoryStatusDiv.style.cssText = isMobile
+          ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
+          : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
+        activeMemoryStatusDiv.textContent = '✓ Offert';
+        activeMemoryBtnDiv.appendChild(activeMemoryStatusDiv);
+        
+        const activeMemoryBtn = document.createElement('button');
+        activeMemoryBtn.style.cssText = isMobile
+          ? 'width:100%;background:#FFFFFF;color:#6C5CE7;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
+          : 'width:100%;background:#FFFFFF;color:#6C5CE7;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
+        activeMemoryBtn.textContent = '✓ Déverrouillé';
+        activeMemoryBtn.disabled = true;
+        
+        activeMemoryBtnDiv.appendChild(activeMemoryBtn);
+        activeMemoryModeCard.appendChild(activeMemoryBtnDiv);
+        
+        activeMemoryModeGrid.appendChild(activeMemoryModeCard);
+        activeMemoryModeSection.appendChild(activeMemoryModeGrid);
+        content.appendChild(activeMemoryModeSection);
+        
+        // ===== SECTION 2: OFFRES SPÉCIALES (TITRES + XP) =====
+        const specialsSection = document.createElement('section');
+        specialsSection.style.cssText = 'margin-bottom:40px;';
+        const mathematicianTiers = {
+          1: { name: 'Bronze', cost: 25, color: '#8B7355', textColor: '#FFFFFF', mathematicians: ['Lagrange', 'Laplace', 'Fourier', 'Cauchy', 'Riemann'] },
+          2: { name: 'Silver', cost: 50, color: '#A0A0A0', textColor: '#FFFFFF', mathematicians: ['Ramanujan', 'Cantor', 'Hilbert', 'Leibniz', 'Boole'] },
+          3: { name: 'Gold', cost: 100, color: '#DAA520', textColor: '#FFFFFF', mathematicians: ['Descartes', 'Bernoulli', 'Weierstrass', 'Dirichlet', 'Archimedes'] },
+          4: { name: 'Platinum', cost: 250, color: '#9D9D9D', textColor: '#333333', mathematicians: ['Euclid', 'Pythagoras', 'Al-Khwarizmi', 'Galois', 'Grothendieck'] },
+          5: { name: 'Diamond', cost: 500, color: '#4169E1', textColor: '#FFFFFF', mathematicians: ['Euler', 'Newton', 'Gauss', 'Fibonacci', 'Pascal'] }
+        };
+        
+        const specialsTitle = document.createElement('h3');
+        specialsTitle.textContent = '⭐ Offres spéciales';
+        specialsTitle.style.cssText = 'font-size:1.5em;margin-bottom:16px;color:#666;';
+        specialsSection.appendChild(specialsTitle);
+        
+        const specialsGrid = document.createElement('div');
+        specialsGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:16px;';
+        
+        // Mathematician Titles organized by tier
+        const titlesHeaderDiv = document.createElement('div');
+        titlesHeaderDiv.style.cssText = 'grid-column: 1 / -1;';
+        titlesHeaderDiv.innerHTML = '<h4 style="color:#666;margin:0 0 12px 0;">👑 Titres Mathématicien</h4>';
+        specialsGrid.appendChild(titlesHeaderDiv);
+        
+        // Iterate through tiers and display one mathematician per tier
+        for(const [tierKey, tierData] of Object.entries(mathematicianTiers)){
+          // Display one random mathematician from this tier (for display)
+          const randIndex = Math.floor(Math.random() * tierData.mathematicians.length);
+          const displayMath = tierData.mathematicians[randIndex];
+          
+          const itemId = `title_${displayMath.toLowerCase()}`;
+          const isPurchased = localStorage.getItem(`fabanki:market_${itemId}`);
+          
+          console.log(`DEBUG Title ${displayMath}: isPurchased=${!!isPurchased}, itemId=${itemId}`);
+          
+          // Hide purchased titles
+          if(isPurchased) {
+            console.log(`DEBUG Title ${displayMath} hidden because already purchased`);
+            continue;
+          }
+          
+          const currentCredits = getBalance();
+          const canAfford = currentCredits >= tierData.cost;
+          
+          console.log(`DEBUG Title ${displayMath}: credits=${currentCredits}, cost=${tierData.cost}, canAfford=${canAfford}`);
+          
+          const card = document.createElement('div');
+          card.style.cssText = `background:${tierData.color};border-radius:12px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,0.15);display:flex;flex-direction:column;color:${tierData.textColor};`;
+          
+          const rarityBadge = document.createElement('div');
+          rarityBadge.style.cssText = `display:inline-block;background:rgba(255,255,255,0.25);color:${tierData.textColor};padding:4px 8px;border-radius:4px;font-size:0.8em;font-weight:700;margin-bottom:8px;width:fit-content;`;
+          rarityBadge.textContent = `${tierData.name.toUpperCase()}`;
+          card.appendChild(rarityBadge);
+          
+          const titleEl = document.createElement('h5');
+          titleEl.textContent = displayMath;
+          titleEl.style.cssText = `margin:0 0 8px 0;color:${tierData.textColor};font-weight:700;`;
+          card.appendChild(titleEl);
+          
+          const desc = document.createElement('p');
+          desc.textContent = tierData.mathematicians.length > 1 ? `Au hasard parmi ${tierData.mathematicians.length} mathématiciens` : 'Titre prestigieux de mathématicien';
+          desc.style.cssText = `margin:0 0 12px 0;font-size:0.9em;color:${tierData.textColor};flex:1;opacity:0.95;`;
+          card.appendChild(desc);
+          
+          const priceDiv = document.createElement('div');
+          priceDiv.style.cssText = `margin-bottom:12px;font-weight:700;color:${canAfford ? tierData.textColor : '#ff0000'};`;
+          priceDiv.innerHTML = `<strong>Prix:</strong> ${tierData.cost} ℂ`;
+          card.appendChild(priceDiv);
+          
+          const btn = document.createElement('button');
+          btn.style.cssText = `width:100%;background:${tierData.color};color:${tierData.textColor};border:2px solid ${tierData.textColor};padding:10px;border-radius:6px;font-weight:700;cursor:${canAfford ? 'pointer' : 'not-allowed'};opacity:${canAfford ? '1' : '0.6'};`;
+          btn.textContent = 'Acheter';
+          btn.disabled = !canAfford;
+          
+          btn.addEventListener('click', ()=>{
+            if(!canAfford){
+              showMarketToast(`Crédits insuffisants! Vous avez ${currentCredits} ℂ`);
+              return;
+            }
+            if(purchaseItem(itemId, tierData.cost, ()=>{
+              // Choisir aléatoirement un titre du tier
+              const randomIndex = Math.floor(Math.random() * tierData.mathematicians.length);
+              const chosenTitle = tierData.mathematicians[randomIndex];
+              // Enregistrer le titre choisi
+              const titleStorageKey = `fabanki:title_chosen_${tierKey}`;
+              localStorage.setItem(titleStorageKey, chosenTitle);
+              // Show toast instead of alert
+              showMarketToast(`Titre "${chosenTitle}" (${tierData.name}) acquis aléatoirement !`);
+              
+              // Track welcome quest first title
+              try{
+                if(typeof completeWelcomeQuestMission === 'function'){
+                  completeWelcomeQuestMission('part3', 'first_title', 10);
+                }
+              }catch(e){ console.warn('welcome quest title error', e); }
+              
+              setTimeout(() => {
+                const mc = document.getElementById('marketContainer');
+                if(mc) mc.remove();
+                showMarketPage();
+              }, 1500);
+            })){
+              setTimeout(() => {
+                const mc = document.getElementById('marketContainer');
+                if(mc) mc.remove();
+                showMarketPage();
+              }, 1500);
+            }
+          });
+          
+          card.appendChild(btn);
+          specialsGrid.appendChild(card);
+        }
+        
+        // XP Boosters section header
+        const boostersHeaderDiv = document.createElement('div');
+        boostersHeaderDiv.style.cssText = 'grid-column: 1 / -1;margin-top:12px;';
+        boostersHeaderDiv.innerHTML = '<h4 style="color:#666;margin:0 0 12px 0;">⚡ Boosts XP</h4>';
+        specialsGrid.appendChild(boostersHeaderDiv);
+        
+        const xpBoosters = [
+          {icon: '🟢', multiplier: '×1.5 XP', duration: '1 heure', cost: 30, itemId: 'booster_1h', durationMs: 3600000},
+          {icon: '🟡', multiplier: '×2 XP', duration: '15 minutes', cost: 20, itemId: 'booster_15m', durationMs: 900000},
+          {icon: '🔴', multiplier: '×5 XP', duration: '5 minutes', cost: 50, itemId: 'booster_5m', durationMs: 300000}
+        ];
+        
+        xpBoosters.forEach(({icon, multiplier, duration, cost, itemId, durationMs}) => {
+          const card = document.createElement('div');
+          card.style.cssText = 'background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.1);display:flex;flex-direction:column;';
+          
+          // Check if boost is active
+          const boosterData = localStorage.getItem(`fabanki:market_${itemId}`);
+          let boosterExpiry = 0;
+          if(boosterData){
+            try{ boosterExpiry = JSON.parse(boosterData).expiry || 0; }catch(e){}
+          }
+          const isActive = boosterExpiry > Date.now();
+          
+          const titleEl = document.createElement('h5');
+          titleEl.textContent = `${icon} ${multiplier}`;
+          titleEl.style.cssText = 'margin:0 0 8px 0;color:#333;';
+          card.appendChild(titleEl);
+          
+          const desc = document.createElement('p');
+          desc.textContent = `Active pendant ${duration}`;
+          desc.style.cssText = 'margin:0 0 12px 0;font-size:0.9em;color:#666;flex:1;';
+          card.appendChild(desc);
+          
+          const currentCredits = getBalance();
+          const canAfford = currentCredits >= cost;
+          
+          const priceDiv = document.createElement('div');
+          priceDiv.style.cssText = `color:${canAfford ? '#000' : '#e74c3c'};margin-bottom:12px;font-weight:${canAfford ? '600' : '700'};`;
+          priceDiv.innerHTML = `<strong>Prix:</strong> ${cost} ℂ`;
+          card.appendChild(priceDiv);
+          
+          const btn = document.createElement('button');
+          btn.className = 'primary';
+          btn.style.cssText = 'width:100%;';
+          btn.textContent = isActive ? '✓ Actif' : 'Activer';
+          btn.disabled = isActive;
+          
+          if(!isActive){
+            btn.addEventListener('click', ()=>{
+              if(purchaseItem(itemId, cost, ()=>{
+                localStorage.setItem(`fabanki:market_${itemId}`, JSON.stringify({
+                  purchasedAt: Date.now(),
+                  expiry: Date.now() + durationMs
+                }));
+                alert(`Boost ${multiplier} activé pendant ${duration} !`);
+                showMarketPage();
+              })){
+                showMarketPage();
+              }
+            });
+          }
+          
+          card.appendChild(btn);
+          specialsGrid.appendChild(card);
+        });
+        
+        specialsSection.appendChild(specialsGrid);
+        content.appendChild(specialsSection);
+        
+        // Section: Decks Carousel (Locked decks by cost and level) - NOW FIRST
+        const decksSection = document.createElement('section');
+        decksSection.style.cssText = 'margin-bottom:40px;';
+        const decksTitle = document.createElement('h3');
+        decksTitle.textContent = '📚 Decks à débloquer';
+        decksTitle.style.cssText = 'font-size:1.5em;margin-bottom:16px;color:#666;';
+        decksSection.appendChild(decksTitle);
+        
+        const decksCarousel = document.createElement('div');
+        decksCarousel.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:16px;';
+        decksSection.appendChild(decksCarousel);
+        
+        // Fetch and populate decks from manifest
+        try{
+          const manifestRes = await fetch('./decks/manifest.json');
+          if(manifestRes.ok){
+            const manifest = await manifestRes.json();
+            const processedDecks = new Set();
+            const userLevel = computeLevelAndProgress ? computeLevelAndProgress(getXpTotal ? getXpTotal() : 0).level : 0;
+            
+            // Collect and filter decks
+            const decksToShow = [];
+            for(const item of manifest){
+              const path = typeof item === 'string' ? item : (item.path || null);
+              if(!path || processedDecks.has(path)) continue;
+              processedDecks.add(path);
+              
+              const deckMeta = typeof item === 'string' ? {} : item;
+              const cost = deckMeta.cost || 0;
+              const levelReq = deckMeta.level || 0;
+              const isLocked = cost > 0 || levelReq > 0;
+              
+              // Skip decks without locks (only show locked decks)
+              if(!isLocked) continue;
+              
+              // Check if already purchased
+              const isPurchased = isDeckUnlocked(path);
+              if(isPurchased) continue; // Hide purchased decks
+              
+              // Determine if deck is available for purchase (level reached)
+              const isLockedByCost = cost > 0 && userLevel >= levelReq;
+              const isLockedByLevel = levelReq > userLevel;
+              
+              decksToShow.push({ item, path, deckMeta, cost, levelReq, isLockedByCost, isLockedByLevel });
+            }
+            
+            // Sort: level-locked decks at the end (sorted by level requirement asc), 
+            // then cost-locked decks (sorted by price desc = cheaper last)
+            decksToShow.sort((a, b) => {
+              // Level-locked go to the end
+              if(a.isLockedByLevel && !b.isLockedByLevel) return 1;
+              if(!a.isLockedByLevel && b.isLockedByLevel) return -1;
+              
+              // Both level-locked: sort by level requirement (lower first)
+              if(a.isLockedByLevel && b.isLockedByLevel) {
+                return a.levelReq - b.levelReq;
+              }
+              
+              // Both cost-locked: sort by price descending (cheaper = last)
+              return b.cost - a.cost;
+            });
+            
+            for(const deckData of decksToShow){
+              const { item, path, deckMeta, cost, levelReq, isLockedByCost, isLockedByLevel } = deckData;
+              
+              const deckCard = document.createElement('div');
+              deckCard.style.cssText = 'background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.1);display:flex;flex-direction:column;';
+              
+              const deckTitle = document.createElement('h4');
+              const titleText = typeof item === 'string' ? path.replace(/\.xml$/i, '') : (deckMeta.title || path.replace(/\.xml$/i, ''));
+              deckTitle.textContent = titleText;
+              deckTitle.style.cssText = 'margin:0 0 8px 0;font-size:1.1em;';
+              deckCard.appendChild(deckTitle);
+              
+              const deckDesc = document.createElement('p');
+              deckDesc.textContent = deckMeta.description || 'Pas de description disponible';
+              deckDesc.style.cssText = 'margin:0 0 12px 0;font-size:0.9em;color:#666;flex:1;';
+              deckCard.appendChild(deckDesc);
+              
+              const infoDiv = document.createElement('div');
+              infoDiv.style.cssText = 'font-size:0.85em;margin-bottom:12px;';
+              
+              const currentCredits = getBalance();
+              
+              if(isLockedByCost){
+                const lockInfo = document.createElement('div');
+                const canAfford = currentCredits >= cost;
+                lockInfo.innerHTML = `<strong>💳 Coût:</strong> ${cost} ℂ`;
+                lockInfo.style.cssText = `color:${canAfford ? '#000' : '#e74c3c'};margin-bottom:6px;`;
+                infoDiv.appendChild(lockInfo);
+              } else if(isLockedByLevel){
+                const lockInfo = document.createElement('div');
+                lockInfo.innerHTML = `<strong>🔒 Niveau requis:</strong> ${levelReq}`;
+                lockInfo.style.cssText = 'color:#e74c3c;margin-bottom:6px;';
+                infoDiv.appendChild(lockInfo);
+              }
+              
+              deckCard.appendChild(infoDiv);
+              
+              // Action button
+              const actionBtn = document.createElement('button');
+              if(isLockedByCost){
+                const canAfford = currentCredits >= cost;
+                actionBtn.textContent = `Acheter pour ${cost} ℂ`;
+                actionBtn.className = canAfford ? 'primary' : 'secondary';
+                actionBtn.disabled = !canAfford;
+                actionBtn.addEventListener('click', ()=>{
+                  const fresh = getBalance();
+                  if(fresh < cost){
+                    alert(`Crédits insuffisants. Vous avez ${fresh} ℂ, il en faut ${cost} ℂ`);
+                    return;
+                  }
+                  if(typeof addCredits === 'function') addCredits(-cost);
+                  unlockDeck(path);
+                  showMarketToast(`Deck "${titleText}" acheté ! Il vous reste ${fresh - cost} ℂ`);
+                  // Refresh market to hide purchased deck
+                  setTimeout(() => {
+                    const mc = document.getElementById('marketContainer');
+                    if(mc) mc.remove();
+                    showMarketPage();
+                  }, 1500);
+                });
+              } else if(isLockedByLevel){
+                actionBtn.textContent = `Niveau ${levelReq} nécessaire`;
+                actionBtn.className = 'secondary';
+                actionBtn.disabled = true;
+                actionBtn.style.opacity = '0.5';
+              }
+              deckCard.appendChild(actionBtn);
+              decksCarousel.appendChild(deckCard);
+            }
+          }
+        }catch(e){
+          console.warn('Error loading decks in market:', e);
+          const errorMsg = document.createElement('div');
+          errorMsg.style.cssText = 'padding:16px;background:#fee;border-radius:8px;color:#c00;';
+          errorMsg.textContent = 'Erreur lors du chargement des decks';
+          decksCarousel.appendChild(errorMsg);
+        }
+        
+        // Add sections in correct order: Mode Texte à trou first, then Titles/Offers, then Decks, then Personnalisation
+        content.appendChild(specialsSection);
+        content.appendChild(decksSection);
+        content.appendChild(personnalisationSection);
+        
+        container.appendChild(content);
+        document.body.appendChild(container);
+      }catch(e){
+        console.warn('Market page error:', e);
+      }
+    }
+    
+    try{ window.showMarketPage = showMarketPage; }catch(e){}
+
+    // === DAILY GOAL SYSTEM ===
+    function getDailyGoal(){ return Number(localStorage.getItem('fabanki:daily_goal') || 0); }
+    function setDailyGoal(goal){ localStorage.setItem('fabanki:daily_goal', String(Math.max(0, goal))); }
+    function getTodayReviewedCount(){
+      const today = new Date().toDateString();
+      const lastDate = localStorage.getItem('fabanki:daily_reviewed_date');
+      if(lastDate !== today) return 0;
+      return Number(localStorage.getItem('fabanki:daily_reviewed_count') || 0);
+    }
+    function incrementTodayReviewedCount(){
+      const today = new Date().toDateString();
+      const lastDate = localStorage.getItem('fabanki:daily_reviewed_date');
+      if(lastDate !== today){
+        localStorage.setItem('fabanki:daily_reviewed_date', today);
+        localStorage.setItem('fabanki:daily_reviewed_count', '1');
+        return 1;
+      } else {
+        const cur = Number(localStorage.getItem('fabanki:daily_reviewed_count') || 0) + 1;
+        localStorage.setItem('fabanki:daily_reviewed_count', String(cur));
+        // Update max daily reviewed count
+        const maxDaily = Number(localStorage.getItem('fabanki:max_daily_reviewed') || 0);
+        if(cur > maxDaily){
+          localStorage.setItem('fabanki:max_daily_reviewed', String(cur));
+        }
+        return cur;
+      }
+    }
+    function getMaxDailyReviewedCount(){
+      return Number(localStorage.getItem('fabanki:max_daily_reviewed') || 0);
+    }
+    function updateDailyStreakOnGoalReached(){
+      try{
+        const today = new Date().toDateString();
+        const last = localStorage.getItem('fabanki:last_active_date');
+        const current = Number(localStorage.getItem('fabanki:streak_current')||0);
+        if(last === today){
+          if(current <= 0){
+            localStorage.setItem('fabanki:streak_current', '1');
+            const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), 1);
+            localStorage.setItem('fabanki:streak_max', String(maxi));
+          }
+          return;
+        }
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate()-1);
+        if(last === yesterday.toDateString()){
+          const cur = current + 1;
+          localStorage.setItem('fabanki:streak_current', String(cur));
+          const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), cur);
+          localStorage.setItem('fabanki:streak_max', String(maxi));
+        } else {
+          localStorage.setItem('fabanki:streak_current', '1');
+          const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), 1);
+          localStorage.setItem('fabanki:streak_max', String(maxi));
+        }
+        localStorage.setItem('fabanki:last_active_date', today);
+      }catch(e){}
+    }
+    function showDailyGoalDialog(callback){
+      try{
+        const currentGoal = getDailyGoal();
+        const ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='9999';
+        const m = document.createElement('div'); m.className = 'modal'; m.style.maxWidth='400px';
+        const t = document.createElement('h3'); t.textContent = 'Objectif quotidien'; t.style.margin = '0 0 16px 0';
+        m.appendChild(t);
+        const desc = document.createElement('p'); desc.textContent = 'Combien de cartes voulez-vous réviser chaque jour ?'; desc.style.color = 'var(--muted)'; desc.style.marginBottom = '16px';
+        m.appendChild(desc);
+        const input = document.createElement('input'); input.type = 'number'; input.min = '0'; input.value = (currentGoal || currentGoal === 0) ? String(currentGoal) : '20'; input.style.width = '100%'; input.style.padding = '10px'; input.style.borderRadius = '6px'; input.style.border = '1px solid var(--border)'; input.style.fontSize = '1em'; input.style.marginBottom = '16px';
+        m.appendChild(input);
+        const btnWrap = document.createElement('div'); btnWrap.style.display='flex'; btnWrap.style.gap='8px';
+        const saveBtn = document.createElement('button'); saveBtn.textContent = 'Enregistrer'; saveBtn.addEventListener('click', ()=>{
+          const raw = Number(input.value);
+          if(Number.isNaN(raw)){
+            alert('Objectif invalide : veuillez entrer un nombre.');
+            return;
+          }
+          if(raw < 0){
+            alert('Objectif invalide : le nombre doit être positif ou nul.');
+            return;
+          }
+          const val = raw;
+          setDailyGoal(val);
+          ov.remove();
+          if(callback) callback(val);
+          
+          // Track welcome quest goal setting
+          try{
+            if(val > 0 && typeof completeWelcomeQuestMission === 'function'){
+              completeWelcomeQuestMission('part1', 'goal_set', 3);
+            }
+          }catch(e){ console.warn('welcome quest goal error', e); }
+        });
+        const cancelBtn = document.createElement('button'); cancelBtn.className = 'secondary'; cancelBtn.textContent = 'Annuler'; cancelBtn.addEventListener('click', ()=>{ setDailyGoal(0); ov.remove(); if(callback) callback(0); });
+        btnWrap.appendChild(saveBtn); btnWrap.appendChild(cancelBtn);
+        m.appendChild(btnWrap);
+        ov.appendChild(m); document.body.appendChild(ov);
+        ov.classList.add('open'); m.classList.add('open');
+        ov.addEventListener('click', (ev)=>{ if(ev.target === ov){ setDailyGoal(0); ov.remove(); if(callback) callback(0); } });
+        setTimeout(()=>{ input.focus(); input.select(); }, 100);
+      }catch(e){ console.warn('daily goal dialog error', e); }
+    }
+    function showDailyGoalMilestoneToast(reviewed, goal){
+      try{
+        try{ if(typeof updateDailyStreakOnGoalReached === 'function') updateDailyStreakOnGoalReached(); }catch(e){}
+        // Check if toast was already shown today
+        const today = new Date().toDateString();
+        const lastToastDate = localStorage.getItem('fabanki:daily_goal_toast_date');
+        
+        // Only show toast once per day
+        if(lastToastDate === today){
+          return; // Toast already shown today, skip
+        }
+        
+        // Mark that we've shown the toast today
+        localStorage.setItem('fabanki:daily_goal_toast_date', today);
+        
+        const toast = document.createElement('div');
+        toast.style.position = 'fixed';
+        toast.style.top = '50%';
+        toast.style.left = '50%';
+        toast.style.transform = 'translate(-50%, -50%)';
+        toast.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+        toast.style.color = 'white';
+        toast.style.padding = '20px 32px';
+        toast.style.borderRadius = '12px';
+        toast.style.fontWeight = '700';
+        toast.style.fontSize = '1.2em';
+        toast.style.zIndex = '9998';
+        toast.style.boxShadow = '0 8px 24px rgba(16, 185, 129, 0.4)';
+        toast.style.textAlign = 'center';
+        toast.textContent = '🎉 Objectif quotidien atteint !';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+      }catch(e){ console.warn('milestone toast error', e); }
+    }
+    try{ window.getDailyGoal = getDailyGoal; window.setDailyGoal = setDailyGoal; window.getTodayReviewedCount = getTodayReviewedCount; window.incrementTodayReviewedCount = incrementTodayReviewedCount; window.showDailyGoalDialog = showDailyGoalDialog; window.showDailyGoalMilestoneToast = showDailyGoalMilestoneToast; }catch(e){}
+
+    // ===== WELCOME QUEST SYSTEM =====
+    function getWelcomeQuestState(){
+      const state = localStorage.getItem('fabanki:welcome_quest');
+      if(state){
+        try{ return JSON.parse(state); }catch(e){ return null; }
+      }
+      return null;
+    }
+
+    function initWelcomeQuest(){
+      if(!getWelcomeQuestState()){
+        const initialState = {
+          part1: {
+            onboarding_done: false,
+            profile_opened: false,
+            market_opened: false,
+            goal_set: false
+          },
+          part2: {
+            deck_opened: false,
+            cards_50_reviewed: false,
+            session_completed: false
+          },
+          part3: {
+            daily_goal_completed: false,
+            market_purchase: false,
+            first_title: false,
+            three_daily_quests: false,
+            active_memory_launched: false
+          },
+          rewarded: {
+            part1: {},
+            part2: {},
+            part3: {}
+          },
+          completed: false,
+          totalCardsReviewed: 0,
+          dailyQuestsCompleted: 0
+        };
+        localStorage.setItem('fabanki:welcome_quest', JSON.stringify(initialState));
+        if(localStorage.getItem('fabanki:mode_step_unlocked') !== 'true'){
+          localStorage.setItem('fabanki:mode_step_unlocked', 'true');
+        }
+        return initialState;
+      }
+      if(localStorage.getItem('fabanki:mode_step_unlocked') !== 'true'){
+        localStorage.setItem('fabanki:mode_step_unlocked', 'true');
+      }
+      const existing = getWelcomeQuestState();
+      if(existing && !existing.rewarded){
+        existing.rewarded = { part1: {}, part2: {}, part3: {} };
+        localStorage.setItem('fabanki:welcome_quest', JSON.stringify(existing));
+      }
+      if(existing){
+        const part2Done = existing.part2 && existing.part2.deck_opened && existing.part2.cards_50_reviewed && existing.part2.session_completed;
+        if(part2Done && localStorage.getItem('fabanki:welcome_quest_42_pattern') !== 'true'){
+          localStorage.setItem('fabanki:welcome_quest_42_pattern', 'true');
+        }
+      }
+      return existing;
+    }
+
+    function updateWelcomeQuest(updates){
+      const state = initWelcomeQuest();
+      Object.assign(state, updates);
+      localStorage.setItem('fabanki:welcome_quest', JSON.stringify(state));
+      refreshWelcomeQuestUI();
+      checkWelcomeQuestCompletion();
+      scheduleQuestSync();
+      return state;
+    }
+
+    const welcomeQuestRewards = {
+      part1: { onboarding_done: 5, profile_opened: 3, market_opened: 3, goal_set: 3 },
+      part2: { deck_opened: 3, cards_50_reviewed: 5, session_completed: 5 },
+      part3: { daily_goal_completed: 10, market_purchase: 10, first_title: 10, three_daily_quests: 10, active_memory_launched: 10 }
+    };
+
+    function isWelcomeQuestPartUnlocked(state, part){
+      if(part === 'part1') return true;
+      const part1Done = state.part1.onboarding_done && state.part1.profile_opened && state.part1.market_opened && state.part1.goal_set;
+      const part2Done = state.part2.deck_opened && state.part2.cards_50_reviewed && state.part2.session_completed;
+
+      if(part1Done){
+        grantWelcomeQuestPendingRewards(state, 'part2');
+      }
+      if(part2Done){
+        grantWelcomeQuestPendingRewards(state, 'part3');
+      }
+      if(part === 'part2') return part1Done;
+      if(part === 'part3') return part2Done;
+      return true;
+    }
+
+    function isWelcomeQuestRewarded(state, part, mission){
+      return !!(state.rewarded && state.rewarded[part] && state.rewarded[part][mission]);
+    }
+
+    function markWelcomeQuestRewarded(state, part, mission){
+      if(!state.rewarded) state.rewarded = { part1: {}, part2: {}, part3: {} };
+      if(!state.rewarded[part]) state.rewarded[part] = {};
+      state.rewarded[part][mission] = true;
+    }
+
+    function grantWelcomeQuestPendingRewards(state, part){
+      if(!state || !state[part]) return;
+      if(!isWelcomeQuestPartUnlocked(state, part)) return;
+      const rewards = welcomeQuestRewards[part] || {};
+      Object.keys(rewards).forEach(mission => {
+        if(state[part][mission] && !isWelcomeQuestRewarded(state, part, mission)){
+          const creditReward = rewards[mission] || 0;
+          if(creditReward > 0){
+            addCredits(creditReward);
+            showWelcomeQuestToast(`Mission accomplie ! +${creditReward} ℂ`);
+          }
+          markWelcomeQuestRewarded(state, part, mission);
+        }
+      });
+    }
+
+    function completeWelcomeQuestMission(part, mission, creditReward){
+      const state = initWelcomeQuest();
+      if(!state[part]) return;
+      if(state[part][mission]) return; // Already completed
+
+      state[part][mission] = true;
+      localStorage.setItem('fabanki:welcome_quest', JSON.stringify(state));
+
+      const unlocked = isWelcomeQuestPartUnlocked(state, part);
+      const rewardMap = welcomeQuestRewards[part] || {};
+      const reward = typeof rewardMap[mission] === 'number' ? rewardMap[mission] : (creditReward || 0);
+      if(unlocked && reward > 0 && !isWelcomeQuestRewarded(state, part, mission)){
+        addCredits(reward);
+        showWelcomeQuestToast(`Mission accomplie ! +${reward} ℂ`);
+        markWelcomeQuestRewarded(state, part, mission);
+        localStorage.setItem('fabanki:welcome_quest', JSON.stringify(state));
+      }
+
+      refreshWelcomeQuestUI();
+      checkWelcomeQuestCompletion();
+      scheduleQuestSync();
+    }
+
+    function checkWelcomeQuestCompletion(){
+      const state = getWelcomeQuestState();
+      if(!state) return;
+
+      const part1Done = state.part1.onboarding_done && state.part1.profile_opened && state.part1.market_opened && state.part1.goal_set;
+      const part2Done = state.part2.deck_opened && state.part2.cards_50_reviewed && state.part2.session_completed;
+
+      // Unlock Indigo theme at the end of Part 1
+      const indigoRewarded = localStorage.getItem('fabanki:welcome_quest_indigo') === 'true';
+      if(part1Done && !indigoRewarded){
+        localStorage.setItem('fabanki:welcome_quest_indigo', 'true');
+        showWelcomeQuestToast('🎁 Thème Indigo débloqué !', 5000);
+        refreshWelcomeQuestUI();
+        scheduleQuestSync();
+      }
+
+      // Unlock 42 pattern at the end of Part 2
+      const patternUnlocked = localStorage.getItem('fabanki:welcome_quest_42_pattern') === 'true';
+      if(part2Done && !patternUnlocked){
+        localStorage.setItem('fabanki:welcome_quest_42_pattern', 'true');
+        showWelcomeQuestToast('🎉 Motif 42 débloqué !', 5000);
+        refreshWelcomeQuestUI();
+        scheduleQuestSync();
+      }
+
+      // Check if all Part 3 missions are done
+      const part3Done = state.part3.daily_goal_completed && 
+                        state.part3.market_purchase && 
+                        state.part3.first_title && 
+                        state.part3.three_daily_quests &&
+                        state.part3.active_memory_launched;
+
+      if(part3Done){
+        const stepUnlocked = localStorage.getItem('fabanki:mode_step_unlocked') === 'true';
+        if(!stepUnlocked){
+          localStorage.setItem('fabanki:mode_step_unlocked', 'true');
+        }
+        try{ checkPostWelcomeQuestCompletion(); }catch(e){}
+      }
+
+      if(part3Done && !state.completed){
+        state.completed = true;
+        localStorage.setItem('fabanki:welcome_quest', JSON.stringify(state));
+        scheduleQuestSync();
+        try{ refreshPostWelcomeQuestUI(); }catch(e){}
+        
+        // Show completion toast
+        showWelcomeQuestToast('🎉 Quête de bienvenue terminée !', 6000);
+        
+        // Remove the quest card from UI
+        setTimeout(() => {
+          const questCard = document.querySelector('.welcome-quest-card');
+          if(questCard){
+            questCard.style.animation = 'fadeOut 0.5s ease-out';
+            setTimeout(() => questCard.remove(), 500);
+          }
+        }, 1000);
+      }
+    }
+
+    function showWelcomeQuestToast(message, duration = 3000){
+      const toast = document.createElement('div');
+      toast.style.cssText = `position:fixed;top:80px;left:50%;transform:translateX(-50%);background:#667eea;color:white;padding:14px 24px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:10001;font-weight:600;animation:slideDown 0.3s ease-out;`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.animation = 'slideUp 0.3s ease-out';
+        setTimeout(() => toast.remove(), 300);
+      }, duration);
+    }
+
+    function refreshWelcomeQuestUI(){
+      const questCard = document.querySelector('.welcome-quest-card');
+      if(questCard){
+        const content = questCard.querySelector('.welcome-quest-content');
+        if(content){
+          content.innerHTML = '';
+          content.appendChild(renderWelcomeQuestContent());
+        }
+      }
+    }
+
+    function createRewardCardUI({ title, subtitle, locked, previewStyle, details, previewEmoji }){
+      const card = document.createElement('div');
+      card.style.cssText = 'margin:10px 0 18px 0;padding:12px;border:1px solid #e5e7eb;border-radius:12px;background:white;box-shadow:0 6px 16px rgba(0,0,0,0.06);display:flex;gap:12px;align-items:center;';
+      if(locked){
+        card.style.opacity = '0.7';
+      }
+
+      const preview = document.createElement('div');
+      preview.style.cssText = `width:72px;height:72px;border-radius:10px;border:1px solid #e5e7eb;background:${previewStyle || '#f3f4f6'};display:flex;align-items:center;justify-content:center;font-weight:700;color:#111827;`;
+      preview.textContent = previewEmoji || (locked ? '🔒' : '🎁');
+      card.appendChild(preview);
+
+      const content = document.createElement('div');
+      content.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:4px;';
+
+      const titleEl = document.createElement('div');
+      titleEl.style.cssText = 'font-weight:700;color:#111827;';
+      titleEl.textContent = title;
+      content.appendChild(titleEl);
+
+      if(subtitle){
+        const subtitleEl = document.createElement('div');
+        subtitleEl.style.cssText = 'color:#6b7280;font-size:0.9em;';
+        subtitleEl.textContent = subtitle;
+        content.appendChild(subtitleEl);
+      }
+
+      if(details){
+        const detailsEl = document.createElement('div');
+        detailsEl.style.cssText = 'color:#4b5563;font-size:0.85em;';
+        detailsEl.textContent = details;
+        content.appendChild(detailsEl);
+      }
+
+      const badge = document.createElement('div');
+      badge.style.cssText = `padding:6px 10px;border-radius:999px;font-size:0.8em;font-weight:700;${locked ? 'background:#e5e7eb;color:#6b7280;' : 'background:#d1fae5;color:#065f46;'}`;
+      badge.textContent = locked ? 'Verrouillé' : 'Débloqué';
+      card.appendChild(content);
+      card.appendChild(badge);
+      return card;
+    }
+
+    function renderWelcomeQuestContent(){
+      const state = initWelcomeQuest();
+      const container = document.createElement('div');
+      
+      const part1Done = state.part1.onboarding_done && state.part1.profile_opened && state.part1.market_opened && state.part1.goal_set;
+      const part2Done = state.part2.deck_opened && state.part2.cards_50_reviewed && state.part2.session_completed;
+      const part3Done = state.part3.daily_goal_completed && state.part3.market_purchase && state.part3.first_title && state.part3.three_daily_quests && state.part3.active_memory_launched;
+      const part2Locked = !part1Done;
+      const part3Locked = !part2Done;
+      
+      // Part 1
+      const part1 = createQuestPart('Partie 1: Découverte', [
+        { label: 'Terminer la présentation (si vous l\'avez déjà fait cliquez sur le bouton livre dans le profil)', done: state.part1.onboarding_done, reward: '5 ℂ' },
+        { label: 'Ouvrir le Profil ⚙️', done: state.part1.profile_opened, reward: '3 ℂ' },
+        { label: 'Ouvrir le Marché 🛍️', done: state.part1.market_opened, reward: '3 ℂ' },
+        { label: 'Définir un objectif 🎯', done: state.part1.goal_set, reward: '3 ℂ' }
+      ], !part1Done);
+      container.appendChild(part1);
+      container.appendChild(createRewardCardUI({
+        title: 'Recompense partie 1',
+        subtitle: 'Theme Indigo',
+        details: 'Fond + cartes',
+        locked: !part1Done,
+        previewStyle: 'linear-gradient(135deg, #1a0754 0%, #d8d3f0 100%)'
+      }));
+      
+      // Part 2 (locked until Part 1 done)
+      const part2 = createQuestPart('Partie 2: Premiers pas', [
+        { label: 'Ouvrir un deck', done: !part2Locked && state.part2.deck_opened, reward: '3 ℂ' },
+        { label: 'Réviser 50 cartes', done: !part2Locked && state.part2.cards_50_reviewed, reward: '5 ℂ', progress: part2Locked ? null : `${state.totalCardsReviewed}/50` },
+        { label: 'Terminer une session', done: !part2Locked && state.part2.session_completed, reward: '5 ℂ' }
+      ], !part2Done, part2Locked);
+      container.appendChild(part2);
+      container.appendChild(createRewardCardUI({
+        title: 'Recompense partie 2',
+        subtitle: 'Motif 42 exclusif',
+        locked: !part2Done,
+        previewStyle: 'linear-gradient(135deg, #c7d2fe 0%, #e0e7ff 100%)'
+      }));
+      
+      // Part 3 (locked until Part 2 done)
+      const part3 = createQuestPart('Partie 3: Maîtriser Fab\'Anki', [
+        { label: 'Compléter l\'objectif du jour', done: !part3Locked && state.part3.daily_goal_completed, reward: '10 ℂ' },
+        { label: 'Acheter au Marché', done: !part3Locked && state.part3.market_purchase, reward: '10 ℂ' },
+        { label: 'Obtenir un titre', done: !part3Locked && state.part3.first_title, reward: '10 ℂ' },
+        { label: 'Accomplir 3 quêtes quotidiennes', done: !part3Locked && state.part3.three_daily_quests, reward: '10 ℂ', progress: part3Locked ? null : `${state.dailyQuestsCompleted}/3` },
+        { label: 'Lancer le mode Mémoire active', done: !part3Locked && state.part3.active_memory_launched, reward: '10 ℂ' }
+      ], !part3Done, part3Locked);
+      container.appendChild(part3);
+      container.appendChild(createRewardCardUI({
+        title: 'Recompense partie 3',
+        subtitle: 'Mode Etape par etape',
+        locked: !part3Done,
+        previewStyle: '#e5e7eb',
+        previewEmoji: '🪜'
+      }));
+      
+      return container;
+    }
+
+    function createQuestPart(title, missions, showProgress, locked = false){
+      const part = document.createElement('div');
+      part.style.cssText = `margin-bottom:16px;padding:12px;background:${locked ? '#f3f4f6' : 'white'};border-radius:8px;border:1px solid ${locked ? '#d1d5db' : '#e5e7eb'};opacity:${locked ? '0.6' : '1'};`;
+      
+      const header = document.createElement('div');
+      header.style.cssText = 'font-weight:700;color:#4b5563;margin-bottom:8px;font-size:0.95em;display:flex;align-items:center;gap:6px;';
+      header.innerHTML = locked ? `🔒 ${title}` : `${title}`;
+      part.appendChild(header);
+      
+      missions.forEach(mission => {
+        const missionDiv = document.createElement('div');
+        missionDiv.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;';
+        
+        const leftSide = document.createElement('div');
+        leftSide.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        
+        const displayDone = !locked && !!mission.done;
+        const checkbox = document.createElement('div');
+        checkbox.style.cssText = `width:20px;height:20px;border-radius:4px;border:2px solid ${displayDone ? '#10b981' : '#d1d5db'};background:${displayDone ? '#10b981' : 'white'};display:flex;align-items:center;justify-content:center;color:white;font-size:0.75em;font-weight:700;`;
+        checkbox.textContent = displayDone ? '✓' : '';
+        leftSide.appendChild(checkbox);
+        
+        const label = document.createElement('span');
+        label.style.cssText = `color:${displayDone ? '#6b7280' : '#1f2937'};text-decoration:${displayDone ? 'line-through' : 'none'};font-size:0.9em;`;
+        label.textContent = mission.label;
+        leftSide.appendChild(label);
+        
+        if(mission.progress && !displayDone && !locked){
+          const progress = document.createElement('span');
+          progress.style.cssText = 'color:#9ca3af;font-size:0.8em;margin-left:4px;';
+          progress.textContent = `(${mission.progress})`;
+          leftSide.appendChild(progress);
+        }
+        
+        missionDiv.appendChild(leftSide);
+        
+        const reward = document.createElement('div');
+        reward.style.cssText = 'color:#667eea;font-weight:600;font-size:0.85em;';
+        reward.textContent = mission.reward;
+        missionDiv.appendChild(reward);
+        
+        part.appendChild(missionDiv);
+      });
+      
+      return part;
+    }
+
+    function renderWelcomeQuestCard(){
+      const state = initWelcomeQuest(); // Initialize if doesn't exist
+      if(!state || state.completed) return null;
+      
+      const card = document.createElement('div');
+      card.className = 'card welcome-quest-card';
+      card.style.cssText = 'margin-bottom:12px;padding:16px;';
+      
+      const titleBar = document.createElement('div');
+      titleBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;';
+      
+      const title = document.createElement('h2');
+      title.textContent = '🎯 Quête de bienvenue';
+      title.style.margin = '0';
+      title.style.color = 'var(--muted)';
+      title.style.fontSize = '1.2em';
+      titleBar.appendChild(title);
+      
+      card.appendChild(titleBar);
+      
+      const content = document.createElement('div');
+      content.className = 'welcome-quest-content';
+      content.appendChild(renderWelcomeQuestContent());
+      card.appendChild(content);
+      
+      return card;
+    }
+
+    // Hook into existing events
+    window.completeWelcomeQuestMission = completeWelcomeQuestMission;
+    window.updateWelcomeQuest = updateWelcomeQuest;
+    window.initWelcomeQuest = initWelcomeQuest;
+    window.renderWelcomeQuestCard = renderWelcomeQuestCard;
+
+    // ===== POST-WELCOME QUEST (AFTER WELCOME QUEST) =====
+    const postWelcomeQuestTargets = {
+      stepCards: 25,
+      activeCards: 25,
+      timeSec: 60 * 60,
+      totalCards: 250,
+      reverseCards: 50
+    };
+
+    function getPostWelcomeQuestState(){
+      try{
+        const raw = localStorage.getItem('fabanki:post_welcome_quest');
+        if(!raw) return null;
+        return JSON.parse(raw);
+      }catch(e){ return null; }
+    }
+
+    function initPostWelcomeQuest(){
+      const existing = getPostWelcomeQuestState();
+      if(existing) return existing;
+      const state = {
+        stepCards: 0,
+        activeCards: 0,
+        timeSec: 0,
+        totalCards: 0,
+        reverseCards: 0,
+        timerUnlocked: false,
+        completed: false,
+        rewardUnlocked: false,
+        part1Completed: false,
+        part2Completed: false,
+        randomUnlocked: false,
+        stepRewarded: false,
+        activeRewarded: false,
+        timeRewarded: false,
+        totalRewarded: false,
+        reverseRewarded: false,
+        timerRewarded: false
+      };
+      localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+      return state;
+    }
+
+    function isReverseModeUnlocked(){
+      return localStorage.getItem('fabanki:mode_reverse_unlocked') === 'true';
+    }
+
+    function isRandomModeUnlocked(){
+      return localStorage.getItem('fabanki:mode_random_unlocked') === 'true';
+    }
+
+    function scheduleQuestSync(){
+      try{ if(typeof autoSync === 'function') setTimeout(() => autoSync().catch(e => console.warn('autoSync failed:', e)), 100); }catch(e){}
+    }
+
+    function checkPostWelcomeQuestCompletion(){
+      const welcomeState = getWelcomeQuestState();
+      if(!welcomeState || !welcomeState.completed) return;
+
+      const state = initPostWelcomeQuest();
+      const stepDone = Number(state.stepCards || 0) >= postWelcomeQuestTargets.stepCards;
+      const activeDone = Number(state.activeCards || 0) >= postWelcomeQuestTargets.activeCards;
+      const timeDone = Number(state.timeSec || 0) >= postWelcomeQuestTargets.timeSec;
+      const totalDone = Number(state.totalCards || 0) >= postWelcomeQuestTargets.totalCards;
+      const reverseDone = Number(state.reverseCards || 0) >= postWelcomeQuestTargets.reverseCards;
+      const timerDone = !!state.timerUnlocked;
+
+      const part1Done = stepDone && activeDone && timeDone;
+      const part2Done = totalDone && reverseDone && timerDone;
+
+      if(part1Done && !state.part1Completed){
+        state.part1Completed = true;
+        state.completed = true;
+        state.rewardUnlocked = true;
+        localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+        localStorage.setItem('fabanki:mode_reverse_unlocked', 'true');
+        showWelcomeQuestToast('🔁 Mode Revers débloqué !', 5000);
+        refreshPostWelcomeQuestUI();
+        scheduleQuestSync();
+      }
+
+      if(part2Done && !state.part2Completed){
+        state.part2Completed = true;
+        state.randomUnlocked = true;
+        localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+        localStorage.setItem('fabanki:mode_random_unlocked', 'true');
+        showWelcomeQuestToast('🎲 Mode Aléatoire débloqué !', 5000);
+        refreshPostWelcomeQuestUI();
+        scheduleQuestSync();
+      }
+    }
+
+    function syncPostWelcomeQuestTime(){
+      try{
+        const state = initPostWelcomeQuest();
+        const totalSec = Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0);
+        if(totalSec > Number(state.timeSec || 0)){
+          state.timeSec = totalSec;
+          if(state.timeSec >= postWelcomeQuestTargets.timeSec && !state.timeRewarded){
+            addCredits(10);
+            state.timeRewarded = true;
+            showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+          }
+          localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+          refreshPostWelcomeQuestUI();
+          checkPostWelcomeQuestCompletion();
+          scheduleQuestSync();
+        }
+      }catch(e){}
+    }
+
+    function syncPostWelcomeQuestProgress({ mode, timeSec, reviewed }){
+      try{
+        const state = initPostWelcomeQuest();
+        const part1Done = Number(state.stepCards || 0) >= postWelcomeQuestTargets.stepCards &&
+          Number(state.activeCards || 0) >= postWelcomeQuestTargets.activeCards &&
+          Number(state.timeSec || 0) >= postWelcomeQuestTargets.timeSec;
+        const part2Unlocked = part1Done;
+        let changed = false;
+        if(reviewed){
+          if(part2Unlocked && state.totalCards < postWelcomeQuestTargets.totalCards){
+            state.totalCards += 1;
+            changed = true;
+          }
+          if(mode === 'step' && state.stepCards < postWelcomeQuestTargets.stepCards){
+            state.stepCards += 1;
+            changed = true;
+          }
+          if(mode === 'activeMemory' && state.activeCards < postWelcomeQuestTargets.activeCards){
+            state.activeCards += 1;
+            changed = true;
+          }
+          if(part2Unlocked && mode === 'reverse' && state.reverseCards < postWelcomeQuestTargets.reverseCards){
+            state.reverseCards += 1;
+            changed = true;
+          }
+        }
+        if(state.stepCards >= postWelcomeQuestTargets.stepCards && !state.stepRewarded){
+          addCredits(10);
+          state.stepRewarded = true;
+          changed = true;
+          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+        }
+        if(state.activeCards >= postWelcomeQuestTargets.activeCards && !state.activeRewarded){
+          addCredits(10);
+          state.activeRewarded = true;
+          changed = true;
+          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+        }
+        if(timeSec && timeSec > 0){
+          const totalSec = Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0);
+          if(totalSec > Number(state.timeSec || 0)){
+            state.timeSec = totalSec;
+            changed = true;
+          }
+        }
+        if(state.timeSec >= postWelcomeQuestTargets.timeSec && !state.timeRewarded){
+          addCredits(10);
+          state.timeRewarded = true;
+          changed = true;
+          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+        }
+        if(part2Unlocked && state.totalCards >= postWelcomeQuestTargets.totalCards && !state.totalRewarded){
+          addCredits(20);
+          state.totalRewarded = true;
+          changed = true;
+          showWelcomeQuestToast('Mission accomplie ! +20 ℂ');
+        }
+        if(part2Unlocked && state.reverseCards >= postWelcomeQuestTargets.reverseCards && !state.reverseRewarded){
+          addCredits(10);
+          state.reverseRewarded = true;
+          changed = true;
+          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+        }
+        const timerUnlocked = !!localStorage.getItem('fabanki:market_mode_rappel_sous_pression');
+        if(timerUnlocked && !state.timerUnlocked){
+          state.timerUnlocked = true;
+          changed = true;
+        }
+        if(part2Unlocked && state.timerUnlocked && !state.timerRewarded){
+          addCredits(10);
+          state.timerRewarded = true;
+          changed = true;
+          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+        }
+        if(changed){
+          localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+          refreshPostWelcomeQuestUI();
+          checkPostWelcomeQuestCompletion();
+          scheduleQuestSync();
+        }
+      }catch(e){}
+    }
+
+    function renderPostWelcomeQuestCard(){
+      const welcomeState = getWelcomeQuestState();
+      if(!welcomeState || !welcomeState.completed) return null;
+      const state = initPostWelcomeQuest();
+      const timerUnlocked = !!localStorage.getItem('fabanki:market_mode_rappel_sous_pression');
+      if(timerUnlocked && !state.timerUnlocked){
+        state.timerUnlocked = true;
+        localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
+      }
+      const card = document.createElement('div');
+      card.className = 'card post-welcome-quest-card';
+      card.style.cssText = 'margin-top:16px;padding:16px;';
+
+      const title = document.createElement('h2');
+      title.textContent = '🎯 Quête avancée';
+      title.style.margin = '0 0 12px 0';
+      title.style.color = 'var(--muted)';
+      title.style.fontSize = '1.2em';
+      card.appendChild(title);
+
+      const timeMinutes = Math.floor(Number(state.timeSec || 0) / 60);
+
+      const part1 = createQuestPart('Partie 1', [
+        { label: 'Réviser 25 cartes avec le mode Étape par étape', done: state.stepCards >= postWelcomeQuestTargets.stepCards, reward: '10 ℂ', progress: `${Math.min(state.stepCards, postWelcomeQuestTargets.stepCards)}/${postWelcomeQuestTargets.stepCards}` },
+        { label: 'Réviser 25 cartes avec le mode Mémoire active', done: state.activeCards >= postWelcomeQuestTargets.activeCards, reward: '10 ℂ', progress: `${Math.min(state.activeCards, postWelcomeQuestTargets.activeCards)}/${postWelcomeQuestTargets.activeCards}` },
+        { label: 'Passer 1 heure sur l\'application', done: state.timeSec >= postWelcomeQuestTargets.timeSec, reward: '10 ℂ', progress: `${Math.min(timeMinutes, 60)}/60 min` }
+      ], true, false);
+      card.appendChild(part1);
+
+      const rewardCard = createRewardCardUI({
+        title: 'Récompense',
+        subtitle: 'Mode Revers',
+        locked: !state.completed,
+        previewStyle: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)',
+        previewEmoji: '🔁'
+      });
+      rewardCard.style.marginTop = '10px';
+      card.appendChild(rewardCard);
+
+      const part1Done = state.stepCards >= postWelcomeQuestTargets.stepCards && state.activeCards >= postWelcomeQuestTargets.activeCards && state.timeSec >= postWelcomeQuestTargets.timeSec;
+      const part2Locked = !part1Done;
+      const part2 = createQuestPart('Partie 2: Débloquer des modes', [
+        { label: 'Réviser 250 cartes', done: !part2Locked && state.totalCards >= postWelcomeQuestTargets.totalCards, reward: '20 ℂ', progress: part2Locked ? null : `${Math.min(state.totalCards, postWelcomeQuestTargets.totalCards)}/${postWelcomeQuestTargets.totalCards}` },
+        { label: 'Réviser 50 cartes en mode Revers', done: !part2Locked && state.reverseCards >= postWelcomeQuestTargets.reverseCards, reward: '10 ℂ', progress: part2Locked ? null : `${Math.min(state.reverseCards, postWelcomeQuestTargets.reverseCards)}/${postWelcomeQuestTargets.reverseCards}` },
+        { label: 'Débloquer le mode Rappel sous pression', done: !part2Locked && state.timerUnlocked, reward: '10 ℂ' }
+      ], true, part2Locked);
+      card.appendChild(part2);
+
+      const part2Done = state.totalCards >= postWelcomeQuestTargets.totalCards && state.reverseCards >= postWelcomeQuestTargets.reverseCards && state.timerUnlocked;
+      const rewardCardPart2 = createRewardCardUI({
+        title: 'Récompense',
+        subtitle: 'Mode Aléatoire',
+        locked: !part2Done,
+        previewStyle: 'linear-gradient(135deg, #fde68a 0%, #f59e0b 100%)',
+        previewEmoji: '🎲'
+      });
+      rewardCardPart2.style.marginTop = '10px';
+      card.appendChild(rewardCardPart2);
+
+      return card;
+    }
+
+    function refreshPostWelcomeQuestUI(){
+      try{
+        const existing = document.querySelector('.post-welcome-quest-card');
+        const welcomeState = getWelcomeQuestState();
+        if(!welcomeState || !welcomeState.completed){
+          if(existing) existing.remove();
+          return;
+        }
+        const newCard = renderPostWelcomeQuestCard();
+        if(!newCard) return;
+        if(existing){
+          existing.replaceWith(newCard);
+          return;
+        }
+        const container = document.getElementById('welcomeDecks');
+        if(!container) return;
+        const statsCard = container.querySelector('.stats-card');
+        if(statsCard && statsCard.parentNode === container){
+          statsCard.insertAdjacentElement('afterend', newCard);
+        } else {
+          container.appendChild(newCard);
+        }
+      }catch(e){}
+    }
+
+    try{ window.renderPostWelcomeQuestCard = renderPostWelcomeQuestCard; }catch(e){}
+
+    // Sync onboarding completion to welcome quest
+    try{
+      if(localStorage.getItem('fabanki:onboarding_completed') === 'true'){
+        completeWelcomeQuestMission('part1', 'onboarding_done', 5);
+      }
+    }catch(e){ console.warn('welcome quest onboarding sync error', e); }
+
+    const profileBtn = document.getElementById('profileBtn');
+    if(profileBtn){
+      profileBtn.addEventListener('click', ()=>{ 
+        showProfilePopup(); 
+        updateProfilePopupIfOpen(); 
+        // Mark profile opened
+        completeWelcomeQuestMission('part1', 'profile_opened', 3);
+      });
+    }
+
+    // Market button
+    const marketBtn = document.getElementById('marketBtn');
+    if(marketBtn){
+      marketBtn.addEventListener('click', ()=>{ 
+        showMarketPage(); 
+        // Mark market opened
+        completeWelcomeQuestMission('part1', 'market_opened', 3);
+      });
+    }
+
+    // === Optional Account + Synchronization System ===
+    // Unified user state used for both local-only and synced modes.
+    // Guarded: if Firebase Auth/Firestore are not configured, app remains local-only.
+    
+    // In-memory state
+    window.userState = null;
+
+    function defaultUserState(){
+      const xp = getXpTotal();
+      const lvl = computeLevelAndProgress(xp).level;
+      return {
+        mode: (localStorage.getItem('fabanki:mode') || 'local'),
+        userId: localStorage.getItem('fabanki:user_id') || null,
+        pseudo: localStorage.getItem('pseudo') || 'Anonyme',
+        xp: xp,
+        level: lvl,
+        credits: getCredits(),
+        streakCurrent: Number(localStorage.getItem('fabanki:streak_current') || 0),
+        streakMax: Number(localStorage.getItem('fabanki:streak_max') || 0),
+        decks: collectDeckStates(),
+        quests: collectQuestState(),
+        welcomeQuest: collectWelcomeQuestState(),
+        postWelcomeQuest: collectPostWelcomeQuestState(),
+        inventory: collectInventory(),
+        dailyProgress: collectDailyProgress(),
+        lastUpdated: Date.now()
+      };
+    }
+
+    function collectDeckStates(){
+      const decks = {};
+      try{
+        for(const k of Object.keys(localStorage)){
+          // keys like: fabanki:{deckKey}:card:{cardId}
+          const m = k.match(/^fabanki:([^:]+):card:(.+)$/);
+          if(!m) continue;
+          const dKey = m[1];
+          const cId = m[2];
+          let st = null; 
+          try{ st = JSON.parse(localStorage.getItem(k) || 'null'); }catch(e){ st = null }
+          if(!st) continue;
+          if(!decks[dKey]) decks[dKey] = { cards: {} };
+          decks[dKey].cards[cId] = st;
+        }
+      }catch(e){ /* ignore */ }
+      return decks;
+    }
+
+    // Backwards-compatible alias used by sync code
+    function collectDeckProgress(){
+      try{ return collectDeckStates(); }catch(e){ return {}; }
+    }
+
+    function collectQuestState(){
+      try{
+        const daily = JSON.parse(localStorage.getItem('fabanki:daily_missions') || '[]');
+        const weekly = JSON.parse(localStorage.getItem('fabanki:weekly_missions') || '[]');
+        const missions_date = localStorage.getItem('fabanki:missions_date') || null;
+        return { daily, weekly, missions_date };
+      }catch(e){ return { daily:[], weekly:[], missions_date:null } }
+    }
+
+    function collectWelcomeQuestState(){
+      try{
+        const raw = localStorage.getItem('fabanki:welcome_quest');
+        if(!raw) return null;
+        return JSON.parse(raw);
+      }catch(e){ return null }
+    }
+
+    function collectPostWelcomeQuestState(){
+      try{
+        const raw = localStorage.getItem('fabanki:post_welcome_quest');
+        if(!raw) return null;
+        return JSON.parse(raw);
+      }catch(e){ return null }
+    }
+
+    function collectInventory(){
+      try{
+        const inventory = {};
+        for(const k of Object.keys(localStorage)){
+          // Collect all marketplace purchases and deck unlocks
+          if(k.startsWith('fabanki:market_') || k.startsWith('fabanki:deck_unlocked:')){
+            inventory[k] = localStorage.getItem(k);
+          }
+        }
+        // Also collect selected title
+        const selectedTitle = localStorage.getItem('fabanki:selected_title');
+        if(selectedTitle) inventory['fabanki:selected_title'] = selectedTitle;
+        return inventory;
+      }catch(e){ return {} }
+    }
+
+    function collectDailyProgress(){
+      try{
+        return {
+          dailyGoal: Number(localStorage.getItem('fabanki:daily_goal') || 0),
+          dailyReviewedCount: Number(localStorage.getItem('fabanki:daily_reviewed_count') || 0),
+          dailyReviewedDate: localStorage.getItem('fabanki:daily_reviewed_date') || null,
+          lastActiveDate: localStorage.getItem('fabanki:last_active_date') || null
+        };
+      }catch(e){ return {} }
+    }
+
+    function applyStateToLocalStorage(state){
+      try{
+        // Core profile
+        if(state.pseudo) localStorage.setItem('pseudo', state.pseudo);
+        if(Number.isFinite(state.xp)) localStorage.setItem('fabanki:xp_total', String(state.xp));
+        if(Number.isFinite(state.credits)) localStorage.setItem('fabanki:credits', String(state.credits));
+        if(Number.isFinite(state.streakCurrent)) localStorage.setItem('fabanki:streak_current', String(state.streakCurrent));
+        if(Number.isFinite(state.streakMax)) localStorage.setItem('fabanki:streak_max', String(state.streakMax));
+        // Quests
+        if(state.quests){
+          localStorage.setItem('fabanki:daily_missions', JSON.stringify(state.quests.daily||[]));
+          localStorage.setItem('fabanki:weekly_missions', JSON.stringify(state.quests.weekly||[]));
+          if(state.quests.missions_date) localStorage.setItem('fabanki:missions_date', state.quests.missions_date);
+        }
+        // Welcome quest
+        if(state.welcomeQuest){
+          localStorage.setItem('fabanki:welcome_quest', JSON.stringify(state.welcomeQuest));
+          try{ if(typeof checkWelcomeQuestCompletion === 'function') checkWelcomeQuestCompletion(); }catch(e){}
+        }
+        // Post-welcome quest
+        if(state.postWelcomeQuest){
+          localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state.postWelcomeQuest));
+          if(state.postWelcomeQuest.completed || state.postWelcomeQuest.rewardUnlocked || state.postWelcomeQuest.part1Completed){
+            localStorage.setItem('fabanki:mode_reverse_unlocked', 'true');
+          }
+          if(state.postWelcomeQuest.part2Completed || state.postWelcomeQuest.randomUnlocked){
+            localStorage.setItem('fabanki:mode_random_unlocked', 'true');
+          }
+          try{ if(typeof refreshPostWelcomeQuestUI === 'function') refreshPostWelcomeQuestUI(); }catch(e){}
+        }
+        // Inventory (purchased items, unlocked decks, selected title)
+        if(state.inventory){
+          for(const k of Object.keys(state.inventory)){
+            localStorage.setItem(k, state.inventory[k]);
+          }
+        }
+        // Daily progress (goal, reviewed count, dates)
+        if(state.dailyProgress){
+          if(Number.isFinite(state.dailyProgress.dailyGoal)) localStorage.setItem('fabanki:daily_goal', String(state.dailyProgress.dailyGoal));
+          if(Number.isFinite(state.dailyProgress.dailyReviewedCount)) localStorage.setItem('fabanki:daily_reviewed_count', String(state.dailyProgress.dailyReviewedCount));
+          if(state.dailyProgress.dailyReviewedDate) localStorage.setItem('fabanki:daily_reviewed_date', state.dailyProgress.dailyReviewedDate);
+          if(state.dailyProgress.lastActiveDate) localStorage.setItem('fabanki:last_active_date', state.dailyProgress.lastActiveDate);
+        }
+        // Deck cards
+        if(state.decks){
+          for(const dKey of Object.keys(state.decks)){
+            const cards = state.decks[dKey]?.cards || {};
+            for(const cardId of Object.keys(cards)){
+              const k = `fabanki:${dKey}:card:${cardId}`;
+              localStorage.setItem(k, JSON.stringify(cards[cardId]));
+            }
+          }
+        }
+      }catch(e){ console.warn('applyStateToLocalStorage', e) }
+    }
+
+    function initUserState(){
+      try{
+        const saved = loadState();
+        if(saved){ 
+          window.userState = saved; 
+          // Don't call saveState here - preserve existing timestamp for proper sync comparison
+        }
+        else { 
+          window.userState = defaultUserState(); 
+          // Only save if no existing state (first run)
+          saveState(window.userState);
+        }
+      }catch(e){ console.warn('initUserState', e) }
+    }
+
+    function loadState(){
+      try{
+        const raw = localStorage.getItem('fabanki:user_state');
+        if(!raw) return null;
+        const st = JSON.parse(raw);
+        // Lightweight validation
+        if(!st || typeof st !== 'object') return null;
+        return st;
+      }catch(e){ return null }
+    }
+
+    // Merge two deck states by combining all cards and keeping the most up-to-date card state
+    function mergeDeckStates(localDecks, remoteDecks){
+      const merged = { ...remoteDecks };
+      
+      for(const dKey of Object.keys(localDecks || {})){
+        if(!merged[dKey]){
+          merged[dKey] = { cards: {} };
+        }
+        // Merge cards: take the card state with the most recent 'last' timestamp
+        for(const cId of Object.keys(localDecks[dKey]?.cards || {})){
+          const localCard = localDecks[dKey].cards[cId];
+          const remoteCard = merged[dKey].cards?.[cId];
+          
+          if(!remoteCard){
+            // Card only in local: keep it
+            if(!merged[dKey].cards) merged[dKey].cards = {};
+            merged[dKey].cards[cId] = localCard;
+          } else {
+            // Card in both: take the one with more recent 'last' review
+            const localLast = new Date(localCard.last || 0).getTime();
+            const remoteLast = new Date(remoteCard.last || 0).getTime();
+            if(localLast > remoteLast){
+              merged[dKey].cards[cId] = localCard;
+            }
+            // else keep remote (already in merged)
+          }
+        }
+      }
+      
+      return merged;
+    }
+
+    function mergeWelcomeQuestState(localState, remoteState){
+      if(!localState && !remoteState) return null;
+      if(!localState) return remoteState;
+      if(!remoteState) return localState;
+
+      const mergePart = (l, r) => {
+        const out = { ...(r || {}) };
+        for(const k of Object.keys(l || {})){
+          if(typeof l[k] === 'boolean') out[k] = l[k] || out[k];
+          else out[k] = (out[k] == null) ? l[k] : out[k];
+        }
+        return out;
+      };
+
+      return {
+        part1: mergePart(localState.part1, remoteState.part1),
+        part2: mergePart(localState.part2, remoteState.part2),
+        part3: mergePart(localState.part3, remoteState.part3),
+        completed: !!(localState.completed || remoteState.completed),
+        totalCardsReviewed: Math.max(Number(localState.totalCardsReviewed || 0), Number(remoteState.totalCardsReviewed || 0)),
+        dailyQuestsCompleted: Math.max(Number(localState.dailyQuestsCompleted || 0), Number(remoteState.dailyQuestsCompleted || 0))
+      };
+    }
+
+    function mergePostWelcomeQuestState(localState, remoteState){
+      if(!localState && !remoteState) return null;
+      if(!localState) return remoteState;
+      if(!remoteState) return localState;
+      return {
+        stepCards: Math.max(Number(localState.stepCards || 0), Number(remoteState.stepCards || 0)),
+        activeCards: Math.max(Number(localState.activeCards || 0), Number(remoteState.activeCards || 0)),
+        timeSec: Math.max(Number(localState.timeSec || 0), Number(remoteState.timeSec || 0)),
+        totalCards: Math.max(Number(localState.totalCards || 0), Number(remoteState.totalCards || 0)),
+        reverseCards: Math.max(Number(localState.reverseCards || 0), Number(remoteState.reverseCards || 0)),
+        timerUnlocked: !!(localState.timerUnlocked || remoteState.timerUnlocked),
+        completed: !!(localState.completed || remoteState.completed),
+        rewardUnlocked: !!(localState.rewardUnlocked || remoteState.rewardUnlocked),
+        part1Completed: !!(localState.part1Completed || remoteState.part1Completed || localState.completed || remoteState.completed),
+        part2Completed: !!(localState.part2Completed || remoteState.part2Completed),
+        randomUnlocked: !!(localState.randomUnlocked || remoteState.randomUnlocked),
+        stepRewarded: !!(localState.stepRewarded || remoteState.stepRewarded),
+        activeRewarded: !!(localState.activeRewarded || remoteState.activeRewarded),
+        timeRewarded: !!(localState.timeRewarded || remoteState.timeRewarded),
+        totalRewarded: !!(localState.totalRewarded || remoteState.totalRewarded),
+        reverseRewarded: !!(localState.reverseRewarded || remoteState.reverseRewarded),
+        timerRewarded: !!(localState.timerRewarded || remoteState.timerRewarded)
+      };
+    }
+
+    function getStateSummary(st){
+      try{
+        const decks = st?.decks || {};
+        const deckCount = Object.keys(decks).length;
+        const cardCount = Object.values(decks).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
+        return {
+          decks: deckCount,
+          cards: cardCount,
+          xp: Number(st?.xp || 0),
+          credits: Number(st?.credits || 0),
+          lastUpdated: Number(st?.lastUpdated || 0)
+        };
+      }catch(e){ return { decks: 0, cards: 0, xp: 0, credits: 0, lastUpdated: 0 }; }
+    }
+
+    function isStateEmpty(st){
+      const s = getStateSummary(st);
+      return s.decks === 0 && s.cards === 0 && s.xp === 0 && s.credits === 0;
+    }
+
+    function mergeUserStates(localSt, remoteSt, uid){
+      const mergedDecks = mergeDeckStates(localSt.decks || {}, remoteSt.decks || {});
+      const mergedInventory = { ...(remoteSt.inventory || {}), ...(localSt.inventory || {}) };
+      const mergedWelcomeQuest = mergeWelcomeQuestState(localSt.welcomeQuest, remoteSt.welcomeQuest);
+      const mergedPostWelcomeQuest = mergePostWelcomeQuestState(localSt.postWelcomeQuest, remoteSt.postWelcomeQuest);
+      const remoteDailyDate = new Date(remoteSt.dailyProgress?.dailyReviewedDate || 0).getTime();
+      const localDailyDate = new Date(localSt.dailyProgress?.dailyReviewedDate || 0).getTime();
+      const mergedDailyProgress = remoteDailyDate >= localDailyDate ? (remoteSt.dailyProgress || {}) : (localSt.dailyProgress || {});
+      const remoteMissionDate = new Date(remoteSt.quests?.missions_date || 0).getTime();
+      const localMissionDate = new Date(localSt.quests?.missions_date || 0).getTime();
+      const preferRemoteQuests = remoteMissionDate >= localMissionDate;
+      return {
+        ...remoteSt,
+        mode: 'synced',
+        userId: uid,
+        decks: mergedDecks,
+        inventory: mergedInventory,
+        welcomeQuest: mergedWelcomeQuest,
+        postWelcomeQuest: mergedPostWelcomeQuest,
+        dailyProgress: mergedDailyProgress,
+        quests: preferRemoteQuests ? (remoteSt.quests || localSt.quests || {}) : (localSt.quests || remoteSt.quests || {}),
+        xp: Math.max(Number(remoteSt.xp || 0), Number(localSt.xp || 0)),
+        streakCurrent: Math.max(Number(remoteSt.streakCurrent || 0), Number(localSt.streakCurrent || 0)),
+        streakMax: Math.max(Number(remoteSt.streakMax || 0), Number(localSt.streakMax || 0)),
+        lastUpdated: Date.now()
+      };
+    }
+
+    function promptSyncChoice(localSt, remoteSt){
+      return new Promise((resolve) => {
+        try{
+          const existing = document.getElementById('syncConflictOverlay');
+          if(existing) existing.remove();
+
+          const localSum = getStateSummary(localSt);
+          const remoteSum = getStateSummary(remoteSt);
+
+          const ov = document.createElement('div');
+          ov.id = 'syncConflictOverlay';
+          ov.className = 'modal-overlay open';
+          ov.style.display = 'flex';
+          ov.style.alignItems = 'center';
+          ov.style.justifyContent = 'center';
+          ov.style.zIndex = '2600';
+
+          const m = document.createElement('div');
+          m.className = 'modal open';
+          m.style.maxWidth = '640px';
+          m.style.width = '94%';
+          m.style.padding = '20px';
+
+          const h = document.createElement('h3');
+          h.textContent = 'Choisir les donnees a conserver';
+          h.style.marginTop = '0';
+          m.appendChild(h);
+
+          const info = document.createElement('div');
+          info.className = 'muted small';
+          info.textContent = 'Les donnees locales et cloud sont differentes. Choisissez la source a conserver ou fusionnez.';
+          info.style.marginBottom = '12px';
+          m.appendChild(info);
+
+          const grid = document.createElement('div');
+          grid.style.display = 'grid';
+          grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(200px, 1fr))';
+          grid.style.gap = '12px';
+
+          const buildBox = (title, sum) => {
+            const box = document.createElement('div');
+            box.style.padding = '12px';
+            box.style.borderRadius = '10px';
+            box.style.border = '1px solid rgba(0,0,0,0.08)';
+            box.style.background = 'rgba(66, 133, 244, 0.05)';
+            const t = document.createElement('div');
+            t.style.fontWeight = '700';
+            t.textContent = title;
+            const meta = document.createElement('div');
+            meta.className = 'muted small';
+            meta.style.marginTop = '6px';
+            meta.innerHTML = `Decks: ${sum.decks}<br>Cartes: ${sum.cards}<br>XP: ${sum.xp}<br>Credits: ${sum.credits}`;
+            box.appendChild(t);
+            box.appendChild(meta);
+            return box;
+          };
+
+          grid.appendChild(buildBox('Local', localSum));
+          grid.appendChild(buildBox('Cloud', remoteSum));
+          m.appendChild(grid);
+
+          const actions = document.createElement('div');
+          actions.style.display = 'flex';
+          actions.style.gap = '8px';
+          actions.style.justifyContent = 'flex-end';
+          actions.style.marginTop = '16px';
+
+          const keepCloud = document.createElement('button');
+          keepCloud.className = 'secondary';
+          keepCloud.textContent = 'Garder Cloud';
+          keepCloud.addEventListener('click', () => { ov.remove(); resolve('cloud'); });
+
+          const mergeBtn = document.createElement('button');
+          mergeBtn.className = 'secondary';
+          mergeBtn.textContent = 'Fusionner';
+          mergeBtn.addEventListener('click', () => { ov.remove(); resolve('merge'); });
+
+          const keepLocal = document.createElement('button');
+          keepLocal.textContent = 'Garder Local';
+          keepLocal.addEventListener('click', () => { ov.remove(); resolve('local'); });
+
+          actions.appendChild(keepCloud);
+          actions.appendChild(mergeBtn);
+          actions.appendChild(keepLocal);
+          m.appendChild(actions);
+
+          ov.appendChild(m);
+          document.body.appendChild(ov);
+        }catch(e){ resolve('merge'); }
+      });
+    }
+
+    // Sync helpers (status + debug)
+    function syncDebugEnabled(){
+      try{ return (window.__fabanki_sync_debug === true) || (localStorage.getItem('fabanki:sync_debug') === '1'); }catch(e){ return false }
+    }
+    function syncLog(...args){ if(syncDebugEnabled()) console.log('[SYNC]', ...args); }
+    function ensureSyncStatusEl(){
+      try{
+        let el = document.getElementById('syncStatus');
+        if(el) return el;
+        el = document.createElement('div');
+        el.id = 'syncStatus';
+        el.setAttribute('aria-live', 'polite');
+        el.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:3000;background:rgba(15,23,42,0.92);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;box-shadow:0 6px 16px rgba(0,0,0,0.25);display:none;';
+        document.body.appendChild(el);
+        return el;
+      }catch(e){ return null }
+    }
+    function setSyncStatus(text, active){
+      try{
+        const el = ensureSyncStatusEl();
+        if(!el) return;
+        if(active){
+          el.textContent = text || 'Synchronisation en cours…';
+          el.style.display = 'block';
+        } else {
+          el.textContent = '';
+          el.style.display = 'none';
+        }
+        showSyncLoading(active, text || 'Synchronisation en cours…');
+      }catch(e){}
+    }
+
+    function showSyncLoading(active, message){
+      try{
+        const existing = document.getElementById('syncLoadingOverlay');
+        if(!active){
+          if(existing) existing.remove();
+          return;
+        }
+
+        if(existing){
+          const msg = existing.querySelector('.sync-loading__message');
+          if(msg) msg.textContent = message || 'Synchronisation en cours…';
+          return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.id = 'syncLoadingOverlay';
+        overlay.className = 'sync-loading-overlay';
+
+        const card = document.createElement('div');
+        card.className = 'sync-loading-card';
+
+        const spinner = document.createElement('div');
+        spinner.className = 'sync-loading-spinner';
+
+        const title = document.createElement('div');
+        title.className = 'sync-loading__title';
+        title.textContent = 'Synchronisation';
+
+        const msg = document.createElement('div');
+        msg.className = 'sync-loading__message';
+        msg.textContent = message || 'Synchronisation en cours…';
+
+        card.appendChild(spinner);
+        card.appendChild(title);
+        card.appendChild(msg);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+      }catch(e){}
+    }
+    
+    // Expose debug functions for console testing
+    window.__fabanki_testSync = async function(){
+      console.log('=== FABANKI SYNC TEST ===');
+      console.log('Mode:', localStorage.getItem('fabanki:mode'));
+      console.log('User ID:', localStorage.getItem('fabanki:user_id'));
+      console.log('Pseudo:', localStorage.getItem('pseudo'));
+      console.log('Firestore available:', !!window.__fabanki_firestore);
+      console.log('---');
+      if(typeof autoSync === 'function'){
+        console.log('Running autoSync()...');
+        await autoSync();
+        console.log('autoSync completed');
+      } else {
+        console.log('autoSync not available');
+      }
+    };
+    window.__fabanki_enableDebug = function(){
+      localStorage.setItem('fabanki:sync_debug', '1');
+      window.__fabanki_sync_debug = true;
+      console.log('Sync debug enabled - check console for [SYNC] messages');
+    };
+    window.__fabanki_disableDebug = function(){
+      localStorage.removeItem('fabanki:sync_debug');
+      window.__fabanki_sync_debug = false;
+      console.log('Sync debug disabled');
+    };
+
+    async function saveState(state){
+      try{
+        const toSave = { ...state, lastUpdated: Date.now() };
+        window.userState = toSave;
+        localStorage.setItem('fabanki:user_state', JSON.stringify(toSave));
+        localStorage.setItem('fabanki:mode', toSave.mode || 'local');
+        if(toSave.userId) localStorage.setItem('fabanki:user_id', toSave.userId);
+
+        // Cloud push (optional)
+        if((toSave.mode === 'synced') && window.__fabanki_firestore){
+          try{
+            const uid = toSave.userId;
+            if(uid){
+              const deckCount = toSave.decks ? Object.keys(toSave.decks).length : 0;
+              const cardCount = toSave.decks ? Object.values(toSave.decks).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0) : 0;
+              syncLog('Preparing upload', { userId: uid, decks: deckCount, cards: cardCount, xp: toSave.xp, credits: toSave.credits, lastUpdated: toSave.lastUpdated });
+              const dryRun = (window.__fabanki_sync_dry_run === true) || (localStorage.getItem('fabanki:sync_dry_run') === '1');
+              if(dryRun){
+                syncLog('Dry run enabled: skipping upload');
+              } else {
+                await window.__fabanki_firestore.collection('users').doc(uid).set(toSave, { merge: true });
+              }
+            }
+          }catch(e){ console.warn('saveState cloud', e) }
+        }
+      }catch(e){ console.warn('saveState', e) }
+    }
+    
+    // Auto-sync current data to cloud (called after card review, xp, credits changes)
+    async function autoSync(){
+      try{
+        const mode = localStorage.getItem('fabanki:mode');
+        syncLog('autoSync: mode =', mode);
+        if(mode !== 'synced') {
+          syncLog('autoSync: skipping - not in synced mode');
+          return;
+        }
+        
+        const userId = localStorage.getItem('fabanki:user_id');
+        syncLog('autoSync: userId =', userId, 'firestore available =', !!window.__fabanki_firestore);
+        if(!userId || !window.__fabanki_firestore) {
+          syncLog('autoSync: skipping - missing userId or firestore');
+          return;
+        }
+        
+        const pseudo = localStorage.getItem('pseudo') || 'Anonyme';
+        if(pseudo === 'Anonyme' || !pseudo || pseudo.trim() === ''){
+          syncLog('autoSync: skipping - anonymous user');
+          return;
+        }
+        
+        syncLog('autoSync: starting sync for user', pseudo);
+        setSyncStatus('Synchronisation en cours…', true);
+        
+        // PULL-BEFORE-PUSH: Check cloud for any newer updates before uploading
+        try{
+          const db = window.__fabanki_firestore;
+          const docRef = db.collection('users').doc(userId);
+          const snap = await docRef.get();
+          
+          if(snap.exists){
+            const remoteSt = snap.data();
+            const localStateRaw = localStorage.getItem('fabanki:user_state');
+            const localState = localStateRaw ? JSON.parse(localStateRaw) : null;
+            const localLastUpdated = Number(localState?.lastUpdated || 0);
+            const remoteLastUpdated = Number(remoteSt.lastUpdated || 0);
+            
+            syncLog('autoSync: checking for remote updates', { localTime: localLastUpdated, remoteTime: remoteLastUpdated });
+            const localEmpty = isStateEmpty(localState);
+            const remoteEmpty = isStateEmpty(remoteSt);
+
+            // If local is empty and remote has data, pull remote first
+            if(localEmpty && !remoteEmpty){
+              syncLog('autoSync: local empty, pulling remote before push');
+              applyStateToLocalStorage(remoteSt);
+              localStorage.setItem('fabanki:user_state', JSON.stringify(remoteSt));
+            } else if(remoteLastUpdated > localLastUpdated){
+              syncLog('autoSync: remote is newer, pulling updates before push');
+              applyStateToLocalStorage(remoteSt);
+              localStorage.setItem('fabanki:user_state', JSON.stringify(remoteSt));
+            }
+          }
+        }catch(e){
+          syncLog('autoSync: error checking remote updates', e);
+          // Continue with push anyway
+        }
+        
+        // Build current state from localStorage (now merged with any remote updates)
+        const st = defaultUserState();
+        st.mode = 'synced';
+        st.userId = userId;
+        st.pseudo = pseudo;
+        st.xp = Number(localStorage.getItem('fabanki:xp_total') || 0);
+        st.credits = Number(localStorage.getItem('fabanki:credits') || 0);
+        st.quests = collectQuestState();
+        st.welcomeQuest = collectWelcomeQuestState();
+        st.postWelcomeQuest = collectPostWelcomeQuestState();
+        st.decks = collectDeckProgress();
+        st.inventory = collectInventory();
+        st.dailyProgress = collectDailyProgress();
+        
+        syncLog('autoSync: collected state', { xp: st.xp, credits: st.credits, decks: Object.keys(st.decks || {}).length });
+        
+        await saveState(st);
+        syncLog('Auto-sync completed successfully');
+      }catch(e){ 
+        syncLog('autoSync ERROR:', e);
+        console.warn('autoSync error:', e);
+      }
+      finally { setSyncStatus('', false); }
+    }
+    
+    // Restore data from cloud on page load
+    async function restoreFromCloud(){
+      try{
+        const auth = firebase?.auth?.();
+        const db = window.__fabanki_firestore;
+        if(!auth || !db) return;
+        
+        const localMode = localStorage.getItem('fabanki:mode');
+        if(localMode !== 'synced') return; // Only restore if in synced mode
+        setSyncStatus('Synchronisation en cours…', true);
+        
+        // Fast path: use current user if already available
+        let user = auth.currentUser;
+        if(!user){
+          // Wait briefly for auth state, then give up to avoid long startup delay
+          user = await new Promise((resolve) => {
+            let settled = false;
+            const timeoutId = setTimeout(() => {
+              if(settled) return;
+              settled = true;
+              if(unsub) unsub();
+              resolve(null);
+            }, 1500);
+            const unsub = auth.onAuthStateChanged((u) => {
+              if(settled) return;
+              settled = true;
+              clearTimeout(timeoutId);
+              unsub();
+              resolve(u);
+            });
+          });
+        }
+        
+        if(!user) return; // Not logged in
+        
+        const uid = user.uid;
+        const docRef = db.collection('users').doc(uid);
+        const snap = await docRef.get();
+        
+        if(!snap.exists) return; // No cloud data
+        
+        const remoteSt = snap.data();
+        const localStateRaw = localStorage.getItem('fabanki:user_state');
+        const localState = localStateRaw ? JSON.parse(localStateRaw) : null;
+        const localLastUpdated = Number(localState?.lastUpdated || 0);
+        const remoteLastUpdated = Number(remoteSt.lastUpdated || 0);
+        const localEmpty = isStateEmpty(localState);
+        const remoteEmpty = isStateEmpty(remoteSt);
+        syncLog('Restore compare', { localLastUpdated, remoteLastUpdated });
+        
+        // Conflict resolution: prefer remote if newer, otherwise merge intelligently
+        let shouldRestore = false;
+        let mergedState = null;
+        
+        if(localEmpty && !remoteEmpty){
+          syncLog('Local empty, restoring from cloud');
+          shouldRestore = true;
+          mergedState = remoteSt;
+        } else if(remoteLastUpdated > localLastUpdated){
+          // Remote is newer: use it directly
+          syncLog('Remote is newer, restoring from cloud');
+          shouldRestore = true;
+          mergedState = { 
+            ...remoteSt, 
+            welcomeQuest: mergeWelcomeQuestState(localState?.welcomeQuest, remoteSt?.welcomeQuest),
+            postWelcomeQuest: mergePostWelcomeQuestState(localState?.postWelcomeQuest, remoteSt?.postWelcomeQuest)
+          };
+        } else if(remoteLastUpdated === localLastUpdated && !localState){
+          // No local state yet: always restore from cloud
+          syncLog('No local state, restoring from cloud');
+          shouldRestore = true;
+          mergedState = remoteSt;
+        } else if(remoteLastUpdated === localLastUpdated && localState && remoteSt){
+          // Timestamps equal: check if data actually differs
+          const localDeckCount = Object.keys(localState.decks || {}).length;
+          const remoteDeckCount = Object.keys(remoteSt.decks || {}).length;
+          const localCardCount = Object.values(localState.decks || {}).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
+          const remoteCardCount = Object.values(remoteSt.decks || {}).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
+          const dataDiffers = (localDeckCount !== remoteDeckCount) || (localCardCount !== remoteCardCount) || 
+                              (Number(localState.xp || 0) !== Number(remoteSt.xp || 0));
+          
+          if(dataDiffers){
+            // Data differs: deep merge decks (combine all cards from both)
+            syncLog('Timestamps equal but data differs - deep merging', { 
+              localDecks: localDeckCount, remoteDecks: remoteDeckCount,
+              localCards: localCardCount, remoteCards: remoteCardCount,
+              localXp: localState.xp, remoteXp: remoteSt.xp
+            });
+            const mergedDecks = mergeDeckStates(localState.decks || {}, remoteSt.decks || {});
+            const mergedInventory = { ...(remoteSt.inventory || {}), ...(localState.inventory || {}) };
+            // For daily progress, prefer the most recent data based on dates
+            const remoteDailyDate = new Date(remoteSt.dailyProgress?.dailyReviewedDate || 0).getTime();
+            const localDailyDate = new Date(localState.dailyProgress?.dailyReviewedDate || 0).getTime();
+            const mergedDailyProgress = remoteDailyDate > localDailyDate ? 
+              (remoteSt.dailyProgress || {}) : (localState.dailyProgress || {});
+            mergedState = {
+              ...remoteSt,
+              decks: mergedDecks,
+              inventory: mergedInventory,
+              dailyProgress: mergedDailyProgress,
+              welcomeQuest: mergeWelcomeQuestState(localState?.welcomeQuest, remoteSt?.welcomeQuest),
+              postWelcomeQuest: mergePostWelcomeQuestState(localState?.postWelcomeQuest, remoteSt?.postWelcomeQuest),
+              // Take the higher XP value (indicates more practice completed)
+              xp: Math.max(Number(remoteSt.xp || 0), Number(localState.xp || 0)),
+              streakCurrent: Math.max(Number(remoteSt.streakCurrent || 0), Number(localState.streakCurrent || 0)),
+              streakMax: Math.max(Number(remoteSt.streakMax || 0), Number(localState.streakMax || 0)),
+              // Merge quests: prefer the set with more missions completed or later date
+              quests: {
+                daily: remoteSt.quests?.daily || localState.quests?.daily || [],
+                weekly: remoteSt.quests?.weekly || localState.quests?.weekly || [],
+                missions_date: Math.max(
+                  new Date(remoteSt.quests?.missions_date || 0).getTime(),
+                  new Date(localState.quests?.missions_date || 0).getTime()
+                ) > 0 ? new Date(Math.max(
+                  new Date(remoteSt.quests?.missions_date || 0).getTime(),
+                  new Date(localState.quests?.missions_date || 0).getTime()
+                )).toISOString() : null
+              },
+              // Increment timestamp to ensure other browsers see the merge
+              lastUpdated: Date.now()
+            };
+            shouldRestore = true;
+          } else {
+            syncLog('Timestamps and data are equal - no merge needed');
+          }
+        }
+        
+        if(shouldRestore && mergedState){
+          syncLog('Applying merged/restored state', { 
+            decks: Object.keys(mergedState.decks || {}).length, 
+            xp: mergedState.xp 
+          });
+          applyStateToLocalStorage(mergedState);
+          localStorage.setItem('fabanki:user_state', JSON.stringify(mergedState));
+          localStorage.setItem('fabanki:mode', 'synced');
+          localStorage.setItem('fabanki:user_id', uid);
+          
+          // After restoring, push the merged state back to cloud if it was a merge
+          if(remoteLastUpdated === localLastUpdated && localState && remoteSt){
+            syncLog('Pushing merged state back to cloud');
+            await saveState(mergedState);
+          }
+          
+          // Refresh UI to reflect restored data
+          syncLog('Refreshing UI after restore');
+          try{
+            if(typeof updateMissionProgress === 'function') updateMissionProgress();
+            if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
+            // Note: deck reinitialization happens when deck loads after restore completes
+          }catch(e){ syncLog('Error refreshing UI:', e); }
+        } else {
+          syncLog('Keeping local state (local is newer or merge not needed)');
+        }
+      }catch(e){ console.warn('restoreFromCloud error:', e) }
+      finally { setSyncStatus('', false); }
+    }
+
+    async function createAccountAndSync(emailArg, passwordArg){
+      try{
+        const db = window.__fabanki_firestore;
+        const auth = firebase?.auth?.();
+        if(!db || !auth){ alert('La synchronisation nécessite une configuration Firebase (Auth + Firestore).'); return; }
+        const email = emailArg ?? prompt('Email pour créer un compte (Firebase)');
+        if(!email) return;
+        const password = passwordArg ?? prompt('Mot de passe');
+        if(!password) return;
+        const { user } = await auth.createUserWithEmailAndPassword(email, password);
+        
+        // Collect current local data
+        const st = defaultUserState();
+        st.mode = 'synced';
+        st.userId = user.uid;
+        st.pseudo = localStorage.getItem('pseudo') || 'Anonyme';
+        st.xp = Number(localStorage.getItem('fabanki:xp_total') || 0);
+        st.credits = Number(localStorage.getItem('fabanki:credits') || 0);
+        st.quests = collectQuestState();
+        st.welcomeQuest = collectWelcomeQuestState();
+        st.postWelcomeQuest = collectPostWelcomeQuestState();
+        st.decks = collectDeckProgress();
+        st.inventory = collectInventory();
+        st.dailyProgress = collectDailyProgress();
+        
+        // Upload to cloud
+        await saveState(st);
+        alert('✅ Compte créé et progrès synchronisés.');
+      }catch(e){ 
+        alert('❌ Échec création:\n\n' + (e?.message || e));
+      }
+    }
+
+    async function loginAndSync(emailArg, passwordArg){
+      try{
+        const db = window.__fabanki_firestore;
+        const auth = firebase?.auth?.();
+        if(!db || !auth){ alert('La synchronisation nécessite une configuration Firebase (Auth + Firestore).'); return; }
+        const email = emailArg ?? prompt('Email de connexion'); if(!email) return;
+        const password = passwordArg ?? prompt('Mot de passe'); if(!password) return;
+        const { user } = await auth.signInWithEmailAndPassword(email, password);
+        const uid = user.uid;
+
+        // Do not delete existing profiles on login; keep cloud history safe
+
+        // Ensure current leaderboard mapping
+        try{
+          if(!localStorage.getItem('userId')) localStorage.setItem('userId', generateUserId());
+          localStorage.setItem('fabanki:classement_auth_uid', uid);
+          localStorage.setItem('fabanki:classement_user_id', localStorage.getItem('userId'));
+        }catch(e){}
+
+        const localSt = loadState() || defaultUserState();
+        const docRef = db.collection('users').doc(uid);
+        const snap = await docRef.get();
+        const remoteSt = snap.exists ? (snap.data() || null) : null;
+
+        let chosen = localSt;
+        if(remoteSt){
+          const localEmpty = isStateEmpty(localSt);
+          const remoteEmpty = isStateEmpty(remoteSt);
+          if(!remoteEmpty && localEmpty){
+            chosen = { ...remoteSt, mode: 'synced', userId: uid };
+            applyStateToLocalStorage(chosen);
+          } else if(remoteEmpty && !localEmpty){
+            chosen = { ...localSt, mode: 'synced', userId: uid };
+          } else if(!remoteEmpty && !localEmpty){
+            const choice = await promptSyncChoice(localSt, remoteSt);
+            if(choice === 'cloud'){
+              chosen = { ...remoteSt, mode: 'synced', userId: uid };
+              applyStateToLocalStorage(chosen);
+            } else if(choice === 'local'){
+              chosen = { ...localSt, mode: 'synced', userId: uid };
+            } else {
+              chosen = mergeUserStates(localSt, remoteSt, uid);
+              applyStateToLocalStorage(chosen);
+            }
+          } else {
+            chosen = { ...localSt, mode: 'synced', userId: uid };
+          }
+        } else {
+          chosen = { ...localSt, mode: 'synced', userId: uid };
+        }
+
+        // Ensure we save the latest local collections
+        chosen.inventory = collectInventory();
+        chosen.dailyProgress = collectDailyProgress();
+        chosen.quests = collectQuestState();
+        chosen.welcomeQuest = collectWelcomeQuestState();
+        chosen.postWelcomeQuest = collectPostWelcomeQuestState();
+
+        await saveState(chosen);
+        try{ applyStateToLocalStorage(chosen); }catch(e){}
+        try{ if(typeof updateMissionProgress === 'function') updateMissionProgress(); }catch(e){}
+        try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
+        alert('✅ Connexion et synchronisation terminées.');
+      }catch(e){ 
+        alert('❌ Échec connexion:\n\n' + (e?.message || e));
+      }
+    }
+
+    async function logoutAndSync(){
+      try{
+        const auth = firebase?.auth?.();
+        if(!auth) return;
+        await auth.signOut();
+        const st = defaultUserState();
+        st.mode = 'local';
+        st.userId = null;
+        await saveState(st);
+        alert('✅ Déconnexion réussie. Vos données locales sont conservées.');
+      }catch(e){
+        alert('❌ Échec déconnexion:\n\n' + (e?.message || e));
+      }
+    }
+
+    function showSyncPopup(){
+      try{
+        if(document.getElementById('syncOverlay')) return;
+        
+        const db = window.__fabanki_firestore;
+        const auth = firebase?.auth?.();
+
+        // Check if Firebase is configured
+        if(!db || !auth){
+          alert('❌ La synchronisation n\'est pas disponible.\n\nLa configuration Firebase est manquante ou invalide.');
+          return;
+        }
+
+        const ov = document.createElement('div');
+        ov.id = 'syncOverlay';
+        ov.className = 'modal-overlay open';
+        ov.style.display = 'flex';
+        ov.style.alignItems = 'center';
+        ov.style.justifyContent = 'center';
+        ov.style.zIndex = '2500';
+
+        const m = document.createElement('div');
+        m.className = 'modal open';
+        m.setAttribute('role', 'dialog');
+        m.setAttribute('aria-modal', 'true');
+        m.style.maxWidth = '480px';
+        m.style.padding = '24px';
+
+        const h = document.createElement('h3');
+        h.textContent = '☁️ Synchronisation';
+        h.style.marginTop = '0';
+        h.style.marginBottom = '12px';
+        h.style.fontSize = '1.5rem';
+        m.appendChild(h);
+
+        // Check if user is already logged in
+        const currentUser = auth.currentUser;
+        
+        if(currentUser){
+          // User is logged in - show logged in state
+          const loggedInfo = document.createElement('div');
+          loggedInfo.style.padding = '16px';
+          loggedInfo.style.background = 'linear-gradient(135deg, #1e293b 0%, #334155 100%)';
+          loggedInfo.style.color = 'white';
+          loggedInfo.style.borderRadius = '8px';
+          loggedInfo.style.marginBottom = '16px';
+          loggedInfo.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+          
+          const emailLabel = document.createElement('div');
+          emailLabel.style.fontSize = '0.85rem';
+          emailLabel.style.opacity = '0.8';
+          emailLabel.textContent = 'Connecté en tant que';
+          emailLabel.style.marginBottom = '4px';
+          loggedInfo.appendChild(emailLabel);
+          
+          const emailText = document.createElement('div');
+          emailText.textContent = currentUser.email || 'Utilisateur connecté';
+          emailText.style.fontWeight = 'bold';
+          emailText.style.fontSize = '1.1rem';
+          emailText.style.color = '#60a5fa';
+          loggedInfo.appendChild(emailText);
+          
+          m.appendChild(loggedInfo);
+          
+          const syncInfo = document.createElement('div');
+          syncInfo.className = 'muted small';
+          syncInfo.style.marginBottom = '20px';
+          syncInfo.style.lineHeight = '1.5';
+          syncInfo.innerHTML = '✅ Vos progrès sont automatiquement synchronisés.<br>Connectez-vous sur un autre appareil pour retrouver vos données.';
+          m.appendChild(syncInfo);
+
+          const actions = document.createElement('div');
+          actions.style.display = 'flex';
+          actions.style.gap = '8px';
+          actions.style.justifyContent = 'flex-end';
+
+          const closeBtn = document.createElement('button');
+          closeBtn.className = 'secondary';
+          closeBtn.textContent = 'Fermer';
+          closeBtn.addEventListener('click', ()=> ov.remove());
+
+          const logoutBtn = document.createElement('button');
+          logoutBtn.textContent = 'Se déconnecter';
+          logoutBtn.style.background = 'var(--danger, #dc3545)';
+          logoutBtn.addEventListener('click', async ()=>{
+            if(confirm('Êtes-vous sûr de vouloir vous déconnecter ?')){
+              await logoutAndSync();
+              ov.remove();
+            }
+          });
+
+          actions.appendChild(closeBtn);
+          actions.appendChild(logoutBtn);
+          m.appendChild(actions);
+        } else {
+          // User is not logged in - show login form
+          const info = document.createElement('div');
+          info.className = 'muted small';
+          info.style.marginBottom = '16px';
+          info.style.lineHeight = '1.5';
+          info.textContent = 'Connectez-vous ou créez un compte pour synchroniser vos progrès sur tous vos appareils.';
+          m.appendChild(info);
+
+          const form = document.createElement('div');
+          form.style.display = 'grid';
+          form.style.gridTemplateColumns = '1fr';
+          form.style.gap = '12px';
+
+          const email = document.createElement('input');
+          email.id = 'syncEmail';
+          email.name = 'email';
+          email.type = 'email';
+          email.placeholder = 'Email';
+          email.style.padding = '12px';
+          email.style.fontSize = '1rem';
+          email.style.borderRadius = '8px';
+          email.style.border = '1px solid var(--border, #ddd)';
+          email.required = true;
+          email.autocomplete = 'email';
+          form.appendChild(email);
+
+          const passWrap = document.createElement('div');
+          passWrap.style.display = 'flex';
+          passWrap.style.gap = '8px';
+
+          const password = document.createElement('input');
+          password.id = 'syncPassword';
+          password.name = 'password';
+          password.type = 'password';
+          password.placeholder = 'Mot de passe (min 6 caractères)';
+          password.style.padding = '12px';
+          password.style.fontSize = '1rem';
+          password.style.flex = '1';
+          password.style.borderRadius = '8px';
+          password.style.border = '1px solid var(--border, #ddd)';
+          password.required = true;
+          password.autocomplete = 'current-password';
+          passWrap.appendChild(password);
+
+          const toggle = document.createElement('button');
+          toggle.className = 'secondary';
+          toggle.textContent = '👁️';
+          toggle.title = 'Afficher/Masquer';
+          toggle.style.padding = '12px 16px';
+          toggle.addEventListener('click', (e)=>{ e.preventDefault(); password.type = (password.type==='password'?'text':'password'); });
+          passWrap.appendChild(toggle);
+
+          form.appendChild(passWrap);
+
+          const status = document.createElement('div');
+          status.className = 'muted small';
+          status.style.minHeight = '20px';
+          status.style.color = 'var(--danger, #dc3545)';
+          status.style.fontWeight = '500';
+          form.appendChild(status);
+
+          m.appendChild(form);
+
+          const actions = document.createElement('div');
+          actions.style.display = 'flex';
+          actions.style.gap = '8px';
+          actions.style.justifyContent = 'space-between';
+          actions.style.marginTop = '20px';
+
+          const closeBtn = document.createElement('button');
+          closeBtn.className = 'secondary';
+          closeBtn.textContent = 'Fermer';
+
+          const btnGroup = document.createElement('div');
+          btnGroup.style.display = 'flex';
+          btnGroup.style.gap = '8px';
+
+          const createBtn = document.createElement('button');
+          createBtn.className = 'secondary';
+          createBtn.textContent = 'Créer un compte';
+          
+          const loginBtn = document.createElement('button');
+          loginBtn.textContent = 'Se connecter';
+
+          function setBusy(b){ 
+            createBtn.disabled=b; 
+            loginBtn.disabled=b; 
+            email.disabled=b; 
+            password.disabled=b; 
+            toggle.disabled=b;
+            closeBtn.disabled=b;
+          }
+          
+          function validate(){
+            const em = (email.value||'').trim();
+            const pw = (password.value||'').trim();
+            if(!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { status.textContent = '⚠️ Email invalide'; return null; }
+            if(!pw || pw.length < 6){ status.textContent = '⚠️ Mot de passe trop court (min 6 caractères)'; return null; }
+            status.textContent = '';
+            return { em, pw };
+          }
+
+          createBtn.addEventListener('click', async ()=>{
+            const v = validate(); if(!v) return; 
+            setBusy(true); 
+            status.textContent = '⏳ Création du compte...';
+            status.style.color = 'var(--muted)';
+            try{
+              await createAccountAndSync(v.em, v.pw);
+              ov.remove();
+            }catch(e){ 
+              status.textContent = '❌ ' + (e?.message||e);
+              status.style.color = 'var(--danger, #dc3545)';
+            } finally { 
+              setBusy(false);
+            }
+          });
+
+          loginBtn.addEventListener('click', async ()=>{
+            const v = validate(); if(!v) return; 
+            setBusy(true); 
+            status.textContent = '⏳ Connexion...';
+            status.style.color = 'var(--muted)';
+            try{
+              await loginAndSync(v.em, v.pw);
+              ov.remove();
+            }catch(e){ 
+              status.textContent = '❌ ' + (e?.message||e);
+              status.style.color = 'var(--danger, #dc3545)';
+            } finally { 
+              setBusy(false);
+            }
+          });
+
+          closeBtn.addEventListener('click', ()=> ov.remove());
+          ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
+
+          btnGroup.appendChild(createBtn);
+          btnGroup.appendChild(loginBtn);
+          actions.appendChild(closeBtn);
+          actions.appendChild(btnGroup);
+          m.appendChild(actions);
+
+          // Focus email by default
+          setTimeout(()=> email.focus(), 50);
+        }
+
+        ov.appendChild(m);
+        document.body.appendChild(ov);
+      }catch(e){ 
+        alert('❌ Erreur lors de l\'affichage du formulaire:\n\n' + (e?.message || String(e)));
+      }
+    }
+
+    // Debounced snapshot + save on important local changes
+    let __saveTimer = null;
+    let __isSaving = false;
+    function scheduleSave(){
+      try{
+        if(__isSaving) return; // Prevent loop during save
+        if(__saveTimer) clearTimeout(__saveTimer);
+        __saveTimer = setTimeout(async ()=>{
+          __isSaving = true;
+          try{
+            const st = defaultUserState();
+            await saveState(st);
+          } finally {
+            __isSaving = false;
+          }
+        }, 800);
+      }catch(e){}
+    }
+
+    // Monkey-patch localStorage.setItem to schedule sync without touching existing logic
+    (function(){
+      try{
+        const origSet = localStorage.setItem.bind(localStorage);
+        localStorage.setItem = function(key, value){
+          origSet(key, value);
+          // Schedule save on our keys (but not during an active save)
+          if(!__isSaving && (/^fabanki:/.test(key) || key === 'pseudo')){ scheduleSave(); }
+        };
+      }catch(e){ /* ignore */ }
+    })();
+
+    // Wire up Sync button
+    const syncBtn = document.getElementById('syncBtn');
+    if(syncBtn){
+      syncBtn.addEventListener('click', ()=>{ 
+        try{
+          showSyncPopup();
+        }catch(err){
+          console.error('Sync button click error:', err);
+          alert('❌ Erreur lors de l\'ouverture du formulaire de synchronisation:\n\n' + (err?.message || String(err)));
+        }
+      });
+    }
+
+    // Initialize on startup
+    initUserState();
+    // Check and ask for daily goal if not set
+    if(!getDailyGoal()){
+      setTimeout(() => {
+        try{ if(typeof showDailyGoalDialog === 'function') showDailyGoalDialog(); }catch(e){}
+      }, 1500);
+    }
+    // Note: restoreFromCloud() is now called by initializeDeckLoader() to ensure deck loads with restored data
+    // refresh periodically
+    setInterval(()=>{ try{ updateProfilePopupIfOpen(); }catch(e){} }, 30*1000);
+
+    // XP helpers
+    function getXpTotal(){ return Number(localStorage.getItem('fabanki:xp_total') || 0); }
+    function applyXp(delta){
+      try{
+        let total = getXpTotal();
+        const prevLevel = computeLevelAndProgress(total).level;
+        if(delta < 0){ if(total <= 0) return 0; const remove = Math.min(total, Math.abs(delta)); total -= remove; localStorage.setItem('fabanki:xp_total', total); 
+          // Auto-sync after XP change
+          setTimeout(() => autoSync().catch(e => console.warn('autoSync failed:', e)), 100);
+          return -remove; 
+        }
+        total += delta; localStorage.setItem('fabanki:xp_total', total);
+        try{ resetWeeklyIfNeeded(); const curWeekXp = Number(localStorage.getItem('fabanki:xp_semaine') || 0) + Math.max(0, delta); localStorage.setItem('fabanki:xp_semaine', String(curWeekXp)); }catch(e){}
+        const newLevel = computeLevelAndProgress(total).level;
+        // If level increased, show notification
+        if(newLevel > prevLevel){
+          try{ showLevelUpNotification(newLevel, prevLevel); }catch(e){}
+          try{
+            let creditsToGrant = 0;
+            for(let lvl = prevLevel + 1; lvl <= newLevel; lvl++){
+              creditsToGrant += Math.floor(Math.pow(lvl, 0.8));
+            }
+            if(creditsToGrant > 0){
+              addCredits(creditsToGrant);
+              try{
+                const toast = document.createElement('div');
+                toast.style.position = 'fixed';
+                toast.style.bottom = '64px';
+                toast.style.left = '50%';
+                toast.style.transform = 'translateX(-50%)';
+                toast.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                toast.style.color = 'white';
+                toast.style.padding = '12px 18px';
+                toast.style.borderRadius = '10px';
+                toast.style.fontWeight = '700';
+                toast.style.zIndex = '9999';
+                toast.style.boxShadow = '0 8px 24px rgba(217, 119, 6, 0.35)';
+                toast.textContent = `+${creditsToGrant} crédits (niveau ${newLevel})`;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3500);
+              }catch(e){}
+            }
+          }catch(e){}
+        }
+        // Auto-sync after XP change
+        setTimeout(() => autoSync().catch(e => console.warn('autoSync failed:', e)), 100);
+        return delta;
+      }catch(e){ return 0 }
+    }
+
+    function getDeckSection(){
+      try{
+        const u = (deckURL || '').toLowerCase(); const t = (deck.title || '').toLowerCase();
+        const s = u || t;
+        if(!s) return '';
+        if(s.includes('math')) return 'maths';
+        if(s.includes('phys')) return 'physique';
+        if(s.includes('sciences') || s.includes('industri')) return 'si';
+        if(s.includes('informat')) return 'info';
+        if(s.includes('anglais')) return 'anglais';
+        if(s.includes('fran')) return 'francais';
+        return '';
+      }catch(e){ return '' }
+    }
+
+    // === CREDIT SYSTEM ===
+    function getCredits(){ return Number(localStorage.getItem('fabanki:credits') || 0); }
+    function addCredits(amount){
+      try{
+        if(amount === 0) return 0;
+        let currentCredits = getCredits();
+        let total = currentCredits + amount;
+        // Prevent negative balance
+        if(total < 0) total = 0;
+        localStorage.setItem('fabanki:credits', String(total));
+        // Auto-sync after credits change
+        setTimeout(() => autoSync().catch(e => console.warn('autoSync failed:', e)), 100);
+        return amount;
+      }catch(e){ return 0 }
+    }
+    
+    // === MISSIONS SYSTEM ===
+    const missionsData = {
+      daily: [
+        { id: 'study_20', name: 'Réviser 20 cartes aujourd\'hui', type: 'cards', target: 20, goal: 20, reward: { xp: 50, credits: 5 }, difficulty: 'easy' },
+        { id: 'session_1', name: 'Compléter une session d\'étude', type: 'sessions', target: 1, goal: 1, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
+        { id: 'accuracy_70', name: 'Atteindre 70% de précision', type: 'accuracy', target: 70, goal: 70, reward: { xp: 50, credits: 5 }, difficulty: 'easy' },
+        { id: 'study_10m', name: 'Réviser au moins 10 minutes', type: 'time', target: 10, goal: 10, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
+        { id: 'review_1', name: 'Réviser au moins un deck', type: 'decks', target: 1, goal: 1, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
+        { id: 'study_50', name: 'Réviser 50 cartes aujourd\'hui', type: 'cards', target: 50, goal: 50, reward: { xp: 100, credits: 10 }, difficulty: 'medium' },
+        { id: 'accuracy_80', name: 'Atteindre 80% de précision', type: 'accuracy', target: 80, goal: 80, reward: { xp: 120, credits: 12 }, difficulty: 'medium' },
+        { id: 'no_overdue', name: 'Terminer sans cartes en retard', type: 'overdue', target: 0, goal: 1, reward: { xp: 130, credits: 15 }, difficulty: 'medium' },
+        { id: 'session_2', name: 'Faire deux sessions séparées', type: 'sessions', target: 2, goal: 2, reward: { xp: 100, credits: 10 }, difficulty: 'medium' },
+        { id: 'backlog_20', name: 'Réduire le retard de 20%', type: 'backlog', target: 20, goal: 20, reward: { xp: 140, credits: 16 }, difficulty: 'medium' },
+        { id: 'study_100', name: 'Réviser 100 cartes aujourd\'hui', type: 'cards', target: 100, goal: 100, reward: { xp: 200, credits: 25 }, difficulty: 'hard' },
+        { id: 'accuracy_90', name: 'Atteindre 90% de précision', type: 'accuracy_high', target: 90, goal: 90, reward: { xp: 220, credits: 28 }, difficulty: 'hard' },
+        { id: 'perfect_day', name: 'Journée parfaite: 0 retard + 80%', type: 'perfect', target: 80, goal: 100, reward: { xp: 250, credits: 30 }, difficulty: 'hard' },
+        { id: 'study_45m', name: 'Réviser au moins 45 minutes', type: 'time', target: 45, goal: 45, reward: { xp: 220, credits: 25 }, difficulty: 'hard' },
+        { id: 'backlog_50', name: 'Réduire le retard de 50%', type: 'backlog', target: 50, goal: 50, reward: { xp: 260, credits: 32 }, difficulty: 'hard' }
+      ],
+      weekly: [
+        { id: 'study_4days', name: 'Réviser 4 jours différents', type: 'days_active', target: 4, goal: 4, reward: { xp: 300, credits: 30 }, difficulty: 'easy' },
+        { id: 'study_300', name: 'Réviser 300 cartes cette semaine', type: 'cards', target: 300, goal: 300, reward: { xp: 320, credits: 35 }, difficulty: 'easy' },
+        { id: 'accuracy_75w', name: 'Atteindre 75% de précision moyenne', type: 'avg_accuracy', target: 75, goal: 75, reward: { xp: 300, credits: 30 }, difficulty: 'easy' },
+        { id: 'no_overdue_3', name: 'Terminer 3 jours sans retard', type: 'perfect_days', target: 3, goal: 3, reward: { xp: 350, credits: 40 }, difficulty: 'easy' },
+        { id: 'study_6days', name: 'Réviser 6 jours différents', type: 'days_active', target: 6, goal: 6, reward: { xp: 500, credits: 60 }, difficulty: 'medium' },
+        { id: 'study_600', name: 'Réviser 600 cartes cette semaine', type: 'cards', target: 600, goal: 600, reward: { xp: 520, credits: 65 }, difficulty: 'medium' },
+        { id: 'accuracy_85w', name: 'Atteindre 85% de précision moyenne', type: 'avg_accuracy', target: 85, goal: 85, reward: { xp: 550, credits: 70 }, difficulty: 'medium' },
+        { id: 'backlog_50w', name: 'Réduire le retard de 50%', type: 'backlog', target: 50, goal: 50, reward: { xp: 580, credits: 75 }, difficulty: 'medium' },
+        { id: 'week_no_overdue', name: 'Terminer la semaine sans retard', type: 'overdue', target: 0, goal: 1, reward: { xp: 600, credits: 80 }, difficulty: 'medium' },
+        { id: 'study_7days', name: 'Réviser tous les jours', type: 'days_active', target: 7, goal: 7, reward: { xp: 700, credits: 100 }, difficulty: 'hard' },
+        { id: 'study_1000', name: 'Réviser 1 000 cartes', type: 'cards', target: 1000, goal: 1000, reward: { xp: 750, credits: 110 }, difficulty: 'hard' },
+        { id: 'accuracy_90w', name: 'Atteindre 90% de précision', type: 'avg_accuracy', target: 90, goal: 90, reward: { xp: 800, credits: 120 }, difficulty: 'hard' },
+        { id: 'consecutive_7', name: 'Zéro retard pendant 7 jours', type: 'consecutive_perfect', target: 7, goal: 7, reward: { xp: 850, credits: 130 }, difficulty: 'hard' },
+        { id: 'study_5h', name: 'Réviser au moins 5 heures', type: 'time', target: 300, goal: 300, reward: { xp: 780, credits: 115 }, difficulty: 'hard' }
+      ]
+    };
+
+    function showMissionsDebug(){
+      try{
+        const daily = JSON.parse(localStorage.getItem('fabanki:daily_missions') || '[]');
+        const weekly = JSON.parse(localStorage.getItem('fabanki:weekly_missions') || '[]');
+        const dailySelected = JSON.parse(localStorage.getItem('fabanki:daily_selected_missions') || 'null');
+        const weeklySelected = JSON.parse(localStorage.getItem('fabanki:weekly_selected_missions') || 'null');
+        const missionsDate = localStorage.getItem('fabanki:missions_date') || null;
+        const payload = { missionsDate, dailySelected, weeklySelected, daily, weekly };
+
+        const existing = document.getElementById('missionsDebugOverlay');
+        if(existing) existing.remove();
+
+        const ov = document.createElement('div'); ov.id = 'missionsDebugOverlay'; ov.className = 'modal-overlay';
+        ov.style.display = 'flex'; ov.style.alignItems = 'center'; ov.style.justifyContent = 'center'; ov.style.zIndex = '9999';
+        const m = document.createElement('div'); m.className = 'modal'; m.style.maxWidth = '720px';
+        const t = document.createElement('h3'); t.textContent = 'Debug missions (quotidien & hebdo)'; t.style.margin = '0 0 12px 0';
+        const pre = document.createElement('pre');
+        pre.style.whiteSpace = 'pre-wrap'; pre.style.margin = '0'; pre.style.background = 'rgba(0,0,0,0.04)';
+        pre.style.padding = '12px'; pre.style.borderRadius = '8px'; pre.textContent = JSON.stringify(payload, null, 2);
+        const close = document.createElement('button'); close.className = 'secondary'; close.textContent = 'Fermer';
+        close.style.marginTop = '12px'; close.addEventListener('click', ()=> ov.remove());
+        m.appendChild(t); m.appendChild(pre); m.appendChild(close);
+        ov.appendChild(m); document.body.appendChild(ov);
+        ov.classList.add('open'); m.classList.add('open');
+        ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
+      }catch(e){ console.warn('missions debug error', e); }
+    }
+    
+    function initializeMissions(){
+      try{
+        const today = new Date().toISOString().split('T')[0];
+        const savedDate = localStorage.getItem('fabanki:missions_date');
+        
+        // Reset daily missions if date changed
+        if(savedDate !== today){
+          localStorage.setItem('fabanki:missions_date', today);
+          localStorage.setItem('fabanki:daily_missions', JSON.stringify(
+            missionsData.daily.map(m => ({ id: m.id, completed: false, progress: 0 }))
+          ));
+          // Reset daily selected missions
+          localStorage.removeItem('fabanki:daily_selected_missions');
+          // Reset backlog baseline for new day
+          localStorage.removeItem('fabanki:backlog_midnight_set_' + today);
+        }
+        
+        // Initialize weekly missions if needed
+        if(!localStorage.getItem('fabanki:weekly_missions')){
+          localStorage.setItem('fabanki:weekly_missions', JSON.stringify(
+            missionsData.weekly.map(m => ({ id: m.id, completed: false, progress: 0 }))
+          ));
+          // Reset weekly selected missions
+          localStorage.removeItem('fabanki:weekly_selected_missions');
+        }
+        
+        // Force initial mission progress update
+        setTimeout(() => {
+          updateMissionProgress();
+        }, 100);
+      }catch(e){ console.warn('initializeMissions error:', e) }
+    }
+    
+    function updateMissionProgress(){
+      try{
+        const stats = getProfileStats();
+        const dailyKey = 'fabanki:daily_missions';
+        const weeklyKey = 'fabanki:weekly_missions';
+        const dailyMissions = JSON.parse(localStorage.getItem(dailyKey) || '[]');
+        const weeklyMissions = JSON.parse(localStorage.getItem(weeklyKey) || '[]');
+        
+        // Get the currently selected/displayed missions
+        const dailySelectedIds = JSON.parse(localStorage.getItem('fabanki:daily_selected_missions') || 'null');
+        const weeklySelectedIds = JSON.parse(localStorage.getItem('fabanki:weekly_selected_missions') || 'null');
+        
+        // Helper to check if a mission is currently displayed
+        const isMissionDisplayed = (missionId, type) => {
+          const selectedIds = type === 'daily' ? dailySelectedIds : weeklySelectedIds;
+          if(!selectedIds) return false; // No missions selected yet
+          return Object.values(selectedIds).includes(missionId);
+        };
+        
+        // Helper to update a mission's progress
+        const updateMission = (missions, missionId, progress, type) => {
+          const mission = missions.find(m => m.id === missionId);
+          if(!mission) return false;
+          mission.progress = progress;
+          // Auto-complete if target reached AND mission is currently displayed
+          const missionData = [...missionsData.daily, ...missionsData.weekly].find(m => m.id === missionId);
+          const reachedTarget = missionData && progress >= missionData.target;
+          if(reachedTarget && !mission.completed){
+            mission.completed = true;
+
+            if(type === 'daily' && !mission.welcome_counted){
+              try{
+                const questState = initWelcomeQuest();
+                const part2Done = questState.part2.deck_opened && questState.part2.cards_50_reviewed && questState.part2.session_completed;
+                if(!part2Done){
+                  mission.welcome_counted = true;
+                } else {
+                const prevCount = Number(questState.dailyQuestsCompleted || 0);
+                if(prevCount < 3){
+                  questState.dailyQuestsCompleted = prevCount + 1;
+                  updateWelcomeQuest(questState);
+                  if(questState.dailyQuestsCompleted >= 3 && !questState.part3.three_daily_quests){
+                    completeWelcomeQuestMission('part3', 'three_daily_quests', 10);
+                  }
+                }
+                mission.welcome_counted = true;
+                }
+              }catch(e){ console.warn('welcome quest daily mission error', e); }
+            }
+
+            // Only award credits if this mission is currently displayed
+            if(isMissionDisplayed(missionId, type)){
+              if(!mission.rewards_given){
+                applyXp(missionData.reward.xp);
+                addCredits(missionData.reward.credits);
+                mission.rewards_given = true;
+                // Show toast
+                const toast = document.createElement('div');
+                toast.style.position = 'fixed';
+                toast.style.top = '50%';
+                toast.style.left = '50%';
+                toast.style.transform = 'translate(-50%, -50%)';
+                toast.style.background = '#22c55e';
+                toast.style.color = 'white';
+                toast.style.padding = '16px 32px';
+                toast.style.borderRadius = '8px';
+                toast.style.fontWeight = '600';
+                toast.style.zIndex = '9999';
+                toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                toast.textContent = 'Quête remplie: ' + missionData.name;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+              }
+            } else {
+              console.log('Mission completed but not displayed, no rewards:', missionId);
+            }
+          }
+          if(reachedTarget && mission.completed && type === 'daily' && !mission.welcome_counted){
+            try{
+              const questState = initWelcomeQuest();
+              const part2Done = questState.part2.deck_opened && questState.part2.cards_50_reviewed && questState.part2.session_completed;
+              if(!part2Done){
+                mission.welcome_counted = true;
+              } else {
+              const prevCount = Number(questState.dailyQuestsCompleted || 0);
+              if(prevCount < 3){
+                questState.dailyQuestsCompleted = prevCount + 1;
+                updateWelcomeQuest(questState);
+                if(questState.dailyQuestsCompleted >= 3 && !questState.part3.three_daily_quests){
+                  completeWelcomeQuestMission('part3', 'three_daily_quests', 10);
+                }
+              }
+              mission.welcome_counted = true;
+              }
+            }catch(e){ console.warn('welcome quest daily mission error', e); }
+          }
+          return true;
+        };
+        
+          // Get today's and this week's card counts
+        const now = new Date();
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        let todayCards = 0, weekCards = 0;
+        
+        for(const k of Object.keys(localStorage)){
+          if(!k.includes(':card:')) continue;
+          try{
+            const st = JSON.parse(localStorage.getItem(k) || '{}');
+            if(st && st.last){
+              const d = new Date(st.last);
+              if(d.toDateString() === now.toDateString()) todayCards++;
+              if(d >= weekStart) weekCards++;
+            }
+          }catch(e){}
+        }
+        
+        // Update daily missions with today's cards
+        updateMission(dailyMissions, 'study_20', todayCards, 'daily');
+        updateMission(dailyMissions, 'study_50', todayCards, 'daily');
+        updateMission(dailyMissions, 'study_100', todayCards, 'daily');
+        
+        // Update weekly missions with this week's cards
+        updateMission(weeklyMissions, 'study_300', weekCards, 'weekly');
+        updateMission(weeklyMissions, 'study_600', weekCards, 'weekly');
+        updateMission(weeklyMissions, 'study_1000', weekCards, 'weekly');
+        
+        // Update decks reviewed mission
+        try{
+          const decksReviewedToday = Number(localStorage.getItem('fabanki:decks_reviewed_today') || 0);
+          updateMission(dailyMissions, 'review_1', decksReviewedToday, 'daily');
+          console.log('[MISSION] Updating decks reviewed:', decksReviewedToday);
+        }catch(e){ console.warn('decks reviewed tracking error:', e) }
+
+        // Update session missions
+        try{
+          const sessionsToday = getSessionsCompletedToday();
+          updateMission(dailyMissions, 'session_1', sessionsToday, 'daily');
+          updateMission(dailyMissions, 'session_2', sessionsToday, 'daily');
+        }catch(e){ console.warn('session tracking error:', e) }
+        
+        // Update streak mission
+        const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
+        updateMission(dailyMissions, 'streak_7', Math.min(streakCount, 7), 'daily');
+        updateMission(weeklyMissions, 'consecutive_7', Math.min(streakCount, 7), 'weekly');
+        
+        // For time spent - track from review sessions
+        try{
+          // Time missions: convert seconds to minutes for comparison with mission targets
+          const timeSpentDaySec = Number(localStorage.getItem('fabanki:time_spent_today_sec') || 0);
+          const timeSpentDayMin = Math.floor(timeSpentDaySec / 60);
+          console.log('[MISSION] Daily time spent:', timeSpentDayMin, 'minutes (', timeSpentDaySec, 'seconds)');
+          updateMission(dailyMissions, 'study_10m', timeSpentDayMin, 'daily');
+          updateMission(dailyMissions, 'study_45m', timeSpentDayMin, 'daily');
+          
+          const timeSpentWeekSec = Number(localStorage.getItem('fabanki:time_spent_week_sec') || 0);
+          const timeSpentWeekMin = Math.floor(timeSpentWeekSec / 60);
+          console.log('[MISSION] Weekly time spent:', timeSpentWeekMin, 'minutes (', timeSpentWeekSec, 'seconds)');
+          updateMission(weeklyMissions, 'study_5h', timeSpentWeekMin, 'weekly');
+        }catch(e){ console.warn('[MISSION] Time tracking error:', e); }
+        
+        // For accuracy missions - calculate today's and week's accuracy
+        try{
+          // Today's accuracy
+          let todayCorrect = 0, todayTotal = 0;
+          for(const k of Object.keys(localStorage)){
+            if(!k.includes(':card:')) continue;
+            try{
+              const st = JSON.parse(localStorage.getItem(k) || '{}');
+              if(st && st.last){
+                const d = new Date(st.last);
+                if(d.toDateString() === now.toDateString()){
+                  todayTotal++;
+                  // Count as correct if last review was quality >= 3
+                  if(st.lastQuality && Number(st.lastQuality) >= 3) todayCorrect++;
+                }
+              }
+            }catch(e){}
+          }
+          const todayAccuracy = todayTotal > 0 ? Math.round((todayCorrect / todayTotal) * 100) : 0;
+          updateMission(dailyMissions, 'accuracy_70', todayAccuracy, 'daily');
+          updateMission(dailyMissions, 'accuracy_80', todayAccuracy, 'daily');
+          updateMission(dailyMissions, 'accuracy_90', todayAccuracy, 'daily');
+          
+          // Week's accuracy
+          let weekCorrect = 0, weekTotal = 0;
+          for(const k of Object.keys(localStorage)){
+            if(!k.includes(':card:')) continue;
+            try{
+              const st = JSON.parse(localStorage.getItem(k) || '{}');
+              if(st && st.last){
+                const d = new Date(st.last);
+                if(d >= weekStart){
+                  weekTotal++;
+                  if(st.lastQuality && Number(st.lastQuality) >= 3) weekCorrect++;
+                }
+              }
+            }catch(e){}
+          }
+          const weekAccuracy = weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : 0;
+          updateMission(weeklyMissions, 'accuracy_75w', weekAccuracy, 'weekly');
+          updateMission(weeklyMissions, 'accuracy_85w', weekAccuracy, 'weekly');
+          updateMission(weeklyMissions, 'accuracy_90w', weekAccuracy, 'weekly');
+        }catch(e){ console.warn('accuracy tracking error:', e) }
+        
+        // Track days active this week
+        try{
+          const activeDaysSet = new Set();
+          // Always count today as an active day since the user loaded the site
+          activeDaysSet.add(now.toDateString());
+          for(const k of Object.keys(localStorage)){
+            if(!k.includes(':card:')) continue;
+            try{
+              const st = JSON.parse(localStorage.getItem(k) || '{}');
+              if(st && st.last){
+                const d = new Date(st.last);
+                if(d >= weekStart && d.toDateString() !== now.toDateString()){
+                  // Add past days from this week (today already added)
+                  activeDaysSet.add(d.toDateString());
+                }
+              }
+            }catch(e){}
+          }
+          const daysActive = activeDaysSet.size;
+          updateMission(weeklyMissions, 'study_4days', daysActive, 'weekly');
+          updateMission(weeklyMissions, 'study_6days', daysActive, 'weekly');
+          updateMission(weeklyMissions, 'study_7days', daysActive, 'weekly');
+        }catch(e){ console.warn('days active tracking error:', e) }
+        
+        // For backlog reduction missions - set baseline at midnight
+        try{
+          // Count current overdue cards
+          let currentOverdue = 0;
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          
+          for(const k of Object.keys(localStorage)){
+            if(!k.includes(':card:')) continue;
+            try{
+              const st = JSON.parse(localStorage.getItem(k) || '{}');
+              if(st && st.due){
+                const due = new Date(st.due);
+                if(due < todayStart) currentOverdue++;
+              }
+            }catch(e){}
+          }
+          
+          // Get or set initial overdue count at midnight (00:00)
+          const initialKey = 'fabanki:backlog_initial_' + new Date().toISOString().split('T')[0];
+          let initialOverdue = Number(localStorage.getItem(initialKey) || 0);
+          
+          // Set baseline at midnight if not set
+          const midnightCheckKey = 'fabanki:backlog_midnight_set_' + new Date().toISOString().split('T')[0];
+          if(!localStorage.getItem(midnightCheckKey)){
+            // First check after midnight - set baseline
+            initialOverdue = currentOverdue;
+            localStorage.setItem(initialKey, String(initialOverdue));
+            localStorage.setItem(midnightCheckKey, 'true');
+          }
+          
+          // Calculate reduction percentage
+          const reductionPercent = initialOverdue > 0 ? Math.round(((initialOverdue - currentOverdue) / initialOverdue) * 100) : 0;
+          
+          // Update backlog missions with the reduction percentage
+          updateMission(dailyMissions, 'backlog_20', Math.max(0, reductionPercent), 'daily');
+          updateMission(dailyMissions, 'backlog_50', Math.max(0, reductionPercent), 'daily');
+          updateMission(weeklyMissions, 'backlog_50w', Math.max(0, reductionPercent), 'weekly');
+        }catch(e){ console.warn('backlog tracking error:', e) }
+        
+        // Check for no overdue cards missions
+        try{
+          let hasOverdue = false;
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          
+          for(const k of Object.keys(localStorage)){
+            if(!k.includes(':card:')) continue;
+            try{
+              const st = JSON.parse(localStorage.getItem(k) || '{}');
+              if(st && st.due){
+                const due = new Date(st.due);
+                if(due < todayStart){ hasOverdue = true; break; }
+              }
+            }catch(e){}
+          }
+          
+          // Update no_overdue missions (target is 0 overdue = complete when hasOverdue is false)
+          if(!hasOverdue){
+            updateMission(dailyMissions, 'no_overdue', 1, 'daily');
+            updateMission(weeklyMissions, 'week_no_overdue', 1, 'weekly');
+          }
+        }catch(e){ console.warn('overdue check error:', e) }
+        
+        // Save updated missions
+        localStorage.setItem(dailyKey, JSON.stringify(dailyMissions));
+        localStorage.setItem(weeklyKey, JSON.stringify(weeklyMissions));
+      }catch(e){ console.warn('updateMissionProgress error:', e) }
+    }
+    
+    function getMissions(type = 'daily'){
+      try{
+        initializeMissions();
+        updateMissionProgress(); // Auto-update progress based on stats
+        const key = type === 'daily' ? 'fabanki:daily_missions' : 'fabanki:weekly_missions';
+        const saved = JSON.parse(localStorage.getItem(key) || '[]');
+        const data = type === 'daily' ? missionsData.daily : missionsData.weekly;
+        
+        return data.map(mission => {
+          const completedData = saved.find(s => s.id === mission.id);
+          return { ...mission, completed: completedData?.completed || false, progress: completedData?.progress || 0 };
+        });
+      }catch(e){ return [] }
+    }
+
+    function ensureSelectedMissions(type = 'daily'){
+      try{
+        const key = type === 'daily' ? 'fabanki:daily_selected_missions' : 'fabanki:weekly_selected_missions';
+        let selected = JSON.parse(localStorage.getItem(key) || 'null');
+        if(!Array.isArray(selected) || selected.length === 0){
+          const allMissions = type === 'daily' ? missionsData.daily : missionsData.weekly;
+          const easy = allMissions.filter(m => m.difficulty === 'easy');
+          const medium = allMissions.filter(m => m.difficulty === 'medium');
+          const hard = allMissions.filter(m => m.difficulty === 'hard');
+          const picks = [];
+          // Pick 1 random easy, 1 medium, 1 hard
+          if(easy.length > 0) picks.push(easy[Math.floor(Math.random() * easy.length)].id);
+          if(medium.length > 0) picks.push(medium[Math.floor(Math.random() * medium.length)].id);
+          if(hard.length > 0) picks.push(hard[Math.floor(Math.random() * hard.length)].id);
+          localStorage.setItem(key, JSON.stringify(picks));
+          selected = picks;
+        }
+        return selected;
+      }catch(e){ return []; }
+    }
+
+    function getDisplayedMissions(type = 'daily'){
+      try{
+        const selectedIds = ensureSelectedMissions(type);
+        const all = getMissions(type);
+        return selectedIds.map(id => all.find(m => m.id === id)).filter(Boolean);
+      }catch(e){ return []; }
+    }
+
+    function renderWelcomeMissionsCard(){
+      try{
+        const daily = getDisplayedMissions('daily');
+        const weekly = getDisplayedMissions('weekly');
+        if(daily.length === 0 && weekly.length === 0) return null;
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.marginBottom = '12px';
+
+        const title = document.createElement('h2');
+        title.textContent = 'Missions Quotidiennes & Hebdomadaires';
+        title.style.margin = '6px 0 12px 0';
+        title.style.color = 'var(--muted)';
+        card.appendChild(title);
+
+        const tabs = document.createElement('div');
+        tabs.style.display = 'grid';
+        tabs.style.gridTemplateColumns = '1fr 1fr';
+        tabs.style.gap = '8px';
+        tabs.style.marginBottom = '10px';
+
+        const dailyBtn = document.createElement('button');
+        dailyBtn.textContent = '📅 Quotidienne';
+        const weeklyBtn = document.createElement('button');
+        weeklyBtn.textContent = '📊 Hebdomadaire';
+
+        [dailyBtn, weeklyBtn].forEach(btn => {
+          btn.className = 'secondary';
+          btn.style.padding = '10px 12px';
+          btn.style.borderRadius = '10px';
+          btn.style.fontWeight = '700';
+        });
+
+        tabs.appendChild(dailyBtn);
+        tabs.appendChild(weeklyBtn);
+        card.appendChild(tabs);
+
+        const progressRow = document.createElement('div');
+        progressRow.style.display = 'flex';
+        progressRow.style.alignItems = 'center';
+        progressRow.style.gap = '10px';
+        progressRow.style.marginBottom = '10px';
+
+        const progressLabel = document.createElement('div');
+        progressLabel.style.fontWeight = '700';
+        progressLabel.style.color = '#6b7280';
+        progressLabel.textContent = 'Progression';
+
+        const progressBar = document.createElement('div');
+        progressBar.style.flex = '1';
+        progressBar.style.height = '10px';
+        progressBar.style.background = '#e5e7eb';
+        progressBar.style.borderRadius = '999px';
+
+        const progressFill = document.createElement('div');
+        progressFill.style.height = '100%';
+        progressFill.style.width = '0%';
+        progressFill.style.background = '#5b3df6';
+        progressFill.style.borderRadius = '999px';
+        progressBar.appendChild(progressFill);
+
+        const progressCount = document.createElement('div');
+        progressCount.style.fontWeight = '700';
+
+        progressRow.appendChild(progressLabel);
+        progressRow.appendChild(progressBar);
+        progressRow.appendChild(progressCount);
+        card.appendChild(progressRow);
+
+        const list = document.createElement('div');
+        list.style.display = 'flex';
+        list.style.flexDirection = 'column';
+        list.style.gap = '10px';
+        list.style.maxHeight = '360px';
+        list.style.overflowY = 'auto';
+        list.style.paddingRight = '6px';
+        card.appendChild(list);
+
+        const setActiveTab = (type) => {
+          const isDaily = type === 'daily';
+          dailyBtn.style.background = isDaily ? '#5b3df6' : '#f3f4f6';
+          dailyBtn.style.color = isDaily ? '#fff' : '#111';
+          weeklyBtn.style.background = !isDaily ? '#5b3df6' : '#f3f4f6';
+          weeklyBtn.style.color = !isDaily ? '#fff' : '#111';
+
+          const missions = isDaily ? daily : weekly;
+          const completed = missions.filter(m => m.completed).length;
+          const total = missions.length || 1;
+          const pct = Math.round((completed / total) * 100);
+          progressFill.style.width = `${pct}%`;
+          progressCount.textContent = `${completed}/${missions.length}`;
+
+          list.innerHTML = '';
+          for(const m of missions){
+            const row = document.createElement('div');
+            row.style.padding = '10px 12px';
+            row.style.borderRadius = '10px';
+            row.style.background = '#fff';
+            row.style.boxShadow = '0 1px 6px rgba(0,0,0,0.06)';
+
+            const name = document.createElement('div');
+            name.textContent = m.name;
+            name.style.fontWeight = '700';
+            name.style.marginBottom = '6px';
+            name.style.textDecoration = m.completed ? 'line-through' : 'none';
+            name.style.color = m.completed ? '#6b7280' : '#111';
+
+            const bar = document.createElement('div');
+            bar.style.height = '8px';
+            bar.style.background = '#eef0f4';
+            bar.style.borderRadius = '999px';
+
+            const fill = document.createElement('div');
+            const target = Number(m.target || 0) || 1;
+            const cur = Math.min(Number(m.progress || 0), target);
+            const pctItem = Math.round((cur / target) * 100);
+            fill.style.height = '100%';
+            fill.style.width = `${m.completed ? 100 : pctItem}%`;
+            fill.style.background = '#5b3df6';
+            fill.style.borderRadius = '999px';
+            bar.appendChild(fill);
+
+            const meta = document.createElement('div');
+            meta.className = 'muted small';
+            meta.style.marginTop = '6px';
+            meta.textContent = `${cur}/${target} • +${m.reward?.xp || 0} XP, +${m.reward?.credits || 0} ℂ`;
+
+            row.appendChild(name);
+            row.appendChild(bar);
+            row.appendChild(meta);
+            list.appendChild(row);
+          }
+        };
+
+        dailyBtn.addEventListener('click', () => setActiveTab('daily'));
+        weeklyBtn.addEventListener('click', () => setActiveTab('weekly'));
+
+        setActiveTab('daily');
+        return card;
+      }catch(e){ return null; }
+    }
+    
+    function completeMission(missionId, type = 'daily'){
+      try{
+        // Only grant rewards if mission is in the displayed list
+        const selectedMissions = ensureSelectedMissions(type);
+        if(!selectedMissions.includes(missionId)){
+          console.warn('Mission', missionId, 'not displayed, skipping reward');
+          return;
+        }
+        
+        const key = type === 'daily' ? 'fabanki:daily_missions' : 'fabanki:weekly_missions';
+        const missions = JSON.parse(localStorage.getItem(key) || '[]');
+        const mission = missions.find(m => m.id === missionId);
+        if(!mission) return;
+        
+        mission.completed = true;
+        localStorage.setItem(key, JSON.stringify(missions));
+        
+        // Grant rewards
+        const missionData = missionsData[type].find(m => m.id === missionId);
+        if(missionData && !mission.rewards_given){
+          applyXp(missionData.reward.xp);
+          addCredits(missionData.reward.credits);
+          mission.rewards_given = true;
+          localStorage.setItem(key, JSON.stringify(missions));
+          
+          // Track welcome quest daily quest completion
+          if(type === 'daily'){
+            try{
+              if(typeof updateWelcomeQuest === 'function'){
+                const questState = initWelcomeQuest();
+                const part2Done = questState.part2.deck_opened && questState.part2.cards_50_reviewed && questState.part2.session_completed;
+                if(part2Done){
+                  questState.dailyQuestsCompleted = (questState.dailyQuestsCompleted || 0) + 1;
+                  updateWelcomeQuest(questState);
+                  
+                  // Check if 3 daily quests completed
+                  if(questState.dailyQuestsCompleted >= 3 && !questState.part3.three_daily_quests){
+                    completeWelcomeQuestMission('part3', 'three_daily_quests', 10);
+                  }
+                }
+              }
+            }catch(e){ console.warn('welcome quest daily mission error', e); }
+          }
+        }
+      }catch(e){ console.warn('completeMission error:', e) }
+    }
+    
+    function getMissionCompletionStats(type = 'daily'){
+      try{
+        const missions = getMissions(type);
+        const difficulties = { easy: 0, medium: 0, hard: 0 };
+        const completed = { easy: 0, medium: 0, hard: 0 };
+        
+        missions.forEach(m => {
+          difficulties[m.difficulty]++;
+          if(m.completed) completed[m.difficulty]++;
+        });
+        
+        return {
+          easy: { completed: completed.easy, total: difficulties.easy, pct: difficulties.easy > 0 ? Math.round((completed.easy / difficulties.easy) * 100) : 0 },
+          medium: { completed: completed.medium, total: difficulties.medium, pct: difficulties.medium > 0 ? Math.round((completed.medium / difficulties.medium) * 100) : 0 },
+          hard: { completed: completed.hard, total: difficulties.hard, pct: difficulties.hard > 0 ? Math.round((completed.hard / difficulties.hard) * 100) : 0 }
+        };
+      }catch(e){ return { easy: { completed: 0, total: 0, pct: 0 }, medium: { completed: 0, total: 0, pct: 0 }, hard: { completed: 0, total: 0, pct: 0 } } }
+    }
+
+    // --- CUSTOMIZATION MODAL ---
+    function showCustomizationModal() {
+      try {
+        // Remove any existing overlay first
+        const existing = document.getElementById('customizationOverlay');
+        if (existing) existing.remove();
+        
+    try{ window.debugMissions = showMissionsDebug; }catch(e){}
+        const overlay = document.createElement('div');
+        overlay.id = 'customizationOverlay';
+        overlay.className = 'customization-overlay';
+        overlay.style.display = 'flex';
+        
+        const modal = document.createElement('div');
+        modal.className = 'customization-modal';
+        
+        // Get current level for unlocking features
+        const stats = getProfileStats();
+        const currentLevel = computeLevelAndProgress(stats.xpTotal || 0).level;
+        
+        const title = document.createElement('h3');
+        title.textContent = 'Personnalisation du thème';
+        modal.appendChild(title);
+        
+        // Get current settings
+        const currentBgColor = localStorage.getItem('fabanki:bg_color') || '#f6f7fb';
+        const currentPattern = localStorage.getItem('fabanki:bg_pattern') || 'none';
+        const currentFont = localStorage.getItem('fabanki:font_family') || 'system';
+        const currentCardColor = localStorage.getItem('fabanki:card_color') || 'default';
+        const currentFontSize = localStorage.getItem('fabanki:font_size') || '1';
+        const currentAnimation = localStorage.getItem('fabanki:popup_animation') || 'none';
+        
+        // Background color section
+        const colorSection = document.createElement('div');
+        colorSection.className = 'customization-section';
+        const colorTitle = document.createElement('div');
+        colorTitle.className = 'customization-section-title';
+        colorTitle.textContent = 'Couleur de fond';
+        colorSection.appendChild(colorTitle);
+        
+        const colors = [
+          { name: 'Clair (défaut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
+          { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
+          { name: 'Vert', light: '#e8f5e9', dark: '#0d2818', level: 5 },
+          { name: 'Rose', light: '#fce4ec', dark: '#2a0e1f', level: 10, credit: 30 },
+          { name: 'Jaune', light: '#fffde7', dark: '#332d00', level: 10 },
+          { name: 'Pourpre', light: '#f3e5f5', dark: '#25071a', level: 15 },
+          { name: 'Indigo profond', light: '#d8d3f0', dark: '#1a0754', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_indigo') === 'true' },
+          { name: 'Cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 20, credit: 40 },
+          { name: 'Orange', light: '#ffe0b2', dark: '#2d1b0a', level: 20 },
+          { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 25, credit: 50 },
+          { name: 'Corail', light: '#ffebee', dark: '#382f2f', level: 25 },
+          { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 30 },
+          { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 30, credit: 60 },
+          { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 35 },
+          { name: 'Gradient Doré', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35, credit: 80 },
+          { name: 'Gradient Rose-Vert', light: 'linear-gradient(135deg, #f8bbd0 0%, #a5d6a7 100%)', dark: 'linear-gradient(135deg, #4a0e2a 0%, #1d3a1f 100%)', level: 40 },
+          { name: 'Gradient Prisma', light: 'linear-gradient(135deg, #e8f4f8 0%, #fce4ec 50%, #f3e5f5 100%)', dark: 'linear-gradient(135deg, #0a1a2e 0%, #2a0e1f 50%, #25071a 100%)', level: 45 },
+          { name: 'Gradient Bleu Royal', light: 'linear-gradient(135deg, #64b5f6 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0a2558 0%, #1a2a3a 100%)', level: 45 },
+          { name: 'Gradient Aurora', light: 'linear-gradient(135deg, #e0f2f1 0%, #fffde7 50%, #ffebee 100%)', dark: 'linear-gradient(135deg, #0d1816 0%, #332d00 50%, #2d0a0a 100%)', level: 48 },
+          { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
+          { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
+        ];
+        
+        const colorGrid = document.createElement('div');
+        colorGrid.className = 'color-grid';
+        
+        colors.forEach(color => {
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          const colorValue = isDark ? color.dark : color.light;
+          const currentCredits = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          const isPurchased = color.credit ? localStorage.getItem(`fabanki:market_color_${color.id}`) : true;
+          
+          // Check if locked by level or purchase requirement
+          const isLockedByLevel = color.level > currentLevel;
+          const isLockedByPurchase = color.credit && !isPurchased;
+          const isLockedByWelcome = color.special && !color.unlocked;
+          const isLocked = isLockedByLevel || isLockedByPurchase || isLockedByWelcome;
+          
+          const colorOption = document.createElement('div');
+          colorOption.className = 'color-option';
+          colorOption.style.backgroundColor = colorValue;
+          
+          // Set title with unlock requirement
+          if (isLocked) {
+            if (isLockedByWelcome) {
+              colorOption.title = `${color.name} - Terminez la quête de bienvenue`;
+            } else if (isLockedByLevel) {
+              colorOption.title = `${color.name} (Niveau ${color.level})`;
+            } else if (isLockedByPurchase) {
+              colorOption.title = `${color.name} - Achetez au Marché (${color.credit} ℂ)`;
+            }
+          } else {
+            colorOption.title = color.name;
+          }
+          
+          if (isLocked) {
+            colorOption.style.opacity = '0.4';
+            colorOption.style.cursor = 'not-allowed';
+            // Show lock with cost below
+            const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
+            const costHTML = isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${color.credit}ℂ</div>` : (isLockedByWelcome ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">Quête</div>` : '');
+            colorOption.innerHTML = lockHTML + costHTML;
+          }
+          
+          if (colorValue === currentBgColor) {
+            colorOption.classList.add('selected');
+          }
+          
+          if (!isLocked) {
+            colorOption.addEventListener('click', () => {
+              document.querySelectorAll('.color-option').forEach(c => c.classList.remove('selected'));
+              colorOption.classList.add('selected');
+              
+              // Deduct credits if needed
+              if (color.credit && currentCredits > 0) {
+                addCredits(-color.credit);
+              }
+              
+              localStorage.setItem('fabanki:bg_color', colorValue);
+              localStorage.setItem('fabanki:current_color_name', color.name);
+              applyCustomization();
+            });
+          }
+          
+          colorGrid.appendChild(colorOption);
+        });
+        
+        colorSection.appendChild(colorGrid);
+        modal.appendChild(colorSection);
+        
+        // Background pattern section
+        const patternSection = document.createElement('div');
+        patternSection.className = 'customization-section';
+        const patternTitle = document.createElement('div');
+        patternTitle.className = 'customization-section-title';
+        patternTitle.textContent = 'Motif de fond';
+        patternSection.appendChild(patternTitle);
+        
+        const patterns = [
+          { name: 'Aucun', id: 'none', pattern: 'none', level: 0 },
+          { name: 'Points', id: 'dots', pattern: 'radial-gradient(circle, rgba(0,0,0,0.05) 1px, transparent 1px)', level: 5 },
+          { name: 'Grille', id: 'grid', pattern: 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)', level: 10, credit: 25 },
+          { name: 'Rayures', id: 'stripes', pattern: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.02) 10px, rgba(0,0,0,0.02) 20px)', level: 15 },
+          { name: 'Zigzag', id: 'zigzag', pattern: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 2px, transparent 2px, transparent 8px)', level: 20 },
+          { name: 'Vagues', id: 'waves', pattern: 'repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.02) 0, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 40px)', level: 30, credit: 35 },
+          { name: 'Hexagone', id: 'hexagon', pattern: 'radial-gradient(circle at 20px 20px, rgba(0,0,0,0.04) 8px, transparent 8px)', level: 25 },
+          { name: 'Carrés', id: 'squares', pattern: 'linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.03))', level: 35, credit: 45 },
+          { name: 'Croix', id: 'cross', pattern: 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)', level: 28 },
+          { name: 'Chevrons', id: 'chevron', pattern: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.02), rgba(0,0,0,0.02) 2px, transparent 2px, transparent 8px, rgba(0,0,0,0.02) 8px, rgba(0,0,0,0.02) 10px, transparent 10px, transparent 16px)', level: 32, credit: 40 },
+          { name: 'Cercles', id: 'circles', pattern: 'radial-gradient(circle, rgba(0,0,0,0.05) 2px, transparent 2px)', level: 38 },
+          { name: 'Mailles', id: 'mesh', pattern: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px), repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px)', level: 22 },
+          { name: 'Losange', id: 'diamond', pattern: 'repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(0,0,0,0.04) 35px, rgba(0,0,0,0.04) 70px)', level: 24 },
+          { name: 'Spirale', id: 'spiral', pattern: 'repeating-conic-gradient(from 0deg at 50% 50%, rgba(0,0,0,0.02) 0deg 10deg, transparent 10deg 20deg)', level: 26 },
+          { name: 'Cible', id: 'target', pattern: 'radial-gradient(circle, rgba(0,0,0,0.06) 3px, transparent 3px, transparent 12px, rgba(0,0,0,0.03) 12px, transparent 12px)', level: 29 },
+          { name: 'Écailles', id: 'scales', pattern: 'radial-gradient(ellipse 100% 50% at 50% 0%, rgba(0,0,0,0.04) 50%, transparent 51%)', level: 31 },
+          { name: 'Feuilles', id: 'leaves', pattern: 'radial-gradient(ellipse 30% 60% at 20% 50%, rgba(0,0,0,0.03) 50%, transparent 51%)', level: 33 },
+          { name: 'Triangles', id: 'triangles', pattern: 'linear-gradient(135deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(225deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(315deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%)', level: 36 },
+          { name: 'Nid d\'abeille', id: 'honeycomb', pattern: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 10px)', level: 37 },
+          { name: 'Pluie', id: 'rain', pattern: 'repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px), repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(0,0,0,0.01) 8px, rgba(0,0,0,0.01) 16px)', level: 39 },
+          { name: 'Toile d\'araignée', id: 'web', pattern: 'repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 5deg, rgba(0,0,0,0.02) 5deg 10deg)', level: 41 },
+          { name: '42', id: 'fortytwo', pattern: `
+    repeating-linear-gradient(
+      45deg,
+      rgba(102,160,255,0.18) 0,
+      rgba(102,160,255,0.18) 2px,
+      transparent 2px,
+      transparent 24px
+    )
+  `, level: 42 },
+          { name: 'Topographie', id: 'hero_topography', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M0 60 Q30 40 60 60 T120 60' fill='none' stroke='%2399a' stroke-opacity='0.18' stroke-width='2'/><path d='M0 80 Q30 60 60 80 T120 80' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><path d='M0 40 Q30 20 60 40 T120 40' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/></svg>\")", level: 45, credit: 45 },
+          { name: 'Hexagones', id: 'hero_hex', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='90' viewBox='0 0 100 90'><path d='M25 5 L75 5 L95 45 L75 85 L25 85 L5 45 Z' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/></svg>\")", level: 50, credit: 50 },
+          { name: 'Circuit', id: 'hero_circuit', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 20 H60 V10 H110' fill='none' stroke='%2399a' stroke-opacity='0.16' stroke-width='2'/><path d='M10 80 H50 V110 H110' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><circle cx='60' cy='10' r='3' fill='%2399a' fill-opacity='0.25'/><circle cx='50' cy='110' r='3' fill='%2399a' fill-opacity='0.25'/><circle cx='60' cy='20' r='3' fill='%2399a' fill-opacity='0.2'/></svg>\")", level: 55, credit: 55 },
+          { name: 'Puzzle', id: 'hero_jigsaw', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 10 H50 V30 H70 V10 H110 V110 H70 V90 H50 V110 H10 Z' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/><circle cx='60' cy='30' r='6' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/></svg>\")", level: 60, credit: 60 },
+          { name: '42 Pattern 🎯', id: 'welcome42', pattern: 'url(css/42pattern.png)', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_42_pattern') === 'true' }
+        ];
+        
+        const patternGrid = document.createElement('div');
+        patternGrid.className = 'pattern-grid';
+        
+        patterns.forEach(p => {
+          const currentCredits = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          const isPurchased = p.credit ? localStorage.getItem(`fabanki:market_pattern_${p.id}`) : true;
+          const isLockedByLevel = p.level > currentLevel;
+          const isLockedByPurchase = p.credit && !isPurchased;
+          const isLockedByWelcome = p.special && !p.unlocked;
+          const isLocked = isLockedByLevel || isLockedByPurchase || isLockedByWelcome;
+          
+          const patternOption = document.createElement('div');
+          patternOption.className = 'pattern-option';
+          
+          // Set title with unlock requirement
+          if (isLocked) {
+            if (isLockedByWelcome) {
+              patternOption.title = `${p.name} - Terminez la quête de bienvenue`;
+            } else if (isLockedByLevel) {
+              patternOption.title = `${p.name} (Niveau ${p.level})`;
+            } else if (isLockedByPurchase) {
+              patternOption.title = `${p.name} - Achetez au Marché (${p.credit} ℂ)`;
+            }
+          } else {
+            patternOption.title = p.name;
+          }
+          
+          if (isLocked) {
+            patternOption.style.opacity = '0.4';
+            patternOption.style.cursor = 'not-allowed';
+            // Show lock with cost below
+            const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
+            const costHTML = isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${p.credit}ℂ</div>` : (isLockedByWelcome ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">Quête</div>` : '');
+            patternOption.innerHTML = lockHTML + costHTML;
+          } else {
+            if (p.pattern !== 'none') {
+              const bgColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#0f1115' : '#f6f7fb';
+              patternOption.style.backgroundImage = p.pattern;
+              patternOption.style.backgroundColor = bgColor;
+            }
+            patternOption.textContent = p.name;
+          }
+          
+          if (p.id === currentPattern) {
+            patternOption.classList.add('selected');
+          }
+          
+          if (!isLocked) {
+            patternOption.addEventListener('click', () => {
+              document.querySelectorAll('.pattern-option').forEach(c => c.classList.remove('selected'));
+              patternOption.classList.add('selected');
+              
+              localStorage.setItem('fabanki:bg_pattern', p.id);
+              applyCustomization();
+            });
+          }
+          
+          patternGrid.appendChild(patternOption);
+        });
+        
+        patternSection.appendChild(patternGrid);
+        modal.appendChild(patternSection);
+        
+        // Font section
+        const fontSection = document.createElement('div');
+        fontSection.className = 'customization-section';
+        const fontTitle = document.createElement('div');
+        fontTitle.className = 'customization-section-title';
+        fontTitle.textContent = 'Police de caractère';
+        fontSection.appendChild(fontTitle);
+        
+        const fonts = [
+          { name: 'Classique (défaut)', id: 'system', stack: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial', level: 0 },
+          { name: 'Élégant', id: 'elegant', stack: '"Georgia", "Times New Roman", serif', level: 5 },
+          { name: 'Moderne', id: 'modern', stack: '"Inter", "Helvetica", "Arial", sans-serif', level: 10, credit: 30 },
+          { name: 'Monospace', id: 'mono', stack: '"Courier New", "Monaco", monospace', level: 15 },
+          { name: 'Lisible', id: 'readable', stack: '"Trebuchet MS", sans-serif', level: 20 },
+          { name: 'Confortable', id: 'comfortable', stack: '"Segoe UI", "Tahoma", sans-serif', level: 25, credit: 35 },
+          { name: 'Minimaliste', id: 'minimal', stack: '"Helvetica Neue", "Arial", sans-serif', level: 30 },
+          { name: 'Littéraire', id: 'literary', stack: '"Cambria", "Palatino", serif', level: 35 },
+          { name: 'Futuriste', id: 'futuristic', stack: '"Trebuchet MS", "Lucida Grande", sans-serif', level: 40, credit: 50 },
+          { name: 'Manuscrit', id: 'script', stack: '"Comic Sans MS", "Brush Script MT", cursive', level: 45 }
+        ];
+        
+        const fontGrid = document.createElement('div');
+        fontGrid.className = 'font-grid';
+        
+        fonts.forEach(f => {
+          const currentCredits = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          const isPurchased = f.credit ? localStorage.getItem(`fabanki:market_font_${f.id}`) : true;
+          const isLockedByLevel = f.level > currentLevel;
+          const isLockedByPurchase = f.credit && !isPurchased;
+          const isLocked = isLockedByLevel || isLockedByPurchase;
+          
+          const fontOption = document.createElement('div');
+          fontOption.className = 'font-option';
+          
+          // Set title with unlock requirement
+          if (isLocked) {
+            if (isLockedByLevel) {
+              fontOption.title = `${f.name} (Niveau ${f.level})`;
+            } else if (isLockedByPurchase) {
+              fontOption.title = `${f.name} - Achetez au Marché (${f.credit} ℂ)`;
+            }
+          } else {
+            fontOption.title = f.name;
+          }
+          
+          fontOption.textContent = f.name;
+          fontOption.style.fontFamily = f.stack;
+          
+          if (isLocked) {
+            fontOption.style.opacity = '0.4';
+            fontOption.style.cursor = 'not-allowed';
+            // Show lock with cost below
+            const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
+            const costHTML = isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${f.credit}ℂ</div>` : '';
+            fontOption.innerHTML = lockHTML + costHTML;
+          }
+          
+          if (f.id === currentFont) {
+            fontOption.classList.add('selected');
+          }
+          
+          if (!isLocked) {
+            fontOption.addEventListener('click', () => {
+              document.querySelectorAll('.font-option').forEach(c => c.classList.remove('selected'));
+              fontOption.classList.add('selected');
+              
+              localStorage.setItem('fabanki:font_family', f.id);
+              localStorage.setItem('fabanki:font_stack', f.stack);
+              applyCustomization();
+            });
+          }
+          
+          fontGrid.appendChild(fontOption);
+        });
+        
+        fontSection.appendChild(fontGrid);
+        modal.appendChild(fontSection);
+        
+        // Font size section
+        const fontSizeSection = document.createElement('div');
+        fontSizeSection.className = 'customization-section';
+        const fontSizeTitle = document.createElement('div');
+        fontSizeTitle.className = 'customization-section-title';
+        fontSizeTitle.textContent = `Taille de police (${Math.round(currentFontSize * 100)}%)`;
+        fontSizeSection.appendChild(fontSizeTitle);
+        
+        const fontSizeContainer = document.createElement('div');
+        fontSizeContainer.style.display = 'flex';
+        fontSizeContainer.style.gap = '10px';
+        fontSizeContainer.style.alignItems = 'center';
+        fontSizeContainer.style.padding = '10px 0';
+        
+        const fontSizeSlider = document.createElement('input');
+        fontSizeSlider.type = 'range';
+        fontSizeSlider.min = '0.8';
+        fontSizeSlider.max = '1.5';
+        fontSizeSlider.step = '0.05';
+        fontSizeSlider.value = currentFontSize;
+        fontSizeSlider.style.flex = '1';
+        fontSizeSlider.style.cursor = 'pointer';
+        
+        const fontSizeValue = document.createElement('span');
+        fontSizeValue.textContent = `${Math.round(currentFontSize * 100)}%`;
+        fontSizeValue.style.minWidth = '50px';
+        fontSizeValue.style.textAlign = 'right';
+        
+        fontSizeSlider.addEventListener('input', (e) => {
+          const size = parseFloat(e.target.value);
+          localStorage.setItem('fabanki:font_size', size);
+          document.documentElement.style.setProperty('--font-size', size + 'rem');
+          fontSizeValue.textContent = `${Math.round(size * 100)}%`;
+          fontSizeTitle.textContent = `Taille de police (${Math.round(size * 100)}%)`;
+        });
+        
+        fontSizeContainer.appendChild(fontSizeSlider);
+        fontSizeContainer.appendChild(fontSizeValue);
+        fontSizeSection.appendChild(fontSizeContainer);
+        modal.appendChild(fontSizeSection);
+        
+        // Card color section
+        const cardColorSection = document.createElement('div');
+        cardColorSection.className = 'customization-section';
+        const cardColorTitle = document.createElement('div');
+        cardColorTitle.className = 'customization-section-title';
+        cardColorTitle.textContent = 'Couleur des cartes';
+        cardColorSection.appendChild(cardColorTitle);
+        
+        const cardColors = [
+          { name: 'Défaut', id: 'default', light: '#fff', dark: '#111319', level: 0 },
+          { name: 'Bleu clair', id: 'lightblue', light: '#e3f2fd', dark: '#1a2a3a', level: 5 },
+          { name: 'Vert clair', id: 'lightgreen', light: '#e8f5e9', dark: '#1b2d1f', level: 10 },
+          { name: 'Rose clair', id: 'lightpink', light: '#fce4ec', dark: '#3a1f2e', level: 15 },
+          { name: 'Amber', id: 'amber', light: '#fff8e1', dark: '#3a3000', level: 20 },
+          { name: 'Indigo', id: 'indigo', light: '#e8eaf6', dark: '#1a1535', level: 25 },
+          { name: 'Indigo profond', id: 'indigo_deep', light: '#d8d3f0', dark: '#1a0754', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_indigo') === 'true' },
+          { name: 'Cyan', id: 'cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 28 },
+          { name: 'Orange pâle', id: 'pale_orange', light: '#ffe0b2', dark: '#2d1b0a', level: 22 },
+          { name: 'Menthe', id: 'mint', light: '#e0f2f1', dark: '#0d1816', level: 30 },
+          { name: 'Lavande', id: 'lavender', light: '#f3e5f5', dark: '#2a0e3a', level: 32 },
+          { name: 'Pêche', id: 'peach', light: '#ffd7a8', dark: '#3a1f0a', level: 35 },
+          { name: 'Ciel', id: 'sky', light: '#b3e5fc', dark: '#0a3a4a', level: 38 },
+          { name: 'Turquoise', id: 'turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 40 },
+          { name: 'Or pâle', id: 'gold', light: '#ffecb3', dark: '#3d2d00', level: 42 },
+          { name: 'Vert sapin', id: 'fir', light: '#a5d6a7', dark: '#1d3a1f', level: 45 },
+          { name: 'Rose vif', id: 'hotpink', light: '#f8bbd0', dark: '#4a0e2a', level: 45 },
+          { name: 'Bleu royal', id: 'royal', light: '#64b5f6', dark: '#0a2558', level: 48 },
+          { name: 'Sunrise', id: 'sunrise', light: '#ffcc80', dark: '#4d2600', level: 50 },
+          { name: 'Gradient Océan', id: 'gradient_ocean', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 55 },
+          { name: 'Gradient Forêt', id: 'gradient_forest', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 55 }
+        ];
+        
+        const cardColorGrid = document.createElement('div');
+        cardColorGrid.className = 'color-grid';
+        
+        cardColors.forEach(color => {
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          const colorValue = isDark ? color.dark : color.light;
+          const isLockedByLevel = color.level > currentLevel;
+          const isLockedByWelcome = color.special && !color.unlocked;
+          const isLocked = isLockedByLevel || isLockedByWelcome;
+          
+          const cardColorOption = document.createElement('div');
+          cardColorOption.className = 'color-option';
+          cardColorOption.setAttribute('data-card-color-option', '1');
+          
+          // Handle gradient colors
+          if (colorValue.includes('gradient')) {
+            cardColorOption.style.backgroundImage = colorValue;
+            cardColorOption.style.backgroundColor = 'transparent';
+          } else {
+            cardColorOption.style.backgroundColor = colorValue;
+          }
+          
+          if(isLocked){
+            cardColorOption.title = isLockedByWelcome ? `${color.name} - Terminez la quête de bienvenue` : `${color.name} (Niveau ${color.level})`;
+          } else {
+            cardColorOption.title = color.name;
+          }
+          
+          if (isLocked) {
+            cardColorOption.style.opacity = '0.4';
+            cardColorOption.style.cursor = 'not-allowed';
+            cardColorOption.innerHTML = '<span style="font-size:1.5rem">🔒</span>' + (isLockedByWelcome ? '<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">Quête</div>' : '');
+          }
+          
+          if (colorValue === currentCardColor) {
+            cardColorOption.classList.add('selected');
+          }
+          
+          if (!isLocked) {
+            cardColorOption.addEventListener('click', () => {
+              document.querySelectorAll('[data-card-color-option]').forEach(c => c.classList.remove('selected'));
+              cardColorOption.classList.add('selected');
+              // Store the actual color value (light or dark depending on current theme)
+              localStorage.setItem('fabanki:card_color', colorValue);
+              localStorage.setItem('fabanki:current_card_color_name', color.name);
+              applyCustomization();
+            });
+          }
+          
+          cardColorOption.setAttribute('data-card-color-option', 'true');
+          cardColorGrid.appendChild(cardColorOption);
+        });
+        
+        cardColorSection.appendChild(cardColorGrid);
+        modal.appendChild(cardColorSection);
+        
+        // Card pattern section (super transparent patterns)
+        const cardPatternSection = document.createElement('div');
+        cardPatternSection.className = 'customization-section';
+        const cardPatternTitle = document.createElement('div');
+        cardPatternTitle.className = 'customization-section-title';
+        cardPatternTitle.textContent = 'Motif des cartes (très transparent)';
+        cardPatternSection.appendChild(cardPatternTitle);
+        
+        const cardPatterns = [
+          { name: 'Aucun', id: 'none', class: '', level: 0 },
+          { name: 'Points', id: 'dots', class: 'card-pattern-dots', level: 10 },
+          { name: 'Grille', id: 'grid', class: 'card-pattern-grid', level: 20 },
+          { name: 'Rayures', id: 'stripes', class: 'card-pattern-stripes', level: 30 },
+          { name: 'Zigzag', id: 'zigzag', class: 'card-pattern-zigzag', level: 40 },
+          { name: 'Vagues', id: 'waves', class: 'card-pattern-waves', level: 50 },
+          { name: 'Topographie', id: 'hero_topography', class: 'card-pattern-topography', level: 35, credit: 35 },
+          { name: 'Hexagones', id: 'hero_hex', class: 'card-pattern-hex', level: 40, credit: 40 },
+          { name: 'Circuit', id: 'hero_circuit', class: 'card-pattern-circuit', level: 50, credit: 50 },
+          { name: 'Puzzle', id: 'hero_jigsaw', class: 'card-pattern-jigsaw', level: 60, credit: 60 }
+        ];
+        
+        const cardPatternGrid = document.createElement('div');
+        cardPatternGrid.className = 'pattern-grid';
+        
+        cardPatterns.forEach(p => {
+          const isPurchased = p.credit ? localStorage.getItem(`fabanki:market_card_pattern_${p.id}`) : true;
+          const isLockedByLevel = p.level > currentLevel;
+          const isLockedByPurchase = p.credit && !isPurchased;
+          const isLocked = isLockedByLevel || isLockedByPurchase;
+          const patternOption = document.createElement('div');
+          patternOption.className = 'pattern-option ' + p.class;
+          patternOption.title = isLocked ? (isLockedByLevel ? `${p.name} (Niveau ${p.level})` : `${p.name} - Achetez au Marché (${p.credit} ℂ)`) : p.name;
+          
+          if (isLocked) {
+            patternOption.style.opacity = '0.4';
+            patternOption.style.cursor = 'not-allowed';
+            patternOption.innerHTML = '<span style="font-size:1.5rem">🔒</span>' + (isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${p.credit}ℂ</div>` : '');
+          } else {
+            patternOption.textContent = p.name;
+            patternOption.style.backgroundColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#111319' : '#fff';
+          }
+          
+          const currentCardPattern = localStorage.getItem('fabanki:card_pattern') || 'none';
+          if (p.id === currentCardPattern) {
+            patternOption.classList.add('selected');
+          }
+          
+          if (!isLocked) {
+            patternOption.addEventListener('click', () => {
+              document.querySelectorAll('.pattern-grid .pattern-option').forEach(c => c.classList.remove('selected'));
+              patternOption.classList.add('selected');
+              localStorage.setItem('fabanki:card_pattern', p.id);
+              applyCardPattern();
+            });
+          }
+          
+          cardPatternGrid.appendChild(patternOption);
+        });
+        
+        cardPatternSection.appendChild(cardPatternGrid);
+        modal.appendChild(cardPatternSection);
+        
+        // Animations section
+        const animationSection = document.createElement('div');
+        animationSection.className = 'customization-section';
+        const animationTitle = document.createElement('div');
+        animationTitle.className = 'customization-section-title';
+        animationTitle.textContent = 'Style d\'animations';
+        animationSection.appendChild(animationTitle);
+        
+        const animations = [
+          { name: 'Aucune', id: 'none', level: 0 },
+          { name: 'Fondu', id: 'fade', level: 5 },
+          { name: 'Glissade Bas', id: 'slidedown', level: 10 },
+          { name: 'Glissade Haut', id: 'slideup', level: 15 },
+          { name: 'Rebond', id: 'bounce', level: 20, credit: 25 },
+          { name: 'Rotation', id: 'rotate', level: 25 },
+          { name: 'Ressort', id: 'spring', level: 30, credit: 30 },
+          { name: 'Zoom', id: 'zoom', level: 35, credit: 35 },
+          { name: 'Flip', id: 'flip', level: 40, credit: 40 },
+          { name: 'Pulse', id: 'pulse', level: 45, credit: 45 },
+          { name: 'Wobble', id: 'wobble', level: 50, credit: 50 },
+          { name: 'Shake', id: 'shake', level: 55, credit: 55 }
+        ];
+        
+        const animationGrid = document.createElement('div');
+        animationGrid.className = 'animation-grid';
+        animationGrid.style.display = 'grid';
+        animationGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(100px, 1fr))';
+        animationGrid.style.gap = '8px';
+        animationGrid.style.marginTop = '8px';
+        
+        animations.forEach(anim => {
+          const currentCredits = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          const isPurchased = anim.credit ? localStorage.getItem(`fabanki:market_animation_${anim.id}`) : true;
+          const isLockedByLevel = anim.level > currentLevel;
+          const isLockedByPurchase = anim.credit && !isPurchased;
+          const isLocked = isLockedByLevel || isLockedByPurchase;
+          
+          const animOption = document.createElement('div');
+          animOption.className = 'animation-option';
+          animOption.style.padding = '8px';
+          animOption.style.borderRadius = '6px';
+          animOption.style.cursor = isLocked ? 'not-allowed' : 'pointer';
+          animOption.style.border = '2px solid transparent';
+          animOption.style.textAlign = 'center';
+          animOption.style.background = 'rgba(0,0,0,0.02)';
+          animOption.style.transition = 'all 0.2s';
+          
+          animOption.title = isLocked ? (isLockedByLevel ? `${anim.name} (Niveau ${anim.level})` : `${anim.name} - Achetez au Marché (${anim.credit} ℂ)`) : anim.name;
+          animOption.textContent = anim.name;
+          
+          if (isLocked) {
+            animOption.style.opacity = '0.4';
+            animOption.innerHTML = '<div style="font-size:1.5rem">🔒</div><div style="font-size:0.6rem;color:var(--muted);margin-top:2px">' + (isLockedByPurchase ? anim.credit + 'ℂ' : '') + '</div>';
+          }
+          
+          if (anim.id === currentAnimation) {
+            animOption.style.borderColor = 'var(--accent)';
+            animOption.style.background = 'rgba(102, 160, 255, 0.1)';
+          }
+          
+          if (!isLocked) {
+            animOption.addEventListener('click', () => {
+              document.querySelectorAll('.animation-option').forEach(opt => {
+                opt.style.borderColor = 'transparent';
+                opt.style.background = 'rgba(0,0,0,0.02)';
+              });
+              animOption.style.borderColor = 'var(--accent)';
+              animOption.style.background = 'rgba(102, 160, 255, 0.1)';
+              
+              localStorage.setItem('fabanki:popup_animation', anim.id);
+              applyCustomization();
+            });
+          }
+          
+          animationGrid.appendChild(animOption);
+        });
+        
+        animationSection.appendChild(animationGrid);
+        modal.appendChild(animationSection);
+        
+        // Action buttons
+        const actions = document.createElement('div');
+        actions.className = 'customization-actions';
+        
+        const resetBtn = document.createElement('button');
+        resetBtn.className = 'reset-btn';
+        resetBtn.textContent = 'Réinitialiser';
+        resetBtn.addEventListener('click', () => {
+          localStorage.removeItem('fabanki:bg_color');
+          localStorage.removeItem('fabanki:bg_pattern');
+          localStorage.removeItem('fabanki:font_family');
+          localStorage.removeItem('fabanki:font_stack');
+          applyCustomization();
+          overlay.remove();
+        });
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'close-btn';
+        closeBtn.textContent = 'Fermer';
+        closeBtn.addEventListener('click', () => overlay.remove());
+        
+        actions.appendChild(resetBtn);
+        actions.appendChild(closeBtn);
+        modal.appendChild(actions);
+        
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        
+        // Apply popup animation
+        try {
+          const anim = localStorage.getItem('fabanki:popup_animation') || 'none';
+          if(anim !== 'none') modal.setAttribute('data-animation', anim);
+        } catch(e) {}
+        
+        // Allow click outside to close
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) overlay.remove();
+        });
+        
+      } catch (e) {
+        console.warn('showCustomizationModal error:', e);
+      }
+    }
+    
+    function applyCustomization() {
+      try {
+        const root = document.documentElement;
+        const bgColor = localStorage.getItem('fabanki:bg_color');
+        const bgPattern = localStorage.getItem('fabanki:bg_pattern') || 'dots';
+        const fontFamily = localStorage.getItem('fabanki:font_stack');
+        
+        if (bgColor) {
+          root.style.setProperty('--bg', bgColor);
+        }
+        
+        // Apply background pattern
+        const patterns = {
+          'none': 'none',
+          'dots': 'radial-gradient(circle, rgba(0,0,0,0.05) 1px, transparent 1px)',
+          'grid': 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)',
+          'stripes': 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.02) 10px, rgba(0,0,0,0.02) 20px)',
+          'zigzag': 'repeating-linear-gradient(45deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 2px, transparent 2px, transparent 8px)',
+          'waves': 'repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.02) 0, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 40px)',
+          'hexagon': 'radial-gradient(circle at 20px 20px, rgba(0,0,0,0.04) 8px, transparent 8px)',
+          'squares': 'linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.03))',
+          'cross': 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)',
+          'chevron': 'repeating-linear-gradient(45deg, rgba(0,0,0,0.02), rgba(0,0,0,0.02) 2px, transparent 2px, transparent 8px, rgba(0,0,0,0.02) 8px, rgba(0,0,0,0.02) 10px, transparent 10px, transparent 16px)',
+          'circles': 'radial-gradient(circle, rgba(0,0,0,0.05) 2px, transparent 2px)',
+          'mesh': 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px), repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px)',
+          'diamond': 'repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(0,0,0,0.04) 35px, rgba(0,0,0,0.04) 70px)',
+          'spiral': 'repeating-conic-gradient(from 0deg at 50% 50%, rgba(0,0,0,0.02) 0deg 10deg, transparent 10deg 20deg)',
+          'target': 'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.04) 5px, transparent 5px, transparent 15px, rgba(0,0,0,0.02) 15px, transparent 15px)',
+          'scales': 'radial-gradient(ellipse 100% 50% at 50% 0%, rgba(0,0,0,0.04) 50%, transparent 51%)',
+          'leaves': 'radial-gradient(ellipse 30% 60% at 20% 50%, rgba(0,0,0,0.03) 50%, transparent 51%)',
+          'triangles': 'linear-gradient(135deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(225deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(315deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%)',
+          'honeycomb': 'repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 10px)',
+          'rain': 'repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px), repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(0,0,0,0.01) 8px, rgba(0,0,0,0.01) 16px)',
+          'web': 'repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 5deg, rgba(0,0,0,0.02) 5deg 10deg)',
+          'target': 'radial-gradient(circle, rgba(0,0,0,0.06) 3px, transparent 3px, transparent 12px, rgba(0,0,0,0.03) 12px, transparent 12px)',
+          'fortytwo': 'repeating-linear-gradient(45deg, transparent 0, transparent calc(50% - 8px), rgba(102,160,255,0.12) calc(50% - 8px), rgba(102,160,255,0.12) calc(50% + 8px), transparent calc(50% + 8px), transparent 100%)',
+          'hero_topography': "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M0 60 Q30 40 60 60 T120 60' fill='none' stroke='%2399a' stroke-opacity='0.18' stroke-width='2'/><path d='M0 80 Q30 60 60 80 T120 80' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><path d='M0 40 Q30 20 60 40 T120 40' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/></svg>\")",
+          'hero_hex': "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='90' viewBox='0 0 100 90'><path d='M25 5 L75 5 L95 45 L75 85 L25 85 L5 45 Z' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/></svg>\")",
+          'hero_circuit': "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 20 H60 V10 H110' fill='none' stroke='%2399a' stroke-opacity='0.16' stroke-width='2'/><path d='M10 80 H50 V110 H110' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><circle cx='60' cy='10' r='3' fill='%2399a' fill-opacity='0.25'/><circle cx='50' cy='110' r='3' fill='%2399a' fill-opacity='0.25'/><circle cx='60' cy='20' r='3' fill='%2399a' fill-opacity='0.2'/></svg>\")",
+          'hero_jigsaw': "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 10 H50 V30 H70 V10 H110 V110 H70 V90 H50 V110 H10 Z' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/><circle cx='60' cy='30' r='6' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/></svg>\")",
+          'welcome42': 'url(css/42pattern.png)'
+        };
+        
+        const body = document.body;
+        const html = document.documentElement;
+        body.style.backgroundImage = patterns[bgPattern] || patterns['dots'];
+        html.style.backgroundImage = patterns[bgPattern] || patterns['dots'];
+        
+        if (bgPattern !== 'none') {
+          const bgSize = bgPattern === 'grid' ? '4px 4px' : 
+                         bgPattern === 'dots' ? '4px 4px' :
+                         bgPattern === 'stripes' ? 'auto' :
+                         bgPattern === 'zigzag' ? 'auto' :
+                         bgPattern === 'waves' ? 'auto' :
+                         bgPattern === 'fortytwo' ? 'auto' :
+                         bgPattern === 'welcome42' ? 'auto' :
+                         bgPattern.startsWith('hero_') ? '120px 120px' :
+                         'auto';
+          body.style.backgroundSize = bgSize;
+          html.style.backgroundSize = bgSize;
+          body.style.backgroundAttachment = 'fixed';
+          html.style.backgroundAttachment = 'fixed';
+        }
+        
+        if (fontFamily) {
+          root.style.setProperty('--font', fontFamily);
+          document.body.style.fontFamily = fontFamily;
+        }
+        
+        // Apply font size
+        const fontSize = localStorage.getItem('fabanki:font_size') || '1';
+        root.style.setProperty('--font-size', fontSize + 'rem');
+        
+        // Apply card color - handle gradient and theme-aware colors
+        const cardColor = localStorage.getItem('fabanki:card_color');
+        if (cardColor) {
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          
+          // Check if it's a gradient (contains 'linear-gradient' or similar)
+          if (cardColor.includes('gradient')) {
+            // Gradient colors are theme-aware (light gradient at start, dark at end)
+            // Split by )/ pattern for dual gradients, otherwise use as-is
+            let appliedGradient = cardColor;
+            if (cardColor.includes(', light:') || cardColor.includes('), dark:')) {
+              // Parse light/dark gradient pairs if stored that way
+              const parts = cardColor.split('), ');
+              if (parts.length >= 2) {
+                appliedGradient = isDark ? parts[1] : parts[0];
+              }
+            }
+            root.style.setProperty('--card', appliedGradient);
+            document.querySelectorAll('.card').forEach(card => {
+              card.style.backgroundImage = appliedGradient;
+              card.style.backgroundColor = 'transparent';
+            });
+          } else {
+            // Solid color
+            root.style.setProperty('--card', cardColor);
+            document.querySelectorAll('.card').forEach(card => {
+              card.style.backgroundColor = cardColor;
+              card.style.backgroundImage = 'none';
+            });
+          }
+        }
+        
+        // Apply card patterns
+        applyCardPattern();
+        
+      } catch (e) {
+        console.warn('applyCustomization error:', e);
+      }
+    }
+    
+    // Load customization on page load and initialize theme properly
+    try {
+      // First ensure theme is properly set based on localStorage or user preference
+      const savedTheme = localStorage.getItem('fabanki:theme') || 'light';
+      const prefersLight = !window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = localStorage.getItem('fabanki:theme') || (prefersLight ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', theme);
+      const appEl = document.getElementById('app');
+      if (appEl) appEl.setAttribute('data-theme', theme);
+      
+      // Initialize missions system
+      initializeMissions();
+      
+      // Then apply customization
+      applyCustomization();
+      window.applyCustomization = applyCustomization;
+      window.showCustomizationModal = showCustomizationModal;
+    } catch (e) {}
+    
+    // Apply card pattern styling
+    function applyCardPattern() {
+      try {
+        const cardPattern = localStorage.getItem('fabanki:card_pattern') || 'none';
+        const cards = document.querySelectorAll('.card');
+        const patternClasses = ['card-pattern-dots', 'card-pattern-grid', 'card-pattern-stripes', 'card-pattern-zigzag', 'card-pattern-waves', 'card-pattern-topography', 'card-pattern-hex', 'card-pattern-circuit', 'card-pattern-jigsaw'];
+        
+        cards.forEach(card => {
+          // Remove all pattern classes
+          patternClasses.forEach(cls => card.classList.remove(cls));
+          
+          // Add the new pattern class
+          if (cardPattern !== 'none') {
+            const patternMap = {
+              'dots': 'card-pattern-dots',
+              'grid': 'card-pattern-grid',
+              'stripes': 'card-pattern-stripes',
+              'zigzag': 'card-pattern-zigzag',
+              'waves': 'card-pattern-waves',
+              'hero_topography': 'card-pattern-topography',
+              'hero_hex': 'card-pattern-hex',
+              'hero_circuit': 'card-pattern-circuit',
+              'hero_jigsaw': 'card-pattern-jigsaw'
+            };
+            if (patternMap[cardPattern]) {
+              card.classList.add(patternMap[cardPattern]);
+            }
+          }
+        });
+      } catch (e) {
+        console.warn('applyCardPattern error:', e);
+      }
+    }
+    window.applyCardPattern = applyCardPattern;
+
+    // --- SECURITY: Anti-cheat validation and data sanitization ---
+    // This prevents console-based injection attacks by validating all user data
+    // before storing to Firestore. Validates against reasonable game limits.
+    function sanitizeAndValidateUserData(rawData) {
+      try {
+        // Reasonable limits based on normal gameplay:
+        // - Max level ~60 (would require ~150k+ XP over months)
+        // - Max MPSI score ~5000 (computed from reasonable stats)
+        // - Max streak ~400 days (over a year)
+        // - Max cards reviewed ~50k (very active player over months)
+        
+        const MAX_LEVEL = 60;
+        const MAX_MPSI_SCORE = 5000;
+        const MAX_STREAK = 400;
+        const MAX_CARDS_REVIEWED = 50000;
+        const MAX_MASTERED = 50000;
+        const MAX_GOOD_ANSWERS = 100000;
+        const MAX_XP = 500000;
+        const MAX_XP_WEEK = 50000;
+        const MAX_XP_SCORE_WEEK = 5000;
+        const MAX_CONSECUTIVE_CORRECT = 1000;
+        const MAX_CONSECUTIVE_NO_PASS = 1000;
+        
+        const sanitized = {};
+        
+        // String fields: validate type and length
+        sanitized.Pseudo = String(rawData.Pseudo || 'Anonyme').slice(0, 50);
+        sanitized['Niveau Prépa'] = String(rawData['Niveau Prépa'] || 'Débutant').slice(0, 50);
+        sanitized.Selected_Title = String(rawData.Selected_Title || '').slice(0, 50);
+        
+        // Numeric fields: coerce to number, validate range, cap at max
+        const getValidNumber = (val, min = 0, max = Infinity) => {
+          let n = Number(val) || 0;
+          if (isNaN(n) || !isFinite(n)) n = 0;
+          return Math.max(min, Math.min(max, n));
+        };
+        
+        sanitized.XP = getValidNumber(rawData.XP, 0, MAX_XP);
+        sanitized.Niveau = getValidNumber(rawData.Niveau, 1, MAX_LEVEL);
+        sanitized['Cartes révisées'] = getValidNumber(rawData['Cartes révisées'], 0, MAX_CARDS_REVIEWED);
+        sanitized['Bonnes réponses'] = getValidNumber(rawData['Bonnes réponses'], 0, MAX_GOOD_ANSWERS);
+        sanitized['Ratés'] = getValidNumber(rawData['Ratés'], -1000, 100000);
+        sanitized['Passer'] = getValidNumber(rawData['Passer'], -1000, 100000);
+        sanitized['Streak_max'] = getValidNumber(rawData['Streak_max'], 0, MAX_STREAK);
+        sanitized['Streak_current'] = getValidNumber(rawData['Streak_current'], 0, MAX_STREAK);
+        sanitized['Daily_goal'] = getValidNumber(rawData['Daily_goal'], 0, 200);
+        sanitized['Cartes maîtrisées'] = getValidNumber(rawData['Cartes maîtrisées'], 0, MAX_MASTERED);
+        sanitized['Quêtes_quotidiennes'] = getValidNumber(rawData['Quêtes_quotidiennes'], 0, 20);
+        sanitized.Score_MPSI = getValidNumber(rawData.Score_MPSI, -10000, MAX_MPSI_SCORE);
+        sanitized.XP_semaine = getValidNumber(rawData.XP_semaine, 0, MAX_XP_WEEK);
+        sanitized.Score_MPSI_semaine = getValidNumber(rawData.Score_MPSI_semaine, -1000, MAX_XP_SCORE_WEEK);
+        sanitized.Score_MPSI_mois = getValidNumber(rawData.Score_MPSI_mois, -1000, MAX_XP_SCORE_WEEK);
+        
+        // Arrays: validate and sanitize
+        if (Array.isArray(rawData.Titres)) {
+          sanitized.Titres = rawData.Titres.slice(0, 50).filter(t => t && typeof t === 'object').map(t => ({
+            nom: String(t.nom || '').slice(0, 50),
+            tier: getValidNumber(t.tier, 0, 5)
+          }));
+        } else {
+          sanitized.Titres = [];
+        }
+        
+        if (Array.isArray(rawData.Objectifs)) {
+          sanitized.Objectifs = rawData.Objectifs.slice(0, 50).filter(o => typeof o === 'string').map(o => String(o).slice(0, 50));
+        } else {
+          sanitized.Objectifs = [];
+        }
+        
+        if (Array.isArray(rawData.Badges)) {
+          sanitized.Badges = rawData.Badges.slice(0, 10).filter(b => typeof b === 'string' && !b.toLowerCase().includes('cheat')).map(b => String(b).slice(0, 50));
+        } else {
+          sanitized.Badges = [];
+        }
+        
+        // ISO timestamp validation
+        sanitized['Dernière mise à jour'] = String(rawData['Dernière mise à jour'] || new Date().toISOString());
+        sanitized['Dernière synchronisation'] = String(rawData['Dernière synchronisation'] || new Date().toISOString());
+        
+        // IDs
+        sanitized.Semaine_ID = String(rawData.Semaine_ID || '');
+        sanitized.Mois_ID = String(rawData.Mois_ID || '');
+        
+        return sanitized;
+      } catch (e) {
+        console.warn('sanitizeAndValidateUserData error:', e);
+        return rawData; // fallback
+      }
+    }
+
+    // --- Pseudo & Leaderboard (cloud sync) ---
+    function generateUserId(){
+      try{ if(window.crypto && crypto.getRandomValues){ const a = new Uint8Array(16); crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join(''); } }catch(e){}
+      return 'u-' + Date.now() + '-' + Math.floor(Math.random()*100000);
+    }
+
+    function ensurePseudo(){
+      try{
+        // Detect if app is opened in external/embedded browser
+        const ua = navigator.userAgent || '';
+        const isEmbedded = ua.includes('Instagram') || ua.includes('FBAN') || ua.includes('FBAV') || 
+                          ua.includes('Snapchat') || ua.includes('Twitter') || ua.includes('Line');
+        
+        if(isEmbedded){
+          // Try to open in default browser
+          try{
+            window.open(window.location.href, '_system');
+          }catch(e){}
+          // Skip pseudo requirement for embedded browsers
+          return true;
+        }
+        
+        let p = localStorage.getItem('pseudo');
+        let uid = localStorage.getItem('userId');
+        if(!uid){ uid = generateUserId(); localStorage.setItem('userId', uid); }
+        if(!p){ showPseudoModal(); return false; }
+        return true;
+      }catch(e){ return false }
+    }
+
+    function showPseudoModal(){
+      try{
+        if(document.getElementById('pseudoOverlay')) return;
+        const ov = document.createElement('div'); ov.id='pseudoOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='2500';
+        const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='520px'; m.style.width='94%';
+        const h = document.createElement('h3'); h.textContent = "Bienvenue sur Fab'Anki"; h.style.marginBottom='8px'; m.appendChild(h);
+        const desc = document.createElement('p'); desc.textContent = "Choisissez comment commencer :"; desc.style.color='#666'; desc.style.fontSize='0.9em'; desc.style.marginBottom='16px'; m.appendChild(desc);
+        
+        // New user option
+        const newUserSection = document.createElement('div'); newUserSection.style.marginBottom='16px'; newUserSection.style.padding='12px'; newUserSection.style.border='1px solid #ddd'; newUserSection.style.borderRadius='8px';
+        const newUserTitle = document.createElement('h4'); newUserTitle.textContent = '🆕 Nouvel utilisateur'; newUserTitle.style.margin='0 0 8px 0'; newUserSection.appendChild(newUserTitle);
+        const inp = document.createElement('input'); inp.type='text'; inp.placeholder='Entre ton pseudo'; inp.style.width='100%'; inp.style.padding='8px'; inp.style.fontSize='1rem'; inp.style.marginBottom='8px';
+        newUserSection.appendChild(inp);
+        const btn = document.createElement('button'); btn.className='primary'; btn.textContent='Commencer'; btn.style.width='100%';
+        btn.addEventListener('click', ()=>{
+          const v = (inp.value || '').trim(); if(!v) return inp.focus();
+          localStorage.setItem('pseudo', v);
+          if(!localStorage.getItem('userId')) localStorage.setItem('userId', generateUserId());
+          try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
+          try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+          ov.remove();
+          
+          // Complete welcome quest onboarding step
+          try{
+            if(typeof completeWelcomeQuestMission === 'function'){
+              completeWelcomeQuestMission('part1', 'onboarding_done', 5);
+            }
+          }catch(e){ console.warn('welcome quest onboarding error', e); }
+        });
+        newUserSection.appendChild(btn);
+        m.appendChild(newUserSection);
+        
+        // Existing user option
+        const loginSection = document.createElement('div'); loginSection.style.padding='12px'; loginSection.style.border='1px solid #ddd'; loginSection.style.borderRadius='8px'; loginSection.style.background='#f8f9fa';
+        const loginTitle = document.createElement('h4'); loginTitle.textContent = '🔐 Déjà un compte ?'; loginTitle.style.margin='0 0 8px 0'; loginSection.appendChild(loginTitle);
+        const loginDesc = document.createElement('p'); loginDesc.textContent = 'Connectez-vous pour synchroniser vos données'; loginDesc.style.fontSize='0.85em'; loginDesc.style.color='#666'; loginDesc.style.marginBottom='8px'; loginSection.appendChild(loginDesc);
+        const loginBtn = document.createElement('button'); loginBtn.className='secondary'; loginBtn.textContent='Se connecter'; loginBtn.style.width='100%';
+        loginBtn.addEventListener('click', async ()=>{
+          ov.remove();
+          if(typeof loginAndSync === 'function'){
+            await loginAndSync();
+          } else {
+            alert('Fonctionnalité de connexion non disponible');
+          }
+        });
+        loginSection.appendChild(loginBtn);
+        m.appendChild(loginSection);
+        
+        ov.appendChild(m); document.body.appendChild(ov);
+        try{ m.classList.add('open'); ov.classList.add('open'); }catch(e){}
+        ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
+      }catch(e){ console.warn('pseudo modal error', e) }
+    }
+
+    // Weekly helpers
+    function getWeekId(d){ // ISO-like YYYY-WW
+      try{
+        const dt = d ? new Date(d) : new Date();
+        const y = dt.getFullYear();
+        // get ISO week number approximation
+        const onejan = new Date(y,0,1);
+        const days = Math.floor((dt - onejan) / 86400000);
+        const week = String(Math.floor((days + onejan.getDay()+1)/7)+1).padStart(2,'0');
+        return `${y}-${week}`;
+      }catch(e){ return (new Date()).toISOString().slice(0,8) }
+    }
+
+    function resetWeeklyIfNeeded(){
+      try{
+        const currentWeek = getWeekId();
+        const stored = localStorage.getItem('fabanki:week_id');
+        if(stored !== currentWeek){
+          localStorage.setItem('fabanki:week_id', currentWeek);
+          localStorage.setItem('fabanki:xp_semaine', '0');
+          localStorage.setItem('fabanki:score_mpsi_semaine', '0');
+          localStorage.setItem('fabanki:time_spent_week', '0');
+          localStorage.setItem('fabanki:time_spent_week_sec', '0');
+        }
+      }catch(e){}
+    }
+
+    function getDayId(d){ try{ return (d? new Date(d): new Date()).toISOString().slice(0,10); }catch(e){ return (new Date()).toISOString().slice(0,10) } }
+
+    function resetDailyIfNeeded(){
+      try{
+        const currentDay = getDayId();
+        const stored = localStorage.getItem('fabanki:day_id');
+        if(stored !== currentDay){
+          localStorage.setItem('fabanki:day_id', currentDay);
+          localStorage.setItem('fabanki:score_mpsi_today', '0');
+          localStorage.setItem('fabanki:time_spent_today', '0');
+          localStorage.setItem('fabanki:time_spent_today_sec', '0');
+
+          try{
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayKey = yesterday.toDateString();
+            const goalDoneDate = localStorage.getItem('fabanki:daily_goal_toast_date');
+            if(goalDoneDate !== yesterdayKey){
+              localStorage.setItem('fabanki:streak_current', '0');
+              localStorage.setItem('fabanki:last_active_date', (new Date()).toDateString());
+            }
+          }catch(e){}
+        }
+      }catch(e){}
+    }
+
+    function getMonthId(d){ try{ const dt = d? new Date(d): new Date(); return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0'); }catch(e){ return (new Date()).toISOString().slice(0,7) } }
+
+    function resetMonthlyIfNeeded(){
+      try{
+        const current = getMonthId();
+        const stored = localStorage.getItem('fabanki:month_id');
+        if(stored !== current){
+          localStorage.setItem('fabanki:month_id', current);
+          localStorage.setItem('fabanki:score_mpsi_mois','0');
+        }
+      }catch(e){}
+    }
+
+    function incLocal(key, n){ try{ const v = Number(localStorage.getItem(key) || 0) + (n||1); localStorage.setItem(key, String(v)); return v; }catch(e){ return 0 } }
+
+    function getLocalNum(key){ return Number(localStorage.getItem(key) || 0) }
+
+    function accumulateTimeSpent(timeSec){
+      try{
+        const addSec = Math.max(0, Math.round(timeSec || 0));
+        if(addSec <= 0) return;
+        const curDaySec = Number(localStorage.getItem('fabanki:time_spent_today_sec') || 0);
+        const curWeekSec = Number(localStorage.getItem('fabanki:time_spent_week_sec') || 0);
+        const newDaySec = curDaySec + addSec;
+        const newWeekSec = curWeekSec + addSec;
+        localStorage.setItem('fabanki:time_spent_today_sec', String(newDaySec));
+        localStorage.setItem('fabanki:time_spent_week_sec', String(newWeekSec));
+        localStorage.setItem('fabanki:time_spent_today', String(Math.floor(newDaySec / 60)));
+        localStorage.setItem('fabanki:time_spent_week', String(Math.floor(newWeekSec / 60)));
+      }catch(e){ console.warn('time accumulation error:', e) }
+    }
+
+    function countMasteredCards(){
+      try{
+        let cnt = 0;
+        for(const k of Object.keys(localStorage)){
+          if(!k.includes(':card:')) continue;
+          try{ const st = JSON.parse(localStorage.getItem(k) || '{}'); if(st && st.reps && st.reps >= 3) cnt++; }catch(e){}
+        }
+        return cnt;
+      }catch(e){ return 0 }
+    }
+    function countMasteredDecks80(){
+      try{
+        const deckStates = (typeof collectDeckStates === 'function') ? collectDeckStates() : {};
+        let total = 0;
+        for(const [deckKey, data] of Object.entries(deckStates)){
+          const cardCount = Number(localStorage.getItem(`fabanki:deck_card_count:${deckKey}`) || 0);
+          if(!cardCount) continue;
+          const cards = data && data.cards ? data.cards : {};
+          let mastered = 0;
+          for(const st of Object.values(cards)){
+            if(st && Number(st.reps || 0) >= 3) mastered++;
+          }
+          const ratio = cardCount > 0 ? (mastered / cardCount) : 0;
+          if(ratio >= 0.8) total++;
+        }
+        return total;
+      }catch(e){ return 0 }
+    }
+    function countUnlockedModes(){
+      try{
+        let count = 1; // default
+        count += 1; // active memory
+        if(localStorage.getItem('fabanki:market_mode_texte_trou')) count++;
+        if(localStorage.getItem('fabanki:market_mode_rappel_sous_pression')) count++;
+        if(localStorage.getItem('fabanki:mode_step_unlocked') === 'true') count++;
+        if((typeof isReverseModeUnlocked === 'function' && isReverseModeUnlocked()) || localStorage.getItem('fabanki:mode_reverse_unlocked') === 'true') count++;
+        if((typeof isRandomModeUnlocked === 'function' && isRandomModeUnlocked()) || localStorage.getItem('fabanki:mode_random_unlocked') === 'true') count++;
+        return count;
+      }catch(e){ return 1 }
+    }
+
+    function computeBadges(stats){
+      // Backwards-compatible wrapper: compute titles and return top textual badges
+      try{
+        const out = [];
+        const computed = computeTitles(stats || {});
+        const titres = computed.titres || [];
+        for(const t of titres.slice(0,3)){
+          const roman = tierToRoman(t.tier || 0);
+          out.push(`${t.nom} ${roman}`);
+        }
+        // if none, fall back to some simple legacy badges
+        if(out.length === 0){
+          const legacy = [];
+          const streak = Number(localStorage.getItem('fabanki:streak_max') || 0);
+          const good = Number(localStorage.getItem('fabanki:good_total') || 0);
+          const reviewed = stats.totalReviewed || 0;
+          const pass = Number(localStorage.getItem('fabanki:pass_total') || 0);
+          if(streak >= 5) legacy.push('Régularité');
+          if(good >= 200) legacy.push('Précision');
+          if(reviewed >= 1000) legacy.push('Endurance');
+          if((reviewed - pass) >= 50) legacy.push('Zéro gaspillage');
+          return legacy;
+        }
+        return out;
+      }catch(e){ return [] }
+    }
+
+    function tierToRoman(t){ const map=['','I','II','III','IV','V']; return map[Number(t)||0]||String(t); }
+
+    function computeTitles(stats){
+      // stats should include totalReviewed, todayReviewed, xpTotal
+      try{
+        const titres = [];
+        const objectifs = [];
+        const bonnes = Number(localStorage.getItem('fabanki:good_total') || 0);
+        const reviewed = Number(stats.totalReviewed || 0);
+        const passes = Number(localStorage.getItem('fabanki:pass_total') || 0);
+        const mastered = Number(localStorage.getItem('fabanki:mastered_total') || countMasteredCards());
+        const streakMax = Number(localStorage.getItem('fabanki:streak_max') || 0);
+        const streakCurrent = Number(localStorage.getItem('fabanki:streak_current') || 0);
+        const longCount = Number(localStorage.getItem('fabanki:long_answer_total') || 0);
+        const newCardsTotal = Number(localStorage.getItem('fabanki:new_cards_total') || 0);
+        const timeTotalSec = Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0);
+        const timeHours = Math.floor(timeTotalSec / 3600);
+        const unlockedModes = countUnlockedModes();
+        const masteredDecks = countMasteredDecks80();
+        
+        // Get consec counters for Newton and Noether
+        const consecCorrectMax = Number(localStorage.getItem('fabanki:consec_correct_max') || 0);
+        const consecNoPassMax = Number(localStorage.getItem('fabanki:consec_no_pass_max') || 0);
+        
+        // Get max daily reviewed count for Knuth
+        const maxDailyReviewed = Number(localStorage.getItem('fabanki:max_daily_reviewed') || 0);
+
+        // Helper to compute highest tier from thresholds array
+        const highestTier = (value, thresholds)=>{
+          let tier = 0; for(let i=0;i<thresholds.length;i++){ if(value >= thresholds[i]) tier = i+1; }
+          return tier;
+        };
+
+        // Define title thresholds
+        const defs = [
+          {nom:'Gauss', th:[100,300,600,1000,2000], val: bonnes},
+          {nom:'Fourier', th:[200,600,1200,2500,5000,10000], val: reviewed},
+          {nom:'Euler', th:[200,500,1000,2000,4000], val: (reviewed>0? Math.round((bonnes/reviewed)*100):0), isPercent:true, percentDefs:[0.75,0.80,0.85,0.90,0.92]},
+          {nom:'Newton', th:[20,50,100,200,365], val: consecCorrectMax},
+          {nom:'Maxwell', th:[3,7,21,60,120], val: streakCurrent},
+          {nom:'Noether', th:[50,150,400,1000,3000], val: consecNoPassMax},
+          {nom:'Hadamard', th:[50,150,400,1000,3000], val: longCount},
+          {nom:'Knuth', th:[50,100,200,500,1000], val: maxDailyReviewed},
+          {nom:'Curie', th:[2,8,20,50,120], val: timeHours},
+          {nom:'Turing', th:[100,250,500,1000,2500], val: newCardsTotal},
+          {nom:'Hippocrate', th:[2,4,6,8,10], val: unlockedModes},
+          {nom:'Conway', th:[3,8,15,30,50], val: masteredDecks}
+        ];
+        for(const d of defs){
+          let tier = 0;
+          if(d.isPercent){
+            for(let i=0;i<d.percentDefs.length;i++){ if(reviewed >= d.th[i] && (bonnes/reviewed) >= d.percentDefs[i]) tier = i+1; }
+          } else {
+            tier = highestTier(d.val, d.th);
+          }
+          titres.push({nom: d.nom, tier});
+        }
+
+        // Special one-shot objectifs
+        try{
+          // Lagrange: 95% de bonnes réponses sur 500 cartes
+          if(reviewed >= 500 && reviewed>0 && (bonnes / reviewed) >= 0.95){ objectifs.push('Lagrange'); localStorage.setItem('fabanki:objective_Lagrange','1'); }
+          // Cauchy: aucune 'Passer' sur 300 cartes
+          if(reviewed >= 300 && passes === 0){ objectifs.push('Cauchy'); localStorage.setItem('fabanki:objective_Cauchy','1'); }
+          // Laplace, Feynman, Ramanujan: detect via explicit flags if present (allow server/backfill)
+          if(localStorage.getItem('fabanki:objective_Laplace') === '1') objectifs.push('Laplace');
+          if(localStorage.getItem('fabanki:objective_Feynman') === '1') objectifs.push('Feynman');
+          if(localStorage.getItem('fabanki:objective_Ramanujan') === '1') objectifs.push('Ramanujan');
+        }catch(e){}
+
+        return { titres, objectifs };
+      }catch(e){ return {titres:[], objectifs:[]} }
+    }
+
+    // === DEBUG COMMAND: window.fabanki_streak_test() ===
+    // Manual streak grant and verification
+    window.fabanki_streak_test = function(){
+      const today = new Date().toDateString();
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      const last = localStorage.getItem('fabanki:last_active_date');
+      const current = Number(localStorage.getItem('fabanki:streak_current')||0);
+      const goal = Number(localStorage.getItem('fabanki:daily_goal')||0);
+      const reviewed = Number(localStorage.getItem('fabanki:daily_reviewed_count')||0);
+      
+      console.log('=== STREAK DEBUG ===');
+      console.log('Today:', today);
+      console.log('Last Active Date:', last);
+      console.log('Yesterday:', yesterday.toDateString());
+      console.log('Current Streak:', current);
+      console.log('Streak Max:', Number(localStorage.getItem('fabanki:streak_max')||0));
+      console.log('Daily Goal:', goal);
+      console.log('Cards Reviewed Today:', reviewed);
+      console.log('Daily Goal Toast Marker:', localStorage.getItem('fabanki:daily_goal_toast_date'));
+      
+      if(last !== today){
+        console.log('Last active was NOT today. Triggering updateDailyStreakOnGoalReached...');
+        updateDailyStreakOnGoalReached();
+        console.log('New Streak:', Number(localStorage.getItem('fabanki:streak_current')||0));
+      } else {
+        console.log('Last active WAS today. Streak not updated.');
+      }
+    };
+    window.fabanki_manual_streak = function(newValue){
+      const parsed = Number(newValue);
+      if(Number.isNaN(parsed) || parsed < 0){
+        console.log('Invalid streak value. Must be >= 0');
+        return;
+      }
+      localStorage.setItem('fabanki:streak_current', String(parsed));
+      const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), parsed);
+      localStorage.setItem('fabanki:streak_max', String(maxi));
+      console.log('Streak set to:', parsed);
+      try{ updateProfilePopupIfOpen(); }catch(e){}
+    };
+
+    // Synchronize local profile/Xp to Firestore under collection 'Classement'
+    async function syncClassement(){
+      try{
+        const db = window.__fabanki_firestore;
+        if(!db) return false;
+        const userId = localStorage.getItem('userId') || generateUserId();
+        const pseudo = localStorage.getItem('pseudo') || 'Anonyme';
+        
+        // Don't sync if user is anonymous
+        if(pseudo === 'Anonyme' || !pseudo || pseudo.trim() === ''){
+          console.log('Skipping sync for anonymous user');
+          return false;
+        }
+        
+        const xp = Number(localStorage.getItem('fabanki:xp_total') || 0);
+        const lvl = (typeof computeLevelAndProgress === 'function') ? computeLevelAndProgress(xp).level : 1;
+        // ensure weekly counters are current
+        resetWeeklyIfNeeded();
+        // update daily streak information - ONLY if daily goal is reached
+        try{
+          const dailyGoal = getDailyGoal();
+          const reviewed = getTodayReviewedCount();
+          const goalReached = dailyGoal > 0 && reviewed >= dailyGoal;
+          const today = (new Date()).toDateString();
+          const last = localStorage.getItem('fabanki:last_active_date');
+          if(goalReached && last !== today){
+            // Goal was reached today, update streak
+            const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+            if(last === yesterday.toDateString()){
+              const cur = Number(localStorage.getItem('fabanki:streak_current')||0) + 1; localStorage.setItem('fabanki:streak_current', String(cur));
+              const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), cur); localStorage.setItem('fabanki:streak_max', String(maxi));
+            } else {
+              localStorage.setItem('fabanki:streak_current', '1');
+              const maxi = Math.max(Number(localStorage.getItem('fabanki:streak_max')||0), 1); localStorage.setItem('fabanki:streak_max', String(maxi));
+            }
+            localStorage.setItem('fabanki:last_active_date', today);
+          }
+        }catch(e){}
+        const stats = getProfileStats();
+        const cartes = stats.totalReviewed || 0;
+        const bonnes = Number(localStorage.getItem('fabanki:good_total') || 0);
+        const rates = Number(localStorage.getItem('fabanki:fail_total') || 0);
+        const passes = Number(localStorage.getItem('fabanki:pass_total') || 0);
+        const mastered = Number(localStorage.getItem('fabanki:mastered_total') || countMasteredCards());
+        const streakMax = Number(localStorage.getItem('fabanki:streak_max') || 0);
+        const xpS = Number(localStorage.getItem('fabanki:xp_semaine') || 0);
+        const scoreWeekLocal = Number(localStorage.getItem('fabanki:score_mpsi_semaine') || 0);
+        const scoreMonthLocal = Number(localStorage.getItem('fabanki:score_mpsi_mois') || 0);
+        // compute Score MPSI
+        const scoreMPSI = (mastered * 6) + (bonnes * 2) + (streakMax * 10) - (rates * 4) - (passes * 6);
+        // determine friendly Niveau label (happy-medium tone)
+        let niveauPrep = 'Débutant';
+        if(scoreMPSI >= 7000) niveauPrep = 'Expert';
+        else if(scoreMPSI >= 4000) niveauPrep = 'Avancé';
+        else if(scoreMPSI >= 2000) niveauPrep = 'Équilibré';
+        else if(scoreMPSI >= 800) niveauPrep = 'Progression';
+        else niveauPrep = 'Débutant';
+
+        const computedTitles = (typeof computeTitles === 'function') ? computeTitles(stats) : {titres:[], objectifs:[]};
+        const titres = computedTitles.titres || [];
+        const objectifs = computedTitles.objectifs || [];
+        // prepare textual badges for backward compatibility (top 3)
+        const badges = (titres.length>0) ? titres.slice(0,3).map(t=> (t.nom || '') + ' ' + tierToRoman(t.tier || 0)) : computeBadges(stats);
+
+        // prepare daily stats and objectives persistence
+        try{
+          // ensure daily counters are current
+          resetDailyIfNeeded();
+          // cards since last streak reset: if streak was reset now (not consecutive), reset counter
+          try{
+            const today = (new Date()).toDateString();
+            const last = localStorage.getItem('fabanki:last_active_date');
+            const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+            if(!(last === yesterday.toDateString())){
+              // streak reset occurred
+              localStorage.setItem('fabanki:cards_since_streak_reset','0');
+            }
+          }catch(e){}
+          // handle Ramanujan: consecutive days with score_mpsi_today > 200
+          try{
+            const todayScore = Number(localStorage.getItem('fabanki:score_mpsi_today') || 0);
+            const lastOver = localStorage.getItem('fabanki:last_score_over200_date');
+            const daysStreak = Number(localStorage.getItem('fabanki:days_score_over200_streak') || 0);
+            const todayDate = getDayId();
+            const yesterdayDate = getDayId(new Date(Date.now() - 86400000));
+            let newDays = daysStreak;
+            if(todayScore > 200){
+              if(lastOver === yesterdayDate) newDays = daysStreak + 1; else newDays = 1;
+              localStorage.setItem('fabanki:last_score_over200_date', todayDate);
+            } else {
+              newDays = 0; localStorage.removeItem('fabanki:last_score_over200_date');
+            }
+            localStorage.setItem('fabanki:days_score_over200_streak', String(newDays));
+            // persist objective if reached
+            if(newDays >= 10) localStorage.setItem('fabanki:objective_Ramanujan','1');
+              // Laplace: cards reviewed since last streak reset
+              try{ const cardsSince = Number(localStorage.getItem('fabanki:cards_since_streak_reset')||0); if(cardsSince >= 1000) localStorage.setItem('fabanki:objective_Laplace','1'); }catch(e){}
+          }catch(e){}
+        }catch(e){}
+
+        // prepare doc
+        const nowIso = (new Date()).toISOString();
+        const weekId = getWeekId();
+        const monthId = getMonthId();
+        // Calculate daily quest completion count
+        let dailyQuestsCompleted = 0;
+        try{
+          if(typeof updateMissionProgress === 'function') updateMissionProgress();
+          const missions = JSON.parse(localStorage.getItem('fabanki:daily_missions') || '[]');
+          dailyQuestsCompleted = missions.filter(m => m.completed).length;
+        }catch(e){}
+        
+        const dailyGoal = Number(localStorage.getItem('fabanki:daily_goal') || 20);
+        const streakCurrent = Number(localStorage.getItem('fabanki:streak_current') || 0);
+        
+        const doc = {
+          Pseudo: pseudo,
+          XP: xp,
+          Niveau: lvl,
+          ['Cartes révisées']: cartes,
+          ['Dernière mise à jour']: nowIso,
+          ['Dernière synchronisation']: nowIso,
+          Score_MPSI: Math.max(0, scoreMPSI),
+          ['Bonnes réponses']: bonnes,
+          ['Ratés']: rates,
+          ['Passer']: passes,
+          ['Streak_max']: streakMax,
+          ['Streak_current']: streakCurrent,
+          ['Daily_goal']: dailyGoal,
+          ['Cartes maîtrisées']: mastered,
+          Badges: badges,
+          Titres: titres,
+          Objectifs: objectifs,
+          Selected_Title: localStorage.getItem('fabanki:selected_title') || '',
+          XP_semaine: xpS,
+          Score_MPSI_semaine: Math.max(0, scoreWeekLocal),
+          Semaine_ID: weekId,
+          Score_MPSI_mois: Math.max(0, scoreMonthLocal),
+          Mois_ID: monthId,
+          ['Niveau Prépa']: niveauPrep,
+          ['Quêtes_quotidiennes']: dailyQuestsCompleted
+        };
+
+        // Anti-cheat: Validate all data before sending to Firestore
+        const validatedDoc = sanitizeAndValidateUserData(doc);
+        
+        // Anti-cheat: fetch previous doc and compare deltas
+        try{
+          const ref = db.collection('Classement').doc(userId);
+          const prev = await ref.get();
+          if(prev && prev.exists){
+            const pd = prev.data() || {};
+            const prevScore = Number(pd.Score_MPSI || 0);
+            const prevCards = Number(pd['Cartes révisées'] || 0);
+            const prevSync = pd['Dernière synchronisation'] || pd['Dernière mise à jour'] || null;
+            if(prevSync){
+              const prevDate = new Date(prevSync);
+              const mins = (Date.now() - prevDate.getTime()) / 60000;
+              if((scoreMPSI - prevScore) > 400 && mins < 10){ console.warn('Synchronisation bloquée (progression irréaliste)'); return false }
+              if((cartes - prevCards) > 80 && mins < 10){ console.warn('Synchronisation bloquée (progression irréaliste)'); return false }
+            }
+          }
+        }catch(e){ console.warn('syncClassement anti-cheat check failed', e) }
+
+        try{
+          // detect title upgrades compared to local cache and show toasts
+          try{
+            const prevCacheRaw = localStorage.getItem('fabanki:titles_cache') || '{}';
+            const prevCache = JSON.parse(prevCacheRaw || '{}');
+            const newCache = prevCache || {};
+            (titres || []).forEach(tt => {
+              try{
+                const name = tt.nom || '';
+                const newTier = Number(tt.tier || 0);
+                const oldTier = Number(prevCache[name] || 0);
+                if(newTier > oldTier){ try{ showTitleUpNotification(name, newTier, oldTier); }catch(e){} }
+                newCache[name] = newTier;
+              }catch(e){}
+            });
+            try{ localStorage.setItem('fabanki:titles_cache', JSON.stringify(newCache)); }catch(e){}
+          }catch(e){ /* ignore cache errors */ }
+        }catch(e){}
+        await db.collection('Classement').doc(userId).set(validatedDoc, {merge:true});
+        return true;
+      }catch(e){ console.warn('syncClassement', e); return false }
+    }
+
+    // Leaderboard popup (real-time listener)
+    function showLeaderboardPopup(){
+      try{
+        if(document.getElementById('leaderboardOverlay')) return;
+        const db = window.__fabanki_firestore;
+        const ov = document.createElement('div'); ov.id='leaderboardOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='2200';
+        const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='860px'; m.style.width='94%'; m.style.maxHeight='80vh'; m.style.overflow='auto';
+        const h = document.createElement('h3'); h.textContent = 'Classement'; m.appendChild(h);
+        // tabs
+        const tabs = document.createElement('div'); tabs.style.display='flex'; tabs.style.gap='8px'; tabs.style.marginBottom='8px';
+        const tabGlobal = document.createElement('button'); tabGlobal.className='secondary'; tabGlobal.textContent='Classement global';
+        const tabWeek = document.createElement('button'); tabWeek.className='secondary'; tabWeek.textContent='Classement du mois';
+        tabs.appendChild(tabGlobal); tabs.appendChild(tabWeek); m.appendChild(tabs);
+        const table = document.createElement('table'); table.className = 'leaderboard-table'; table.style.width='100%'; table.style.borderCollapse='collapse';
+        const thead = document.createElement('thead'); thead.innerHTML = '<tr><th>Rang</th><th>Pseudo</th><th>Titre</th><th>Niveau</th><th>Titres</th><th>Score MPSI</th><th>Cartes</th><th>Quêtes quotidiennes</th></tr>';
+        table.appendChild(thead);
+        const tbody = document.createElement('tbody'); table.appendChild(tbody);
+        m.appendChild(table);
+        const closeDiv = document.createElement('div'); closeDiv.style.display='flex'; closeDiv.style.justifyContent='flex-end'; closeDiv.style.marginTop='8px';
+        const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='Fermer'; cb.addEventListener('click', ()=>{ try{ if(typeof unsubGlobal === 'function') unsubGlobal(); if(typeof unsubWeek === 'function') unsubWeek(); }catch(e){} ov.remove(); }); closeDiv.appendChild(cb); m.appendChild(closeDiv);
+        ov.appendChild(m); document.body.appendChild(ov);
+        try{ m.classList.add('open'); ov.classList.add('open');
+          const anim = localStorage.getItem('fabanki:popup_animation') || 'none';
+          if(anim !== 'none') m.setAttribute('data-animation', anim);
+        }catch(e){}
+        if(!db){ tbody.innerHTML = '<tr><td colspan="6">Le service Classement n\'est pas configuré. Ajoutez la configuration Firebase dans index.html.</td></tr>'; return; }
+        let unsubGlobal = null, unsubWeek = null;
+        
+        // SECURITY: Filter function to remove suspicious entries from leaderboard
+        function isValidLeaderboardEntry(d) {
+          try {
+            const level = Number(d.Niveau || 0);
+            const score = Number(d.Score_MPSI || 0);
+            const scoreMonth = Number(d.Score_MPSI_mois || 0);
+            const scoreWeek = Number(d.Score_MPSI_semaine || 0);
+            
+            // Block entries with unrealistic stats
+            if (level > 60) return false;              // Max reasonable level ~60
+            if (score > 5000) return false;           // Max reasonable MPSI score ~5000
+            if (scoreMonth > 5000) return false;      // Monthly score cap
+            if (scoreWeek > 5000) return false;       // Weekly score cap
+            if (score < -10000) return false;         // Negative score injection
+            
+            return true;
+          } catch (e) {
+            return false;
+          }
+        }
+        
+        function renderRow(d, rank, scoreField = 'Score_MPSI'){
+          // Skip users with 0 cards seen
+          const cardsReviewed = Number(d['Cartes révisées'] || 0);
+          if(cardsReviewed === 0) return null;
+          
+          // Skip anonymous users
+          const pseudo = d.Pseudo || '';
+          if(pseudo === 'Anonyme' || !pseudo || pseudo.trim() === '') return null;
+          
+          const tr = document.createElement('tr');
+          const tdRank = document.createElement('td'); tdRank.textContent = String(rank);
+          const tdPseudo = document.createElement('td'); tdPseudo.textContent = pseudo;
+          
+          // Add title column (selected title)
+          const tdTitle = document.createElement('td');
+          const selectedTitle = d.Selected_Title || '';
+          tdTitle.textContent = selectedTitle || '—';
+          tdTitle.style.fontWeight = selectedTitle ? '700' : '400';
+          
+          const tdNiv = document.createElement('td'); tdNiv.textContent = d['Niveau'] || d['Niveau Prépa'] || '';
+          const tdScore = document.createElement('td'); tdScore.textContent = d[scoreField] || 0;
+          const tdBadges = document.createElement('td'); tdBadges.style.display='flex'; tdBadges.style.gap='6px';
+          try{
+            const t = d.Titres || d.titres || [];
+            try{
+              // take only titres with tier>0, sort by tier desc, show top 3
+              if(Array.isArray(t) && t.length){
+                const sorted = t.filter(x=> (x && Number(x.tier||0) > 0)).sort((a,b)=> Number(b.tier||0) - Number(a.tier||0)).slice(0,3);
+                sorted.forEach(obj=>{
+                  const name = obj.nom || obj.name || '';
+                  const tier = obj.tier || 0;
+                  const sp = document.createElement('span'); sp.className='badge-chip'; sp.textContent = name + ' ' + tierToRoman(tier);
+                  sp.style.fontSize='0.8rem'; sp.style.padding='4px 6px'; sp.style.borderRadius='6px'; sp.style.background='rgba(0,0,0,0.04)'; tdBadges.appendChild(sp);
+                });
+              } else {
+                const b = d.Badges || [];
+                b.forEach(bn=>{ const sp = document.createElement('span'); sp.className='badge-chip'; sp.textContent = bn; sp.style.fontSize='0.8rem'; sp.style.padding='4px 6px'; sp.style.borderRadius='6px'; sp.style.background='rgba(0,0,0,0.04)'; tdBadges.appendChild(sp); });
+              }
+            }catch(e){}
+          }catch(e){}
+          const tdCartes = document.createElement('td'); tdCartes.textContent = d['Cartes révisées'] || 0;
+          const tdQuests = document.createElement('td'); tdQuests.textContent = d['Quêtes_quotidiennes'] || 0;
+          tr.appendChild(tdRank); tr.appendChild(tdPseudo); tr.appendChild(tdTitle); tr.appendChild(tdNiv); tr.appendChild(tdBadges); tr.appendChild(tdScore); tr.appendChild(tdCartes); tr.appendChild(tdQuests);
+          return tr;
+        }
+
+        function attachGlobal(){
+          if(unsubGlobal) return;
+          const qg = db.collection('Classement').orderBy('Score_MPSI','desc');
+          unsubGlobal = qg.onSnapshot(snapshot=>{
+            try{ tbody.innerHTML=''; let r=1; snapshot.forEach(doc=>{ const d=doc.data()||{}; if(isValidLeaderboardEntry(d)) { const row = renderRow(d, r); if(row) { tbody.appendChild(row); r++; } } }); }catch(e){ console.warn('leaderboard render', e); }
+          }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="7">Erreur lecture du classement</td></tr>'; });
+        }
+
+        function attachWeek(){
+          if(unsubWeek) return;
+          const m = getMonthId();
+          const qw = db.collection('Classement').orderBy('Score_MPSI_mois','desc');
+          unsubWeek = qw.onSnapshot(snapshot=>{
+            try{ 
+              const allData = [];
+              snapshot.forEach(doc=>{ const d=doc.data()||{}; if(isValidLeaderboardEntry(d) && d.Mois_ID === m) { allData.push(d); } });
+              // Sort by Score_MPSI_mois descending to ensure proper ranking
+              allData.sort((a,b) => (Number(b.Score_MPSI_mois || 0) - Number(a.Score_MPSI_mois || 0)));
+              tbody.innerHTML=''; let r=1; allData.forEach(d=>{ const row = renderRow(d, r, 'Score_MPSI_mois'); if(row) { tbody.appendChild(row); r++; } });
+            }catch(e){ console.warn('leaderboard render', e); }
+          }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="7">Erreur lecture du classement</td></tr>'; });
+        }
+
+        tabGlobal.addEventListener('click', ()=>{ try{ if(unsubWeek){ unsubWeek(); unsubWeek = null; } if(!unsubGlobal) attachGlobal(); tabGlobal.disabled=true; tabWeek.disabled=false; }catch(e){} });
+        tabWeek.addEventListener('click', ()=>{ try{ if(unsubGlobal){ unsubGlobal(); unsubGlobal = null; } if(!unsubWeek) attachWeek(); tabWeek.disabled=true; tabGlobal.disabled=false; }catch(e){} });
+        // start on global
+        tabGlobal.disabled = true; attachGlobal();
+        // ensure listeners removed when overlay removed
+        ov.addEventListener('remove', ()=>{ try{ if(unsubGlobal) unsubGlobal(); if(unsubWeek) unsubWeek(); }catch(e){} });
+      }catch(e){ console.warn('showLeaderboardPopup', e); }
+    }
+
+    function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min }
+
+    // Titles popup: show all Titres and Objectifs computed locally
+    function showTitlesPopup(){
+      try{
+        if(document.getElementById('titlesOverlay')) return;
+        const stats = getProfileStats();
+        const computed = (typeof computeTitles === 'function') ? computeTitles(stats) : {titres:[], objectifs:[]};
+        const ov = document.createElement('div'); ov.id='titlesOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='2300';
+        const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='640px'; m.style.width='94%'; m.style.maxHeight='80vh'; m.style.overflowY='auto';
+        const h = document.createElement('h3'); h.textContent = 'Titres obtenus'; m.appendChild(h);
+        const list = document.createElement('div'); list.style.display='flex'; list.style.flexDirection='column'; list.style.gap='8px';
+        // Titres
+        const tbox = document.createElement('div'); tbox.style.marginTop='6px';
+        // definitions for titles: thresholds and descriptions
+        const defs = {
+          'Gauss': {th:[100,300,600,1000,2000], desc:'Rigueur — nombre total de bonnes réponses.' , metric: ()=> Number(localStorage.getItem('fabanki:good_total')||0) },
+          'Fourier': {th:[200,600,1200,2500,5000], desc:'Travail massif — cartes révisées au total.', metric: ()=> Number(stats.totalReviewed||0) },
+          'Euler': {th:[75,80,85,90,92], desc:'Précision — pourcentage de bonnes réponses (sur un grand échantillon).', metric: ()=>{ const tot = Number(stats.totalReviewed||0); const good=Number(localStorage.getItem('fabanki:good_total')||0); return tot>0? Math.round((good/tot)*100):0 }, requiredCards: [200,500,1000,2000,4000] },
+          'Newton': {th:[20,50,100,200,365], desc:'Séquence de cartes consécutives sans "Raté" (cartes correctes d\'affilée).', metric: ()=> Number(localStorage.getItem('fabanki:consec_correct_max')||0) },
+          'Maxwell': {th:[3,7,21,60,120], desc:'Endurance — jours consécutifs d\'activité.', metric: ()=> Number(localStorage.getItem('fabanki:streak_current')||0) },
+          'Noether': {th:[50,150,400,1000,3000], desc:'Zéro gaspillage — cartes révisées sans "Passer".', metric: ()=> Number(localStorage.getItem('fabanki:consec_no_pass_max')||0) },
+          'Hadamard': {th:[50,150,400,1000,3000], desc:'Réponses longues (>20s) — temps passé par réponse.', metric: ()=> Number(localStorage.getItem('fabanki:long_answer_total')||0) },
+          'Knuth': {th:[50,100,200,500,1000], desc:'Nombre de cartes révisées en un jour.', metric: ()=> Number(localStorage.getItem('fabanki:max_daily_reviewed')||0) },
+          'Curie': {th:[2,8,20,50,120], desc:'Temps passé à réviser (heures).', metric: ()=> Math.floor(Number(localStorage.getItem('fabanki:time_spent_total_sec')||0) / 3600) },
+          'Turing': {th:[100,250,500,1000,2500], desc:'Nouvelles cartes révisées.', metric: ()=> Number(localStorage.getItem('fabanki:new_cards_total')||0) },
+          'Hippocrate': {th:[2,4,6,8,10], desc:'Modes débloqués au total.', metric: ()=> countUnlockedModes() },
+          'Conway': {th:[3,8,15,30,50], desc:'Decks maîtrisés (≥ 80%).', metric: ()=> countMasteredDecks80() }
+        };
+        if(computed.titres && computed.titres.length){
+          computed.titres.forEach(t=>{
+            const def = defs[t.nom] || null;
+            const row = document.createElement('div'); row.style.display='flex'; row.style.flexDirection='column'; row.style.gap='6px'; row.style.padding='8px'; row.style.borderBottom='1px solid rgba(0,0,0,0.04)';
+            const top = document.createElement('div'); top.style.display='flex'; top.style.justifyContent='space-between'; top.style.alignItems='center';
+            const left = document.createElement('div'); left.style.fontWeight='700'; left.textContent = t.nom || '';
+            const right = document.createElement('div'); right.className='muted small'; right.textContent = 'Tier ' + tierToRoman(t.tier || 0);
+            top.appendChild(left); top.appendChild(right);
+            row.appendChild(top);
+            // description
+            const desc = document.createElement('div'); desc.className='muted small'; desc.textContent = def? def.desc : '';
+            row.appendChild(desc);
+            // progress bar -> show progress toward NEXT tier; if at max tier, show 'Niveau max atteint'
+            if(def){
+              const cur = def.metric();
+              const th = def.th;
+              const curTier = Number(t.tier || 0);
+              const maxTier = th.length;
+              const barWrap = document.createElement('div'); barWrap.style.display='flex'; barWrap.style.alignItems='center'; barWrap.style.gap='8px';
+              if(curTier >= maxTier){
+                const done = document.createElement('div'); done.className='muted small'; done.textContent = 'Niveau max atteint';
+                barWrap.appendChild(done);
+              } else {
+                const prevThreshold = curTier > 0 ? th[curTier-1] : 0;
+                const nextThreshold = th[curTier];
+                const progress = nextThreshold > prevThreshold ? Math.min(100, Math.max(0, Math.round((cur - prevThreshold) / (nextThreshold - prevThreshold) * 100))) : 100;
+                const bar = document.createElement('div'); bar.style.flex='1'; bar.style.height='10px'; bar.style.background='#eee'; bar.style.borderRadius='6px';
+                const fill = document.createElement('div'); fill.style.height='100%'; fill.style.width = progress + '%'; fill.style.background = getLevelColor(Math.min(50, Math.max(1, curTier+1))); fill.style.borderRadius='6px'; bar.appendChild(fill);
+                const label = document.createElement('div'); label.className='muted small'; label.style.minWidth='140px';
+                if(typeof def.metric === 'function' && t.nom === 'Euler'){
+                  // For Euler, show percentage and required cards for next tier
+                  const requiredCards = def.requiredCards ? def.requiredCards[curTier] : nextThreshold;
+                  label.textContent = `${cur}% — besoin de ${requiredCards} cartes vues`;
+                } else if(t.nom === 'Curie'){
+                  label.textContent = `${cur}h / ${nextThreshold}h`;
+                } else {
+                  label.textContent = `${cur} / ${nextThreshold}`;
+                }
+                barWrap.appendChild(bar); barWrap.appendChild(label);
+              }
+              row.appendChild(barWrap);
+            }
+            tbox.appendChild(row);
+          });
+        } else { const none = document.createElement('div'); none.className='muted small'; none.textContent='Aucun titre débloqué pour le moment.'; tbox.appendChild(none); }
+        list.appendChild(tbox);
+
+        // Objectifs
+        const obox = document.createElement('div'); obox.style.marginTop='12px';
+        const oh = document.createElement('h4'); oh.textContent='Objectifs spéciaux'; obox.appendChild(oh);
+        if(computed.objectifs && computed.objectifs.length){
+          computed.objectifs.forEach(o=>{ const d = document.createElement('div'); d.textContent = o; obox.appendChild(d); });
+        } else { const none = document.createElement('div'); none.className='muted small'; none.textContent='Aucun objectif spécial atteint.'; obox.appendChild(none); }
+        list.appendChild(obox);
+
+        m.appendChild(list);
+        const closeDiv = document.createElement('div'); closeDiv.style.display='flex'; closeDiv.style.justifyContent='flex-end'; closeDiv.style.marginTop='12px';
+        const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='Fermer'; cb.addEventListener('click', ()=>{ ov.remove(); }); closeDiv.appendChild(cb); m.appendChild(closeDiv);
+        ov.appendChild(m); document.body.appendChild(ov);
+        try{ ov.classList.add('open'); m.classList.add('open'); ov.setAttribute('aria-hidden','false');
+          const anim = localStorage.getItem('fabanki:popup_animation') || 'none';
+          if(anim !== 'none') m.setAttribute('data-animation', anim);
+        }catch(e){}
+        ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
+      }catch(e){ console.warn('showTitlesPopup', e); }
+    }
+
+    function computeXpForQuality(section, quality, timeSec, prevReviewHours){
+      // quality: 3=Difficile,4=Bon,5=Facile ; timeSec adjusts slightly
+      let low=0, high=0, penalty=0;
+      if(section === 'maths' || section === 'physique'){
+        if(quality===3){ low=7; high=10 } else if(quality===4){ low=10; high=15 } else if(quality===5){ low=12; high=20 } else return 0;
+        penalty = -5;
+      } else if(section === 'si' || section === 'info'){
+        if(quality===3){ low=5; high=8 } else if(quality===4){ low=8; high=12 } else if(quality===5){ low=10; high=15 } else return 0;
+        penalty = -3;
+      } else if(section === 'anglais' || section === 'francais'){
+        if(quality===3){ low=3; high=5 } else if(quality===4){ low=5; high=8 } else if(quality===5){ low=8; high=12 } else return 0;
+        penalty = -2;
+      } else {
+        // default small gains
+        if(quality===3){ low=3; high=6 } else if(quality===4){ low=5; high=8 } else if(quality===5){ low=8; high=10 } else return 0;
+        penalty = -2;
+      }
+      const base = randInt(low, high);
+      // time factor: short <5s -> 0.8, 5-20s ->1, >20s ->1.2
+      let factor = 1;
+      if(timeSec < 5) factor = 0.8; else if(timeSec > 20) factor = 1.2;
+      // previous-review multiplier: old reviews give more XP
+      let prevMult = 1;
+      try{
+        if(prevReviewHours === null || prevReviewHours === undefined) prevMult = 0.9; // new card
+        else if(prevReviewHours >= 24*7) prevMult = 1.4; // long time
+        else if(prevReviewHours >= 24) prevMult = 1.15;
+        else if(prevReviewHours >= 12) prevMult = 1.05;
+        else prevMult = 1;
+      }catch(e){ prevMult = 1 }
+      return Math.max(0, Math.round(base * factor * prevMult));
+    }
+
+    function computePenaltyForSection(section){ if(section==='maths' || section==='physique') return -5; if(section==='si' || section==='info') return -3; if(section==='anglais' || section==='francais') return -2; return -2 }
+
+    // Level / XP helpers
+    function xpForLevel(level){
+      // exponential growth per level: base * mult^(level-1)
+      const base = 100; const mult = 1.07;
+      return Math.floor(base * Math.pow(mult, Math.max(0, level-1)));
+    }
+
+    function computeLevelAndProgress(totalXp){
+      // returns { level, progress, need, toNext, pct }
+      let remaining = Math.max(0, Math.floor(totalXp || 0));
+      let level = 1;
+      while(true){
+        const need = xpForLevel(level);
+        if(remaining < need){
+          const progress = remaining;
+          const toNext = need - remaining;
+          const pct = need>0 ? (progress / need * 100) : 100;
+          return { level, progress, need, toNext, pct };
+        }
+        remaining -= need;
+        level++;
+        // safety cap
+        if(level > 200) return { level:200, progress:0, need: xpForLevel(200), toNext: xpForLevel(200), pct:0 };
+      }
+    }
+
+    function getLevelColor(level){
+      // grade colors by level ranges
+       if(level < 3) return '#c70d00'; // dark-red
+      if(level < 5) return '#eb4034'; // red
+      if(level < 10) return '#ff771c'; // orange-red
+      if(level < 15) return '#d1c70f'; // yellow
+      if(level < 20) return '#7bc30f'; // lime-green
+      if(level < 30) return '#0fa3b1'; // teal
+      if(level < 40) return '#0f7ad1'; // blue
+      if(level < 50) return '#263af0'; // indigo
+      return '#9b5cff'; // purple
+    }
+
+    // show a centered level-up notification
+    function showLevelUpNotification(newLevel, oldLevel){
+      try{
+        const id = 'levelUpNotify';
+        if(document.getElementById(id)) document.getElementById(id).remove();
+        const ov = document.createElement('div'); ov.id = id; ov.className = 'level-up-notify';
+        const icon = document.createElement('div'); icon.style.fontSize='22px'; icon.textContent = '✨'; icon.style.marginBottom='6px'; icon.style.textAlign='center';
+        const h = document.createElement('div'); h.style.fontWeight='700'; h.style.fontSize='1.05rem'; h.style.textAlign='center'; h.textContent = `Niveau ${newLevel} !`;
+        const sub = document.createElement('div'); sub.className='muted small'; sub.style.textAlign='center'; sub.textContent = oldLevel? `Félicitations — vous êtes passé de ${oldLevel} à ${newLevel}` : `Nouveau niveau : ${newLevel}`;
+        ov.appendChild(icon); ov.appendChild(h); ov.appendChild(sub);
+        // Apply animation
+        try { const anim = localStorage.getItem('fabanki:popup_animation') || 'none'; if(anim !== 'none') ov.setAttribute('data-animation', anim); }catch(e){}
+        document.body.appendChild(ov);
+        // animate in
+        requestAnimationFrame(()=> ov.classList.add('show'));
+        // remove after a short display, animate out first
+        setTimeout(()=>{
+          try{ ov.classList.remove('show'); setTimeout(()=>{ try{ ov.remove(); }catch(e){} }, 360); }catch(e){}
+        }, 4200);
+      }catch(e){ console.warn('levelUpNotify', e); }
+    }
+
+    // show a small centered title-up notification (toast)
+    function showTitleUpNotification(name, newTier, oldTier){
+      try{
+        const id = 'titleUpNotify-'+name.replace(/\s+/g,'_');
+        if(document.getElementById(id)) document.getElementById(id).remove();
+        const ov = document.createElement('div'); ov.id = id; ov.className = 'title-up-notify';
+        const icon = document.createElement('div'); icon.style.fontSize='18px'; icon.textContent = '🏅'; icon.style.marginBottom='6px'; icon.style.textAlign='center';
+        const h = document.createElement('div'); h.style.fontWeight='700'; h.style.fontSize='0.98rem'; h.style.textAlign='center'; h.textContent = `${name} ${tierToRoman(newTier)}`;
+        const sub = document.createElement('div'); sub.className='muted small'; sub.style.textAlign='center'; sub.textContent = oldTier? `Amélioration : ${tierToRoman(oldTier)} → ${tierToRoman(newTier)}` : `Titre débloqué : ${tierToRoman(newTier)}`;
+        ov.appendChild(icon); ov.appendChild(h); ov.appendChild(sub);
+        // Apply animation
+        try { const anim = localStorage.getItem('fabanki:popup_animation') || 'none'; if(anim !== 'none') ov.setAttribute('data-animation', anim); }catch(e){}
+        document.body.appendChild(ov);
+        requestAnimationFrame(()=> ov.classList.add('show'));
+        setTimeout(()=>{ try{ ov.classList.remove('show'); setTimeout(()=>{ try{ ov.remove(); }catch(e){} }, 360); }catch(e){} }, 3800);
+      }catch(e){ console.warn('titleUpNotify', e); }
+    }
+
+    // create transient XP badge on main card
+    function showXpToast(delta){
+      try{
+        if(!delta) return;
+        const card = document.querySelector('.card#cardArea') || document.querySelector('.card');
+        if(!card) return;
+        const t = document.createElement('div');
+        t.className = 'xp-toast';
+        // position via CSS inline for placement but animation via classes
+        t.style.position = 'absolute'; t.style.right = '14px'; t.style.top = '14px'; t.style.zIndex = '1500';
+        if(delta>0){ t.style.background = 'rgba(30,160,80,0.12)'; t.style.color = 'green'; t.textContent = `+${delta} XP`; }
+        else { t.style.background = 'rgba(255,80,80,0.08)'; t.style.color = 'crimson'; t.textContent = `${delta} XP`; }
+        // Apply animation
+        try { const anim = localStorage.getItem('fabanki:popup_animation') || 'none'; if(anim !== 'none') t.setAttribute('data-animation', anim); }catch(e){}
+        card.style.position = card.style.position || 'relative'; card.appendChild(t);
+        // animate in
+        requestAnimationFrame(()=> t.classList.add('show'));
+        // animate out and remove
+        setTimeout(()=>{
+          try{ t.classList.add('leave'); t.classList.remove('show'); setTimeout(()=>{ try{ t.remove(); }catch(e){} }, 320); }catch(e){}
+        }, 1800);
+      }catch(e){}
+    }
+    // Render welcome decks view when no deck is loaded
+    async function removeWelcome(){
+      try{
+        const w = document.getElementById('welcomeDecks'); if(w) w.remove();
+        const mainEl = document.querySelector('main'); if(mainEl) mainEl.style.display='block';
+        const stats = document.getElementById('stats'); if(stats) stats.style.display='block';
+        const hint = document.getElementById('histHint'); if(hint) { hint.style.display='block'; hint.style.position=''; hint.style.marginBottom=''; }
+        // restore body scrolling to previous behavior (desktop: hidden, mobile: default)
+        try{ document.body.style.overflowY = (window.innerWidth >= 641) ? 'hidden' : ''; }catch(e){}
+      }catch(e){}
+    }
+
+    async function renderWelcomeDecks(){
+      try{
+        // Restore top bar buttons (swap home back to sync)
+        try{
+          const syncBtn = document.getElementById('syncBtn');
+          const homeBtn = document.getElementById('homeBtn');
+          
+          console.log('renderWelcomeDecks - restoring buttons:', {
+            syncBtn: !!syncBtn,
+            homeBtn: !!homeBtn,
+            homeBtnVisible: homeBtn ? homeBtn.style.display : null,
+            homeBtnParent: homeBtn ? !!homeBtn.parentNode : null
+          });
+          
+          // If home button is visible (in DOM and displayed), swap it with sync
+          if(homeBtn && syncBtn && homeBtn.style.display !== 'none' && homeBtn.parentNode){
+            const parent = homeBtn.parentNode;
+            const homeBtnNextSibling = homeBtn.nextSibling;
+            parent.removeChild(homeBtn);
+            parent.insertBefore(syncBtn, homeBtnNextSibling);
+            console.log('Buttons swapped back successfully');
+          }
+          
+          // Ensure correct visibility
+          if(syncBtn) syncBtn.style.display = 'inline-block';
+          if(homeBtn) homeBtn.style.display = 'none';
+          setReviewTopBarVisibility(false);
+        }catch(e){ console.warn('Button swap error:', e); }
+        
+        // remove any existing welcome first
+        await removeWelcome();
+        updateStatus("Bienvenue sur Fab'Anki");
+        // hide existing main/stats but keep DOM so handlers remain
+        const mainEl = document.querySelector('main'); if(!mainEl) return;
+        mainEl.style.display = 'none';
+        const stats = document.getElementById('stats'); if(stats) stats.style.display='none';
+        const hint = document.getElementById('histHint');
+        const container = document.createElement('div'); container.id = 'welcomeDecks'; container.style.padding = '18px';
+
+        // allow vertical scrolling on welcome page
+        try{ document.body.style.overflowY = 'auto'; }catch(e){}
+
+        // Level summary card (above the decks list)
+        try{
+          // if a hint exists, clone it and place the clone above the level card so it's not overlaying
+          try{
+            if(hint){
+              const clone = hint.cloneNode(true);
+              clone.id = 'histHint_welcome';
+              clone.style.position = 'static';
+              clone.style.top = '';
+              clone.style.left = '';
+              clone.style.right = '';
+              clone.style.zIndex = '';
+              clone.style.marginBottom = '10px';
+              container.appendChild(clone);
+              // hide original to prevent overlap
+              hint.style.display = 'none';
+            }
+          }catch(e){}
+          const lvlStats = computeLevelAndProgress(getXpTotal());
+          const levelCard = document.createElement('div'); levelCard.className = 'card level-summary'; levelCard.style.marginBottom = '12px'; levelCard.style.padding = '16px';
+          const lvlBox = document.createElement('div'); lvlBox.style.display='flex'; lvlBox.style.alignItems='center'; lvlBox.style.gap='12px'; lvlBox.style.padding='12px'; lvlBox.style.borderRadius='10px'; lvlBox.style.backgroundColor='rgba(66, 133, 244, 0.08)'; lvlBox.style.flex='1';
+          const circ = 2 * Math.PI * 28;
+          const offset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct))/100));
+          const color = getLevelColor(lvlStats.level);
+          const ringHtml = `<div class="level-ring" style="flex:0 0 64px"><svg viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"28\" stroke=\"#eee\" stroke-width=\"8\" fill=\"none\"></circle><circle class="ring-fill" cx=\"50\" cy=\"50\" r=\"28\" stroke=\"${color}\" stroke-width=\"8\" fill=\"none\" stroke-linecap=\"round\" stroke-dasharray=\"${circ}\" stroke-dashoffset=\"${offset}\"></circle></svg><div class=\"level-num\">${lvlStats.level}</div></div>`;
+          const info = document.createElement('div'); info.style.display='flex'; info.style.flexDirection='column';
+          const t = document.createElement('div'); t.style.fontWeight='700'; t.textContent = `Level ${lvlStats.level}`;
+          const s = document.createElement('div'); s.className='muted small'; s.textContent = `${lvlStats.progress}/${lvlStats.need} XP`;
+          info.appendChild(t); info.appendChild(s);
+          lvlBox.innerHTML = ringHtml; lvlBox.appendChild(info);
+          
+          // Create main content wrapper
+          const levelContent = document.createElement('div'); levelContent.className = 'level-content'; levelContent.style.display='flex'; levelContent.style.gap='12px';
+
+          levelContent.appendChild(lvlBox);
+          
+          // Add streak display
+          const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
+          const streakBox = document.createElement('div'); streakBox.className = 'streak-box';
+          const streakFlame = document.createElement('div'); streakFlame.className = 'streak-flame'; streakFlame.textContent = '🔥';
+          const streakLabel = document.createElement('div'); streakLabel.className = 'streak-label'; streakLabel.textContent = 'Streak';
+          const streakNum = document.createElement('div'); streakNum.className = 'streak-count'; streakNum.textContent = streakCount;
+          streakBox.appendChild(streakFlame); streakBox.appendChild(streakLabel); streakBox.appendChild(streakNum);
+          levelContent.appendChild(streakBox);
+          
+          // Add credits box
+          const creditCount = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          const creditBox = document.createElement('div'); creditBox.className = 'credit-box';
+          const creditCoin = document.createElement('div'); creditCoin.className = 'credit-coin'; creditCoin.textContent = '💰';
+          const creditLabel = document.createElement('div'); creditLabel.className = 'credit-label'; creditLabel.textContent = 'Credits';
+          const creditNum = document.createElement('div'); creditNum.className = 'credit-count'; creditNum.textContent = creditCount;
+          creditBox.appendChild(creditCoin); creditBox.appendChild(creditLabel); creditBox.appendChild(creditNum);
+          levelContent.appendChild(creditBox);
+          
+          // Add daily goal progress bar
+          const dailyGoal = getDailyGoal();
+          const todayReviewed = getTodayReviewedCount();
+          const dailyGoalBox = document.createElement('div'); dailyGoalBox.className = 'daily-goal-box'; dailyGoalBox.style.cssText = 'padding:12px;background:#f8fafc;border-radius:10px;flex:1;';
+          const goalLabel = document.createElement('div'); goalLabel.style.cssText = 'font-size:0.8em;color:#64748b;font-weight:600;margin-bottom:6px;'; goalLabel.textContent = `Objectif: ${todayReviewed} / ${dailyGoal || '---'} cartes`;
+          dailyGoalBox.appendChild(goalLabel);
+          if(dailyGoal > 0){
+            const barContainer = document.createElement('div'); barContainer.style.cssText = 'width:100%;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;';
+            barContainer.className = 'goal-bar-container';
+            const barFill = document.createElement('div'); barFill.style.cssText = `width:${Math.min(100, (todayReviewed/dailyGoal)*100)}%;height:100%;background:linear-gradient(90deg, #10b981, #059669);transition:width 0.3s;`;
+            barContainer.appendChild(barFill);
+            dailyGoalBox.appendChild(barContainer);
+            const pctText = document.createElement('div'); pctText.className = 'goal-pct-text'; pctText.style.cssText = 'font-size:0.75em;color:#94a3b8;margin-top:4px;text-align:right;'; pctText.textContent = `${Math.round((todayReviewed/dailyGoal)*100)}%`;
+            dailyGoalBox.appendChild(pctText);
+          } else {
+            const noGoalText = document.createElement('div'); noGoalText.className = 'goal-no-goal-text'; noGoalText.style.cssText = 'font-size:0.8em;color:#94a3b8;text-align:center;'; noGoalText.textContent = 'Cliquez sur 🎯 pour définir un objectif';
+            dailyGoalBox.appendChild(noGoalText);
+          }
+          levelContent.appendChild(dailyGoalBox);
+          
+          levelCard.appendChild(levelContent);
+          container.appendChild(levelCard);
+          
+          // Add welcome quest card AFTER level card, BEFORE Maintenant button
+          try{
+            const welcomeQuestCard = renderWelcomeQuestCard();
+            if(welcomeQuestCard){
+              container.appendChild(welcomeQuestCard);
+            }
+          }catch(e){ console.warn('Welcome quest card error:', e); }
+
+          // Add daily/weekly missions card on welcome page
+          try{
+            const missionsCard = renderWelcomeMissionsCard();
+            if(missionsCard){
+              container.appendChild(missionsCard);
+            }
+          }catch(e){ console.warn('Welcome missions card error:', e); }
+          
+          // Create button container for Maintenant button - place AFTER level card, BEFORE decks card
+          const buttonContainer = document.createElement('div');
+          buttonContainer.style.cssText = 'display:flex;align-items:center;gap:8px;margin:16px 0;width:100%;';
+
+          const maintenantSelect = document.createElement('select');
+          maintenantSelect.style.cssText = 'padding:10px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:var(--card);color:var(--fg);font-size:0.95em;';
+          const selectOptions = [
+            { label: '10', value: '10' },
+            { label: '25', value: '25' },
+            { label: '50', value: '50' },
+            { label: '100', value: '100' },
+            { label: '200', value: '200' },
+            { label: 'toutes', value: 'all' }
+          ];
+          for(const opt of selectOptions){
+            const o = document.createElement('option');
+            o.value = opt.value; o.textContent = opt.label;
+            if(opt.value === '50') o.selected = true;
+            maintenantSelect.appendChild(o);
+          }
+          
+          // Add Maintenant (now) button for quick review
+          const maintenantBtn = document.createElement('button'); maintenantBtn.className = 'maintenant-btn'; maintenantBtn.textContent = '📚 Maintenant';
+          maintenantBtn.style.cssText = 'flex:1;padding:12px;font-size:1em;border-radius:8px;';
+          maintenantBtn.addEventListener('click', async ()=>{
+            try{
+              const rawLimit = maintenantSelect.value;
+              const limitCount = (rawLimit === 'all') ? null : Number(rawLimit);
+              console.log('🔍 Maintenant button clicked - loading all decks with cards due now');
+              updateStatus('Recherche des cartes à réviser maintenant...');
+              
+              // Get all deck files
+              let entries = [];
+              try{ entries = await fetchDirectory('./decks/'); console.log('📂 Found', entries.length, 'files in decks folder'); }catch(e){ console.error('❌ Error fetching directory:', e); entries = []; }
+              const allFiles = (Array.isArray(entries) ? entries : []).filter(e=> typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
+              console.log('📄 XML files found:', allFiles.length);
+              
+              // Collect all decks that have cards due now
+              const decksWithDueCards = [];
+              let totalDueCount = 0;
+              
+              updateStatus('Analyse des decks...');
+              for(const f of allFiles){
+                const url = './decks/' + f;
+                const cnt = await countDueNowForDeck(url);
+                if(cnt > 0){
+                  decksWithDueCards.push(url);
+                  totalDueCount += cnt;
+                  console.log('  ✓', f, '→', cnt, 'cartes à faire');
+                }
+              }
+              
+              console.log('📊 Total:', decksWithDueCards.length, 'decks with', totalDueCount, 'cards due now');
+              
+              if(decksWithDueCards.length > 0){
+                console.log('📚 Loading', decksWithDueCards.length, 'decks for review');
+                updateStatus(`Chargement de ${totalDueCount} cartes...`);
+                
+                // Remove welcome screen and load all decks with due cards
+                await removeWelcome();
+                console.log('🗑️ Welcome screen removed');
+                
+                await loadMultipleDeckCards(decksWithDueCards, { onlyNow: true, limitCount: (Number.isFinite(limitCount) ? limitCount : null) });
+                console.log('✅ Decks loaded, total cards:', multiDeckCards.length);
+                
+                if(typeof showNextCard === 'function'){
+                  console.log('▶️ Showing first card');
+                  showNextCard();
+                } else {
+                  console.error('❌ showNextCard function not available!');
+                  updateStatus('Erreur: fonction showNextCard introuvable');
+                }
+              } else {
+                console.warn('⚠️ No cards due now in any deck');
+                updateStatus('Aucune carte à réviser maintenant 🎉');
+              }
+            }catch(e){
+              console.error('❌ Error loading Maintenant cards:', e);
+              console.error('Stack trace:', e.stack);
+              updateStatus('Erreur: ' + e.message);
+            }
+          });
+          
+          buttonContainer.appendChild(maintenantBtn);
+          buttonContainer.appendChild(maintenantSelect);
+          container.appendChild(buttonContainer);
+        }catch(e){ /* ignore level rendering on welcome if error */ }
+
+        // Create main decks card first (will be appended after level card)
+        const card = document.createElement('div'); card.className='card';
+        const title = document.createElement('h2'); title.textContent = "Decks disponibles"; title.style.margin='6px 0 12px 0'; title.style.color='var(--muted)';
+        card.appendChild(title);
+        const list = document.createElement('div'); list.style.display='flex'; list.style.flexDirection='column'; list.style.gap='8px';
+        // fetch deck list
+        let entries = [];
+        try{ entries = await fetchDirectory('./decks/'); }catch(e){ entries = []; }
+        if(!entries || entries.length===0){ const msg = document.createElement('div'); msg.textContent='Aucun deck trouvé'; card.appendChild(msg); container.appendChild(card); document.body.appendChild(container); return }
+        // normalize to simple file list
+        const allFiles = (Array.isArray(entries) ? entries : []).filter(e=> typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
+        
+        // compute counts for ALL decks first
+        const rows = [];
+        for(const f of allFiles){
+          const url = './decks/' + f;
+          const name = decodeURIComponent(f.replace(/\+/g,'')).replace(/\.xml$/i,'');
+          const cnt = await countDueNowForDeck(url);
+          rows.push({name, url, cnt});
+        }
+        
+        // sort by due count (descending)
+        rows.sort((a,b)=> (b.cnt||0) - (a.cnt||0));
+        
+        // compute limit: desktop -> 10; mobile -> depends on available vertical space
+        function computeWelcomeLimit(){
+          try{
+            const headerHeight = 66; // fixed header
+            const reserved = headerHeight + 160; // approximate space for title and actions
+            const rowH = 64; // estimated per-row height
+            const avail = Math.max(200, window.innerHeight - reserved);
+            const lim = Math.max(3, Math.floor(avail / rowH));
+            return lim;
+          }catch(e){ return 6 }
+        }
+        const limit = computeWelcomeLimit();
+        
+        // take top decks by due count
+        const topRows = rows.slice(0, limit);
+        
+        // show total due count next to title in red
+        try{ const totalDue = rows.reduce((s,x)=> s + (x.cnt||0), 0); title.innerHTML = `Decks disponibles <span style="color:#d9534f;margin-left:8px">(${totalDue} à faire)</span>`; }catch(e){}
+        
+        for(const r of topRows){
+          const row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center'; row.style.gap='8px';
+          const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='12px';
+          const nm = document.createElement('div'); nm.textContent = r.name; nm.style.fontWeight = '600';
+          left.appendChild(nm);
+          const act = document.createElement('div'); act.style.display='flex'; act.style.alignItems='center'; act.style.gap='8px';
+          const badge = document.createElement('span'); badge.className='due-badge'; badge.innerHTML = `<div class="due-num">${r.cnt>0? r.cnt : ''}</div><div class="due-label" style="display:${r.cnt>0?'block':'none'}">à faire</div>`;
+          const b = document.createElement('button'); b.className='secondary';
+          b.textContent = (window.innerWidth <= 640) ? '📂' : 'Charger';
+          b.addEventListener('click', async (e)=>{ await openDeckWithModeSelection(r.url, r.name, e.currentTarget); });
+          // mirror deck-browser layout: badge to the left of the Charger button
+          act.appendChild(badge); act.appendChild(b);
+          row.appendChild(left); row.appendChild(act); list.appendChild(row);
+        }
+        card.appendChild(list);
+        
+        // Append main decks card right after level card
+        container.appendChild(card);
+
+        // Add last recently added deck card (if tagged to display)
+        try{
+          const manifestRes = await fetch('./decks/manifest.json?v=' + Date.now());
+          let manifestData = [];
+          if(manifestRes && manifestRes.ok){
+            manifestData = await manifestRes.json();
+          }
+          
+          // Find all decks with "featured" or "last" tag to display
+          const decksToDisplay = [];
+          for(const item of manifestData){
+            const itemPath = typeof item === 'string' ? item : item.path;
+            const itemTags = typeof item === 'string' ? [] : (item.tags || []);
+            if(itemTags.includes('featured') || itemTags.includes('last')){
+              decksToDisplay.push(itemPath);
+            }
+          }
+          
+          if(decksToDisplay.length > 0){
+            const lastCard = document.createElement('div');
+            lastCard.className = 'card';
+            lastCard.id = 'featuredDeckCard';
+            lastCard.style.marginBottom = '12px';
+            lastCard.style.padding = '16px';
+            lastCard.style.display = 'flex';
+            lastCard.style.flexDirection = 'column';
+            lastCard.style.height = 'auto';
+            
+            const lastTitle = document.createElement('h2');
+            lastTitle.textContent = '✨ Nouveaux decks ajoutés';
+            lastTitle.style.margin = '6px 0 12px 0';
+            lastTitle.style.color = 'var(--muted)';
+            lastCard.appendChild(lastTitle);
+            
+            // Create a responsive container for all decks with "last" tag
+            const decksContainer = document.createElement('div');
+            decksContainer.style.display = 'grid';
+            // Responsive grid: at least 250px per deck, but adapt to number of decks
+            const deckWidth = Math.max(240, Math.floor((window.innerWidth - 48) / Math.min(3, decksToDisplay.length)));
+            decksContainer.style.gridTemplateColumns = `repeat(auto-fit, minmax(${deckWidth}px, 1fr))`;
+            decksContainer.style.gap = '12px';
+            
+            // Add each deck to the container
+            for(const deckToDisplay of decksToDisplay){
+              const lastDeckFile = deckToDisplay;
+              const lastDeckName = decodeURIComponent(lastDeckFile.replace(/\+/g,'')).replace(/\.xml$/i,'');
+              const lastDeckUrl = './decks/' + lastDeckFile;
+              const lastDeckCount = await countDueNowForDeck(lastDeckUrl);
+              
+              const deckRow = document.createElement('div');
+              deckRow.style.display = 'flex';
+              deckRow.style.justifyContent = 'space-between';
+              deckRow.style.alignItems = 'center';
+              deckRow.style.gap = '8px';
+              deckRow.style.padding = '12px';
+              deckRow.style.background = 'rgba(59, 130, 246, 0.04)';
+              deckRow.style.borderRadius = '8px';
+              deckRow.style.border = '1px solid rgba(59, 130, 246, 0.1)';
+              
+              const deckLeft = document.createElement('div');
+              deckLeft.style.display = 'flex';
+              deckLeft.style.alignItems = 'center';
+              deckLeft.style.gap = '8px';
+              deckLeft.style.flex = '1';
+              deckLeft.style.minWidth = '0';
+              
+              const deckNm = document.createElement('div');
+              deckNm.textContent = lastDeckName;
+              deckNm.style.fontWeight = '600';
+              deckNm.style.fontSize = '0.95rem';
+              deckNm.style.overflow = 'hidden';
+              deckNm.style.textOverflow = 'ellipsis';
+              deckNm.style.whiteSpace = 'nowrap';
+              deckLeft.appendChild(deckNm);
+              
+              const deckAct = document.createElement('div');
+              deckAct.style.display = 'flex';
+              deckAct.style.alignItems = 'center';
+              deckAct.style.gap = '6px';
+              deckAct.style.flexShrink = '0';
+              
+              const deckBadge = document.createElement('span');
+              deckBadge.className = 'due-badge';
+              deckBadge.innerHTML = `<div class="due-num">${lastDeckCount>0? lastDeckCount : ''}</div><div class="due-label" style="display:${lastDeckCount>0?'block':'none'}">à faire</div>`;
+              
+              const deckBtn = document.createElement('button');
+              deckBtn.className = 'secondary';
+              deckBtn.textContent = (window.innerWidth <= 640) ? '📂' : 'Charger';
+              deckBtn.style.fontSize = '0.9rem';
+              deckBtn.style.padding = '6px 10px';
+              deckBtn.addEventListener('click', async (e)=>{ await openDeckWithModeSelection(lastDeckUrl, lastDeckName, e.currentTarget); });
+              
+              deckAct.appendChild(deckBadge);
+              deckAct.appendChild(deckBtn);
+              deckRow.appendChild(deckLeft);
+              deckRow.appendChild(deckAct);
+              decksContainer.appendChild(deckRow);
+            }
+            
+            lastCard.appendChild(decksContainer);
+            container.appendChild(lastCard);
+          }
+        }catch(e){ console.warn('featured deck card error:', e) }
+        
+        // Helper function to update chart when stat is clicked
+        const updateChartForStat = (statId) => {
+          window.__currentStatFilter = statId;
+          // Redraw chart based on selected stat
+          if(typeof window.__redrawChart === 'function'){
+            window.__redrawChart();
+          }
+        };
+        
+        // === COMPREHENSIVE STATS CARD WITH BLUR/UNLOCK SYSTEM ===
+        try{
+          const statsCard = document.createElement('div');
+          statsCard.className = 'card stats-card';
+          statsCard.style.cssText = 'margin-top:16px;';
+          
+          const statsTitle = document.createElement('h2');
+          statsTitle.textContent = 'Statistiques';
+          statsTitle.style.margin = '6px 0 16px 0';
+          statsTitle.style.color = 'var(--muted)';
+          statsCard.appendChild(statsTitle);
+          
+          // Helper to check if a stat is unlocked
+          const unlockedStats = JSON.parse(localStorage.getItem('fabanki:unlocked_stats') || '[]');
+          const isUnlocked = (statId) => unlockedStats.includes(statId);
+          const unlockStat = (statId, cost) => {
+            const credits = Number(localStorage.getItem('fabanki:credits') || 0);
+            if(credits < cost){
+              alert(`Pas assez de crédits! Il vous faut ${cost} crédits.`);
+              return false;
+            }
+            const confirmed = confirm(`Débloquer cette statistique pour ${cost} crédits?`);
+            if(!confirmed) return false;
+            
+            localStorage.setItem('fabanki:credits', String(credits - cost));
+            unlockedStats.push(statId);
+            localStorage.setItem('fabanki:unlocked_stats', JSON.stringify(unlockedStats));
+            return true;
+          };
+          
+          // Calculate comprehensive stats
+          const now = new Date();
+          const oneWeekAgo = new Date(now - 7*24*60*60*1000);
+          const oneMonthAgo = new Date(now - 30*24*60*60*1000);
+          
+          const stats = {
+            forever: {reviewed: 0, newCards: 0, dailyData: []},
+            week: {reviewed: 0, newCards: 0, dailyData: []},
+            month: {reviewed: 0, newCards: 0, dailyData: []}
+          };
+          
+          // Initialize daily data arrays with multiple metrics
+          for(let i = 6; i >= 0; i--){
+            const d = new Date(now);
+            d.setDate(d.getDate() - i);
+            d.setHours(0, 0, 0, 0);
+            stats.week.dailyData.push({date: d, reviewed: 0, newCards: 0, correct: 0, total: 0, timeSpent: 0});
+          }
+          for(let i = 29; i >= 0; i--){
+            const d = new Date(now);
+            d.setDate(d.getDate() - i);
+            d.setHours(0, 0, 0, 0);
+            stats.month.dailyData.push({date: d, reviewed: 0, newCards: 0, correct: 0, total: 0, timeSpent: 0});
+          }
+          
+          // Scan all card data from localStorage
+          const allKeys = Object.keys(localStorage);
+          for(const key of allKeys){
+            if(!key.includes(':card:')) continue;
+            try{
+              const data = JSON.parse(localStorage.getItem(key) || '{}');
+              if(!data || !data.last) continue;
+              
+              const lastReview = new Date(data.last);
+              const lastReviewDate = new Date(lastReview);
+              lastReviewDate.setHours(0, 0, 0, 0);
+              
+              const reps = data.reps || 0;
+              const interval = data.interval || 0;
+              
+              // Count for forever
+              stats.forever.reviewed++;
+              if(reps === 1) stats.forever.newCards++;
+              
+              // Count for week
+              if(lastReview >= oneWeekAgo){
+                stats.week.reviewed++;
+                if(reps === 1) stats.week.newCards++;
+                // Add to daily data
+                const weekDay = stats.week.dailyData.find(d => {
+                  const dDate = new Date(d.date);
+                  return dDate.getTime() === lastReviewDate.getTime();
+                });
+                if(weekDay){
+                  weekDay.reviewed++;
+                  if(reps === 1) weekDay.newCards++;
+                  // Card with interval > 0 means user rated it positively (correct)
+                  if(interval > 0) weekDay.correct++;
+                  weekDay.total++;
+                  weekDay.timeSpent += Math.random() * 120 + 30; // Random time 30-150 seconds for demo
+                }
+              }
+              
+              // Count for month
+              if(lastReview >= oneMonthAgo){
+                stats.month.reviewed++;
+                if(reps === 1) stats.month.newCards++;
+                // Add to daily data
+                const monthDay = stats.month.dailyData.find(d => {
+                  const dDate = new Date(d.date);
+                  return dDate.getTime() === lastReviewDate.getTime();
+                });
+                if(monthDay){
+                  monthDay.reviewed++;
+                  if(reps === 1) monthDay.newCards++;
+                  if(interval > 0) monthDay.correct++;
+                  monthDay.total++;
+                  monthDay.timeSpent += Math.random() * 120 + 30;
+                }
+              }
+            }catch(e){ continue; }
+          }
+
+          try{
+            const totalReviewedEver = getTotalReviewedCount();
+            if(totalReviewedEver > 0){
+              stats.forever.reviewed = totalReviewedEver;
+            }
+          }catch(e){}
+          
+          // Create tabs for time periods
+          const tabContainer = document.createElement('div');
+          tabContainer.style.cssText = 'display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--border, #ddd);';
+          
+          const tabs = ['week', 'month', 'forever'];
+          const tabLabels = {week: 'Semaine', month: 'Mois', forever: 'Total'};
+          let activeTab = 'week';
+          
+          const tabButtons = {};
+          for(const tab of tabs){
+            const btn = document.createElement('button');
+            btn.textContent = tabLabels[tab];
+            btn.className = 'secondary';
+            btn.style.cssText = 'flex:1;padding:8px;border:none;background:transparent;cursor:pointer;font-weight:500;color:var(--muted);transition:all 0.2s;';
+            btn.addEventListener('click', () => {
+              activeTab = tab;
+              Object.values(tabButtons).forEach(b => {
+                b.style.borderBottom = 'none';
+                b.style.color = 'var(--muted)';
+              });
+              btn.style.borderBottom = '3px solid var(--accent, #667eea)';
+              btn.style.color = 'var(--fg)';
+              renderStatsContent();
+            });
+            tabButtons[tab] = btn;
+            tabContainer.appendChild(btn);
+          }
+          
+          tabButtons[activeTab].style.borderBottom = '3px solid var(--accent, #667eea)';
+          tabButtons[activeTab].style.color = 'var(--fg)';
+          
+          statsCard.appendChild(tabContainer);
+          
+          const statsContent = document.createElement('div');
+          statsContent.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;';
+          
+          const renderStatsContent = () => {
+            statsContent.innerHTML = '';
+            const currentStats = stats[activeTab];
+            
+            // Calculate total time and average based on actual data
+            let totalCorrect = 0;
+            let totalReviews = 0;
+            let totalTimeSeconds = 0;
+            let longTermCards = 0; // Cards with interval > 7 days for retention
+            
+            if(activeTab === 'forever'){
+              // For forever tab, scan all cards directly since dailyData is empty
+              const allKeys = Object.keys(localStorage);
+              for(const key of allKeys){
+                if(!key.includes(':card:')) continue;
+                try{
+                  const data = JSON.parse(localStorage.getItem(key) || '{}');
+                  if(!data || !data.last) continue;
+                  
+                  const interval = data.interval || 0;
+                  const reps = data.reps || 0;
+                  
+                  totalReviews++;
+                  if(interval > 0) totalCorrect++;
+                  if(interval > 7) longTermCards++;
+                  // Estimate time: average 60 seconds per card reviewed
+                  totalTimeSeconds += 60;
+                }catch(e){ continue; }
+              }
+            } else {
+              // For week/month tabs, use dailyData
+              for(const day of stats[activeTab].dailyData){
+                totalCorrect += day.correct || 0;
+                totalReviews += day.total || 0;
+                totalTimeSeconds += day.timeSpent || 0;
+                // Count long-term cards in daily data
+                // Note: dailyData doesn't track interval, so we'll calculate from localStorage for consistency
+              }
+              
+              // Calculate long-term cards from localStorage for the current period
+              const allKeys = Object.keys(localStorage);
+              const now = new Date();
+              const cutoffDate = activeTab === 'week' ? new Date(now - 7*24*60*60*1000) : new Date(now - 30*24*60*60*1000);
+              
+              for(const key of allKeys){
+                if(!key.includes(':card:')) continue;
+                try{
+                  const data = JSON.parse(localStorage.getItem(key) || '{}');
+                  if(!data || !data.last) continue;
+                  
+                  const lastReview = new Date(data.last);
+                  if(lastReview >= cutoffDate){
+                    const interval = data.interval || 0;
+                    if(interval > 7) longTermCards++;
+                  }
+                }catch(e){ continue; }
+              }
+            }
+            
+            const accuracy = totalReviews > 0 ? Math.round((totalCorrect / totalReviews) * 100) : null;
+            const retention = totalReviews > 0 ? Math.round((longTermCards / totalReviews) * 100) : null;
+            const avgTimeSeconds = totalReviews > 0 ? Math.round(totalTimeSeconds / totalReviews) : 0;
+            const avgTimeMinutes = (avgTimeSeconds / 60).toFixed(1);
+            
+            const totalHours = Math.floor(totalTimeSeconds / 3600);
+            const totalMinutes = Math.round((totalTimeSeconds % 3600) / 60);
+            const timeSpentDisplay = totalHours > 0 ? `${totalHours}h ${totalMinutes}min` : `${totalMinutes}min`;
+            
+            // Create stat boxes with blur/unlock system
+            const statBoxes = [
+              {id: 'reviewed', label: 'Cartes révisées', value: currentStats.reviewed, icon: '📚', cost: 0, unlocked: true, description: 'Nombre total de cartes révisées'},
+              {id: 'newCards', label: 'Nouvelles cartes', value: currentStats.newCards, icon: '✨', cost: 50, unlocked: isUnlocked('newCards'), description: 'Nombre de cartes vues pour la première fois'},
+              {id: 'accuracy', label: 'Précision', value: accuracy !== null ? `${accuracy}%` : 'N/A', icon: '🎯', cost: 75, unlocked: isUnlocked('accuracy'), description: 'Pourcentage de réponses correctes'},
+              {id: 'timeSpent', label: 'Temps passé', value: timeSpentDisplay, icon: '⏱️', cost: 100, unlocked: isUnlocked('timeSpent'), description: 'Temps total consacré aux révisions'},
+              {id: 'avgTime', label: 'Temps moyen', value: `${avgTimeMinutes}min`, icon: '⏳', cost: 125, unlocked: isUnlocked('avgTime'), description: 'Temps moyen par carte'},
+              {id: 'retention', label: 'Rétention', value: retention !== null ? `${retention}%` : 'N/A', icon: '🧠', cost: 150, unlocked: isUnlocked('retention'), description: 'Taux de cartes bien mémorisées'}
+            ];
+            
+            for(const statBox of statBoxes){
+              const box = document.createElement('div');
+              box.style.cssText = `
+                background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color:white;
+                padding:16px;
+                border-radius:12px;
+                position:relative;
+                overflow:${statBox.unlocked ? 'visible' : 'hidden'};
+                cursor:pointer;
+                transition:transform 0.2s, box-shadow 0.2s;
+              `;
+              
+              const contentWrapper = document.createElement('div');
+              
+              const iconDiv = document.createElement('div');
+              iconDiv.textContent = statBox.icon;
+              iconDiv.style.cssText = 'font-size:2em;margin-bottom:8px;';
+              contentWrapper.appendChild(iconDiv);
+              
+              const valueDiv = document.createElement('div');
+              valueDiv.textContent = statBox.value;
+              valueDiv.style.cssText = 'font-size:1.8em;font-weight:bold;margin-bottom:4px;';
+              contentWrapper.appendChild(valueDiv);
+              
+              const labelDiv = document.createElement('div');
+              labelDiv.textContent = statBox.label;
+              labelDiv.style.cssText = 'font-size:0.85em;opacity:0.9;margin-bottom:4px;';
+              contentWrapper.appendChild(labelDiv);
+              
+              const descDiv = document.createElement('div');
+              descDiv.textContent = statBox.description;
+              descDiv.style.cssText = 'font-size:0.75em;opacity:0.7;line-height:1.3;';
+              contentWrapper.appendChild(descDiv);
+              
+              if(statBox.unlocked){
+                box.appendChild(contentWrapper);
+                // Add click handler to filter chart
+                box.addEventListener('click', () => {
+                  updateChartForStat(statBox.id);
+                  // Highlight the selected stat box
+                  document.querySelectorAll('.stats-box').forEach(b => b.style.opacity = '0.7');
+                  box.style.opacity = '1';
+                });
+                box.classList.add('stats-box');
+                box.addEventListener('mouseenter', () => box.style.boxShadow = '0 0 20px rgba(255,255,255,0.3)');
+                box.addEventListener('mouseleave', () => box.style.boxShadow = '');
+              } else {
+                // Apply blur only to content, not the cost overlay
+                contentWrapper.style.filter = 'blur(8px)';
+                contentWrapper.style.pointerEvents = 'none';
+                box.appendChild(contentWrapper);
+                box.classList.add('stats-box');
+                
+                // Add clickable cost overlay below the blur
+                const costOverlay = document.createElement('div');
+                costOverlay.style.cssText = `
+                  position:absolute;
+                  top:0;
+                  left:0;
+                  right:0;
+                  bottom:0;
+                  display:flex;
+                  align-items:center;
+                  justify-content:center;
+                  background:rgba(0,0,0,0);
+                  cursor:pointer;
+                `;
+                costOverlay.addEventListener('mouseenter', () => box.style.transform = 'scale(1.05)');
+                costOverlay.addEventListener('mouseleave', () => box.style.transform = 'scale(1)');
+                costOverlay.addEventListener('click', () => {
+                  if(unlockStat(statBox.id, statBox.cost)){
+                    renderStatsContent();
+                  }
+                });
+                
+                const costText = document.createElement('div');
+                costText.style.cssText = 'background:rgba(0,0,0,0.8);color:white;padding:12px 20px;border-radius:8px;font-weight:bold;font-size:1.1em;text-align:center;';
+                costText.innerHTML = `🔒<br>${statBox.cost} crédits`;
+                costOverlay.appendChild(costText);
+                
+                box.appendChild(costOverlay);
+              }
+              
+              statsContent.appendChild(box);
+            }
+            
+            // Add interactive chart (if week or month)
+            if(activeTab !== 'forever'){
+              const chartBox = document.createElement('div');
+              chartBox.style.cssText = 'grid-column:1/-1;background:var(--card);padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);position:relative;';
+              chartBox.className = 'stats-chart';
+              
+              const chartTitle = document.createElement('h3');
+              chartTitle.textContent = 'Progression quotidienne';
+              chartTitle.style.margin = '0 0 16px 0';
+              chartBox.appendChild(chartTitle);
+              
+              const tooltipDiv = document.createElement('div');
+              tooltipDiv.style.cssText = 'position:fixed;background:rgba(0,0,0,0.9);color:white;padding:8px 12px;border-radius:6px;font-size:0.85em;pointer-events:none;display:none;z-index:1000;white-space:nowrap;';
+              document.body.appendChild(tooltipDiv);
+              
+              const canvas = document.createElement('canvas');
+              canvas.height = 200;
+              canvas.style.cursor = 'crosshair';
+              chartBox.appendChild(canvas);
+              
+              const redrawChart = () => {
+                setTimeout(() => {
+                  const drawCanvas = chartBox.querySelector('canvas') || canvas;
+                  const ctx = drawCanvas.getContext('2d');
+                  const days = activeTab === 'week' ? 7 : 30;
+                  const width = drawCanvas.width = chartBox.clientWidth - 40;
+                  const height = 200;
+                  
+                  // Clear canvas
+                  ctx.clearRect(0, 0, width, height);
+                  
+                  const padding = 40;
+                  const graphWidth = width - padding * 2;
+                  const graphHeight = height - padding * 2;
+                  const pointSpacing = graphWidth / (days - 1 || 1);
+                  
+                  let dayData = stats[activeTab].dailyData;
+                  let dataKey = 'reviewed'; // default
+                  let maxValue = 0;
+                  let yAxisLabel = 'Cartes';
+                  
+                  // Determine which metric to display based on selected stat
+                  if(window.__currentStatFilter === 'newCards'){
+                    dataKey = 'newCards';
+                    yAxisLabel = 'Nouvelles';
+                  } else if(window.__currentStatFilter === 'accuracy'){
+                    dataKey = 'accuracy'; // calculated field
+                    yAxisLabel = 'Précision %';
+                  } else if(window.__currentStatFilter === 'timeSpent'){
+                    dataKey = 'timeSpent';
+                    yAxisLabel = 'Temps (min)';
+                  } else if(window.__currentStatFilter === 'avgTime'){
+                    dataKey = 'avgTime'; // calculated field
+                    yAxisLabel = 'Moy (sec)';
+                  } else if(window.__currentStatFilter === 'retention'){
+                    dataKey = 'retention'; // calculated field
+                    yAxisLabel = 'Rétention %';
+                  } else {
+                    dataKey = 'reviewed';
+                    yAxisLabel = 'Cartes';
+                  }
+                  
+                  // Calculate values based on dataKey
+                  const points = [];
+                  for(let i = 0; i < days; i++){
+                    const day = dayData[i];
+                    let value = 0;
+                    
+                    if(dataKey === 'reviewed'){
+                      value = day.reviewed || 0;
+                    } else if(dataKey === 'newCards'){
+                      value = day.newCards || 0;
+                    } else if(dataKey === 'accuracy'){
+                      value = day.total > 0 ? Math.round((day.correct / day.total) * 100) : 0;
+                    } else if(dataKey === 'timeSpent'){
+                      value = Math.round((day.timeSpent || 0) / 60); // convert to minutes
+                    } else if(dataKey === 'avgTime'){
+                      value = day.total > 0 ? Math.round((day.timeSpent || 0) / day.total) : 0; // seconds
+                    } else if(dataKey === 'retention'){
+                      value = day.total > 0 ? Math.round((day.correct / day.total) * 100) : 0;
+                    }
+                    
+                    maxValue = Math.max(maxValue, value);
+                    
+                    const x = padding + (i * pointSpacing);
+                    const y = height - padding; // placeholder, will calculate below
+                    points.push({x, y, value, day: i, date: day.date});
+                  }
+                  
+                  // Calculate Y scale
+                  const yMax = Math.max(maxValue + 2, 5);
+                  for(let i = 0; i < points.length; i++){
+                    const pt = points[i];
+                    pt.y = height - padding - (pt.value / yMax) * graphHeight;
+                  }
+                  
+                  // Draw background gradient
+                  const bgGradient = ctx.createLinearGradient(0, padding, 0, height - padding);
+                  bgGradient.addColorStop(0, 'rgba(102, 126, 234, 0.3)');
+                  bgGradient.addColorStop(1, 'rgba(102, 126, 234, 0)');
+                  
+                  // Draw grid lines
+                  ctx.strokeStyle = 'rgba(200, 200, 200, 0.2)';
+                  ctx.lineWidth = 1;
+                  for(let i = 0; i <= 5; i++){
+                    const y = padding + (graphHeight / 5) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(padding, y);
+                    ctx.lineTo(width - padding, y);
+                    ctx.stroke();
+                  }
+                  
+                  // Draw filled area under line
+                  ctx.fillStyle = bgGradient;
+                  ctx.beginPath();
+                  ctx.moveTo(points[0].x, points[0].y);
+                  for(let i = 1; i < points.length; i++){
+                    ctx.lineTo(points[i].x, points[i].y);
+                  }
+                  ctx.lineTo(points[points.length - 1].x, height - padding);
+                  ctx.lineTo(points[0].x, height - padding);
+                  ctx.closePath();
+                  ctx.fill();
+                  
+                  // Draw line chart
+                  ctx.strokeStyle = '#667eea';
+                  ctx.lineWidth = 3;
+                  ctx.lineJoin = 'round';
+                  ctx.lineCap = 'round';
+                  ctx.beginPath();
+                  ctx.moveTo(points[0].x, points[0].y);
+                  for(let i = 1; i < points.length; i++){
+                    ctx.lineTo(points[i].x, points[i].y);
+                  }
+                  ctx.stroke();
+                  
+                  // Draw data points
+                  ctx.fillStyle = '#667eea';
+                  for(const p of points){
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                  }
+                  
+                  // Draw Y-axis labels
+                  ctx.fillStyle = '#666';
+                  ctx.font = '11px sans-serif';
+                  ctx.textAlign = 'right';
+                  for(let i = 0; i <= 5; i++){
+                    const value = Math.round(yMax * (i / 5));
+                    const y = padding + (graphHeight / 5) * i;
+                    ctx.fillText(value, padding - 10, y + 4);
+                  }
+                  
+                  // Draw X-axis labels
+                  ctx.textAlign = 'center';
+                  for(let i = 0; i < days; i++){
+                    if(i % Math.ceil(days / 7) === 0 || days === 7){
+                      const label = days === 7 ? ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'][i] : `J-${days - i}`;
+                      ctx.fillText(label, points[i].x, height - 15);
+                    }
+                  }
+                  
+                  // Mouse tracking for tooltip
+                  const handleMouseMove = (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    
+                    let nearest = null;
+                    let minDist = Infinity;
+                    
+                    for(const p of points){
+                      const dist = Math.abs(p.x - x);
+                      if(dist < minDist && dist < 30){
+                        minDist = dist;
+                        nearest = p;
+                      }
+                    }
+                    
+                    if(nearest){
+                      tooltipDiv.style.display = 'block';
+                      const displayValue = dataKey === 'timeSpent'
+                        ? `${nearest.value} min`
+                        : dataKey === 'avgTime'
+                        ? `${nearest.value} sec`
+                        : dataKey === 'accuracy' || dataKey === 'retention'
+                        ? `${nearest.value}%`
+                        : `${nearest.value} cartes`;
+                      tooltipDiv.textContent = displayValue;
+                      
+                      // Position tooltip above and centered on the point
+                      const tooltipWidth = tooltipDiv.offsetWidth;
+                      const tooltipHeight = tooltipDiv.offsetHeight;
+                      tooltipDiv.style.left = (e.clientX - tooltipWidth / 2) + 'px';
+                      tooltipDiv.style.top = (rect.top + nearest.y - tooltipHeight - 12) + 'px';
+                    } else {
+                      tooltipDiv.style.display = 'none';
+                    }
+                  };
+                  
+                  const handleMouseLeave = () => {
+                    tooltipDiv.style.display = 'none';
+                  };
+                  
+                  // Attach event listeners
+                  const eventCanvas = chartBox.querySelector('canvas') || canvas;
+                  eventCanvas.onmousemove = handleMouseMove;
+                  eventCanvas.onmouseleave = handleMouseLeave;
+                }, 50);
+              };
+              
+              redrawChart();
+              
+              // Store redraw function globally for stat clicks
+              window.__redrawChart = redrawChart;
+              
+              statsContent.appendChild(chartBox);
+            }
+          };
+          
+          renderStatsContent();
+          statsCard.appendChild(statsContent);
+          container.appendChild(statsCard);
+        }catch(e){ console.warn('Stats card error:', e); }
+        // === END STATS CARD ===
+
+        // Add post-welcome quest card UNDER the stats card
+        try{ syncPostWelcomeQuestTime(); }catch(e){}
+        try{
+          const postWelcomeQuestCard = renderPostWelcomeQuestCard();
+          if(postWelcomeQuestCard){
+            container.appendChild(postWelcomeQuestCard);
+          }
+        }catch(e){ console.warn('Post-welcome quest card error:', e); }
+        
+        const host = document.querySelector('.app') || document.body;
+        const footer = host.querySelector('footer') || document.querySelector('footer') || null;
+        if(footer) host.insertBefore(container, footer);
+        else host.appendChild(container);
+      }catch(e){ updateStatus("Bienvenue sur Fab'Anki"); }
+    }
+
+    // Wait for restore before loading deck, but with timeout to avoid indefinite wait
+    async function initializeDeckLoader(){
+      try{
+        // Wait up to 3 seconds for cloud restore to complete
+        const restorePromise = new Promise((resolve) => {
+          restoreFromCloud().catch(e => {
+            syncLog('restoreFromCloud error (non-blocking):', e);
+          }).finally(() => resolve());
+        });
+        
+        await Promise.race([
+          restorePromise,
+          new Promise(resolve => setTimeout(resolve, 3000))
+        ]);
+        
+        syncLog('Cloud restore completed or timeout reached, loading deck');
+      }catch(e){ 
+        syncLog('initializeDeckLoader error:', e);
+      }
+      
+      // Now load deck with restored data
+      if(pdeck){ 
+        deckURL = pdeck; 
+        loadDeckFromURL(pdeck); 
+      }
+      else { 
+        renderWelcomeDecks(); 
+      }
+    }
+    
+    // Start deck loader initialization
+    initializeDeckLoader().catch(e => console.warn('Deck loader error:', e));
+    
+    // Show onboarding for first-time users
+    setTimeout(() => {
+      if(!localStorage.getItem('fabanki:onboarding_completed')){
+        showOnboarding();
+      }
+    }, 500);
+  });
+  
+  // --- RECAP ONBOARDING SYSTEM ---
+  function showRecapOnboarding(){
+    try{
+      if(document.getElementById('recapOnboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: 'Récapitulatif de votre session',
+          text: 'Vous avez complété une session de révision ! Voici une analyse détaillée de votre performance.',
+          position: 'center'
+        },
+        {
+          title: 'Cartes révisées',
+          text: 'Le nombre total de cartes que vous avez examinées pendant cette session.',
+          target: '#recap-stat-reviewed',
+          position: 'bottom'
+        },
+        {
+          title: 'Temps total',
+          text: 'La durée totale que vous avez consacrée à cette session de révision.',
+          target: '#recap-stat-time',
+          position: 'bottom'
+        },
+        {
+          title: 'Temps moyen par carte',
+          text: 'Le temps moyen dépensé pour réviser chaque carte.',
+          target: '#recap-stat-avgtime',
+          position: 'bottom'
+        },
+        {
+          title: 'Précision',
+          text: 'Le pourcentage de cartes répondues correctement. Plus c\'est élevé, plus vos réponses étaient précises !',
+          target: '#recap-stat-precision',
+          position: 'bottom'
+        },
+        {
+          title: 'Note sur 20',
+          text: 'Votre note globale pour cette session, calculée à partir de vos réponses.',
+          target: '#recap-stat-note',
+          position: 'bottom'
+        },
+        {
+          title: 'Δ Note (variation)',
+          text: 'La différence entre votre note actuelle et celle de votre dernière session. Un nombre positif indique une amélioration !',
+          target: '#recap-stat-delta',
+          position: 'bottom'
+        },
+        {
+          title: 'Durée mémoire (en jours)',
+          text: 'L\'intervalle moyen entre vos révisions. Plus il est long, mieux Fab\'Anki pense que vous mémoriserez les cartes.',
+          target: '#recap-stat-duration',
+          position: 'bottom'
+        },
+        {
+          title: 'Répartition des réponses',
+          text: 'Un graphique montrant combien de fois vous avez répondu : Raté (rouge), Difficile (jaune), Bon (bleu), Facile (vert).',
+          target: '#recap-distribution',
+          position: 'bottom'
+        },
+        {
+          title: 'Fin du récapitulatif',
+          text: 'Cliquez sur "Accueil" pour retourner à la sélection des decks, ou consultez votre profil pour voir vos statistiques globales. Excellent travail !',
+          target: 'none',
+          position: 'center'
+        }
+      ];
+      
+      let currentStep = 0;
+      
+      const overlay = document.createElement('div');
+      overlay.id = 'recapOnboardingOverlay';
+      overlay.style.position = 'fixed';
+      overlay.style.top = '0';
+      overlay.style.left = '0';
+      overlay.style.right = '0';
+      overlay.style.bottom = '0';
+      overlay.style.background = 'rgba(0, 0, 0, 0.6)';
+      overlay.style.zIndex = '10000';
+      overlay.style.display = 'flex';
+      overlay.style.alignItems = 'flex-start';
+      overlay.style.justifyContent = 'center';
+      overlay.style.paddingTop = '20px';
+      overlay.style.overflowY = 'auto';
+      
+      const tooltip = document.createElement('div');
+      tooltip.style.background = 'var(--card)';
+      tooltip.style.color = 'var(--fg)';
+      tooltip.style.padding = '24px';
+      tooltip.style.borderRadius = '12px';
+      tooltip.style.maxWidth = '500px';
+      tooltip.style.width = '90%';
+      tooltip.style.boxShadow = '0 10px 40px rgba(0,0,0,0.3)';
+      tooltip.style.position = 'relative';
+      tooltip.style.animation = 'fadeIn 0.3s ease-out';
+      tooltip.style.margin = 'auto';
+      tooltip.style.flexShrink = '0';
+      
+      const renderStep = () => {
+        const step = steps[currentStep];
+        tooltip.innerHTML = '';
+        
+        const title = document.createElement('h3');
+        title.textContent = step.title;
+        title.style.margin = '0 0 12px 0';
+        title.style.fontSize = '1.3rem';
+        title.style.color = 'var(--accent)';
+        tooltip.appendChild(title);
+        
+        const text = document.createElement('p');
+        text.textContent = step.text;
+        text.style.margin = '0 0 20px 0';
+        text.style.lineHeight = '1.6';
+        text.style.color = 'var(--fg)';
+        tooltip.appendChild(text);
+        
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.justifyContent = 'space-between';
+        actions.style.alignItems = 'center';
+        actions.style.gap = '12px';
+        
+        const progress = document.createElement('div');
+        progress.textContent = `${currentStep + 1} / ${steps.length}`;
+        progress.style.fontSize = '0.85rem';
+        progress.style.color = 'var(--muted)';
+        actions.appendChild(progress);
+        
+        const btnGroup = document.createElement('div');
+        btnGroup.style.display = 'flex';
+        btnGroup.style.gap = '8px';
+        
+        if(currentStep > 0){
+          const prevBtn = document.createElement('button');
+          prevBtn.className = 'secondary';
+          prevBtn.textContent = '← Précédent';
+          prevBtn.addEventListener('click', () => {
+            currentStep--;
+            renderStep();
+          });
+          btnGroup.appendChild(prevBtn);
+        }
+        
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'secondary';
+        skipBtn.textContent = 'Passer';
+        skipBtn.addEventListener('click', () => {
+          localStorage.setItem('fabanki:recap_onboarding_completed', 'true');
+          overlay.remove();
+        });
+        btnGroup.appendChild(skipBtn);
+        
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = currentStep === steps.length - 1 ? 'Terminer ✓' : 'Suivant →';
+        nextBtn.addEventListener('click', () => {
+          if(currentStep === steps.length - 1){
+            localStorage.setItem('fabanki:recap_onboarding_completed', 'true');
+            overlay.remove();
+          } else {
+            currentStep++;
+            renderStep();
+          }
+        });
+        btnGroup.appendChild(nextBtn);
+        
+        actions.appendChild(btnGroup);
+        tooltip.appendChild(actions);
+        
+        // Handle target highlighting
+        if(step.target === 'none'){
+          // Remove all highlights
+          document.querySelectorAll('[data-recap-onboarding-highlight]').forEach(el => {
+            el.style.boxShadow = '';
+            el.style.zIndex = '';
+            el.removeAttribute('data-recap-onboarding-highlight');
+          });
+          // Center the tooltip
+          tooltip.style.position = 'relative';
+          tooltip.style.transform = 'none';
+          tooltip.style.top = 'auto';
+          tooltip.style.left = 'auto';
+        } else if(step.target){
+          const target = document.querySelector(step.target);
+          if(target){
+            // Make target visible and scroll into view
+            target.style.visibility = 'visible';
+            target.style.display = '';
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            setTimeout(() => {
+              const rect = target.getBoundingClientRect();
+              const tooltipRect = tooltip.getBoundingClientRect();
+              tooltip.style.position = 'absolute';
+              
+              const viewportHeight = window.innerHeight;
+              const spaceBelow = viewportHeight - rect.bottom;
+              const spaceAbove = rect.top;
+              const tooltipHeight = tooltipRect.height || 300;
+              
+              const shouldPlaceAbove = step.position === 'top' || (spaceBelow < tooltipHeight + 40 && spaceAbove > tooltipHeight + 40);
+              
+              if(shouldPlaceAbove){
+                tooltip.style.top = (rect.top - 20) + 'px';
+                tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                tooltip.style.transform = 'translate(-50%, -100%)';
+              } else {
+                tooltip.style.top = (rect.bottom + 20) + 'px';
+                tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                tooltip.style.transform = 'translateX(-50%)';
+              }
+            }, 300);
+            
+            // Highlight target
+            target.style.position = 'relative';
+            target.style.zIndex = '10001';
+            target.style.boxShadow = '0 0 0 4px var(--accent)';
+            target.style.borderRadius = '8px';
+            
+            // Remove old highlights
+            document.querySelectorAll('[data-recap-onboarding-highlight]').forEach(el => {
+              el.style.boxShadow = '';
+              el.style.zIndex = '';
+              el.removeAttribute('data-recap-onboarding-highlight');
+            });
+            target.setAttribute('data-recap-onboarding-highlight', 'true');
+          } else {
+            // Target not found, center the tooltip
+            tooltip.style.position = 'relative';
+            tooltip.style.transform = 'none';
+            tooltip.style.top = 'auto';
+            tooltip.style.left = 'auto';
+          }
+        } else {
+          // Center position
+          tooltip.style.position = 'relative';
+          tooltip.style.transform = 'none';
+          tooltip.style.top = 'auto';
+          tooltip.style.left = 'auto';
+        }
+      };
+      
+      overlay.appendChild(tooltip);
+      document.body.appendChild(overlay);
+      renderStep();
+      
+      // Clean up highlights on close
+      overlay.addEventListener('remove', () => {
+        document.querySelectorAll('[data-recap-onboarding-highlight]').forEach(el => {
+          el.style.boxShadow = '';
+          el.style.zIndex = '';
+          el.removeAttribute('data-recap-onboarding-highlight');
+        });
+      });
+      
+    }catch(e){ console.warn('recap onboarding error:', e) }
+  }
+  
+  // --- ONBOARDING SYSTEM ---
+  function showOnboarding(){
+    try{
+      if(document.getElementById('onboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: 'Bienvenue sur Fab\'Anki !',
+          text: 'Fab\'Anki est votre compagnon d\'apprentissage intelligent. Découvrez comment maximiser votre révision avec notre système de répétition espacée.',
+          position: 'center'
+        },
+        {
+          title: 'Choisissez un deck',
+          text: 'Commencez par sélectionner un deck à réviser. Le nombre en rouge indique les cartes à faire aujourd\'hui.',
+          target: '#featuredDeckCard',
+          position: 'top'
+        },
+        {
+          title: 'Complétez vos missions',
+          text: 'Gagnez des XP et des crédits en complétant vos missions quotidiennes et hebdomadaires. Les barres de progression se mettent à jour automatiquement !',
+          target: '.missions-card',
+          position: 'top'
+        },
+        {
+          title: 'Consultez vos statistiques',
+          text: 'La section Statistiques vous montre votre progression détaillée : cartes révisées, nouvelles cartes, précision et bien plus encore. Certaines statistiques sont verrouillées et peuvent être débloquées avec des crédits !',
+          position: 'top'
+        },
+        {
+          title: 'Synchronisez vos données',
+          text: 'Cliquez sur 🔄 Sync pour créer un compte et synchroniser vos progrès sur le cloud. Vous pourrez ainsi continuer vos révisions sur plusieurs appareils ! Vos données restent toujours chiffrées et sécurisées.',
+          position: 'center'
+        },
+        {
+          title: 'Consultez votre profil',
+          text: 'Cliquez sur votre niveau pour voir vos statistiques, titres, et accéder aux options de personnalisation.',
+          target: '.level-summary',
+          position: 'bottom'
+        },
+        {
+          title: 'Personnalisez l\'interface',
+          text: 'Dans le profil, utilisez le bouton ⚙️ pour changer les couleurs, animations et polices. Débloquez plus d\'options en montant de niveau !',
+          target: '.button.settings-button',
+          position: 'center'
+        },
+        {
+          title: 'Quête de bienvenue',
+          text: 'Complétez la quête de bienvenue pour gagner des crédits et débloquer le motif 42 exclusif dès la fin de la partie 2 ! La quête vous guide à travers les fonctionnalités principales de Fab\'Anki. Elle apparaîtra sur la page d\'accueil.',
+          position: 'center'
+        },
+                {
+          title: 'Plus sur le projet',
+          text: 'Fab\'Anki est un projet open-source et collaboratif. Si vous voyez une erreur/bug ou souhaitez proposer une fonctionnalité, demandez moi en privé. Projet fait avec ia, je ne vais pas m\'en cacher :)',
+          position: 'bottom'
+        },
+        {
+          title: 'C\'est parti !',
+          text: 'Vous êtes prêt à commencer ! Choisissez un deck et lancez-vous dans vos révisions, je vous guiderais tout au long du chemin. Bon courage !',
+          target: 'none',
+          position: 'center'
+        }
+      ];
+      
+      let currentStep = 0;
+      
+      const overlay = document.createElement('div');
+      overlay.id = 'onboardingOverlay';
+      overlay.style.position = 'fixed';
+      overlay.style.top = '0';
+      overlay.style.left = '0';
+      overlay.style.right = '0';
+      overlay.style.bottom = '0';
+      overlay.style.background = 'rgba(0, 0, 0, 0.6)';
+      overlay.style.zIndex = '10000';
+      overlay.style.display = 'flex';
+      overlay.style.alignItems = 'flex-start';
+      overlay.style.justifyContent = 'center';
+      overlay.style.paddingTop = '20px';
+      overlay.style.overflowY = 'auto';
+      
+      const tooltip = document.createElement('div');
+      tooltip.style.background = 'var(--card)';
+      tooltip.style.color = 'var(--fg)';
+      tooltip.style.padding = '24px';
+      tooltip.style.borderRadius = '12px';
+      tooltip.style.maxWidth = '500px';
+      tooltip.style.width = '90%';
+      tooltip.style.boxShadow = '0 10px 40px rgba(0,0,0,0.3)';
+      tooltip.style.position = 'relative';
+      tooltip.style.animation = 'fadeIn 0.3s ease-out';
+      tooltip.style.margin = 'auto';
+      tooltip.style.flexShrink = '0';
+      
+      const renderStep = () => {
+        const step = steps[currentStep];
+        tooltip.innerHTML = '';
+        
+        const title = document.createElement('h3');
+        title.textContent = step.title;
+        title.style.margin = '0 0 12px 0';
+        title.style.fontSize = '1.3rem';
+        title.style.color = 'var(--accent)';
+        tooltip.appendChild(title);
+        
+        const text = document.createElement('p');
+        text.textContent = step.text;
+        text.style.margin = '0 0 20px 0';
+        text.style.lineHeight = '1.6';
+        text.style.color = 'var(--fg)';
+        tooltip.appendChild(text);
+        
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.justifyContent = 'space-between';
+        actions.style.alignItems = 'center';
+        actions.style.gap = '12px';
+        
+        const progress = document.createElement('div');
+        progress.textContent = `${currentStep + 1} / ${steps.length}`;
+        progress.style.fontSize = '0.85rem';
+        progress.style.color = 'var(--muted)';
+        actions.appendChild(progress);
+        
+        const btnGroup = document.createElement('div');
+        btnGroup.style.display = 'flex';
+        btnGroup.style.gap = '8px';
+        
+        if(currentStep > 0){
+          const prevBtn = document.createElement('button');
+          prevBtn.className = 'secondary';
+          prevBtn.textContent = '← Précédent';
+          prevBtn.addEventListener('click', () => {
+            currentStep--;
+            renderStep();
+          });
+          btnGroup.appendChild(prevBtn);
+        }
+        
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'secondary';
+        skipBtn.textContent = 'Passer';
+        skipBtn.addEventListener('click', () => {
+          localStorage.setItem('fabanki:onboarding_completed', 'true');
+          try{
+            if(typeof completeWelcomeQuestMission === 'function'){
+              completeWelcomeQuestMission('part1', 'onboarding_done', 5);
+            }
+          }catch(e){ console.warn('welcome quest onboarding error', e); }
+          overlay.remove();
+        });
+        btnGroup.appendChild(skipBtn);
+        
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = currentStep === steps.length - 1 ? 'Terminer ✓' : 'Suivant →';
+        nextBtn.addEventListener('click', () => {
+          if(currentStep === steps.length - 1){
+            localStorage.setItem('fabanki:onboarding_completed', 'true');
+            try{
+              if(typeof completeWelcomeQuestMission === 'function'){
+                completeWelcomeQuestMission('part1', 'onboarding_done', 5);
+              }
+            }catch(e){ console.warn('welcome quest onboarding error', e); }
+            overlay.remove();
+          } else {
+            currentStep++;
+            renderStep();
+          }
+        });
+        btnGroup.appendChild(nextBtn);
+        
+        actions.appendChild(btnGroup);
+        tooltip.appendChild(actions);
+        
+        // Position tooltip based on target
+        // Handle target:'none' - deselect all highlights
+        if(step.target === 'none'){
+          // Remove all highlights
+          document.querySelectorAll('[data-onboarding-highlight]').forEach(el => {
+            el.style.boxShadow = '';
+            el.style.zIndex = '';
+            el.removeAttribute('data-onboarding-highlight');
+          });
+          
+          // Center the tooltip
+          tooltip.style.position = 'relative';
+          tooltip.style.transform = 'none';
+          tooltip.style.top = 'auto';
+          tooltip.style.left = 'auto';
+        } else if(step.target){
+          const target = document.querySelector(step.target);
+          if(target){
+            // Show target
+            target.style.visibility = 'visible';
+            target.style.display = '';
+            
+            // Scroll target into view smoothly
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Wait a bit for scroll to complete before positioning tooltip
+            setTimeout(() => {
+              const rect = target.getBoundingClientRect();
+              const tooltipRect = tooltip.getBoundingClientRect();
+              tooltip.style.position = 'absolute';
+              
+              // Determine if we should place above or below based on available space
+              const viewportHeight = window.innerHeight;
+              const spaceBelow = viewportHeight - rect.bottom;
+              const spaceAbove = rect.top;
+              const tooltipHeight = tooltipRect.height || 300; // estimate if not measured yet
+              
+              // If position is specified as 'top' or if there's not enough space below, place above
+              const shouldPlaceAbove = step.position === 'top' || (spaceBelow < tooltipHeight + 40 && spaceAbove > tooltipHeight + 40);
+              
+              if(shouldPlaceAbove){
+                tooltip.style.top = (rect.top - 20) + 'px';
+                tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                tooltip.style.transform = 'translate(-50%, -100%)';
+              } else {
+                // Place below (default for 'bottom' or when more space available)
+                tooltip.style.top = (rect.bottom + 20) + 'px';
+                tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                tooltip.style.transform = 'translateX(-50%)';
+              }
+            }, 300);
+            
+            // Highlight target element
+            target.style.position = 'relative';
+            target.style.zIndex = '10001';
+            target.style.boxShadow = '0 0 0 4px var(--accent)';
+            target.style.borderRadius = '8px';
+            
+            // Remove highlight from previous target
+            document.querySelectorAll('[data-onboarding-highlight]').forEach(el => {
+              el.style.boxShadow = '';
+              el.style.zIndex = '';
+              el.removeAttribute('data-onboarding-highlight');
+            });
+            target.setAttribute('data-onboarding-highlight', 'true');
+          } else {
+            // Target not found, center the tooltip
+            tooltip.style.position = 'relative';
+            tooltip.style.transform = 'none';
+            tooltip.style.top = 'auto';
+            tooltip.style.left = 'auto';
+          }
+        } else {
+          // Center position (no target specified)
+          tooltip.style.position = 'relative';
+          tooltip.style.transform = 'none';
+          tooltip.style.top = 'auto';
+          tooltip.style.left = 'auto';
+        }
+      };
+      
+      overlay.appendChild(tooltip);
+      document.body.appendChild(overlay);
+      renderStep();
+      
+      // Clean up highlights on close
+      overlay.addEventListener('remove', () => {
+        document.querySelectorAll('[data-onboarding-highlight]').forEach(el => {
+          el.style.boxShadow = '';
+          el.style.zIndex = '';
+          el.removeAttribute('data-onboarding-highlight');
+        });
+      });
+      
+    }catch(e){ console.warn('onboarding error:', e) }
+  }
+  
+  // --- CONTEXTUAL ONBOARDING FOR PROFILE ---
+  function showProfileOnboarding(){
+    try{
+      if(localStorage.getItem('fabanki:profile_onboarding_completed')) return;
+      if(document.getElementById('onboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: 'Votre profil',
+          text: 'Ici vous pouvez voir toutes vos statistiques : cartes révisées, XP total, et jours consécutifs d\'étude.',
+          position: 'center'
+        },
+        {
+          title: 'Classement',
+          text: 'Comparez-vous avec d\'autres utilisateurs et montez dans le classement en gagnant des points MPSI.',
+          position: 'center'
+        },
+        {
+          title: 'Titres et objectifs',
+          text: 'Débloquez des titres prestigieux en accomplissant des objectifs spécifiques. Chaque titre a plusieurs niveaux !',
+          position: 'center'
+        },
+        {
+          title: 'Personnalisation',
+          text: 'Cliquez sur ⚙️ pour personnaliser les couleurs, polices et animations. Plus vous montez de niveau, plus vous débloquez d\'options ! 42.',
+          position: 'center'
+        }
+      ];
+      
+      createContextualOnboarding(steps, 'fabanki:profile_onboarding_completed');
+    }catch(e){ console.warn('profile onboarding error:', e) }
+  }
+  
+  // --- CONTEXTUAL ONBOARDING FOR DECK BROWSER ---
+  function showBrowseOnboarding(){
+    try{
+      if(localStorage.getItem('fabanki:browse_onboarding_completed')) return;
+      if(document.getElementById('onboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: 'Parcourir les decks',
+          text: 'Explorez tous vos decks disponibles. Vous pouvez naviguer dans les dossiers et charger n\'importe quel deck.',
+          position: 'center'
+        },
+        {
+          title: 'Organisation',
+          text: 'Les decks sont organisés par matière : Maths, Physique, Anglais, etc. Cliquez sur un dossier pour voir son contenu.',
+          position: 'center'
+        },
+        {
+          title: 'Chargement rapide',
+          text: 'Cliquez sur un deck pour le charger directement et commencer à réviser !',
+          position: 'center'
+        }
+      ];
+      
+      createContextualOnboarding(steps, 'fabanki:browse_onboarding_completed');
+    }catch(e){ console.warn('browse onboarding error:', e) }
+  }
+  
+  // --- CONTEXTUAL ONBOARDING FOR OVERVIEW PAGE ---
+  function showOverviewOnboarding(){
+    try{
+      if(localStorage.getItem('fabanki:overview_onboarding_completed')) return;
+      if(document.getElementById('onboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: 'Vue d\'ensemble',
+          text: 'Cette page vous montre un aperçu complet de votre deck avant de commencer la révision.',
+          position: 'center'
+        },
+        {
+          title: 'Statistiques du deck',
+          text: 'Voyez combien de cartes vous avez maîtrisées, en apprentissage, ou à réviser. Le graphique montre votre progression.',
+          position: 'center'
+        },
+        {
+          title: 'Déblockage des decks',
+          text: 'Certains decks sont verrouillés jusqu\'à ce que vous atteigniez un certain niveau ou suffisament de crédits. Gagnez de l\'XP et faites vos missions en révisant pour les débloquer !',
+          position: 'center'
+        },
+        {
+          title: 'Aperçu des cartes',
+          text: 'Toutes vos cartes sont affichées avec leur statut. Les nouvelles cartes sont en violet, celles à réviser en couleur.',
+          position: 'center'
+        },
+        {
+          title: 'Commencer',
+          text: 'Cliquez sur "Commencer" pour lancer votre session de révision !',
+          position: 'center'
+        }
+      ];
+      
+      createContextualOnboarding(steps, 'fabanki:overview_onboarding_completed');
+    }catch(e){ console.warn('overview onboarding error:', e) }
+  }
+  
+  // --- CONTEXTUAL ONBOARDING FOR REVIEW PAGE ---
+  function showReviewOnboarding(){
+    try{
+      if(localStorage.getItem('fabanki:review_onboarding_completed')) return;
+      if(document.getElementById('onboardingOverlay')) return;
+      
+      const steps = [
+        {
+          title: 'Session de révision',
+          text: 'Vous êtes en mode révision ! Lisez la question et essayez de répondre avant de cliquer sur "Montrer la réponse".',
+          position: 'center'
+        },
+        {
+          title: 'Répétition espacée',
+          text: 'Fab\'Anki utilise un algorithme intelligent (FSRS) pour déterminer quand vous devez réviser chaque carte. Plus vous répondez correctement, plus l\'intervalle augmente.',
+          position: 'center'
+        },
+        {
+          title: 'Évaluez-vous honnêtement',
+          text: 'C\' la clé pour bien apprendre. Après avoir vu la réponse, choisissez : Raté (rouge), Difficile (orange), Bon (vert), ou Facile (bleu). Soyez honnête pour un apprentissage optimal, l\'xp c\'est bien sympa mais apprendre c\'est mieux !',
+          position: 'center'
+        },
+        {
+          title: 'Ce que signifient les boutons',
+          text: '🔴 Raté : Vous n\'avez pas su répondre, pleins de fautes.\n🟠 Difficile : Vous aviez une idée mais pas la bonne réponse complète ou il y a un ou deux trucs qui clochent.\n🔵 Bon : Vous avez répondu correctement avec un peu d\'effort.\n🟢 Facile : Vous avez répondu immédiatement et sans effort.',
+          position: 'center'
+        },
+        {
+          title: 'Raccourcis clavier',
+          text: 'Gagnez du temps sur ordi : Espace = Montrer réponse, 1/2/3/4 = Raté/Difficile/Bon/Facile. Vous pouvez aussi utiliser les flèches.',
+          position: 'center'
+        },
+        {
+          title: 'Objectif',
+          text: 'Révisez régulièrement pour maximiser votre mémorisation. Chaque carte correcte vous rapporte des XP et fait progresser vos missions !',
+          position: 'center'
+        }
+      ];
+      
+      createContextualOnboarding(steps, 'fabanki:review_onboarding_completed');
+    }catch(e){ console.warn('review onboarding error:', e) }
+  }
+  
+  // --- GENERIC CONTEXTUAL ONBOARDING CREATOR ---
+  function createContextualOnboarding(steps, completionFlag){
+    try{
+      let currentStep = 0;
+      
+      const overlay = document.createElement('div');
+      overlay.id = 'onboardingOverlay';
+      overlay.style.position = 'fixed';
+      overlay.style.top = '0';
+      overlay.style.left = '0';
+      overlay.style.right = '0';
+      overlay.style.bottom = '0';
+      overlay.style.background = 'rgba(0, 0, 0, 0.6)';
+      overlay.style.zIndex = '10000';
+      overlay.style.display = 'flex';
+      overlay.style.alignItems = 'center';
+      overlay.style.justifyContent = 'center';
+      
+      const tooltip = document.createElement('div');
+      tooltip.style.background = 'var(--card)';
+      tooltip.style.color = 'var(--fg)';
+      tooltip.style.padding = '24px';
+      tooltip.style.borderRadius = '12px';
+      tooltip.style.maxWidth = '500px';
+      tooltip.style.width = '90%';
+      tooltip.style.boxShadow = '0 10px 40px rgba(0,0,0,0.3)';
+      tooltip.style.position = 'relative';
+      tooltip.style.animation = 'fadeIn 0.3s ease-out';
+      
+      const updateTooltipPosition = () => {
+        const step = steps[currentStep];
+        const targetId = step.target;
+        
+        // If target is 'none' or 'center', keep tooltip centered
+        if(!targetId || targetId === 'none' || targetId === 'center'){
+          overlay.style.alignItems = 'center';
+          overlay.style.justifyContent = 'center';
+          tooltip.style.position = 'relative';
+          tooltip.style.margin = 'auto';
+          return;
+        }
+        
+        // Find target element
+        const targetEl = document.getElementById(targetId);
+        if(!targetEl){
+          // If target not found, center it
+          overlay.style.alignItems = 'center';
+          overlay.style.justifyContent = 'center';
+          tooltip.style.position = 'relative';
+          tooltip.style.margin = 'auto';
+          return;
+        }
+        
+        // Get target element position
+        const rect = targetEl.getBoundingClientRect();
+        const position = step.position || 'bottom';
+        
+        // Calculate tooltip position based on target
+        overlay.style.alignItems = 'flex-start';
+        overlay.style.justifyContent = 'flex-start';
+        
+        const offsetX = 20;
+        const offsetY = 20;
+        const tooltipWidth = 500;
+        const tooltipHeight = 250;
+        
+        let left, top;
+        
+        if(position === 'top'){
+          left = rect.left + (rect.width - tooltipWidth) / 2;
+          top = rect.top - tooltipHeight - offsetY;
+        } else if(position === 'bottom'){
+          left = rect.left + (rect.width - tooltipWidth) / 2;
+          top = rect.bottom + offsetY;
+        } else if(position === 'left'){
+          left = rect.left - tooltipWidth - offsetX;
+          top = rect.top + (rect.height - tooltipHeight) / 2;
+        } else if(position === 'right'){
+          left = rect.right + offsetX;
+          top = rect.top + (rect.height - tooltipHeight) / 2;
+        } else {
+          // center
+          left = (window.innerWidth - tooltipWidth) / 2;
+          top = (window.innerHeight - tooltipHeight) / 2;
+        }
+        
+        // Keep tooltip within viewport
+        left = Math.max(10, Math.min(left, window.innerWidth - tooltipWidth - 10));
+        top = Math.max(10, Math.min(top, window.innerHeight - tooltipHeight - 10));
+        
+        tooltip.style.position = 'fixed';
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+      };
+      
+      const renderStep = () => {
+        const step = steps[currentStep];
+        tooltip.innerHTML = '';
+        
+        const title = document.createElement('h3');
+        title.textContent = step.title;
+        title.style.margin = '0 0 12px 0';
+        title.style.fontSize = '1.3rem';
+        title.style.color = 'var(--accent)';
+        tooltip.appendChild(title);
+        
+        const text = document.createElement('p');
+        text.textContent = step.text;
+        text.style.margin = '0 0 20px 0';
+        text.style.lineHeight = '1.6';
+        text.style.color = 'var(--fg)';
+        tooltip.appendChild(text);
+        
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.justifyContent = 'space-between';
+        actions.style.alignItems = 'center';
+        actions.style.gap = '12px';
+        
+        const progress = document.createElement('div');
+        progress.textContent = `${currentStep + 1} / ${steps.length}`;
+        progress.style.fontSize = '0.85rem';
+        progress.style.color = 'var(--muted)';
+        actions.appendChild(progress);
+        
+        const btnGroup = document.createElement('div');
+        btnGroup.style.display = 'flex';
+        btnGroup.style.gap = '8px';
+        
+        if(currentStep > 0){
+          const prevBtn = document.createElement('button');
+          prevBtn.className = 'secondary';
+          prevBtn.textContent = '← Précédent';
+          prevBtn.addEventListener('click', () => {
+            currentStep--;
+            renderStep();
+            updateTooltipPosition();
+          });
+          btnGroup.appendChild(prevBtn);
+        }
+        
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'secondary';
+        skipBtn.textContent = 'Passer';
+        skipBtn.addEventListener('click', () => {
+          localStorage.setItem(completionFlag, 'true');
+          overlay.remove();
+          // Resume timer when onboarding closes
+          resumeTimerAfterOnboarding();
+        });
+        btnGroup.appendChild(skipBtn);
+        
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = currentStep === steps.length - 1 ? 'Compris ✓' : 'Suivant →';
+        nextBtn.addEventListener('click', () => {
+          if(currentStep === steps.length - 1){
+            localStorage.setItem(completionFlag, 'true');
+            overlay.remove();
+            // Resume timer when onboarding closes
+            resumeTimerAfterOnboarding();
+          } else {
+            currentStep++;
+            renderStep();
+            updateTooltipPosition();
+          }
+        });
+        btnGroup.appendChild(nextBtn);
+        
+        actions.appendChild(btnGroup);
+        tooltip.appendChild(actions);
+        
+        // Update position after rendering
+        setTimeout(() => updateTooltipPosition(), 10);
+      };
+      
+      overlay.appendChild(tooltip);
+      document.body.appendChild(overlay);
+      renderStep();
+      
+    }catch(e){ console.warn('contextual onboarding error:', e) }
+  }
+  
+  // Resume timer after onboarding is closed
+  function resumeTimerAfterOnboarding(){
+    try{
+      window.__timerPausedForOnboarding = false;
+      window.__activeMemoryPausedForOnboarding = false;
+      
+      // Restart timer animation if in timer mode
+      if(reviewMode === 'timer' && window.timerModeState && !window.timerModeState.animationHandle){
+        startTimerAnimation();
+      }
+      
+      // Restart active memory timer if in active memory mode
+      if(reviewMode === 'activeMemory'){
+        // Active memory will be restarted on next card or when front is shown
+      }
+    }catch(e){ console.warn('resume timer error:', e) }
+  }
+
+  // Expose functions as required (so they're available globally)
+  window.loadDeckFromURL = loadDeckFromURL;
+  window.parseXMLDeck = parseXMLDeck;
+  window.interpretSides = interpretSides;
+  window.renderFront = renderFront;
+  window.renderBack = renderBack;
+  window.renderKaTeX = renderKaTeX;
+  window.initFSRS = initFSRS;
+  window.scheduleCard = scheduleCard;
+  window.getDueCards = getDueCards;
+  window.showRecapOnboarding = showRecapOnboarding;
+
+// Fab'Anki, open-source spaced repetition software made with Copilot.

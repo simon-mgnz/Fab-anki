@@ -1,0 +1,58 @@
+<deck name="Chapitre 10 - Limites, continuité" tags='Maths::Chapitres'><fields><tex name='TeX' sides='11'></tex><rich-text name='Front' sides='11'></rich-text><tex name='Formula' sides='01'></tex><rich-text name='Back' sides='01'></rich-text></fields><cards><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Si }f\in C(I,\mathbb{R})\text{ et }f\text{ strictement monotone, alors }f:I\to f(I)\text{ est bijective.}\\
+\text{De plus }f^{-1}:f(I)\to I\text{ est continue et a la même monotonie que }f.</tex><rich-text name='Front'><p>Théorème de la bijection</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Si }f:I\to J,\ g:J\to\mathbb{R},\ \lim_{x\to a}f(x)=b,\ \lim_{y\to b}g(y)=\ell
+\ \Rightarrow\ 
+\lim_{x\to a}g(f(x))=\ell.</tex><rich-text name='Front'><p>Composition de limites</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Si }f\in C([a,b],\mathbb{R}),\ a<b,\ \text{alors }f\text{ est bornée et atteint ses bornes (}\exists x_{\min},x_{\max}\in[a,b]\text{ tels que }\\
+f(x_{\min})=\min_{[a,b]}f,\quad f(x_{\max})=\max_{[a,b]}f. )
+</tex><rich-text name='Front'><p>Théorème des Bornes atteintes</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>f,g\text{ continues en }a\ \Rightarrow\ \alpha f+\beta g\text{ continues en }a\ (\alpha,\beta\in\mathbb{R}),\\
+f\cdot g\text{ continue en }a,\\
+\text{si }g(a)\neq0\text{ alors }f/g\text{ est continue en }a.
+</tex><rich-text name='Front'><p>Opérations élémentaires sur la continuité</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Si }a\in I\text{ et }f(x)\xrightarrow[x\to a]{}\ell\quad\Rightarrow\quad \ell=f(a).</tex><rich-text name='Front'><p>Lemme</p></rich-text><tex name='TeX'>f(x) \to_{x \to a} \ell \implies ?</tex></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Si }f(x)\le g(x)\text{ au voisinage de }a,\ \lim_{x\to a}f(x)=\ell,\ \lim_{x\to a}g(x)=\ell'\ \Rightarrow\ \ell\le\ell'.
+</tex><rich-text name='Front'><p>(Théorème de) Passage à la limite (pour inégalités)</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Soit }f:I\to\mathbb{C},\ \ell\in\mathbb{C}.\quad
+f(x)\xrightarrow[x\to a]{}\ell\ \iff\ \Re f(x)\to\Re\ell\ \text{et}\ \Im f(x)\to\Im\ell.</tex><rich-text name='Front'><p>Caractérisation séquentielle de la limite complexe</p></rich-text></card><card><rich-text name='Back'><p>Tout réel compris entre f(a) et f(b) admet au moins un antécédent par f dans [a,b]</p></rich-text><tex name='Formula'>\text{Si }a<b \text{ réels} ,\ f\in C([a,b],\mathbb{R}),\ \text{alors }</tex><rich-text name='Front'><p>T.V.I. (Théorème des valeurs intermédiaires)</p></rich-text></card><card><rich-text name='Back'><p>Pour f continue sur un intervalle, injectivité ⇔ stricte monotonie.</p></rich-text><tex name='Formula'></tex><rich-text name='Front'><p>Lien injectivité / monotonie</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>(\ell,\ell')\in \overline{\mathbb{R}^2}\ 
+\text{Si }f(x)\xrightarrow[x\to a]{}\ell\quad\text{et}\quad f(x)\xrightarrow[x\to a]{}\ell',\ \text{alors }\ell=\ell'.</tex><rich-text name='Front'><p>Unicité de la limite</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Si }f(x)\xrightarrow[x\to a]{}\ell\in\mathbb{R}\ \Rightarrow\ \exists V_a\in \mathcal{ V}(a)\text{ tel que }f|_{I\cap V_a}\text{ est bornée.}</tex><rich-text name='Front'><p>Limite finie ⇒ bornée au voisinage</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Si }a,b\in\overline{\mathbb{R}},\ a\neq b,\ \exists U_a\in \mathcal{ V}(a),\ U_b\in\mathcal{ V}(b)\text{ tels que }U_a\cap U_b=\varnothing</tex><rich-text name='Front'><p>Lemme : Séparation de voisinages</p></rich-text></card><card><rich-text name='Back'><p>f est continue en a si et seulement si limites gauche et droite existent et égalent f(a).</p></rich-text><tex name='Formula'>f : I \to \mathbb{R}, a \in I, \\
+f\text{ continue en }a\ \iff\ \lim_{x\to a^-}f(x)=\lim_{x\to a^+}f(x)=f(a).</tex><rich-text name='Front'><p>Continuité ⇔ limites latérales égales</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\begin{aligned}
+
+\text{Si }a\text{ est extrémité de }I\text{ hors de }I
+
+,\ \lim_{x\to a}f(x)=\ell
+\ \Longleftrightarrow\ 
+\lim_{x\to a^-}f(x)=\lim_{x\to a^+}f(x)=f(a)=\ell\in \overline{\mathbb{R}} \\ \text{Si }a\in I
+,\ 
+\lim_{x\to a}f(x)=\ell
+\ \Longleftrightarrow\ 
+\lim_{x\to a^-}f(x)=\lim_{x\to a^+}f(x)=\ell \in \mathbb{R}
+\end{aligned}
+</tex><rich-text name='Front'><p>Liens limite ↔ limites latérales</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Si }\lim_{x\to a}f(x)=\ell>0\ \Rightarrow\ \exists V_a\in V(a),\ \forall x\in I\cap V_a,\ f(x)>0.
+</tex><rich-text name='Front'></rich-text><tex name='TeX'>\text{Si }\lim_{x\to a}f(x)=\ell>0\ \Rightarrow ?</tex></card><card><rich-text name='Back'><p>La réciproque d'une bijection continue sur un intervalle est continue.</p></rich-text><tex name='Formula'>\text{Si }f\in C(I,\mathbb{R})\text{ bijective sur }J=f(I),\ \text{alors }f^{-1}:J\to I\text{ est continue.}</tex><rich-text name='Front'><p>Théorème de la Continuité de la réciproque</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Soit }f\in C(]a,b[,\mathbb{R})\text{ et supposons }\ell=\lim_{x\to a}f(x)\in\mathbb{R}.\\
+\text{Alors } \tilde f:[a,b[\to\mathbb{R},\quad
+\tilde f(x)=\begin{cases}f(x),x\neq a,\\ \ell,x=a,\end{cases}
+\text{vérifie }\tilde f\in C([a,b[,\mathbb{R}).</tex><rich-text name='Front'><p>Prolongement par continuité</p></rich-text></card><card><rich-text name='Back'><p>La composée de fonctions continues est continue.</p></rich-text><tex name='Formula'>\text{Si }f\in C(I,J)\text{ et }g\in C(J,\mathbb{R})\text{ et }f(I)\subset J,\ \text{alors }g\circ f\in C(I,\mathbb{R}).
+</tex><rich-text name='Front'><p>Composition et continuité</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>f\text{ continue à gauche en }a\ \Longleftrightarrow\ \lim_{x\to a^-}f(x)=f(a),\\
+f\text{ continue à droite en }a\ \Longleftrightarrow\ \lim_{x\to a^+}f(x)=f(a).</tex><rich-text name='Front'><p>Continuité à gauche / à droite</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Soit }f: ]a,b[\to\mathbb{R}\text{ croissante.}\\
+\text{Alors }f\text{ admet }\lim_{x\to a^+}f(x)\ (\text{finie si }f\text{ est minorée, sinon } -\infty),\\
+\forall x\in]a,b[,\ \exists\ \lim_{t\to x^-}f(t),\ \lim_{t\to x^+}f(t)\ \text{finis avec }\lim_{t\to x^-}f(t)\leq f(x)\leq \lim_{t\to x^+}f(t),\\
+\text{et }\lim_{x\to b^-}f(x)\text{ existe (finie si majorée, sinon }+\infty).
+</tex><rich-text name='Front'><p>Théorème de la Limite monotone</p></rich-text></card><card><rich-text name='Back'><p>L'image d'un intervalle par une fonction continue est un intervalle.</p></rich-text><tex name='Formula'></tex><rich-text name='Front'><p>TVI moderne</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Si }f(x)\to\ell,\ g(x)\to m\ (x\to a),\ \text{alors}\\
+f(x)+g(x)\to \ell+m,\quad f(x)g(x)\to \ell m,\\
+\text{si }m\neq0,\ \frac{f(x)}{g(x)}\to\frac{\ell}{m}.
+</tex><rich-text name='Front'><p>Opérations élémentaires sur les limites</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Soit }a\in\overline{\mathbb{R}}.
+\\
+\mathcal{ V}(a)=\begin{cases}
+\{[a-\varepsilon,a+\varepsilon]\mid\varepsilon>0\}, a\in\mathbb{R},\\
+\{[A,+\infty[ \mid A\in\mathbb{R}\},  a=+\infty,\\
+\{]-\infty,A] \mid A\in\mathbb{R}\},  a=-\infty.
+\end{cases}</tex><rich-text name='Front'><p>Voisinage</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Soit }I\subset\mathbb{R}\text{ intervalle, }a\in I\text{ ou borne de }I,\ f:I\to\mathbb{R},\ \ell\in\overline{\mathbb{R}}\\
+f(x)\xrightarrow[x\to a]{}\ell
+\quad\Longleftrightarrow\quad
+\forall V_\ell\in \mathcal{ V}(\ell),\ \exists V_a\in \mathcal{V}(a),\ \forall x\in I,\ x\in V_a\Rightarrow f(x)\in V_\ell.
+</tex><rich-text name='Front'><p>Limite (définition générale ultimum platinium ++)</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>f : I \to \mathbb{R}, a \in I
+f\text{ est continue en }a\ \iff\ \forall u\in I^\N ,\ u_n\to_{n\to + \infin} a\Rightarrow f(u_n)\to_{n \to + \infin} f(a).</tex><rich-text name='Front'><p>Caractérisation séquentielle de la continuité</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\text{Si }f\text{ bornée au voisinage de }a\in \overline{\mathbb{R}} \text{ et }g(x)\to_{x\to a} 0, \implies f(x)g(x)\to_{x\to a} 0.
+</tex><rich-text name='Front'></rich-text><tex name='TeX'>f \text{ bornée et } lim \varepsilon =0 \implies ?  </tex></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\lim_{x\to a}f(x)=\ell\in \overline{\mathbb{R}}
+\ \iff\ 
+\forall u\in I^\mathbb{N}, u_n\to_{n\to +\infin} a\ \Rightarrow\ f(u_n)\to_{n\to + \infin} \ell.</tex><rich-text name='Front'><p>Caractérisation séquentielle de la limite</p></rich-text></card><card><rich-text name='Back'><p>Intersection de deux voisinages est un voisinage.</p></rich-text><tex name='Formula'>\text{Si }a\in\overline{\mathbb{R}}\text{ et }U_1,U_2\in\mathcal{ V}(a)\text{ alors }U_1\cap U_2\in \mathcal{ V}(a)</tex><rich-text name='Front'><p>Lemme : Intersection de voisinages</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>\begin{aligned}
+Droite : \lim_{x\to a^+}f(x)=\ell\quad\Longleftrightarrow\quad f|_{I\cap]a,+\infty[}\xrightarrow[x\to a]{}\ell,\\
+Gauche : \lim_{x\to a^-}f(x)=\ell\quad\Longleftrightarrow\quad f|_{I\cap]-\infty,a[}\xrightarrow[x\to a]{}\ell.
+\end{aligned}</tex><rich-text name='Front'><p>Limite à droite / à gauche</p></rich-text></card><card><rich-text name='Back'></rich-text><tex name='Formula'>f\text{ est continue en }a\in I\ \Longleftrightarrow\ \lim_{x\to a}f(x)=f(a) = lim_{x\to a} f(x) \ existe
+</tex><rich-text name='Front'><p>Continuité</p></rich-text></card><card><rich-text name='Back'><p>Si f ≤ g ≤ h et limites de f et h égales, alors limite de g égale.</p></rich-text><tex name='Formula'>\text{Si }f(x)\le g(x)\le h(x)\text{ au voisinage de }a\text{ et }\\
+\lim_{x\to a}f(x)=\lim_{x\to a}h(x)=\ell,\ \text{alors }\lim_{x\to a}g(x)=\ell.
+</tex><rich-text name='Front'><p>Théorème d'encadrement (théorème des gendarmes)</p></rich-text></card></cards></deck>

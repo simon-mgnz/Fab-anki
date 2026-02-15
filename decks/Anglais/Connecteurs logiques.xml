@@ -1,0 +1,207 @@
+<deck name="Connecteurs logiques" tags='Voc anglais'>
+<fields>
+<text name='Text' sides='11' lang='en-US'></text>
+<tts name='Translation' sides='01' lang='en-AU'></tts>
+</fields>
+<cards>
+<!-- Addition / Ajout -->
+<card><text name='Text'>De plus, En outre</text><tts name='Translation'>Moreover</tts></card>
+<card><text name='Text'>De plus, En outre (2)</text><tts name='Translation'>Furthermore</tts></card>
+<card><text name='Text'>En plus, De plus</text><tts name='Translation'>In addition</tts></card>
+<card><text name='Text'>En outre, D'ailleurs</text><tts name='Translation'>Besides</tts></card>
+<card><text name='Text'>Qui plus est</text><tts name='Translation'>What's more</tts></card>
+<card><text name='Text'>De plus (adverbe)</text><tts name='Translation'>Additionally</tts></card>
+<card><text name='Text'>Aussi, Également</text><tts name='Translation'>Also</tts></card>
+<card><text name='Text'>Aussi (fin de phrase)</text><tts name='Translation'>As well</tts></card>
+<card><text name='Text'>Aussi (très courant, fin de phrase)</text><tts name='Translation'>Too</tts></card>
+<card><text name='Text'>Non seulement... mais aussi</text><tts name='Translation'>Not only... but also</tts></card>
+<card><text name='Text'>Avec, En plus de</text><tts name='Translation'>Along with</tts></card>
+<card><text name='Text'>Avec, Ainsi que</text><tts name='Translation'>Together with</tts></card>
+
+<!-- Contraste / Opposition -->
+<card><text name='Text'>Cependant, Toutefois</text><tts name='Translation'>However</tts></card>
+<card><text name='Text'>Néanmoins, Toutefois</text><tts name='Translation'>Nevertheless</tts></card>
+<card><text name='Text'>Néanmoins (variante)</text><tts name='Translation'>Nonetheless</tts></card>
+<card><text name='Text'>Pourtant, Cependant</text><tts name='Translation'>Yet</tts></card>
+<card><text name='Text'>Néanmoins, Pourtant</text><tts name='Translation'>Still</tts></card>
+<card><text name='Text'>Bien que, Cependant (fin de phrase)</text><tts name='Translation'>Though</tts></card>
+<card><text name='Text'>Bien que, Même si</text><tts name='Translation'>Although</tts></card>
+<card><text name='Text'>Même si (emphase)</text><tts name='Translation'>Even though</tts></card>
+<card><text name='Text'>Mais</text><tts name='Translation'>But</tts></card>
+<card><text name='Text'>Au contraire</text><tts name='Translation'>On the contrary</tts></card>
+<card><text name='Text'>D'autre part, En revanche</text><tts name='Translation'>On the other hand</tts></card>
+<card><text name='Text'>Alors que, Tandis que</text><tts name='Translation'>Whereas</tts></card>
+<card><text name='Text'>Tandis que (temporel ou contraste)</text><tts name='Translation'>While</tts></card>
+<card><text name='Text'>En revanche, Par contraste</text><tts name='Translation'>In contrast</tts></card>
+<card><text name='Text'>En revanche (variante)</text><tts name='Translation'>By contrast</tts></card>
+<card><text name='Text'>Inversement, À l'inverse</text><tts name='Translation'>Conversely</tts></card>
+<card><text name='Text'>Malgré, En dépit de (+ nom)</text><tts name='Translation'>In spite of</tts></card>
+<card><text name='Text'>Malgré (+ nom)</text><tts name='Translation'>Despite</tts></card>
+
+<!-- Cause -->
+<card><text name='Text'>Parce que, Car</text><tts name='Translation'>Because</tts></card>
+<card><text name='Text'>Puisque, Étant donné que</text><tts name='Translation'>Since</tts></card>
+<card><text name='Text'>Comme, Puisque (début de phrase)</text><tts name='Translation'>As</tts></card>
+<card><text name='Text'>Car (soutenu)</text><tts name='Translation'>For</tts></card>
+<card><text name='Text'>À cause de, En raison de (+ nom)</text><tts name='Translation'>Because of</tts></card>
+<card><text name='Text'>Dû à, En raison de</text><tts name='Translation'>Due to</tts></card>
+<card><text name='Text'>En raison de, Grâce à</text><tts name='Translation'>Owing to</tts></card>
+<card><text name='Text'>Grâce à</text><tts name='Translation'>Thanks to</tts></card>
+<card><text name='Text'>En raison de (formel)</text><tts name='Translation'>On account of</tts></card>
+
+<!-- Conséquence -->
+<card><text name='Text'>Par conséquent, Donc</text><tts name='Translation'>Therefore</tts></card>
+<card><text name='Text'>Ainsi, Donc (formel)</text><tts name='Translation'>Thus</tts></card>
+<card><text name='Text'>D'où, Par conséquent</text><tts name='Translation'>Hence</tts></card>
+<card><text name='Text'>En conséquence</text><tts name='Translation'>Consequently</tts></card>
+<card><text name='Text'>En conséquence (résultat)</text><tts name='Translation'>As a result</tts></card>
+<card><text name='Text'>En conséquence (variante)</text><tts name='Translation'>As a consequence</tts></card>
+<card><text name='Text'>Donc, Alors (courant)</text><tts name='Translation'>So</tts></card>
+<card><text name='Text'>En conséquence (formel)</text><tts name='Translation'>Accordingly</tts></card>
+<card><text name='Text'>Pour cette raison, C'est pourquoi</text><tts name='Translation'>For this reason</tts></card>
+<card><text name='Text'>C'est pourquoi (courant)</text><tts name='Translation'>That's why</tts></card>
+
+<!-- But / Finalité -->
+<card><text name='Text'>Afin de, Pour (+ verbe)</text><tts name='Translation'>In order to</tts></card>
+<card><text name='Text'>De façon à, Afin de</text><tts name='Translation'>So as to</tts></card>
+<card><text name='Text'>Pour (but, + verbe)</text><tts name='Translation'>To</tts></card>
+<card><text name='Text'>Pour que, Afin que (+ proposition)</text><tts name='Translation'>So that</tts></card>
+<card><text name='Text'>Afin que (formel)</text><tts name='Translation'>In order that</tts></card>
+<card><text name='Text'>En vue de, Dans le but de</text><tts name='Translation'>With a view to</tts></card>
+<card><text name='Text'>Dans le but de (formel)</text><tts name='Translation'>For the purpose of</tts></card>
+
+<!-- Temps -->
+<card><text name='Text'>Quand, Lorsque</text><tts name='Translation'>When</tts></card>
+<card><text name='Text'>Pendant que, Tandis que (temps)</text><tts name='Translation'>While</tts></card>
+<card><text name='Text'>Alors que, Au moment où</text><tts name='Translation'>As</tts></card>
+<card><text name='Text'>Avant, Avant que</text><tts name='Translation'>Before</tts></card>
+<card><text name='Text'>Après, Après que</text><tts name='Translation'>After</tts></card>
+<card><text name='Text'>Depuis que (temps)</text><tts name='Translation'>Since</tts></card>
+<card><text name='Text'>Jusqu'à ce que</text><tts name='Translation'>Until</tts></card>
+<card><text name='Text'>Dès que, Aussitôt que</text><tts name='Translation'>As soon as</tts></card>
+<card><text name='Text'>Une fois que, Dès que</text><tts name='Translation'>Once</tts></card>
+<card><text name='Text'>Pendant ce temps, Entre-temps</text><tts name='Translation'>Meanwhile</tts></card>
+<card><text name='Text'>Entre-temps (variante)</text><tts name='Translation'>In the meantime</tts></card>
+<card><text name='Text'>Puis, Ensuite, Alors</text><tts name='Translation'>Then</tts></card>
+<card><text name='Text'>Ensuite, Puis</text><tts name='Translation'>Next</tts></card>
+<card><text name='Text'>Après, Par la suite</text><tts name='Translation'>Afterwards</tts></card>
+<card><text name='Text'>Par la suite (formel)</text><tts name='Translation'>Subsequently</tts></card>
+<card><text name='Text'>Auparavant, Précédemment</text><tts name='Translation'>Previously</tts></card>
+<card><text name='Text'>Finalement, À la fin</text><tts name='Translation'>Eventually</tts></card>
+<card><text name='Text'>Finalement, Enfin (conclusion)</text><tts name='Translation'>Finally</tts></card>
+<card><text name='Text'>Enfin (après une attente)</text><tts name='Translation'>At last</tts></card>
+<card><text name='Text'>Dernièrement, Récemment</text><tts name='Translation'>Lately</tts></card>
+<card><text name='Text'>Récemment</text><tts name='Translation'>Recently</tts></card>
+
+<!-- Condition -->
+<card><text name='Text'>Si</text><tts name='Translation'>If</tts></card>
+<card><text name='Text'>À moins que, Sauf si</text><tts name='Translation'>Unless</tts></card>
+<card><text name='Text'>À condition que, Pourvu que</text><tts name='Translation'>Provided (that)</tts></card>
+<card><text name='Text'>À condition que (variante)</text><tts name='Translation'>Providing (that)</tts></card>
+<card><text name='Text'>Tant que, À condition que</text><tts name='Translation'>As long as</tts></card>
+<card><text name='Text'>Au cas où, Si jamais</text><tts name='Translation'>In case</tts></card>
+<card><text name='Text'>Sinon, Autrement</text><tts name='Translation'>Otherwise</tts></card>
+
+<!-- Comparaison -->
+<card><text name='Text'>Comme (comparaison)</text><tts name='Translation'>Like</tts></card>
+<card><text name='Text'>Comme, Tel que</text><tts name='Translation'>As</tts></card>
+<card><text name='Text'>De même, Similairement</text><tts name='Translation'>Similarly</tts></card>
+<card><text name='Text'>De même, Pareillement</text><tts name='Translation'>Likewise</tts></card>
+<card><text name='Text'>De la même manière</text><tts name='Translation'>In the same way</tts></card>
+<card><text name='Text'>Tout comme, De même que</text><tts name='Translation'>Just as</tts></card>
+<card><text name='Text'>Comparé à, Par rapport à</text><tts name='Translation'>Compared to</tts></card>
+<card><text name='Text'>En comparaison avec</text><tts name='Translation'>In comparison with</tts></card>
+
+<!-- Exemple / Illustration -->
+<card><text name='Text'>Par exemple</text><tts name='Translation'>For example</tts></card>
+<card><text name='Text'>Par exemple (variante)</text><tts name='Translation'>For instance</tts></card>
+<card><text name='Text'>Tel(le) que, Comme (exemples)</text><tts name='Translation'>Such as</tts></card>
+<card><text name='Text'>Y compris, Incluant</text><tts name='Translation'>Including</tts></card>
+<card><text name='Text'>À savoir, C'est-à-dire</text><tts name='Translation'>Namely</tts></card>
+<card><text name='Text'>C'est-à-dire</text><tts name='Translation'>That is (to say)</tts></card>
+<card><text name='Text'>En d'autres termes, Autrement dit</text><tts name='Translation'>In other words</tts></card>
+<card><text name='Text'>Pour illustrer</text><tts name='Translation'>To illustrate</tts></card>
+
+<!-- Emphase / Mise en valeur -->
+<card><text name='Text'>En effet, Vraiment</text><tts name='Translation'>Indeed</tts></card>
+<card><text name='Text'>En fait, En réalité</text><tts name='Translation'>In fact</tts></card>
+<card><text name='Text'>En fait (courant)</text><tts name='Translation'>Actually</tts></card>
+<card><text name='Text'>Certainement, Certes</text><tts name='Translation'>Certainly</tts></card>
+<card><text name='Text'>Évidemment, De toute évidence</text><tts name='Translation'>Obviously</tts></card>
+<card><text name='Text'>Clairement, De toute évidence</text><tts name='Translation'>Clearly</tts></card>
+<card><text name='Text'>Indubitablement, Sans aucun doute</text><tts name='Translation'>Undoubtedly</tts></card>
+<card><text name='Text'>Sans aucun doute</text><tts name='Translation'>Without a doubt</tts></card>
+<card><text name='Text'>Bien sûr, Évidemment</text><tts name='Translation'>Of course</tts></card>
+<card><text name='Text'>Naturellement, Bien sûr</text><tts name='Translation'>Naturally</tts></card>
+
+<!-- Concession -->
+<card><text name='Text'>Il est vrai que, Certes</text><tts name='Translation'>Admittedly</tts></card>
+<card><text name='Text'>Certes (concession)</text><tts name='Translation'>Granted</tts></card>
+<card><text name='Text'>Sans doute</text><tts name='Translation'>No doubt</tts></card>
+
+<!-- Organisation du discours -->
+<card><text name='Text'>Premièrement, D'abord</text><tts name='Translation'>First / Firstly</tts></card>
+<card><text name='Text'>Deuxièmement, Ensuite</text><tts name='Translation'>Second / Secondly</tts></card>
+<card><text name='Text'>Troisièmement</text><tts name='Translation'>Third / Thirdly</tts></card>
+<card><text name='Text'>Pour commencer, D'abord</text><tts name='Translation'>To begin with</tts></card>
+<card><text name='Text'>Pour commencer (variante)</text><tts name='Translation'>To start with</tts></card>
+<card><text name='Text'>Tout d'abord</text><tts name='Translation'>First of all</tts></card>
+<card><text name='Text'>En premier lieu</text><tts name='Translation'>In the first place</tts></card>
+<card><text name='Text'>En dernier lieu, Enfin</text><tts name='Translation'>Last / Lastly</tts></card>
+<card><text name='Text'>Enfin et surtout</text><tts name='Translation'>Last but not least</tts></card>
+
+<!-- Conclusion -->
+<card><text name='Text'>En conclusion</text><tts name='Translation'>In conclusion</tts></card>
+<card><text name='Text'>Pour conclure</text><tts name='Translation'>To conclude</tts></card>
+<card><text name='Text'>Pour résumer, En résumé</text><tts name='Translation'>To sum up</tts></card>
+<card><text name='Text'>En résumé</text><tts name='Translation'>In summary</tts></card>
+<card><text name='Text'>Tout compte fait, En fin de compte</text><tts name='Translation'>All in all</tts></card>
+<card><text name='Text'>Dans l'ensemble</text><tts name='Translation'>On the whole</tts></card>
+<card><text name='Text'>Dans l'ensemble, Globalement</text><tts name='Translation'>Overall</tts></card>
+<card><text name='Text'>En bref</text><tts name='Translation'>In brief</tts></card>
+<card><text name='Text'>En bref, Bref</text><tts name='Translation'>In short</tts></card>
+
+<!-- Opinion -->
+<card><text name='Text'>À mon avis</text><tts name='Translation'>In my opinion</tts></card>
+<card><text name='Text'>Selon moi</text><tts name='Translation'>In my view</tts></card>
+<card><text name='Text'>De mon point de vue</text><tts name='Translation'>From my point of view</tts></card>
+<card><text name='Text'>En ce qui me concerne</text><tts name='Translation'>As far as I'm concerned</tts></card>
+<card><text name='Text'>À mon avis (variante)</text><tts name='Translation'>To my mind</tts></card>
+<card><text name='Text'>Je crois / pense que</text><tts name='Translation'>I believe / think</tts></card>
+
+<!-- Généralisation -->
+<card><text name='Text'>En général</text><tts name='Translation'>In general</tts></card>
+<card><text name='Text'>Généralement, En règle générale</text><tts name='Translation'>Generally speaking</tts></card>
+<card><text name='Text'>Dans l'ensemble (généralisation)</text><tts name='Translation'>On the whole</tts></card>
+<card><text name='Text'>En gros, Globalement</text><tts name='Translation'>Broadly speaking</tts></card>
+<card><text name='Text'>Dans l'ensemble (idiomatique)</text><tts name='Translation'>By and large</tts></card>
+
+<!-- Alternative -->
+<card><text name='Text'>Ou</text><tts name='Translation'>Or</tts></card>
+<card><text name='Text'>Soit... soit</text><tts name='Translation'>Either... or</tts></card>
+<card><text name='Text'>Ni... ni</text><tts name='Translation'>Neither... nor</tts></card>
+<card><text name='Text'>Alternativement, Sinon</text><tts name='Translation'>Alternatively</tts></card>
+
+<!-- Reformulation -->
+<card><text name='Text'>En d'autres termes (reformulation)</text><tts name='Translation'>In other words</tts></card>
+<card><text name='Text'>C'est-à-dire (reformulation)</text><tts name='Translation'>That is</tts></card>
+<card><text name='Text'>Pour le dire autrement</text><tts name='Translation'>To put it differently</tts></card>
+
+<!-- Restriction -->
+<card><text name='Text'>Seulement, Uniquement</text><tts name='Translation'>Only</tts></card>
+<card><text name='Text'>Simplement, Seulement</text><tts name='Translation'>Merely</tts></card>
+<card><text name='Text'>Juste, Seulement</text><tts name='Translation'>Just</tts></card>
+<card><text name='Text'>Sauf, À l'exception de</text><tts name='Translation'>Except</tts></card>
+<card><text name='Text'>À part, Hormis</text><tts name='Translation'>Apart from</tts></card>
+<card><text name='Text'>À part, Mis à part</text><tts name='Translation'>Aside from</tts></card>
+
+<!-- Manière -->
+<card><text name='Text'>Comme si</text><tts name='Translation'>As if</tts></card>
+<card><text name='Text'>Comme si (variante)</text><tts name='Translation'>As though</tts></card>
+
+<!-- Proportion -->
+<card><text name='Text'>Plus... plus</text><tts name='Translation'>The more... the more</tts></card>
+<card><text name='Text'>Moins... moins</text><tts name='Translation'>The less... the less</tts></card>
+
+</cards>
+</deck>
