@@ -12,7 +12,7 @@
 	{ "path": "Anglais/Connecteurs logiques.xml", "tags": ["text","timer"], "level": 10, "cost": 30, "description": "Connecteurs logiques anglais, pour structurer idees et arguments clairement ecrits." },
 	{ "path": "Anglais/Synthèse de document.xml", "tags": ["text","timer"], "level": 15, "description": "Vocabulaire de synthese, reformulation et prise de notes efficaces en anglais." },
 	{ "path": "Anglais/Idiomatiques en anglais (ajout perso).xml", "tags": ["text","timer"], "description": "Expressions idiomatiques anglaises, sens, contexte et exemples personnels courants d'usage." },
-	{ "path": "Français/20 000 lieues sous les mers.xml", "tags": ["timer"], "description": "Vocabulaire et questions sur le roman, themes et personnages cles." },
+	{ "path": "Français/Vingt mille lieues sous les mers.xml", "tags": ["original","timer"], "description": "Vocabulaire et questions sur le roman, themes et personnages cles." },
 	{ "path": "Informatique/Formulaire Python.xml", "tags": ["text","timer"], "cost": 5, "description": "Formulaire Python: syntaxes, fonctions utiles et rappels de base courante." },
 	{ "path": "Informatique/Option/Chapitre 1 - Introduction.xml", "tags": ["text","timer"], "description": "Introduction option informatique, concepts essentiels et vocabulaire technique de base." },
 	{ "path": "Informatique/Chapitre 1 - Programmation.xml", "tags": ["timer"], "description": "Programmation: structures, variables, boucles et pratiques fondamentales de base courantes." },
