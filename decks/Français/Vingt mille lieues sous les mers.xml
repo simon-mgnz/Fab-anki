@@ -1,0 +1,854 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<deck name="20 000 lieues sous les mers — v3">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STRUCTURE D'UNE CARTE :
+       - <meta> : thème + source (CX PY)
+       - <question id="0" mode="classique"> : toujours en premier,
+         demande dans quel(s) chapitre(s) / partie(s) se trouve
+         la référence, avec le titre du chapitre.
+         Absent si la source est générique (–).
+       - <question id="N" mode="..."> : questions atomiques
+         Modes : classique | texte_a_trous | analyse | contexte
+       ═══════════════════════════════════════════════════════════ -->
+
+  <!-- ─── CARTE 1 : Chronologie du roman (pas de source précise) ─── -->
+  <card>
+    <meta>
+      <topic>Chronologie du roman</topic>
+      <source>–</source>
+    </meta>
+
+    <question id="1" mode="classique">
+      <front><p>Quand se déroule le roman ?</p></front>
+      <back><p>Entre 1866 et 1867. Le voyage dans l'Abraham Lincoln dure de juillet à novembre, puis le voyage dans le Nautilus dure 10 mois.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>Le voyage dans le Nautilus dure ___ mois, entre ___ et ___.</p></front>
+      <back><p>10 mois ; 1866 ; 1867.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 2 : Début du voyage sous-marin ─── -->
+  <card>
+    <meta>
+      <topic>Début du voyage sous-marin</topic>
+      <source>C14 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie trouve-t-on la date de début du voyage sous-marin ?</p></front>
+      <back><p>Chapitre 14, Partie 1 — « Un écueil fuyant ».</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Quand et où commence le voyage sous-marin avec le Nautilus ?</p></front>
+      <back><p>Le 8 novembre à midi, à 300 milles des côtes japonaises.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« C'est aujourd'hui ___, à midi, que commence notre exploration sous les eaux. »</p></front>
+      <back><p>8 novembre.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 3 : Hypothèse d'Aronnax sur le Nautilus ─── -->
+  <card>
+    <meta>
+      <topic>Hypothèse d'Aronnax sur le Nautilus</topic>
+      <source>C2 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie Aronnax émet-il son hypothèse sur le Nautilus ?</p></front>
+      <back><p>Chapitre 2, Partie 1 — « Le pour et le contre ».</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Quelle est l'hypothèse initiale d'Aronnax sur le Nautilus ?</p></front>
+      <back><p>Il pense que c'est un Narval géant, un cétacé d'une taille et d'une force démesurées.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Je serai disposé à admettre l'existence d'un ___ géant. »</p></front>
+      <back><p>Narval.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Que révèle cette hypothèse sur la démarche scientifique d'Aronnax au début ?</p></front>
+      <back><p>Il raisonne par analogie avec le vivant connu plutôt que d'envisager une machine : il projette ses catégories naturelles sur l'inconnu.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 4 : Impact culturel du "monstre" ─── -->
+  <card>
+    <meta>
+      <topic>Impact culturel du monstre</topic>
+      <source>C1 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie trouve-t-on l'expression « le monstre devint à la mode » ?</p></front>
+      <back><p>Chapitre 1, Partie 1 — « Un écueil fuyant ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Le monstre ___ à la mode. »</p></front>
+      <back><p>devint.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Que signifie l'expression « le monstre devint à la mode » ?</p></front>
+      <back><p>Le mystère s'est emparé de la culture populaire et médiatique : le monstre n'est plus seulement un phénomène naturel, il est un objet de fascination collective.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 5 : Figure de la sirène ─── -->
+  <card>
+    <meta>
+      <topic>Monstre naturel / figure de la sirène</topic>
+      <source>C5 P2 ; C14 P5</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quels chapitres et parties trouve-t-on les références à la figure de la sirène ?</p></front>
+      <back><p>Chapitre 5, Partie 2 — « À l'aventure ! » (le dugong) ; et Chapitre 14, Partie 5 — « Le Fleuve-Noir » (les phoques et morses).</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Quelles deux scènes font référence à la figure mythologique de la sirène dans le roman ?</p></front>
+      <back><p>La découverte d'un dugong que Conseil appelle « une véritable sirène » (C5 P2), et l'observation de phoques et morses dont la physionomie douce évoque les sirènes et tritons des Anciens (C14 P5).</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« — C'est une ___, s'écrie Conseil, une véritable ___, n'en déplaise à monsieur. »</p></front>
+      <back><p>sirène ; sirène.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>En quoi ces passages illustrent-ils le concept de « monstres naturels » de Michelet dans La mer ?</p></front>
+      <back><p>Michelet montre que la nature produit des êtres qui dépassent notre entendement et que la fable a mythifiés. Verne reprend cette idée : la mer réelle engendre ses propres « monstres », aussi merveilleux que les créatures légendaires.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 6 : La Scotia ─── -->
+  <card>
+    <meta>
+      <topic>La Scotia</topic>
+      <source>C1 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie le Nautilus abîme-t-il la Scotia ?</p></front>
+      <back><p>Chapitre 1, Partie 1 — « Un écueil fuyant ».</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Quel est le nom du bateau abîmé par le Nautilus au début du roman ?</p></front>
+      <back><p>La Scotia, fleuron des navires Cunard.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 7 : La devise de Nemo ─── -->
+  <card>
+    <meta>
+      <topic>Devise du capitaine Nemo</topic>
+      <source>C9 P1 ; C10 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quels chapitres et parties trouve-t-on la devise de Nemo et son développement ?</p></front>
+      <back><p>Chapitre 9, Partie 1 — « Les colères de Ned Land » (la devise) ; et Chapitre 10, Partie 1 — « L'homme des eaux » (le développement philosophique).</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Quelle est la devise du capitaine Nemo ?</p></front>
+      <back><p>« Mobilis in Mobili » — mobile dans l'élément mobile.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>La devise de Nemo est « ___ in ___ ». Elle signifie qu'il cherche à se fondre dans le ___ de la Nature.</p></front>
+      <back><p>Mobilis ; Mobili ; mouvement.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Que révèle cette devise sur la philosophie de Nemo par rapport à la Nature ?</p></front>
+      <back><p>Nemo refuse d'être fixe, comme les hommes sur terre. Il calque son existence sur le mouvement perpétuel de l'océan. Il parle de la mer comme d'une « nourrice prodigieuse, inépuisable » qui le vêt et le nourrit.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 8 : Amour de Nemo pour la mer ─── -->
+  <card>
+    <meta>
+      <topic>Amour de Nemo pour la mer / personnification</topic>
+      <source>C10 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie Nemo déclare-t-il son amour pour la mer ?</p></front>
+      <back><p>Chapitre 10, Partie 1 — « L'homme des eaux ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« La mer est ___ ! Elle couvre les ___ dixièmes du globe terrestre. Son souffle est pur et sain. »</p></front>
+      <back><p>tout ; sept.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Comment Nemo personnifie-t-il la mer dans cette citation ?</p></front>
+      <back><p>Il lui prête une vie intérieure (« mouvement et amour »), une présence quasi divine (« l'infini vivant »). La mer n'est plus un décor mais un être à part entière.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Comment Nemo décrit-il la solitude en mer ?</p></front>
+      <back><p>Il affirme que « l'homme n'est jamais seul » en mer car il sent la vie frémir à ses côtés — la Nature elle-même lui tient compagnie.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 9 : Aronnax vs Nemo — rapport au savoir ─── -->
+  <card>
+    <meta>
+      <topic>Rapport au savoir : Aronnax vs Nemo</topic>
+      <source>C8 P2 ; C10 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quels chapitres et parties trouve-t-on les citations montrant qu'Aronnax ne sait pas et que Nemo sait ?</p></front>
+      <back><p>Chapitre 8, Partie 2 — « Mobilis in mobile » ; et Chapitre 10, Partie 1 — « L'homme des eaux ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Voilà bien les savants, dit le capitaine, ils ne ___ pas. »</p></front>
+      <back><p>savent.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Mais vous ne savez pas ___, vous n'avez pas tout ___ . »</p></front>
+      <back><p>tout ; vu.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Que révèle l'opposition Nemo / Aronnax sur la question du savoir scientifique ?</p></front>
+      <back><p>Aronnax représente la science académique, livresque, limitée par ses catégories. Nemo incarne un savoir empirique et total, fondé sur l'expérience directe de la Nature — supérieur aux institutions.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 10 : Premier sens — le goût ─── -->
+  <card>
+    <meta>
+      <topic>Premier sens exploré dans le roman</topic>
+      <source>C8 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie découvrons-nous le premier sens exploré à bord du Nautilus ?</p></front>
+      <back><p>Chapitre 8, Partie 1 — « Mobilis in mobile ».</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Quel est le premier sens exploré dans le roman à bord du Nautilus ?</p></front>
+      <back><p>Le goût — Aronnax découvre la nourriture préparée par Nemo avant même de voir la mer par les hublots.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Parmi les mets qui nous furent servis, je reconnus divers poissons délicatement ___ ; mais, sur certains plats […] je ne pus prononcer, et je n'aurais même su dire à quel ___, végétal ou animal, leur contenu appartenait. »</p></front>
+      <back><p>apprêtés ; règne.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Que signifie l'expression « délicatement apprêtés » dans ce contexte ?</p></front>
+      <back><p>Il faut transformer, travailler la nature pour la consommer — contrairement à Nemo qui se fond en elle, les humains doivent la domestiquer. Ce détail souligne aussi qu'Aronnax ne sait pas tout reconnaître, même avec son expertise de naturaliste.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 11 : Ouverture du panneau / descriptions visuelles ─── -->
+  <card>
+    <meta>
+      <topic>Apparition des descriptions visuelles</topic>
+      <source>C14 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie les descriptions visuelles de la mer apparaissent-elles vraiment pour la première fois ?</p></front>
+      <back><p>Chapitre 14, Partie 1 — « Un écueil fuyant » — quand Nemo ouvre le panneau du Nautilus.</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>À quel moment les descriptions visuelles de la mer apparaissent-elles vraiment dans le roman ?</p></front>
+      <back><p>Quand Nemo ouvre le panneau (la fenêtre) du Nautilus pour la première fois.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Quel ___ ! Quelle ___ le pourrait décrire ! Qui saurait peindre les effets de la ___ à travers ces nappes transparentes… »</p></front>
+      <back><p>spectacle ; plume ; lumière.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>En quoi cette exclamation illustre-t-elle la notion d'indicible / ineffable ?</p></front>
+      <back><p>Aronnax reconnaît que le langage écrit (« quelle plume ») et la peinture sont impuissants face à la beauté du spectacle sous-marin — la Nature dépasse toute représentation.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 12 : Aronnax subjugué ─── -->
+  <card>
+    <meta>
+      <topic>Aronnax subjugué — indicible</topic>
+      <source>C9 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie Aronnax affirme-t-il qu'il n'a « point rêvé » ?</p></front>
+      <back><p>Chapitre 9, Partie 2 — « Les colères de Ned Land ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Je suis l'historien des choses d'apparence ___ qui sont pourtant réelles, incontestables. Je n'ai point ___. J'ai ___ et ___ ! »</p></front>
+      <back><p>impossibles ; rêvé ; vu ; senti.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Pourquoi Aronnax insiste-t-il sur le fait qu'il « n'a point rêvé » ?</p></front>
+      <back><p>Il anticipe le scepticisme du lecteur face à des descriptions qui semblent invraisemblables. Cette affirmation garantit la véracité du récit et renforce le pacte de lecture propre au roman scientifique.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 13 : Indicible / ineffable ─── -->
+  <card>
+    <meta>
+      <topic>Notion d'indicible / ineffable</topic>
+      <source>–</source>
+    </meta>
+
+    <question id="1" mode="classique">
+      <front><p>Que signifie « indicible » ou « ineffable » et pourquoi ces mots reviennent-ils souvent dans le roman ?</p></front>
+      <back><p>Cela signifie que l'on ne peut pas exprimer quelque chose en mots. Leur fréquence souligne que la Nature sous-marine dépasse les catégories du langage — et donc aussi celles de la science.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 14 : Sublime mathématique ─── -->
+  <card>
+    <meta>
+      <topic>Sublime mathématique — Kant</topic>
+      <source>–</source>
+    </meta>
+
+    <question id="1" mode="classique">
+      <front><p>Quel concept philosophique l'océan illustre-t-il dans le roman, et en référence à quel auteur ?</p></front>
+      <back><p>Le sublime mathématique de Kant : l'océan donne l'impression d'un infini horizontal qui écrase l'imagination tout en l'exaltant, en référence au titre « Voyages extraordinaires » de Jules Verne.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quelle différence y a-t-il entre le sublime mathématique et le sublime dynamique de Kant ?</p></front>
+      <back><p>Le sublime mathématique naît de la démesure de l'étendue (l'infini de l'océan) ; le sublime dynamique naît de la puissance des forces naturelles (tempête, maelström). Les deux sont présents dans le roman.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 15 : L'électricité vue par Nemo ─── -->
+  <card>
+    <meta>
+      <topic>L'électricité — vision de Nemo</topic>
+      <source>C12 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie Nemo explique-t-il sa conception de l'électricité ?</p></front>
+      <back><p>Chapitre 12, Partie 1 — « Tout par l'électricité ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Je dois tout à l'Océan ; il produit l'___, et l'électricité donne au Nautilus la ___, la ___, le ___, la ___ en un mot. »</p></front>
+      <back><p>électricité ; chaleur ; lumière ; mouvement ; vie.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Mon électricité n'est pas celle de ___ le monde. »</p></front>
+      <back><p>tout.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Que révèle l'insistance de Nemo sur le fait que son électricité « n'est pas celle de tout le monde » ?</p></front>
+      <back><p>Nemo revendique une technologie secrète, inaccessible à la civilisation terrestre. C'est une marque de son isolement souverain : il ne doit rien aux hommes, tout à la mer.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 16 : Conseil électrocuté ─── -->
+  <card>
+    <meta>
+      <topic>Conseil électrocuté — limite du savoir livresque</topic>
+      <source>C17 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie Conseil se fait-il électrocuter par une torpille ?</p></front>
+      <back><p>Chapitre 17, Partie 2 — « Du cap Horn à l'Amazone ».</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Quelle scène comique montre que Conseil ne sait pas vraiment se débrouiller dans la nature ?</p></front>
+      <back><p>Conseil veut attraper une torpille (raie électrique) et se fait électrocuter — il connaît les classifications mais pas les dangers concrets.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>Électrocuté, Conseil crie : « Ah ! Mon ___ ! Venez à moi ! » — c'est la première fois qu'il ne parle pas à ___ personne.</p></front>
+      <back><p>maître ; la troisième.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Quel décalage comique Verne met-il en scène avec Conseil ?</p></front>
+      <back><p>Conseil sait classer les espèces (savoir taxonomique) mais n'anticipe pas leurs propriétés physiques dangereuses. La Nature réelle déborde toujours les cases du naturaliste.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 17 : Conseil et le câble télégraphique ─── -->
+  <card>
+    <meta>
+      <topic>Conseil et le câble télégraphique</topic>
+      <source>C20 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie Conseil confond-il le câble télégraphique avec un serpent de mer ?</p></front>
+      <back><p>Chapitre 20, Partie 2 — « Le détroit de Torrès ».</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Comment Conseil réagit-il face au câble télégraphique sous-marin ?</p></front>
+      <back><p>Il le prend pour un gigantesque serpent de mer et s'apprête à le classer selon sa méthode ordinaire.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Que révèle cette scène sur les limites de la classification naturaliste ?</p></front>
+      <back><p>Conseil ne peut concevoir une réalité technique inconnue : il la force dans ses catégories naturelles. La technique moderne (le câble) échappe à ses grilles de lecture.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 18 : Forêt de Crespo — couleurs ─── -->
+  <card>
+    <meta>
+      <topic>Forêt de Crespo — kaléidoscope de couleurs</topic>
+      <source>C16 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie se trouve la description en kaléidoscope de couleurs de la forêt de Crespo ?</p></front>
+      <back><p>Chapitre 16, Partie 1 — « Promenade en plaine ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Une véritable ___ de vert, de jaune, d'orange, de violet, d'indigo, de bleu, en un mot toute la palette d'un coloriste ___ ! »</p></front>
+      <back><p>kaléidoscope ; enragé.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>En quoi la description de la forêt de Crespo est-elle paradoxale ?</p></front>
+      <back><p>Plus on s'enfonce dans la mer, plus il devrait faire sombre — or Verne décrit une lumière décomposée en toutes les couleurs du spectre. La nature sous-marine défie les lois physiques attendues.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 19 : Curieuse anomalie — règne animal / végétal ─── -->
+  <card>
+    <meta>
+      <topic>Brouillage règne animal / végétal</topic>
+      <source>C17 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie trouve-t-on la citation sur la « curieuse anomalie » des règnes animal et végétal ?</p></front>
+      <back><p>Chapitre 17, Partie 1 — « Une forêt sous-marine ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Curieuse anomalie, bizarre élément, où le règne ___ fleurit, et où le règne ___ ne fleurit pas ! »</p></front>
+      <back><p>animal ; végétal.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Pourquoi cette inversion des règnes semble-t-elle monstrueuse ?</p></front>
+      <back><p>Elle remet en cause les catégories fondamentales de la biologie : on ne sait plus distinguer l'animal du végétal. La mer est un espace où les normes scientifiques sont brouillées.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 20 : Le corail ─── -->
+  <card>
+    <meta>
+      <topic>Le corail — entre animal et végétal</topic>
+      <source>C24 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie trouve-t-on la description du corail comme mélange des règnes ?</p></front>
+      <back><p>Chapitre 24, Partie 1 — « Le royaume du corail ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Le corail est un ensemble d'___, réunis sur un polypier de nature cassante et pierreuse. Ces polypes ont un générateur unique qui les a produits par ___, et ils possèdent une existence propre, tout en participant à la ___ commune. »</p></front>
+      <back><p>animalcules ; bourgeonnement ; vie.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>En quoi le corail est-il un exemple de brouillage entre les règnes ?</p></front>
+      <back><p>Il est à la fois animal (polypes vivants), minéral (structure calcaire), et fonctionne comme un organisme collectif — il déstabilise les catégories naturelles ordinaires.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 21 : Démenti à la Nature — les poulpes ─── -->
+  <card>
+    <meta>
+      <topic>Monstre / démenti à la Nature (Michelet)</topic>
+      <source>C18 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie trouve-t-on la description des poulpes comme « démenti à la Nature » ?</p></front>
+      <back><p>Chapitre 18, Partie 2 — « Les poulpes ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Quelle ___ de la nature ! Un bec d'___ à un mollusque ! »</p></front>
+      <back><p>fantaisie ; oiseau.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quel concept de Michelet dans La mer cette citation illustre-t-elle ?</p></front>
+      <back><p>Le « démenti à la Nature » : certains êtres semblent contredire les lois naturelles elles-mêmes. Le poulpe avec son bec d'oiseau est une créature hybride, hors catégorie, comme si la Nature se contredisait elle-même.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 22 : Nemo et les cachalots ─── -->
+  <card>
+    <meta>
+      <topic>Dégoût de Nemo envers les cachalots</topic>
+      <source>C12 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie Nemo exprime-t-il son dégoût envers les cachalots ?</p></front>
+      <back><p>Chapitre 12, Partie 2 — « Cachalots et baleines ».</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Que dit Nemo des cachalots ?</p></front>
+      <back><p>Il les trouve cruels, malfaisants et laids (« animal disgracieux, plutôt têtard que poisson »), et affirme qu'on a raison de les exterminer.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>En quoi l'attitude de Nemo envers les cachalots contredit-elle son discours écologique sur les baleines ?</p></front>
+      <back><p>Nemo refuse de tuer les baleines « pour tuer », mais veut exterminer les cachalots parce qu'ils sont laids. Il est donc davantage opportuniste qu'écologiste — ses critères sont esthétiques autant qu'éthiques.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 23 : Discours écolo de Nemo sur la chasse à la baleine ─── -->
+  <card>
+    <meta>
+      <topic>Nemo et la chasse à la baleine</topic>
+      <source>C12 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie Nemo refuse-t-il de chasser les baleines par plaisir ?</p></front>
+      <back><p>Chapitre 12, Partie 2 — « Cachalots et baleines ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Je sais bien que c'est un ___ réservé à l'homme, mais je n'admets pas ces passe-temps ___ . »</p></front>
+      <back><p>privilège ; meurtriers.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quelle distinction Nemo établit-il entre la chasse justifiée et la chasse condamnée ?</p></front>
+      <back><p>Il accepte tuer pour se nourrir (le dugong en mer Rouge), mais refuse de tuer pour détruire ou par plaisir. C'est une éthique pragmatique et utilitaire de la Nature.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 24 : Hubris de Nemo au pôle Sud ─── -->
+  <card>
+    <meta>
+      <topic>Hubris de Nemo au pôle Sud</topic>
+      <source>C14 P2 ; C15 P2 ; C16 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quels chapitres et parties trouve-t-on l'hubris de Nemo au pôle Sud et ses conséquences ?</p></front>
+      <back><p>Chapitre 14, Partie 2 — « Le pôle Sud » (le discours au Soleil) ; Chapitre 15, Partie 2 — « Accident ou incident ? » ; Chapitre 16, Partie 2 — « Faute d'air ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« ___, soleil ! S'écria-t-il. ___, astre radieux ! ___ sous cette mer libre, et laisse une nuit de six mois étendre ses ombres sur mon nouveau domaine ! »</p></front>
+      <back><p>Adieu ; Disparais ; Couche-toi.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Pourquoi ce discours de Nemo est-il une manifestation d'hubris ?</p></front>
+      <back><p>Il s'adresse directement au Soleil à l'impératif, comme s'il lui donnait des ordres. Il prend une position de maître dominant la Nature — ce qui est une transgression de l'ordre naturel.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Comment la Nature semble-t-elle se venger après ce discours ?</p></front>
+      <back><p>Les chapitres suivants enchaînent un accident inexpliqué (C15 P2 — « Accident ou incident ? ») et un manque d'air qui met l'équipage en péril (C16 P2 — « Faute d'air »).</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 25 : Hubris face à la banquise ─── -->
+  <card>
+    <meta>
+      <topic>Hubris de Nemo face à la banquise</topic>
+      <source>C13 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie Ned Land remet-il en question la toute-puissance de Nemo face à la banquise ?</p></front>
+      <back><p>Chapitre 13, Partie 2 — « La banquise ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>Ned Land : « Il est puissant, votre capitaine, mais, mille diables ! Il n'est pas plus puissant que la ___, et là où elle a mis des ___, il faut que l'on s'arrête bon gré mal gré. »</p></front>
+      <back><p>nature ; bornes.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quel rôle joue Ned Land dans le roman par rapport à l'hubris de Nemo ?</p></front>
+      <back><p>Ned Land est la voix du bon sens pratique et des limites humaines. Il incarne la résistance à l'orgueil démesuré de Nemo et rappelle que la Nature reste souveraine.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 26 : Méthode scientifique — tunnel arabique ─── -->
+  <card>
+    <meta>
+      <topic>Méthode scientifique de Nemo — tunnel arabique</topic>
+      <source>C4 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie Nemo explique-t-il la découverte du tunnel arabique ?</p></front>
+      <back><p>Chapitre 4, Partie 2 — « La mer Rouge ».</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Comment Nemo a-t-il découvert le tunnel arabique reliant la mer Rouge à la Méditerranée ?</p></front>
+      <back><p>En observant des espèces identiques dans les deux mers, il émet l'hypothèse d'un passage. Il bague des poissons en mer Rouge et les retrouve sur les côtes de Syrie quelques mois plus tard — validant l'hypothèse.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quelle démarche scientifique reconnaît-on dans cette expérience de Nemo ?</p></front>
+      <back><p>Le protocole classique : observation → hypothèse → expérience (marquage des poissons) → conclusion. C'est une expérience rigoureuse et vérifiable au sens moderne.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 27 : Personnification de l'océan ─── -->
+  <card>
+    <meta>
+      <topic>Personnification de l'océan</topic>
+      <source>C18 P1</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie Nemo personnifie-t-il l'océan avec ses colères et ses tendresses ?</p></front>
+      <back><p>Chapitre 18, Partie 1 — « Quatre mille lieues sous le Pacifique ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Voyez cet océan […] n'est-il pas doué d'une vie ___ ? N'a-t-il pas ses ___ et ses ___ ? Hier, il s'est ___ comme nous… »</p></front>
+      <back><p>réelle ; colères ; tendresses ; endormi.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>En quoi cette personnification de l'océan dépasse-t-elle une simple figure de style ?</p></front>
+      <back><p>Pour Nemo, la mer est réellement vivante, dotée d'émotions et de cycles comme un être humain. C'est une vision panthéiste de la Nature qui justifie son mode de vie et son rejet de la civilisation terrestre.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 28 : L'Atlantide ─── -->
+  <card>
+    <meta>
+      <topic>L'Atlantide — mythe et Nature qui reprend ses droits</topic>
+      <source>C9 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie les personnages découvrent-ils l'Atlantide ?</p></front>
+      <back><p>Chapitre 9, Partie 2 — « Un continent disparu ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Là se dessinaient de pittoresques ruines, qui trahissaient la main de l'___, et non plus celle du ___. C'étaient de vastes amoncellements de pierres où l'on distinguait de vagues formes de ___, de ___, revêtus d'un monde de zoophytes en fleurs. »</p></front>
+      <back><p>homme ; Créateur ; châteaux ; temples.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quel mythe de Platon Aronnax évoque-t-il en voyant l'Atlantide ?</p></front>
+      <back><p>Platon raconte la puissance des Atlantes et leur anéantissement par un cataclysme en une nuit et un jour — submersion dont les sommets émergés seraient Madère, les Açores, les Canaries et les îles du Cap-Vert.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Que symbolise la végétation marine recouvrant les ruines de l'Atlantide ?</p></front>
+      <back><p>La Nature a repris ses droits sur la civilisation humaine. L'absence de tout humain renforce l'idée que la mer reste un espace souverain que l'homme ne peut durablement coloniser.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 29 : Le manuscrit de Nemo ─── -->
+  <card>
+    <meta>
+      <topic>Le manuscrit de Nemo</topic>
+      <source>C19 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie Nemo évoque-t-il son manuscrit destiné à la mer ?</p></front>
+      <back><p>Chapitre 19, Partie 2 — « Vanikoro ».</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Que contient le manuscrit que Nemo confie à Aronnax et quel est son destin prévu ?</p></front>
+      <back><p>Le résumé de ses études sur la mer, scellé dans un appareil insubmersible. Le dernier survivant du Nautilus devra le jeter à la mer pour que les flots le portent où ils voudront.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Que révèle ce geste de Nemo sur sa vision de la transmission du savoir ?</p></front>
+      <back><p>Malgré son mépris des hommes, Nemo veut que sa connaissance survive et soit transmise. Il y a une contradiction poignante : il fuit la civilisation mais confie son héritage intellectuel à elle.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 30 : Aronnax et le « vrai livre de la mer » ─── -->
+  <card>
+    <meta>
+      <topic>Aronnax et l'écriture du « vrai livre de la mer »</topic>
+      <source>C18 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie Aronnax exprime-t-il son désir d'écrire le « vrai livre de la mer » ?</p></front>
+      <back><p>Chapitre 18, Partie 2 — « Quatre mille lieues sous le Pacifique ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« J'avais maintenant le droit d'écrire le ___ livre de la ___, et ce livre, je voulais que, plus tôt que plus tard, il pût voir le jour. »</p></front>
+      <back><p>vrai ; mer.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Pourquoi Aronnax parle-t-il du « droit » d'écrire ce livre ?</p></front>
+      <back><p>Parce qu'il a vu ce qu'aucun autre scientifique n'a vu — son expérience directe lui confère une légitimité que les naturalistes de cabinet ne peuvent avoir. C'est aussi une mise en abyme du roman lui-même.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 31 : Dernière phrase du livre ─── -->
+  <card>
+    <meta>
+      <topic>Conclusion — Aronnax et Nemo seuls à avoir sondé l'abîme</topic>
+      <source>C23 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie se trouve la dernière phrase du roman ?</p></front>
+      <back><p>Chapitre 23, Partie 2 — « Conclusion ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« À cette demande posée, il y a six mille ans, par l'Ecclésiaste : "Qui a jamais pu sonder les profondeurs de l'___ ?", deux hommes entre tous les hommes ont le droit de répondre maintenant. Le capitaine ___ et ___. »</p></front>
+      <back><p>abîme ; Nemo ; moi.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Que révèle cette dernière phrase sur la vision de la science dans le roman ?</p></front>
+      <back><p>Aronnax exclut tous les autres scientifiques de la vraie connaissance de la mer. Seule l'expérience totale et directe — par opposition au savoir livresque — permet de répondre aux grandes questions. La science officielle est dépassée.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 32 : La perle à dix millions ─── -->
+  <card>
+    <meta>
+      <topic>La perle à dix millions</topic>
+      <source>C3 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie trouve-t-on l'épisode de la perle à dix millions ?</p></front>
+      <back><p>Chapitre 3, Partie 2 — « Une perle de dix millions ».</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Comment Nemo cultive-t-il la grande perle dans la tridacne ?</p></front>
+      <back><p>Il la laisse enfouie sous le manteau du mollusque, lui permettant de s'accroître par couches concentriques année après année. Seul lui connaît la grotte — il l'« élève » comme un agriculteur élèverait une plante.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Que révèle la métaphore de la perle qui « mûrit » sur la relation de Nemo à la Nature ?</p></front>
+      <back><p>Nemo n'exploite pas la Nature — il collabore avec elle sur le long terme, dans le respect de son rythme. La perle est un « fruit » de la mer qu'il recueille au moment opportun, non qu'il force.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 33 : Fin ouverte du roman ─── -->
+  <card>
+    <meta>
+      <topic>Fin ouverte — le maelström</topic>
+      <source>C22 P2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle partie le roman se conclut-il sur la fin ouverte du maelström ?</p></front>
+      <back><p>Chapitre 22, Partie 2 — « Les dernières paroles du capitaine Nemo », suivi du Chapitre 23, Partie 2 — « Conclusion ».</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Comment qualifier la fin du roman ?</p></front>
+      <back><p>C'est une fin ouverte : après le maelström, le lecteur ignore si Nemo et son équipage ont survécu ou péri. Verne laisse l'imagination combler le vide.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>En quoi cette fin ouverte est-elle cohérente avec les thèmes du roman ?</p></front>
+      <back><p>Le mystère est au cœur du roman. Refermer totalement le destin de Nemo lui retirerait sa dimension d'énigme. La mer, espace de l'indicible, garde son secret jusqu'au bout.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 34 : Plan du roman ─── -->
+  <card>
+    <meta>
+      <topic>Plan du roman — Partie I</topic>
+      <source>–</source>
+    </meta>
+
+    <question id="1" mode="classique">
+      <front><p>Quelles sont les quatre grandes sections de la Partie I, avec leurs chapitres et thèmes ?</p></front>
+      <back>
+        <p>I.A (C1–C7) : Action frénétique — chasse au monstre pour maîtriser la nature.</p>
+        <p>I.B (C8–C13) : Pause — célébration de la technique et de l'échappée aux lois des hommes.</p>
+        <p>I.C (C14–C17) : Reprise — monde sous-marin merveilleux, expériences positives de la nature.</p>
+        <p>I.D (C18–C24) : Expériences ambiguës et douloureuses de la nature dans le Pacifique.</p>
+      </back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 34b : Plan du roman — Partie II ─── -->
+  <card>
+    <meta>
+      <topic>Plan du roman — Partie II</topic>
+      <source>–</source>
+    </meta>
+
+    <question id="1" mode="classique">
+      <front><p>Quelles sont les cinq grandes sections de la Partie II, avec leurs chapitres et thèmes ?</p></front>
+      <back>
+        <p>II.A (C1–C8) : Océan Indien à Méditerranée — exploration et révélations sur Nemo.</p>
+        <p>II.B (C9–C11) : Pause — célébration de la technique mais aussi puissance de la nature.</p>
+        <p>II.C (C12–C16) : Défi du pôle Sud — hubris et lutte contre les lois de la nature.</p>
+        <p>II.D (C17–C21) : Atlantique — expériences mortifères de la nature.</p>
+        <p>II.E (C22–C23) : Terme du voyage — dernières paroles de Nemo et bilan sur la nature.</p>
+      </back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 35 : Lieue en km ─── -->
+  <card>
+    <meta>
+      <topic>Conversion unités</topic>
+      <source>–</source>
+    </meta>
+
+    <question id="1" mode="classique">
+      <front><p>Combien vaut une lieue en kilomètres ?</p></front>
+      <back><p>1 lieue = 4,8 km.</p></back>
+    </question>
+  </card>
+
+</deck>

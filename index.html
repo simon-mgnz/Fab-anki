@@ -4,7 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Fab'Anki — Flashcards sans compte</title>
+  <meta name="description" content="Application d'apprentissage par répétition espacée avec plusieurs modes de révision">
+  <meta name="theme-color" content="#0066ff">
   <link rel="icon" href="/Fab'Anki/fabankilogo.png">
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/app-manifest.json">
+  <!-- iOS PWA Support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Fab Anki">
+  <link rel="apple-touch-icon" href="/Fab'Anki/fabankilogo.png">
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
   <!-- Firebase (compat) -->
@@ -178,7 +188,7 @@
           h.textContent = title || 'Erreur de chargement';
           const msg = document.createElement('div');
           msg.className = 'error-screen__message';
-          msg.textContent = 'Une erreur critique a empeche l\'application de demarrer.';
+          msg.textContent = 'Une erreur critique a empêché l\'application de démarrer.';
           const det = document.createElement('div');
           det.className = 'error-screen__details';
           det.textContent = details || 'Veuillez recharger la page.';
