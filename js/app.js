@@ -1,4 +1,4 @@
-// Single-file app implementing requested functions.
+﻿// Single-file app implementing requested functions.
   try{ window.__fabanki_booted = true; }catch(e){}
 
   // ============================================
@@ -229,6 +229,17 @@
   let isInitialPageLoad = true; // Track if this is the first load of the page
   let lastSyncCardId = null; // Track which card we last synced for
 
+  // ========== I18N TRANSLATION SYSTEM ==========
+  const _i18n = {
+    fr: { browseDecks: 'Parcourir decks', market: 'Marché', profile: 'Profile', syncProgress: 'Synchroniser mes progrès', home: 'Accueil', histogram: 'Histogramme', showAnswer: 'Afficher la réponse', fail: 'Raté', hard: 'Difficile', good: 'Bon', easy: 'Facile', skip: 'Passer', dueCards: 'Cartes prêtes :', reviewed: 'Révisées', browseDecksTitle: 'Parcourir les decks (./decks/)', refresh: 'Rafraîchir', close: 'Fermer', statusMsg: "Fournissez l'URL d'un deck via le paramètre", progressInfo: 'Révisées : 0 / 0', requestMod: 'Demander une modification de cette carte', modeAnki: 'Mode Anki', fillblank: 'Texte à trou', timer: 'Rappel sous pression', activeMemory: 'Mémoire active', step: 'Étape par étape', reverse: 'Revers', random: 'Aléatoire', hold: 'Maintien', multiple: 'Multiple', calcul: 'Calcul', associer: 'Associer', rush: 'Rush', original: 'Original', streakDays: 'jours', totalReviewed: 'Cartes lues', todayReviewed: "Aujourd'hui", xp: 'XP', streak: 'Série', level: 'Niveau', credits: 'Crédits', newCard: 'Nouveau', dueNow: 'Maintenant', dueTomorrow: 'Demain', dueFar: 'Longtemps', toDo: 'à faire', chooseADeck: 'Choisissez un deck pour commencer', start: 'Commencer', open: 'Ouvrir', back: 'Retour', reviewAll: 'Réviser tous les decks du dossier', recap: 'Récapitulatif', cardsReviewed: 'Cartes révisées', totalTime: 'Temps total', avgTime: 'Temps moyen / carte', accuracy: 'Précision', grade: 'Note', noCards: 'Aucune carte à réviser maintenant', locked: 'Verrouillé', buy: 'Acheter pour', subtitle: 'Flashcards (sans compte)', daily: 'Quotidienne', weekly: 'Hebdomadaire', missions: 'Missions', deckCards: 'cartes', clickToChoose: 'Cliquer ici pour choisir un deck', seeAnswer: 'Voir la réponse', nextCard: 'Prochaine carte', correct: 'Corriger', deckNotFound: 'Deck introuvable', deckNotFoundMsg: 'Ce deck est introuvable. Vérifiez le chemin ou rechargez la liste.', cannotLoadDeck: 'Impossible de charger le deck', deckFileError: 'Le fichier de deck n\'a pas pu être chargé.', retry: 'Réessayer', noCardsToReviewNow: 'Aucune carte à réviser maintenant', noCardsToReview: 'Aucune carte à réviser', multiDeckReview: 'Révision Multi-Deck', cannotLoadDecks: 'Impossible de charger les decks', errorDefault: 'Erreur', errorOccurred: 'Une erreur est survenue.', browseDecksBtn: 'Parcourir decks', homeReturn: 'Retour accueil', unexpectedError: 'Erreur inattendue', errorDuringExec: 'Une erreur est survenue pendant l\'exécution.', jsError: 'Erreur JavaScript', promiseRejected: 'Promesse rejetée', promiseError: 'Erreur Promise', operationFailed: 'Une opération a échoué.', pageNotFound: 'Page introuvable', pageNotFoundMsg: 'Le contenu demandé n\'existe pas ou a été déplacé.', downloadingDeck: 'Téléchargement du deck...', xmlInvalidPermissive: 'XML invalide – tentative décodage permissif (HTML)', deckLoaded: 'Deck chargé – prêt pour révision', errorLoadingDeck: 'Erreur chargement deck: ', multiDeckLoaded: 'Multi-Deck chargé – prêt pour révision', errorLoadingMultiDeck: 'Erreur chargement multi-deck: ', reviewDoneToday: 'Révision terminée pour aujourd\'hui', noCardsToday: 'Aucune carte à réviser aujourd\'hui', selectXmlFile: 'Sélectionnez un fichier XML à charger...', xmlInvalidLocal: 'XML invalide – utilisation décodage permissif pour le fichier local', deckLoadedLocal: 'Deck chargé depuis fichier local', errorReadingLocal: 'Erreur lecture du fichier local', welcomeStatus: "Bienvenue sur Fab'Anki", searchingCards: 'Recherche des cartes à réviser maintenant...', analyzingDecks: 'Analyse des decks...', errorShowNextCard: 'Erreur: fonction showNextCard introuvable', noCardsDue: 'Aucune carte à réviser maintenant', deckIncompatible: 'Deck incompatible', modeLocked: 'Mode bloqué', questReward: 'Récompense de quête' },
+    en: { browseDecks: 'Browse decks', market: 'Market', profile: 'Profile', syncProgress: 'Sync my progress', home: 'Home', histogram: 'Histogram', showAnswer: 'Show answer', fail: 'Again', hard: 'Hard', good: 'Good', easy: 'Easy', skip: 'Skip', dueCards: 'Cards due:', reviewed: 'Reviewed', browseDecksTitle: 'Browse decks (./decks/)', refresh: 'Refresh', close: 'Close', statusMsg: 'Provide a deck URL via the parameter', progressInfo: 'Reviewed: 0 / 0', requestMod: 'Request a modification for this card', modeAnki: 'Anki Mode', fillblank: 'Fill in the blank', timer: 'Timed recall', activeMemory: 'Active memory', step: 'Step by step', reverse: 'Reverse', random: 'Random', hold: 'Hold', multiple: 'Multiple', calcul: 'Calculation', associer: 'Match', rush: 'Rush', original: 'Original', streakDays: 'days', totalReviewed: 'Cards reviewed', todayReviewed: 'Today', xp: 'XP', streak: 'Streak', level: 'Level', credits: 'Credits', newCard: 'New', dueNow: 'Now', dueTomorrow: 'Tomorrow', dueFar: 'Long time', toDo: 'due', chooseADeck: 'Choose a deck to start', start: 'Start', open: 'Open', back: 'Back', reviewAll: 'Review all decks in folder', recap: 'Recap', cardsReviewed: 'Cards reviewed', totalTime: 'Total time', avgTime: 'Avg time / card', accuracy: 'Accuracy', grade: 'Grade', noCards: 'No cards to review now', locked: 'Locked', buy: 'Buy for', subtitle: 'Flashcards (no account)', daily: 'Daily', weekly: 'Weekly', missions: 'Missions', deckCards: 'cards', clickToChoose: 'Click here to choose a deck', seeAnswer: 'See the answer', nextCard: 'Next card', correct: 'Correct', deckNotFound: 'Deck not found', deckNotFoundMsg: 'This deck cannot be found.', cannotLoadDeck: 'Cannot load deck', deckFileError: 'The deck file could not be loaded.', retry: 'Retry', noCardsToReviewNow: 'No cards to review now', noCardsToReview: 'No cards to review', multiDeckReview: 'Multi-Deck Review', cannotLoadDecks: 'Cannot load decks', errorDefault: 'Error', errorOccurred: 'An error occurred.', browseDecksBtn: 'Browse decks', homeReturn: 'Back to home', unexpectedError: 'Unexpected error', errorDuringExec: 'An error occurred during execution.', jsError: 'JavaScript Error', promiseRejected: 'Promise rejected', promiseError: 'Promise Error', operationFailed: 'An operation failed.', pageNotFound: 'Page not found', pageNotFoundMsg: 'The requested content does not exist.', downloadingDeck: 'Downloading deck...', xmlInvalidPermissive: 'Invalid XML – trying permissive decoding', deckLoaded: 'Deck loaded – ready for review', errorLoadingDeck: 'Error loading deck: ', multiDeckLoaded: 'Multi-Deck loaded – ready for review', errorLoadingMultiDeck: 'Error loading multi-deck: ', reviewDoneToday: 'Review done for today', noCardsToday: 'No cards to review today', selectXmlFile: 'Select an XML file to load...', xmlInvalidLocal: 'Invalid XML – using permissive decoding', deckLoadedLocal: 'Deck loaded from local file', errorReadingLocal: 'Error reading local file', welcomeStatus: "Welcome to Fab'Anki", searchingCards: 'Searching for cards to review now...', analyzingDecks: 'Analyzing decks...', errorShowNextCard: 'Error: showNextCard function not found', noCardsDue: 'No cards to review now', deckIncompatible: 'Deck incompatible', modeLocked: 'Mode locked', questReward: 'Quest reward' }
+  };
+
+  function t(key) {
+    const lang = localStorage.getItem('fabanki:lang') || 'fr';
+    return (_i18n[lang] && _i18n[lang][key]) || (_i18n.fr && _i18n.fr[key]) || key;
+  }
+
   function getRetentionCoefficient(mode){
     const map = {
       default: 1,
@@ -375,6 +386,34 @@
       ov.appendChild(box);
       document.body.appendChild(ov);
     }catch(e){}
+  }
+
+  function updateUILanguage(langCode) {
+    try {
+      const lang = langCode || localStorage.getItem('fabanki:lang') || 'fr';
+      const tr = _i18n[lang] || _i18n.fr;
+      
+      // Update visible UI elements with translation
+      const elementsToTranslate = [
+        { id: 'browseDecks', key: 'browseDecksBtn' },
+        { id: 'profileBtn', key: 'profile' },
+        { id: 'marketBtn', key: 'market' },
+        { id: 'syncBtn', key: 'syncProgress' },
+        { id: 'histogramBtn', key: 'histogram' }
+      ];
+      
+      elementsToTranslate.forEach(({ id, key }) => {
+        const el = document.getElementById(id);
+        if (el && tr[key]) {
+          el.textContent = tr[key];
+          if (el.setAttribute) {
+            el.setAttribute('data-label-text', tr[key]);
+          }
+        }
+      });
+    } catch (e) {
+      console.warn('updateUILanguage error:', e);
+    }
   }
 
   function normalizeDeckPath(url){

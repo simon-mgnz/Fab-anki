@@ -445,7 +445,7 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
   
   .card-content > #front{display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;margin-bottom:12px}
   
-  .card-content > #back{width:100%;text-align:left;margin-top:12px}
+  .card-content > #back{width:100%;text-align:center;margin-top:12px}
   
   #fillBlankContainer{flex-direction:column;width:100%;gap:8px;margin-top:8px}
   
@@ -855,6 +855,9 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
 [data-theme='dark'] #calculInput{background:#1e1e2e;border-color:#444;color:#e6eef8}
 
 #calculFeedback{padding:12px;border-radius:6px;text-align:center;font-weight:600;margin-top:8px;display:none}
+
+/* Pulse animation for offline indicator dot */
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
 
  /* Small helper for popup open animation (profile uses .open class on modal and .open on overlay)
 
