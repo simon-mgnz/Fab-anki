@@ -17,16 +17,16 @@ const STATIC_ASSETS = [
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
-  console.log('[ServiceWorker] Install version:', VERSION);
+  // console.log('[ServiceWorker] Install version:', VERSION);
   
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('[ServiceWorker] Caching static assets');
+        // console.log('[ServiceWorker] Caching static assets');
         return cache.addAll(STATIC_ASSETS);
       })
       .then(() => {
-        console.log('[ServiceWorker] Static assets cached successfully');
+        // console.log('[ServiceWorker] Static assets cached successfully');
         return self.skipWaiting(); // Activate immediately
       })
       .catch((error) => {
@@ -37,7 +37,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[ServiceWorker] Activate version:', VERSION);
+  // console.log('[ServiceWorker] Activate version:', VERSION);
   
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -45,14 +45,14 @@ self.addEventListener('activate', (event) => {
         cacheNames.map((cacheName) => {
           // Delete old caches that don't match current version
           if (cacheName.startsWith('fabanki-') && cacheName !== CACHE_NAME && cacheName !== DECKS_CACHE && cacheName !== RUNTIME_CACHE) {
-            console.log('[ServiceWorker] Deleting old cache:', cacheName);
+            // console.log('[ServiceWorker] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     })
     .then(() => {
-      console.log('[ServiceWorker] Old caches cleaned');
+      // console.log('[ServiceWorker] Old caches cleaned');
       return self.clients.claim(); // Take control immediately
     })
   );
@@ -121,12 +121,12 @@ async function cacheFirst(request) {
   const cached = await cache.match(request);
   
   if (cached) {
-    console.log('[ServiceWorker] Cache hit:', request.url);
+    // Silently return cached response
     return cached;
   }
   
   try {
-    console.log('[ServiceWorker] Cache miss, fetching:', request.url);
+    // console.log('[ServiceWorker] Cache miss, fetching:', request.url);
     const response = await fetch(request);
     
     // Cache successful responses

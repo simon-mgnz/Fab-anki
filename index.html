@@ -84,14 +84,14 @@
 
     <!-- Deck browser modal (hidden) -->
     <div id="deckBrowserOverlay" class="modal-overlay" aria-hidden="true">
-      <div class="modal" role="dialog" aria-modal="true">
-          <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="modal" role="dialog" aria-modal="true" style="position:relative">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-right:50px;">
             <h3>Parcourir les decks (./decks/)</h3>
           <div>
             <button id="refreshDeckList" class="secondary">Rafraîchir</button>
-            <button id="closeDeckBrowser" class="secondary">Fermer</button>
           </div>
         </div>
+        <button id="closeDeckBrowser" class="secondary" style="position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;">×</button>
         <div id="deckBrowserMsg" class="muted small" style="margin-bottom:8px">Recherche de ./decks/ ...</div>
         <div id="deckList" class="deck-list"></div>
       </div>
