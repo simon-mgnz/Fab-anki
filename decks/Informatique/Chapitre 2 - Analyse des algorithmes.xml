@@ -1,0 +1,37 @@
+<deck name="Chapitre 2 - Analyse des algorithmes" tags='Informatique::ITC'><fields><rich-text name='Avant' sides='11'></rich-text><rich-text name='Arrière' sides='01'></rich-text></fields><cards><card><rich-text name='Avant'><p>Terminaison</p></rich-text><rich-text name='Arrière'><p>On dit qu’un algorithme termine lorsque pour <strong>toute donnée d’entrée, son éxécution prend un<br/>temps fini.</strong></p>
+<p>Un programme qui <strong>ne contient pas de boucle while et pas de récursivité</strong> termine nécéssairement.</p></rich-text></card><card><rich-text name='Avant'><p>Variant de boucle</p></rich-text><rich-text name='Arrière'><p>Un variant de boucle est une quantité :<br/>• initialement entière positive<br/>• qui reste entière et diminue strictement à chaque itération de la boucle.<br/>• qui doit être positive pour que la boucle se poursuive</p></rich-text></card><card><rich-text name='Avant'><p>Théorème du variant de boucle</p></rich-text><rich-text name='Arrière'><p>Si une boucle admet un<strong> variant de boucle</strong>, alors elle <strong>termine</strong>.</p></rich-text></card><card><rich-text name='Avant'><p>Théorème de la Terminaison d’une fonction récursive</p></rich-text><rich-text name='Arrière'><p>Si une fonction <span style="text-decoration: underline;">récursive</span> comporte <strong>une quantité entière positive</strong> qui <strong>diminue strictement</strong> à chaque appel récursif, alors elle <span style="text-decoration: underline;"><strong>termine</strong></span>.</p></rich-text></card><card><rich-text name='Avant'><p>Correction partielle, totale d'un algorithme</p></rich-text><rich-text name='Arrière'><p>Un algorithme est dit<br/>• <em>partiellement correct </em>lorsqu’il <strong>respecte sa spécification</strong>.<br/>• <em>correct</em> lorsqu’il<strong> termine et qu’il respecte sa spécification</strong>.</p></rich-text></card><card><rich-text name='Avant'><p>Invariant de boucle</p></rich-text><rich-text name='Arrière'><p>Dans une boucle (conditionnelle ou non) un invariant de boucle est une <strong>assertion qui est vérifiée</strong> avant d’entrer dans la boucle, et qui, si elle est <strong>vraie en entrée</strong> d’une itération, est <strong>encore vérifiée en sortie</strong>.</p>
+<p>Vérifié à tout instant par récurrence.</p>
+<p>Permet de faciliter la démonstration de la correction d’un<br/>algorithme.</p></rich-text></card><card><rich-text name='Avant'><p>Invariant classique : recherche dichotomique</p></rich-text><rich-text name='Arrière'><p>e ∉ t[0:i] ∪ t[j+1:len(t)-1]</p>
+<p>Il est vrai initialement puisqu’initialement i = 0 et j = len(t)-1 donc il signifie juste que e ∉ ∅</p>
+<p>Supposons qu’il soit vrai à l’entrée d’une itération de la boucle. Au sein de cette itération, ou bien l’élément a été trouvé et l’invariant est toujours vrai car i et j ne changent pas, ou bien une seule des deux change, disons i. Elle change précisément si e ne se trouve pas avant<br/>l’indice i de t, donc on a bien e ∉ t[0:i] qui reste vraie. De même si c’est j qui change..</p></rich-text></card><card><rich-text name='Avant'><p>Théorème : Correction partielle d’un algorithme récursif</p></rich-text><rich-text name='Arrière'><p>Une fonction <strong>récursive</strong> est <strong>partiellement correcte</strong> si son <strong>cas de base est correct</strong> et si, en supposant<br/>que les <strong>appels récursifs fournissent le résultat correc</strong>t, elle fournit le <strong>résultat correct</strong>.</p></rich-text></card><card><rich-text name='Avant'><p>Complexité</p></rich-text><rich-text name='Arrière'><p>On appelle <em>complexité </em>(temporelle) d’un algorithme la <strong>suite de terme général Cn = max<sub>e∈In</sub><br/>t(e).</strong></p>
+<p>On devrait parler de complexité dans le pire des cas. On pourrait s’intéresser à d’autres complexité, par exemple la complexité moyenne, mais ça n’est pas au programme.</p></rich-text></card><card><rich-text name='Avant'><p>Grand O (DOMINATIOOOOONNNNN !!!!!!)</p></rich-text><rich-text name='Arrière'><p>Soit u et v deux suites de nombres strictement positifs. On dit que u est dominée par v et on note u = O (v) lorsqu’<strong>il existe une constante C &gt; 0 telle que pour tout n ∈ N, u<sub>n</sub> ≤ Cv<sub>n</sub>.</strong></p></rich-text></card><card><rich-text name='Avant'><p>Complexités usuelles</p></rich-text><rich-text name='Arrière'><p>On considère un algorithme de complexité (C<sub>n</sub>)<sub>n∈IN</sub>. Selon les cas, on donne différents qualificatifs<br/>à la complexité.</p>
+<table style="border-collapse: collapse; width: 99.9335%; height: 123.094px;" border="1"><colgroup><col style="width: 49.9002%;"><col style="width: 49.9002%;"></colgroup>
+<tbody>
+<tr style="height: 22.4583px;">
+<td style="height: 22.4583px;">C<sub>n</sub> =</td>
+<td style="height: 22.4583px;">Complexité qualifiée de</td>
+</tr>
+<tr style="height: 19.5938px;">
+<td style="height: 19.5938px;">O (1)</td>
+<td style="height: 19.5938px;">constante</td>
+</tr>
+<tr style="height: 19.5938px;">
+<td style="height: 19.5938px;">O (ln n)</td>
+<td style="height: 19.5938px;">logarithmique</td>
+</tr>
+<tr style="height: 19.5938px;">
+<td style="height: 19.5938px;">O (n)</td>
+<td style="height: 19.5938px;">linéaire</td>
+</tr>
+<tr style="height: 22.2604px;">
+<td style="height: 22.2604px;">O (n<sup>2</sup>)</td>
+<td style="height: 22.2604px;">quadratique</td>
+</tr>
+<tr style="height: 19.5938px;">
+<td style="height: 19.5938px;">O (c<sup>n</sup>) (c &gt; 1)</td>
+<td style="height: 19.5938px;">exponentielle</td>
+</tr>
+</tbody>
+</table></rich-text></card><card><rich-text name='Avant'><p>Relation Θ (bonus)</p></rich-text><rich-text name='Arrière'><p>On dit que u<sub>n</sub> = Θ(v<sub>n</sub>) quand u<sub>n</sub> = O (v<sub>n</sub>) et v<sub>n </sub>= O (u<sub>n</sub>).</p></rich-text></card><card><rich-text name='Avant'><p>Calcul de complexités</p></rich-text><rich-text name='Arrière'><p>• Deux passages successifs d’un algorithme de complexité O (u) reste de complexité O (u) : <strong>O (u) + O (u) = O (u).</strong></p>
+<p>• Plus généralement, la succession de deux algorithmes aura pour complexité celle de l’algorithme <strong>le plus coûteux : Si u = O (v) alors O (u) + O (v) = O (v) + O (v) = O (v).</strong></p>
+<p>• Si l’on effectue <strong>u itérations</strong> d’un algorithme de complexité <strong>O (v)</strong>, la complexité globale est en <strong>O (uv) : u O (v) = O (uv).</strong></p></rich-text></card></cards></deck>

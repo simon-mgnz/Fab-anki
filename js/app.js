@@ -6349,17 +6349,16 @@
     header.innerHTML = `Question ${state.currentIndex + 1} / ${state.questions.length}`;
     frontEl.appendChild(header);
     
-    // Question content
-    const questionDiv = document.createElement('div');
-    questionDiv.style.cssText = 'flex:1;padding:12px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;margin-bottom:16px;';
-    questionDiv.innerHTML = q.front;
-    frontEl.appendChild(questionDiv);
-    
     // Input/Answer UI based on question mode
     if(q.mode === 'texte_a_trous'){
       displayTextFill(q, card);
     } else {
-      displayClassicQuestion(q);
+      // Question content for non-texte_a_trous modes
+      const questionDiv = document.createElement('div');
+      questionDiv.style.cssText = 'flex:1;padding:12px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;margin-bottom:16px;';
+      questionDiv.innerHTML = q.front;
+      frontEl.appendChild(questionDiv);
+      displayClassicQuestion(q, card);
     }
     
     // Navigation container
@@ -6400,86 +6399,202 @@
   function displayTextFill(q, card){
     const frontEl = $('#front');
     
-    // Create input field for text fill
-    const inputDiv = document.createElement('div');
-    inputDiv.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;';
+    // Create container for text with inputs
+    const textContainer = document.createElement('div');
+    textContainer.style.cssText = 'padding:12px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;margin-bottom:16px;';
     
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.placeholder = 'Votre réponse...';
-    input.style.cssText = 'flex:1;min-width:200px;padding:10px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#333;font-size:1em;';
-    input.id = 'originalTextInput';
+    // Strip HTML tags from text for display
+    const plainText = q.front.replace(/<[^>]*>/g, '');
+    
+    // Parse text with blanks and create input fields interspersed
+    const parts = plainText.split(/___/);
+    const inputsData = [];
+    
+    parts.forEach((part, idx) => {
+      // Add text part
+      if(part){
+        const textSpan = document.createElement('span');
+        textSpan.textContent = part;
+        textContainer.appendChild(textSpan);
+      }
+      
+      // Add input for blank (except after last part)
+      if(idx < parts.length - 1){
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = `Réponse ${idx + 1}`;
+        input.style.cssText = 'padding:6px 8px;border:2px solid #ddd;border-radius:4px;background:#fff;color:#333;font-size:0.95em;margin:0 4px;min-width:80px;';
+        input.className = 'original-blank-input';
+        textContainer.appendChild(input);
+        inputsData.push({input, index: idx});
+      }
+    });
+    
+    frontEl.appendChild(textContainer);
+    
+    // Create validate button container
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = 'display:flex;gap:8px;margin-bottom:16px;';
     
     const validateBtn = document.createElement('button');
     validateBtn.textContent = 'Valider';
     validateBtn.style.cssText = 'padding:10px 16px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;';
     validateBtn.addEventListener('click', () => {
-      validateOriginalTextFill(q, card, input.value);
+      const answers = inputsData.map(d => d.input.value);
+      validateOriginalTextFill(q, card, answers);
     });
+    buttonContainer.appendChild(validateBtn);
+    frontEl.appendChild(buttonContainer);
     
-    inputDiv.appendChild(input);
-    inputDiv.appendChild(validateBtn);
-    frontEl.appendChild(inputDiv);
-    
-    // Focus to input
-    setTimeout(() => input.focus(), 100);
+    // Focus to first input
+    if(inputsData.length > 0){
+      setTimeout(() => inputsData[0].input.focus(), 100);
+    }
   }
   
-  function displayClassicQuestion(q){
+  function displayClassicQuestion(q, card){
     const frontEl = $('#front');
-    endEl = document.createElement('div');
-    endEl.style.cssText = 'padding:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;margin:12px 0;color:#1e40af;';
-    endEl.innerHTML = '(Consultez la réponse avant de continuer)';
-    frontEl.appendChild(endEl);
     
+    // Create button container with grading options
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;';
+    
+    // Show answer first
     const showAnswerBtn = document.createElement('button');
     showAnswerBtn.textContent = 'Voir la réponse';
-    showAnswerBtn.style.cssText = 'padding:10px 16px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;margin:12px 0;';
+    showAnswerBtn.style.cssText = 'padding:10px 16px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;margin-bottom:12px;width:100%;font-weight:600;';
     showAnswerBtn.addEventListener('click', () => {
       const backEl = $('#back');
       if(backEl){
         backEl.innerHTML = q.back;
         backEl.style.display = 'block';
         showAnswerBtn.style.display = 'none';
+        // Show grading buttons
+        gradeContainer.style.display = 'flex';
       }
     });
     frontEl.appendChild(showAnswerBtn);
+    
+    // Create grade buttons container (initially hidden)
+    const gradeContainer = document.createElement('div');
+    gradeContainer.style.cssText = 'display:none;gap:8px;flex-wrap:wrap;margin-top:12px;';
+    
+    const gradeButtons = [
+      {label: 'Raté', quality: 0, color: '#ef4444'},
+      {label: 'Difficile', quality: 3, color: '#f97316'},
+      {label: 'Bon', quality: 4, color: '#3b82f6'},
+      {label: 'Facile', quality: 5, color: '#22c55e'}
+    ];
+    
+    gradeButtons.forEach(({label, quality, color}) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.style.cssText = `padding:10px 16px;background:${color};color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;flex:1;min-width:100px;`;
+      btn.addEventListener('click', () => {
+        handleOriginalGrade(q, card, quality);
+      });
+      gradeContainer.appendChild(btn);
+    });
+    
+    frontEl.appendChild(gradeContainer);
   }
   
-  function validateOriginalTextFill(q, card, userAnswer){
-    // Use same validation logic as fillblank mode
-    if(!userAnswer || userAnswer.trim() === ''){
-      alert('Veuillez entrer une réponse');
+  function validateOriginalTextFill(q, card, userAnswers){
+    // userAnswers can be a single string or an array of strings
+    const answers = Array.isArray(userAnswers) ? userAnswers : [userAnswers];
+    
+    // Check if any answer is empty
+    if(answers.some(a => !a || a.trim() === '')){
+      alert('Veuillez remplir toutes les réponses');
       return;
     }
     
-    const result = validateFillBlankAnswer(userAnswer, q.back);
+    // Extract correct answers from q.back
+    // q.back may contain the full text with blanks marked by ___ or plain text
+    const plainBack = q.back.replace(/<[^>]*>/g, '').trim();
     
-    // Store score
-    const state = originalModeState;
-    state.scores[state.currentIndex] = result.quality;
+    // Try to extract answers: split back with ___ separator
+    const backParts = plainBack.split(/___/);
+    let correctAnswers = [];
     
-    // Show feedback
-    const inputDiv = document.querySelector('#originalTextInput')?.parentElement;
-    if(inputDiv){
-      const feedbackDiv = document.createElement('div');
-      feedbackDiv.style.cssText = `padding:12px;border-radius:6px;margin-top:12px;font-weight:600;${
-        result.quality >= 4 ? 'background:#dcfce7;color:#065f46;border:1px solid #6ee7b7;' :
-        result.quality === 3 ? 'background:#fed7aa;color:#92400e;border:1px solid #fdba74;' :
-        'background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;'
-      }`;
-      feedbackDiv.innerHTML = result.quality >= 4 ? '✓ Presque exact!' :
-                              result.quality === 3 ? '≈ Bon essai' :
-                              '✗ Incorrect';
-      inputDiv.appendChild(feedbackDiv);
+    // If back has ___ separators like front, extract answers from alternating positions
+    if(backParts.length > 1 && backParts.some(p => p.trim() !== '')){
+      for(let i = 1; i < backParts.length; i += 2){
+        correctAnswers.push(backParts[i]);
+      }
     }
     
-    // Show correct answer if user got it wrong
-    if(result.quality < 4){
-      const answerDiv = document.createElement('div');
-      answerDiv.style.cssText = 'padding:12px;background:#f0f0f0;border-radius:6px;margin-top:12px;border:1px solid #ccc;';
-      answerDiv.innerHTML = `<strong>Réponse:</strong> ${q.back}`;
-      inputDiv.appendChild(answerDiv);
+    // If we couldn't extract answers, use empty strings (will still validate user input format)
+    if(correctAnswers.length === 0){
+      correctAnswers = Array(answers.length).fill('');
+    }
+    
+    let allCorrect = true;
+    const feedbacks = [];
+    
+    answers.forEach((ans, idx) => {
+      const correctAnswer = (correctAnswers[idx] || '').trim().toLowerCase();
+      const userAns = ans.trim().toLowerCase();
+      const isCorrect = correctAnswer && userAns === correctAnswer;
+      if(!isCorrect && correctAnswer) allCorrect = false;
+      feedbacks.push({index: idx, isCorrect, correct: correctAnswers[idx]});
+    });
+    
+    // Store overall quality score
+    const state = originalModeState;
+    const quality = allCorrect ? 5 : (feedbacks.filter(f => f.isCorrect).length / answers.length > 0.5 ? 3 : 0);
+    state.scores[state.currentIndex] = quality;
+    
+    // Show feedback for each blank
+    document.querySelectorAll('.original-blank-input').forEach((input, idx) => {
+      const feedback = feedbacks[idx];
+      if(feedback.isCorrect){
+        input.style.borderColor = '#22c55e';
+        input.style.backgroundColor = '#dcfce7';
+      } else {
+        input.style.borderColor = '#ef4444';
+        input.style.backgroundColor = '#fee2e2';
+      }
+    });
+    
+    // Show feedback message and correct answers
+    const frontEl = $('#front');
+    const existingFeedback = frontEl.querySelector('.original-validation-feedback');
+    if(existingFeedback) existingFeedback.remove();
+    
+    const feedbackDiv = document.createElement('div');
+    feedbackDiv.className = 'original-validation-feedback';
+    feedbackDiv.style.cssText = `padding:12px;border-radius:6px;margin-top:12px;font-weight:600;${
+      allCorrect ? 'background:#dcfce7;color:#065f46;border:1px solid #6ee7b7;' :
+      'background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;'
+    }`;
+    feedbackDiv.innerHTML = allCorrect ? '✓ Toutes les réponses sont correctes!' : 
+                             feedbacks.filter(f => f.isCorrect).length > 0 ? '≈ Réponses partiellement correctes' :
+                             '✗ Réponses incorrectes';
+    
+    // Show answers if not all correct
+    if(!allCorrect){
+      const answersDiv = document.createElement('div');
+      answersDiv.style.cssText = 'padding:12px;background:#f0f0f0;border-radius:6px;margin-top:12px;border:1px solid #ccc;';
+      answersDiv.innerHTML = '<strong>Réponses correctes:</strong><br>' + 
+        feedbacks.map((f, i) => `Blanc ${i+1}: ${f.correct}`).join('<br>');
+      frontEl.appendChild(answersDiv);
+    }
+    
+    frontEl.appendChild(feedbackDiv);
+  }
+  
+  function handleOriginalGrade(q, card, quality){
+    // Store the grade for this question
+    const state = originalModeState;
+    state.scores[state.currentIndex] = quality;
+    
+    // Move to next question
+    if(state.currentIndex < state.questions.length - 1){
+      state.currentIndex++;
+      displayOriginalQuestion(card);
+    } else {
+      finishOriginalMode(card);
     }
   }
   
@@ -11991,7 +12106,7 @@
       }));
       
       // Part 2 (locked until Part 1 done)
-      const part2 = createQuestPart('Partie 2: Premiers pas', [
+      const part2 = createQuestPart(' PremiersPartie 2: pas', [
         { label: 'Ouvrir un deck', done: !part2Locked && state.part2.deck_opened, reward: '3 ℂ' },
         { label: 'Réviser 50 cartes', done: !part2Locked && state.part2.cards_50_reviewed, reward: '5 ℂ', progress: part2Locked ? null : `${state.totalCardsReviewed}/50` },
         { label: 'Terminer une session', done: !part2Locked && state.part2.session_completed, reward: '5 ℂ' }
@@ -12550,7 +12665,7 @@
 
       const part1Done = state.stepCards >= postWelcomeQuestTargets.stepCards && state.activeCards >= postWelcomeQuestTargets.activeCards && state.timeSec >= postWelcomeQuestTargets.timeSec;
       const part2Locked = !part1Done;
-      const part2 = createQuestPart('Partie 2: Débloquer des modes', [
+      const part2 = createQuestPart('Partie 2', [
         { label: 'Réviser 250 cartes', done: !part2Locked && state.totalCards >= postWelcomeQuestTargets.totalCards, reward: '20 ℂ', progress: part2Locked ? null : `${Math.min(state.totalCards, postWelcomeQuestTargets.totalCards)}/${postWelcomeQuestTargets.totalCards}` },
         { label: 'Réviser 50 cartes en mode Revers', done: !part2Locked && state.reverseCards >= postWelcomeQuestTargets.reverseCards, reward: '10 ℂ', progress: part2Locked ? null : `${Math.min(state.reverseCards, postWelcomeQuestTargets.reverseCards)}/${postWelcomeQuestTargets.reverseCards}` },
         { label: 'Débloquer le mode Rappel sous pression', done: !part2Locked && state.timerUnlocked, reward: '10 ℂ' }
@@ -12575,7 +12690,7 @@
       const timeMinPart3 = Math.floor(Number(state.part3_timeSec || 0) / 60);
       const timePart3Hours = Math.floor(timeMinPart3 / 60);
       
-      const part3 = createQuestPart('Partie 3: Quête Avancée', [
+      const part3 = createQuestPart('Partie 3', [
         { label: 'Passer 3 heures sur l\'application', done: !part3Locked && state.part3_timeSec >= postWelcomeQuestTargets.part3_timeSec, reward: '10 ℂ', progress: part3Locked ? null : `${Math.min(timePart3Hours, 3)}/3 h` },
         { label: 'Réviser 20 decks différents', done: !part3Locked && decksReviewedSet.size >= postWelcomeQuestTargets.part3_decksReviewed, reward: '10 ℂ', progress: part3Locked ? null : `${Math.min(decksReviewedSet.size, 20)}/20` },
         { label: 'Avoir 50 cartes Maîtrisées', done: !part3Locked && state.part3_masteredCards >= postWelcomeQuestTargets.part3_masteredCards, reward: '10 ℂ', progress: part3Locked ? null : `${Math.min(state.part3_masteredCards, 50)}/50` },
@@ -12618,7 +12733,7 @@
       const part4Maintenance = maintenanceCardsPart4 >= postWelcomeQuestTargets.part4_maintenanceCards;
       const part4Done = part3Done && part4Sessions && part4Cards && part4Timer && part4Maintenance;
       
-      const part4 = createQuestPart('Partie 4:', [
+      const part4 = createQuestPart('Partie 4', [
         { label: 'Compléter 25 sessions de révisions', done: part4Sessions, reward: '10 ℂ', progress: part3Done ? `${Math.min(sessionsPart4, 25)}/25` : 'Verrouillée' },
         { label: 'Réviser 500 cartes', done: part4Cards, reward: '25 ℂ', progress: part3Done ? `${Math.min(totalCardsPart4, 500)}/500` : 'Verrouillée' },
         { label: 'Réviser 50 cartes en mode Rappel sous pression', done: part4Timer, reward: '10 ℂ', progress: part3Done ? `${Math.min(timerCardsPart4, 50)}/50` : 'Verrouillée' },
@@ -12656,7 +12771,7 @@
       const part5Total = totalCardsPart5 >= postWelcomeQuestTargets.part5_totalCards;
       const part5Done = part4Done && part5Credits && part5Level && part5Multiple && part5Calcul && part5Total;
       
-      const part5 = createQuestPart('Partie 5:', [
+      const part5 = createQuestPart('Partie 5', [
         { label: 'Accumuler 250 crédits', done: part5Credits, reward: '15 ℂ', progress: part4Done ? `${Math.min(creditsPart5, 250)}/250` : 'Verrouillée' },
         { label: 'Atteindre le niveau 30', done: part5Level, reward: '10 ℂ', progress: part4Done ? `${Math.min(levelPart5, 30)}/30` : 'Verrouillée' },
         { label: 'Réviser 100 cartes en mode Multiple', done: part5Multiple, reward: '25 ℂ', progress: part4Done ? `${Math.min(multipleCardsPart5, 100)}/100` : 'Verrouillée' },
