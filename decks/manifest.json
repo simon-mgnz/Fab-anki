@@ -16,6 +16,8 @@
 	{ "path": "Informatique/Formulaire Python.xml", "tags": ["text","timer"], "cost": 5, "description": "Formulaire Python: syntaxes, fonctions utiles et rappels de base courante." },
 	{ "path": "Informatique/Option/Chapitre 1 - Introduction.xml", "tags": ["text","timer"], "description": "Introduction option informatique, concepts essentiels et vocabulaire technique de base." },
 	{ "path": "Informatique/Chapitre 1 - Programmation.xml", "tags": ["timer"], "description": "Programmation: structures, variables, boucles et pratiques fondamentales de base courantes." },
+	{ "path": "Informatique/Chapitre 2 - Analyse des algorithmes.xml", "tags": ["timer"], "description": "Analyse des algorithmes: complexité, notation asymptotique et methodes d'evaluation." },
+	{ "path": "Informatique/Chapitre 3 - Représentation des nombres en machine.xml", "tags": ["timer"], "description": "Représentation des nombres en machine: formats, conversions et operations de base." },
 	{ "path": "Maths/Dérivées et primitives.xml", "tags": ["timer","calcul"], "level": 10, "description": "Derivees et primitives, formules, methodes de calcul et exercices types." },
 	{ "path": "Maths/LCI et caractéristiques.xml", "tags": ["timer"], "level": 20, "cost": 10, "description": "LCI et caracteristiques, definitions, proprietes et applications classiques utiles exemples." },
 	{ "path": "Maths/Cours/Chapitre 01 - Raisonner, rédiger.xml", "tags": ["timer"], "description": "Methodes pour raisonner et rediger, preuves et rigueur mathematique claire." },
