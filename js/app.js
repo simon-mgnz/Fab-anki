@@ -1,4 +1,4 @@
-﻿// Single-file app implementing requested functions.
+// Single-file app implementing requested functions.
   try{ window.__fabanki_booted = true; }catch(e){}
 
   // ============================================
@@ -767,7 +767,7 @@
       if(hasTextMode && isTextModeUnlocked) modes.push({id: 'fillblank', name: 'Texte', unlocked: true});
       if(hasTimerMode && isTimerModeUnlocked) modes.push({id: 'timer', name: 'Rappel', unlocked: true});
       if(hasTimerMode) modes.push({id: 'rush', name: 'Rush', unlocked: true}); // UNLOCKED FOR DEBUGGING
-      // if(hasActiveMemory) modes.push({id: 'activeMemory', name: 'Mémoire', unlocked: true}); // REMOVED: activeMemory mode
+      if(hasActiveMemory) modes.push({id: 'activeMemory', name: 'Mémoire', unlocked: true});
       if(isStepModeUnlocked && stepModeCompatible) modes.push({id: 'step', name: 'Étapes', unlocked: true});
       if(reverseModeCompatible && reverseUnlocked) modes.push({id: 'reverse', name: 'Revers', unlocked: true});
       if(randomModeCompatible && randomUnlocked) modes.push({id: 'random', name: 'Aléatoire', unlocked: true});
@@ -1939,7 +1939,7 @@
           lockReason: timerLockedByDeck ? 'Deck incompatible' : 'Mode bloque'
         });
         // REMOVED: activeMemory mode
-        // availableModes.push({id: 'activeMemory', name: 'Mémoire active', locked: !isActiveMemoryUnlocked});
+        availableModes.push({id: 'activeMemory', name: 'Mémoire active', locked: !isActiveMemoryUnlocked});
         availableModes.push({
           id: 'step',
           name: 'Étape par étape',
