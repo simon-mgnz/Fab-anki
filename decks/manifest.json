@@ -7,6 +7,7 @@
 	{ "path": "Anglais/Livre de vocabulaire/Famine P18.xml", "tags": ["text","timer"], "cost": 10, "description": "Vocabulaire sur la famine, securite alimentaire et facteurs de crise." },
 	{ "path": "Anglais/Livre de vocabulaire/Women and Work P40.xml", "tags": ["text","timer"], "description": "Vocabulaire sur femmes et travail, egalite, emploi et droits sociaux." },
 	{ "path": "Anglais/Livre de vocabulaire/The World of Work P132.xml", "tags": ["text","timer"], "description": "Vocabulaire du monde du travail, contrats, roles et conditions modernes." },
+	{ "path": "Anglais/Livre de vocabulaire/The Work Revolution P134.xml", "tags": ["text","timer"], "description": "Vocabulaire sur la revolution du travail, changements, tendances et innovations." },
 	{ "path": "Anglais/Livre de vocabulaire/Social protection P140.xml", "tags": ["text","timer"], "description": "Vocabulaire sur protection sociale, aides, politiques publiques et beneficiaires clefs." },
 	{ "path": "Anglais/Voc de Colle.xml", "tags": ["text","timer"], "description": "Vocabulaire de colle pour l'oral, definitions et phrases utiles typique." },
 	{ "path": "Anglais/Connecteurs logiques.xml", "tags": ["text","timer"], "level": 10, "cost": 30, "description": "Connecteurs logiques anglais, pour structurer idees et arguments clairement ecrits." },
