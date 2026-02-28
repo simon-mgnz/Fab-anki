@@ -22,7 +22,7 @@
 	{ "path": "Maths/Dérivées et primitives.xml", "tags": ["timer","calcul"], "level": 10, "description": "Derivees et primitives, formules, methodes de calcul et exercices types." },
 	{ "path": "Maths/LCI et caractéristiques.xml", "tags": ["timer"], "level": 20, "cost": 10, "description": "LCI et caracteristiques, definitions, proprietes et applications classiques utiles exemples." },
 	{ "path": "Maths/Cours/Chapitre 01 - Raisonner, rédiger.xml", "tags": ["timer"], "description": "Methodes pour raisonner et rediger, preuves et rigueur mathematique claire." },
-	{ "path": "Maths/Cours/Chapitre 02 - Calcul algébrique et trigonométrie.xml", "tags": ["timer"], "description": "Calcul algebrique et trigonometrie, identites, transformations et exercices cles types." },
+	{ "path": "Maths/Cours/Chapitre 2 - Calcul algébrique et trigonométrie.xml", "tags": ["timer"], "description": "Calcul algebrique et trigonometrie, identites, transformations et exercices cles types." },
 	{ "path": "Maths/Cours/Chapitre 03 - Fonctions d une variable reelle.xml", "tags": ["timer"], "description": "Fonctions reelles: continuite, variations, graphes et applications classiques corriges simples." },
 	{ "path": "Maths/Cours/Chapitre 04 - Nombres Complexes.xml", "tags": ["timer"], "description": "Nombres complexes, formes, operations et interpretation geometrique essentielle exemples courants." },
 	{ "path": "Maths/Cours/Chapitre 05 - Calculs de primitives et intégrales.xml", "tags": ["timer"], "description": "Primitives et integrales, techniques de calcul et applications classiques guides." },
