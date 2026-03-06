@@ -24,7 +24,7 @@
   <!-- Firebase configuration -->
   <script src="./config.js"></script>
   <!-- Styles -->
-  <link rel="stylesheet" href="./styles.css?v=20260306-016">
+  <link rel="stylesheet" href="./styles.css?v=20260306-017">
 </head>
 <body>
   <div class="app" id="app" data-theme="light">
@@ -43,11 +43,12 @@
         <button id="toggleStats" class="secondary" data-label-text="Histogramme" data-label-emoji="📊">Histogramme</button>
         <button id="reviewMenuBtn" class="secondary" style="display:none" aria-label="Menu" aria-expanded="false" aria-controls="reviewMenuPanel">...</button>
         <div id="reviewMenuPanel" class="review-menu-panel" role="menu" aria-hidden="true">
-          <button type="button" data-menu-action="browse">Parcourir decks</button>
-          <button type="button" data-menu-action="market">Marché</button>
-          <button type="button" data-menu-action="profile">Profil</button>
-          <button type="button" data-menu-action="sync">Synchroniser</button>
-          <button type="button" data-menu-action="stats">Histogramme</button>
+          <button type="button" data-menu-action="favorite">☆ Favori (x2)</button>
+          <button type="button" data-menu-action="browse">🗀 Parcourir decks</button>
+          <button type="button" data-menu-action="market">ℂ Marché</button>
+          <button type="button" data-menu-action="profile">웃 Profil</button>
+          <button type="button" data-menu-action="sync">↺ Synchroniser</button>
+          <button type="button" data-menu-action="stats">⭜ Histogramme</button>
         </div>
       </div>
     </header>
@@ -97,11 +98,120 @@
             <h3>Parcourir les decks (./decks/)</h3>
           <div>
             <button id="refreshDeckList" class="secondary">Rafraîchir</button>
+            <button id="createDeckBtn" class="primary" style="display:none;margin-left:8px;">+ Créer un deck</button>
           </div>
         </div>
         <button id="closeDeckBrowser" class="secondary" style="position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;">×</button>
         <div id="deckBrowserMsg" class="muted small" style="margin-bottom:8px">Recherche de ./decks/ ...</div>
         <div id="deckList" class="deck-list"></div>
+      </div>
+    </div>
+
+    <!-- Deck Creator Modal -->
+    <div id="deckCreatorOverlay" class="modal-overlay">
+      <div class="modal" style="max-width:1200px;width:95%;max-height:95vh;overflow-y:auto;margin:20px auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;position:sticky;top:0;background:var(--card-bg);z-index:10;padding-bottom:12px;border-bottom:1px solid var(--border-color);">
+          <button id="closeDeckCreator" class="secondary" style="background:none;border:none;font-size:1.2em;cursor:pointer;padding:6px 12px;color:#007AFF;">← Retour</button>
+          <h2 style="margin:0;flex:1;text-align:center;">Créer un Deck</h2>
+          <div style="display:flex;gap:8px;">
+            <button id="saveDraftBtn" class="secondary">💾 Brouillon</button>
+            <button id="loadDraftBtn" class="secondary">📂 Charger</button>
+          </div>
+        </div>
+        
+        <!-- Import XML Section -->
+        <div style="margin-bottom:20px;padding:16px;background:rgba(0,122,255,0.05);border-radius:8px;border:1px solid rgba(0,122,255,0.2);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <h3 style="margin:0;font-size:1.1em;">🔄 Importer un fichier XML</h3>
+            <button id="toggleImportXML" class="secondary">Afficher</button>
+          </div>
+          <div id="importXMLSection" style="display:none;">
+            <textarea id="rawXMLInput" placeholder="Collez votre XML ici..." style="width:100%;min-height:150px;font-family:monospace;font-size:0.85em;padding:12px;border-radius:6px;border:1px solid var(--border-color);margin-bottom:12px;"></textarea>
+            <button id="importXMLBtn" class="primary">Importer XML</button>
+          </div>
+        </div>
+
+        <!-- Deck Metadata -->
+        <div style="margin-bottom:24px;padding:16px;background:var(--card-bg);border-radius:8px;border:1px solid var(--border-color);">
+          <h3 style="margin-top:0;">📋 Informations du Deck</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;">
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;">Titre du deck *</label>
+              <input id="deckTitle" type="text" placeholder="ex: Vocabulaire Anglais" style="width:100%;padding:8px;border-radius:4px;border:1px solid var(--border-color);">
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;">Chemin/Dossier</label>
+              <input id="deckPath" type="text" placeholder="ex: Anglais/" value="" style="width:100%;padding:8px;border-radius:4px;border:1px solid var(--border-color);">
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;">Coût (crédits)</label>
+              <input id="deckCost" type="number" min="0" value="0" style="width:100%;padding:8px;border-radius:4px;border:1px solid var(--border-color);">
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;">Niveau requis</label>
+              <input id="deckLevel" type="number" min="0" value="0" style="width:100%;padding:8px;border-radius:4px;border:1px solid var(--border-color);">
+            </div>
+          </div>
+        </div>
+
+        <!-- Available Modes -->
+        <div style="margin-bottom:24px;padding:16px;background:var(--card-bg);border-radius:8px;border:1px solid var(--border-color);">
+          <h3 style="margin-top:0;">🎮 Modes disponibles</h3>
+          <div id="modesContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;">
+            <!-- Will be populated by JS -->
+          </div>
+        </div>
+
+        <!-- Cards Section -->
+        <div style="margin-bottom:24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;">📝 Cartes (<span id="cardCount">0</span>)</h3>
+            <button id="addCardBtn" class="primary">+ Ajouter une carte</button>
+          </div>
+          <div id="cardsContainer" style="display:flex;flex-direction:column;gap:16px;">
+            <!-- Cards will be added here -->
+          </div>
+        </div>
+
+        <!-- Publish Section -->
+        <div style="position:sticky;bottom:0;background:var(--card-bg);padding:16px 0;border-top:2px solid var(--border-color);display:flex;gap:12px;justify-content:flex-end;">
+          <button id="previewDeckBtn" class="secondary">👁️ Aperçu XML</button>
+          <button id="publishDeckBtn" class="primary" style="padding:12px 24px;font-size:1.1em;">🚀 Publier le Deck</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card Editor Modal (for individual card editing) -->
+    <div id="cardEditorOverlay" class="modal-overlay" style="display:none;">
+      <div class="modal" style="max-width:900px;width:95%;max-height:90vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <button id="closeCardEditor" class="secondary" style="background:none;border:none;font-size:1.2em;cursor:pointer;padding:6px 12px;color:#007AFF;">← Retour</button>
+          <h3 style="margin:0;flex:1;text-align:center;">Éditeur de Carte</h3>
+          <button id="saveCardBtn" class="primary">✓ Enregistrer</button>
+        </div>
+        
+        <div id="fieldsList" style="display:flex;flex-direction:column;gap:20px;">
+          <!-- Fields will be added here -->
+        </div>
+        
+        <div style="margin-top:20px;display:flex;gap:8px;justify-content:flex-end;">
+          <button id="addFieldBtn" class="secondary">+ Ajouter un champ</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- XML Preview Modal -->
+    <div id="xmlPreviewOverlay" class="modal-overlay" style="display:none;">
+      <div class="modal" style="max-width:800px;width:95%;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="margin:0;">Aperçu XML</h3>
+          <button id="closeXMLPreview" class="secondary" style="padding:4px 12px;font-size:1.5em;line-height:1;">×</button>
+        </div>
+        <textarea id="xmlPreviewContent" readonly style="width:100%;min-height:400px;font-family:monospace;font-size:0.85em;padding:12px;border-radius:6px;border:1px solid var(--border-color);"></textarea>
+        <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;">
+          <button id="copyXMLBtn" class="secondary">📋 Copier</button>
+          <button id="downloadXMLBtn" class="primary">⬇️ Télécharger</button>
+        </div>
       </div>
     </div>
 

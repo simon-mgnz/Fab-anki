@@ -899,6 +899,10 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
 
 .card-status.status-upcoming{background:rgba(0,0,0,0.04);color:var(--muted)}
 
+.card-status.status-disabled{background:rgba(107,114,128,0.16);color:#4b5563}
+
+[data-theme='dark'] .card-status.status-disabled{background:rgba(148,163,184,0.18);color:#cbd5e1}
+
 
 
 /* XP toast animation */
@@ -1729,4 +1733,138 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
   margin:0 !important;
   padding:0 !important;
   overflow:hidden !important;
+}
+/* ========================================
+   DECK CREATOR STYLES
+   ======================================== */
+
+.app.deck-creator-page-mode > header,
+.app.deck-creator-page-mode > main,
+.app.deck-creator-page-mode > #stats,
+.app.deck-creator-page-mode > footer,
+.app.deck-creator-page-mode > #deckBrowserOverlay {
+  display: none !important;
+}
+
+.app.deck-creator-page-mode #deckCreatorOverlay {
+  position: static;
+  inset: auto;
+  background: transparent;
+  z-index: 1;
+  display: block !important;
+  padding: 0;
+  overflow: visible;
+}
+
+.app.deck-creator-page-mode #deckCreatorOverlay .modal {
+  max-width: 1200px;
+  width: 100%;
+  max-height: none;
+  margin: 0 auto;
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+}
+
+#deckCreatorOverlay,
+#cardEditorOverlay,
+#xmlPreviewOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 10000;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+#deckCreatorOverlay .modal,
+#cardEditorOverlay .modal,
+#xmlPreviewOverlay .modal {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+/* Rich text editor toolbar buttons */
+[contenteditable] {
+  outline: none;
+}
+
+[contenteditable]:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.1);
+}
+
+/* Mode selection grid */
+#modesContainer > div:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+/* Cards container */
+#cardsContainer > div:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Field editors */
+#fieldsList > div {
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark mode support for deck creator */
+[data-theme='dark'] #deckCreatorOverlay .modal,
+[data-theme='dark'] #cardEditorOverlay .modal,
+[data-theme='dark'] #xmlPreviewOverlay .modal {
+  background: var(--card);
+  color: var(--fg);
+}
+
+[data-theme='dark'] [contenteditable] {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: var(--fg) !important;
+}
+
+[data-theme='dark'] input,
+[data-theme='dark'] textarea,
+[data-theme='dark'] select {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fg);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] input::placeholder,
+[data-theme='dark'] textarea::placeholder {
+  color: var(--muted);
+}
+
+/* Responsive adjustments for deck creator */
+@media (max-width: 768px) {
+  #deckCreatorOverlay .modal,
+  #cardEditorOverlay .modal {
+    padding: 16px;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  #modesContainer {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+  }
 }
