@@ -1,0 +1,19 @@
+Add this CSS rule right before "Prevent hidden preloaded back" comment (around line 140):
+
+.review-mobile-active #stats,
+.review-desktop-active #stats,
+.review-mobile-active #histogram,
+.review-desktop-active #histogram{
+  display:none !important;
+  visibility:hidden !important;
+  position:absolute !important;
+  width:0 !important;
+  min-width:0 !important;
+  height:0 !important;
+  min-height:0 !important;
+  max-height:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+  overflow:hidden !important;
+  pointer-events:none !important;
+}
