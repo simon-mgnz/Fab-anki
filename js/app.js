@@ -12,21 +12,29 @@
         .then((registration) => {
           console.log('[PWA] Service Worker registered:', registration.scope);
           
-          // Check for updates periodically
+          // Check for updates immediately on page load
+          registration.update();
+          
+          // Check for updates every 5 minutes
           setInterval(() => {
             registration.update();
-          }, 60 * 60 * 1000); // Check every hour
+          }, 5 * 60 * 1000);
           
           // Handle updates
           registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
             newWorker.addEventListener('statechange', () => {
               if(newWorker.state === 'installed' && navigator.serviceWorker.controller){
-                // New version available
+                // New version available - show notification
                 showUpdateNotification();
               }
             });
           });
+          
+          // Also check if there's already a waiting worker (from a previous update check)
+          if(registration.waiting){
+            showUpdateNotification();
+          }
         })
         .catch((error) => {
           console.error('[PWA] Service Worker registration failed:', error);
@@ -40,6 +48,14 @@
         if(event.data.type === 'SYNC_OFFLINE_REQUESTS'){
           syncOfflineQueue();
         }
+      });
+      
+      // Handle controller change (when update is activated)
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        console.log('[PWA] Service Worker Controller changed - update activated');
+        // Remove update notification when update is applied
+        const notification = document.querySelector('[data-update-notification]');
+        if(notification) notification.remove();
       });
     });
   }
@@ -323,6 +339,153 @@
       const questsBtn = document.getElementById('questsBtn');
       if(marketBtn) marketBtn.style.display = isReview ? 'none' : '';
       if(questsBtn) questsBtn.style.display = isReview ? 'none' : '';
+      try{ updateReviewMobileHeader(); }catch(e){}
+    }catch(e){}
+  }
+
+  function closeReviewMoreMenu(){
+    try{
+      const panel = document.getElementById('reviewMenuPanel');
+      const menuBtn = document.getElementById('reviewMenuBtn');
+      if(panel){
+        panel.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+      }
+      if(menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
+    }catch(e){}
+  }
+
+  function getCurrentReviewTitle(cardData){
+    try{
+      if(multiDeckMode && cardData && cardData.deckName) return String(cardData.deckName);
+      if(deck && deck.title) return String(deck.title);
+    }catch(e){}
+    return "Fab'Anki";
+  }
+
+  function shouldUseBackPreload(){
+    try{
+      if(!(isReviewing && window.innerWidth <= 640)) return false;
+      if(['multiple','associer','calcul','fillblank','step','hold','original'].includes(reviewMode)) return false;
+      return true;
+    }catch(e){ return false; }
+  }
+
+  function preloadBackForStableLayout(card){
+    try{
+      const backEl = document.getElementById('back');
+      if(!backEl || !card) return;
+      if(!shouldUseBackPreload()){
+        backEl.classList.remove('back-preloaded', 'back-visible');
+        backEl.style.display = 'none';
+        backEl.style.visibility = 'visible';
+        backEl.style.pointerEvents = '';
+        return;
+      }
+      renderBack(card);
+      backEl.classList.remove('back-visible');
+      backEl.classList.add('back-preloaded');
+      backEl.style.display = 'block';
+      backEl.style.visibility = 'hidden';
+      backEl.style.pointerEvents = 'none';
+      backEl.setAttribute('aria-hidden', 'true');
+    }catch(e){}
+  }
+
+  function updateReviewMobileHeader(cardData){
+    try{
+      const appEl = document.getElementById('app');
+      const titleEl = document.getElementById('appTitle');
+      const homeBtn = document.getElementById('homeBtn');
+      const reviewMenuBtn = document.getElementById('reviewMenuBtn');
+      const headerEl = document.querySelector('header');
+      const isMobile = window.innerWidth <= 640;
+      const useReviewMobile = !!(isReviewing && isMobile);
+      const useReviewDesktop = !!(isReviewing && !isMobile);
+
+      if(appEl) appEl.classList.toggle('review-mobile-active', useReviewMobile);
+      if(appEl) appEl.classList.toggle('review-desktop-active', useReviewDesktop);
+      try{ document.documentElement.classList.toggle('review-mobile-global', useReviewMobile); }catch(e){}
+      try{ document.body.classList.toggle('review-mobile-global', useReviewMobile); }catch(e){}
+      try{ document.documentElement.classList.toggle('review-desktop-global', useReviewDesktop); }catch(e){}
+      try{ document.body.classList.toggle('review-desktop-global', useReviewDesktop); }catch(e){}
+
+      const syncHeaderHeight = ()=>{
+        try{
+          const h = headerEl ? Math.max(56, headerEl.offsetHeight || 0) : 72;
+          document.documentElement.style.setProperty('--review-header-h', h + 'px');
+        }catch(err){}
+      };
+
+      if(useReviewMobile){
+        if(titleEl){
+          const mobileTitle = getCurrentReviewTitle(cardData);
+          titleEl.classList.add('review-mobile-title');
+          titleEl.innerHTML = `<span>${mobileTitle}</span>`;
+        }
+        if(homeBtn){
+          homeBtn.style.display = 'inline-flex';
+          homeBtn.classList.add('review-icon-btn', 'review-back-btn');
+          homeBtn.textContent = '';
+          homeBtn.title = 'Retour';
+          homeBtn.setAttribute('aria-label', 'Retour');
+        }
+        if(reviewMenuBtn){
+          reviewMenuBtn.style.display = 'inline-flex';
+          reviewMenuBtn.classList.add('review-icon-btn', 'review-dots-btn');
+          reviewMenuBtn.textContent = '';
+          reviewMenuBtn.setAttribute('aria-label', 'Menu');
+        }
+        try{
+          const editBtn = document.getElementById('requestModBtn');
+          const buttonsWrap = document.querySelector('.card > div[style*="justify-content:space-between"] > .buttons');
+          if(editBtn && buttonsWrap){
+            buttonsWrap.insertBefore(editBtn, buttonsWrap.firstChild);
+          }
+        }catch(e){}
+        syncHeaderHeight();
+        try{ requestAnimationFrame(syncHeaderHeight); }catch(e){}
+      } else {
+        if(titleEl) titleEl.classList.remove('review-mobile-title');
+        if(reviewMenuBtn){
+          if(isReviewing){
+            try{
+              const editBtn = document.getElementById('requestModBtn');
+              const buttonsWrap = document.querySelector('.card > div[style*="justify-content:space-between"] > .buttons');
+              if(editBtn && buttonsWrap){
+                buttonsWrap.insertBefore(editBtn, buttonsWrap.firstChild);
+              }
+            }catch(e){}
+            reviewMenuBtn.style.display = 'inline-flex';
+            reviewMenuBtn.classList.add('review-icon-btn', 'review-dots-btn');
+            reviewMenuBtn.textContent = '';
+            reviewMenuBtn.setAttribute('aria-label', 'Menu');
+          } else {
+            reviewMenuBtn.style.display = 'none';
+            reviewMenuBtn.classList.remove('review-icon-btn', 'review-dots-btn');
+          }
+        }
+        if(homeBtn){
+          if(isReviewing){
+            homeBtn.classList.add('review-icon-btn', 'review-back-btn');
+            homeBtn.textContent = '';
+            homeBtn.setAttribute('aria-label', 'Retour');
+            homeBtn.title = 'Retour';
+          } else {
+            homeBtn.classList.remove('review-icon-btn', 'review-back-btn');
+          }
+        }
+        closeReviewMoreMenu();
+      }
+
+      if(isReviewing){
+        syncHeaderHeight();
+        try{ requestAnimationFrame(syncHeaderHeight); }catch(e){}
+      } else {
+        try{ document.documentElement.style.removeProperty('--review-header-h'); }catch(e){}
+      }
+
+      try{ if(!isReviewing || !isMobile) updateAppTitle(); }catch(e){}
     }catch(e){}
   }
 
@@ -3703,6 +3866,7 @@
     const skipSessionTracking = !!options.skipSessionTracking;
     isReviewing = false;
     setReviewTopBarVisibility(false);
+    closeReviewMoreMenu();
     // Increment decks reviewed counter for missions
     try{
       const decksCount = incrementDecksReviewed();
@@ -3725,6 +3889,7 @@
       // Ensure correct visibility
       if(syncBtn) syncBtn.style.display = 'inline-block';
       if(homeBtn) homeBtn.style.display = 'none';
+      try{ updateReviewMobileHeader(); }catch(err){}
     }catch(e){ console.warn('Button swap error in renderEmpty:', e); }
     
     const front = $('#front');
@@ -4279,6 +4444,7 @@
     if(currentIndex >= dueCards.length) currentIndex = 0;
     const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
     const cardData = multiDeckMode ? dueCards[currentIndex] : null;
+    updateReviewMobileHeader(cardData);
     const fsrsDisabled = isFsrsDisabledForDeck();
     const cardArea = document.getElementById('cardArea');
     if(cardArea) cardArea.classList.toggle('fsrs-disabled-card', !!fsrsDisabled);
@@ -4295,7 +4461,13 @@
     const nextStepBtn = document.getElementById('nextStepBtn');
     if(nextStepBtn) nextStepBtn.style.display = 'none';
     const resp = $('#respButtons'); if(resp) resp.style.display = 'none';
-    const backEl = $('#back'); if(backEl) backEl.style.display = 'none';
+    const backEl = $('#back');
+    if(backEl){
+      backEl.classList.remove('back-preloaded', 'back-visible');
+      backEl.style.display = 'none';
+      backEl.style.visibility = 'visible';
+      backEl.style.pointerEvents = '';
+    }
     
     // Display deck name if in multi-deck mode
     if(multiDeckMode && cardData){
@@ -4378,6 +4550,7 @@
     try{ cardShownAt = Date.now(); }catch(e){}
     // Ensure front is visible (might have been hidden after showing an answer)
     const frontEl = $('#front'); if(frontEl){ frontEl.style.display = 'flex'; frontEl.style.flex = '1 1 auto'; }
+    try{ preloadBackForStableLayout(c); }catch(e){}
     // do not show per-card index (user requested removal)
     // progress
     const pct = Math.round(((currentIndex)/Math.max(1,dueCards.length))*100);
@@ -6510,23 +6683,15 @@
     }
     
     // Extract correct answers from q.back
-    // q.back may contain the full text with blanks marked by ___ or plain text
+    // Back text contains answers separated by semicolons: "réelle ; colères ; tendresses ; endormi."
     const plainBack = q.back.replace(/<[^>]*>/g, '').trim();
     
-    // Try to extract answers: split back with ___ separator
-    const backParts = plainBack.split(/___/);
-    let correctAnswers = [];
+    // Split by semicolons to get individual answers
+    let correctAnswers = plainBack.split(';').map(a => a.trim());
     
-    // If back has ___ separators like front, extract answers from alternating positions
-    if(backParts.length > 1 && backParts.some(p => p.trim() !== '')){
-      for(let i = 1; i < backParts.length; i += 2){
-        correctAnswers.push(backParts[i]);
-      }
-    }
-    
-    // If we couldn't extract answers, use empty strings (will still validate user input format)
-    if(correctAnswers.length === 0){
-      correctAnswers = Array(answers.length).fill('');
+    // If last answer ends with period, remove it
+    if(correctAnswers.length > 0){
+      correctAnswers[correctAnswers.length - 1] = correctAnswers[correctAnswers.length - 1].replace(/\.$/, '');
     }
     
     let allCorrect = true;
@@ -6535,7 +6700,8 @@
     answers.forEach((ans, idx) => {
       const correctAnswer = (correctAnswers[idx] || '').trim().toLowerCase();
       const userAns = ans.trim().toLowerCase();
-      const isCorrect = correctAnswer && userAns === correctAnswer;
+      // isCorrect is true if user answer matches correct answer
+      const isCorrect = userAns === correctAnswer && correctAnswer !== '';
       if(!isCorrect && correctAnswer) allCorrect = false;
       feedbacks.push({index: idx, isCorrect, correct: correctAnswers[idx]});
     });
@@ -6548,10 +6714,10 @@
     // Show feedback for each blank
     document.querySelectorAll('.original-blank-input').forEach((input, idx) => {
       const feedback = feedbacks[idx];
-      if(feedback.isCorrect){
+      if(feedback && feedback.isCorrect){
         input.style.borderColor = '#22c55e';
         input.style.backgroundColor = '#dcfce7';
-      } else {
+      } else if(feedback){
         input.style.borderColor = '#ef4444';
         input.style.backgroundColor = '#fee2e2';
       }
@@ -8321,14 +8487,18 @@
     showAnswerBtn.addEventListener('click', ()=>{
       const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
       try{
+        const backEl = $('#back');
+        const hasPreloadedBack = !!(backEl && backEl.classList.contains('back-preloaded'));
         if(reviewMode === 'multiple'){
           renderMultipleBackAndResponses();
           showAnswerBtn.style.display = 'none';
           return;
         }
-        console.log('showAnswer clicked - renderBack will be called once');
-        renderBack(c);
-        console.log('renderBack completed');
+        console.log('showAnswer clicked');
+        if(!hasPreloadedBack){
+          renderBack(c);
+          console.log('renderBack completed');
+        }
         
         // For Active Memory mode, stop the timer
         if(reviewMode === 'activeMemory' && window.__activeMemoryTimerState){
@@ -8421,13 +8591,20 @@
         }
         
         const frontEl = $('#front');
-        const backEl = $('#back');
         const respBtn = $('#respButtons');
         const showBtn = $('#showAnswer');
         if(window.innerWidth <= 640){
-          // mobile: show front AND back (don't auto-hide front)
+          // mobile: front stays fixed, reveal preloaded back without relayout jump
           if(frontEl){ frontEl.style.display = 'block'; frontEl.style.flex = '0 0 auto'; }
-          if(backEl){ backEl.style.display = 'block'; backEl.style.flex = '0 0 auto'; }
+          if(backEl){
+            backEl.style.display = 'block';
+            backEl.style.flex = '0 0 auto';
+            backEl.style.visibility = 'visible';
+            backEl.style.pointerEvents = 'auto';
+            backEl.classList.remove('back-preloaded');
+            backEl.classList.add('back-visible');
+            backEl.setAttribute('aria-hidden', 'false');
+          }
         } else {
           // desktop: show only back
           if(frontEl){ frontEl.style.display = 'none'; }
@@ -9203,13 +9380,31 @@
   // Set CSS variable for iOS viewport fix
   function updateVh(){
     try{
-      const vh = window.visualViewport?.height ? (window.visualViewport.height / 100) : (window.innerHeight / 100);
+      const viewportHeight = window.visualViewport?.height ? window.visualViewport.height : window.innerHeight;
+      const vh = viewportHeight / 100;
       document.documentElement.style.setProperty('--vh', vh + 'px');
+      document.documentElement.style.setProperty('--app-viewport-h', viewportHeight + 'px');
+      document.documentElement.style.setProperty('--app-viewport-w', (window.visualViewport?.width || window.innerWidth) + 'px');
     }catch(e){ try{ document.documentElement.style.setProperty('--vh', (window.innerHeight / 100) + 'px'); }catch(e2){} }
   }
+  function updateIOSViewportCompensation(){
+    try{
+      const ua = navigator.userAgent || '';
+      const platform = navigator.platform || '';
+      const isiOS = /iPhone|iPad|iPod/i.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      document.documentElement.classList.toggle('ios-browser', !!isiOS);
+      // Keep a small safety area on iOS because Safari's browser UI can overlap visual content.
+      document.documentElement.style.setProperty('--ios-searchbar-gap', isiOS ? '20px' : '0px');
+    }catch(e){
+      try{ document.documentElement.style.setProperty('--ios-searchbar-gap', '0px'); }catch(e2){}
+    }
+  }
   updateVh();
+  updateIOSViewportCompensation();
   window.addEventListener('resize', updateVh);
+  window.addEventListener('resize', updateIOSViewportCompensation);
   if(window.visualViewport) window.visualViewport.addEventListener('resize', updateVh);
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', updateIOSViewportCompensation);
   
   // wire UI
   try{ ensurePseudo(); resetWeeklyIfNeeded(); resetDailyIfNeeded(); }catch(e){}
@@ -9398,6 +9593,10 @@
     function updateAppTitle(){
       try{
         const el = document.getElementById('appTitle'); if(!el) return;
+        if(isReviewing && window.innerWidth <= 640){
+          updateReviewMobileHeader();
+          return;
+        }
         const text = (window.innerWidth <= 640) ? "Fab'Anki" : "Fab'Anki — Flashcards";
         el.style.display = 'flex';
         el.style.alignItems = 'center';
@@ -9407,8 +9606,55 @@
     }
     updateAppTitle();
     window.addEventListener('resize', updateAppTitle);
+    window.addEventListener('resize', ()=>{ try{ updateReviewMobileHeader(); }catch(e){} });
     // Ensure status/hint positions update on resize
     window.addEventListener('resize', ()=>{ try{ updateStatus(document.getElementById('status')?.textContent || '') }catch(e){} });
+
+    // Review-only mobile three-dots menu
+    try{
+      const reviewMenuBtn = document.getElementById('reviewMenuBtn');
+      const reviewMenuPanel = document.getElementById('reviewMenuPanel');
+      const actionMap = {
+        browse: 'browseDecks',
+        market: 'marketBtn',
+        profile: 'profileBtn',
+        sync: 'syncBtn',
+        stats: 'toggleStats'
+      };
+      if(reviewMenuBtn && reviewMenuPanel){
+        reviewMenuBtn.addEventListener('click', (ev)=>{
+          try{ ev.preventDefault(); ev.stopPropagation(); }catch(e){}
+          const willOpen = !reviewMenuPanel.classList.contains('open');
+          if(willOpen){
+            reviewMenuPanel.classList.add('open');
+            reviewMenuPanel.setAttribute('aria-hidden', 'false');
+            reviewMenuBtn.setAttribute('aria-expanded', 'true');
+          } else {
+            closeReviewMoreMenu();
+          }
+        });
+
+        reviewMenuPanel.addEventListener('click', (ev)=>{
+          const btn = ev.target && ev.target.closest ? ev.target.closest('button[data-menu-action]') : null;
+          if(!btn) return;
+          const action = btn.getAttribute('data-menu-action') || '';
+          const targetId = actionMap[action];
+          closeReviewMoreMenu();
+          if(!targetId) return;
+          const target = document.getElementById(targetId);
+          if(target){
+            try{ target.click(); }catch(e){}
+          }
+        });
+
+        document.addEventListener('click', (ev)=>{
+          if(!reviewMenuPanel.classList.contains('open')) return;
+          const inPanel = ev.target && ev.target.closest ? ev.target.closest('#reviewMenuPanel') : null;
+          const inButton = ev.target && ev.target.closest ? ev.target.closest('#reviewMenuBtn') : null;
+          if(!inPanel && !inButton) closeReviewMoreMenu();
+        });
+      }
+    }catch(e){}
 
     // Move grading buttons into main card area so they appear with the card
     try{
@@ -9866,6 +10112,7 @@
         const isMobile = window.innerWidth <= 640;
         const buttons = document.querySelectorAll('header .controls button[data-label-text]');
         buttons.forEach(btn=>{
+          if(isReviewing && isMobile && (btn.id === 'homeBtn' || btn.id === 'reviewMenuBtn')) return;
           const text = btn.getAttribute('data-label-text') || btn.textContent;
           const emoji = btn.getAttribute('data-label-emoji') || text;
           btn.textContent = isMobile ? emoji : text;
@@ -13428,6 +13675,12 @@
           return;
         }
         
+        // Only sync if user has actually reviewed a card since last sync
+        if(lastSyncCardId === currentCardId){
+          syncLog('autoSync: skipping - no new card activity');
+          return;
+        }
+        
         syncLog('autoSync: starting sync for user', pseudo);
         setSyncStatus('Synchronisation en cours…', true);
         
@@ -14067,8 +14320,8 @@
       }, 1500);
     }
     // Note: restoreFromCloud() is now called by initializeDeckLoader() to ensure deck loads with restored data
-    // refresh periodically
-    setInterval(()=>{ try{ updateProfilePopupIfOpen(); }catch(e){} }, 30*1000);
+    // refresh periodically - disabled to reduce sync frequency
+    // setInterval(()=>{ try{ updateProfilePopupIfOpen(); }catch(e){} }, 30*1000);
 
     // XP helpers
     function getXpTotal(){ return Number(localStorage.getItem('fabanki:xp_total') || 0); }
@@ -18600,30 +18853,51 @@
   
   // Show update notification when new version available
   function showUpdateNotification(){
+    // Don't show duplicate notifications
+    if(document.querySelector('[data-update-notification]')) return;
+    
     const notification = document.createElement('div');
-    notification.style.cssText = 'position:fixed;top:80px;right:20px;background:linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);color:white;padding:16px 20px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:10000;display:flex;flex-direction:column;gap:12px;max-width:300px;animation:slideInRight 0.3s ease;';
+    notification.setAttribute('data-update-notification', 'true');
+    notification.style.cssText = 'position:fixed;top:0;left:0;right:0;background:linear-gradient(90deg, #f59e0b 0%, #d97706 100%);color:white;padding:16px 20px;z-index:10001;display:flex;align-items:center;justify-content:space-between;gap:16px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+    
+    const content = document.createElement('div');
+    content.style.cssText = 'flex:1;display:flex;align-items:center;gap:12px;';
+    
+    const icon = document.createElement('span');
+    icon.textContent = '🎉';
+    icon.style.cssText = 'font-size:1.5em;';
+    
+    const text = document.createElement('div');
+    text.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
     
     const title = document.createElement('div');
-    title.style.cssText = 'font-weight:700;font-size:1em;';
-    title.textContent = '🎉 Nouvelle version disponible !';
+    title.style.cssText = 'font-size:1em;font-weight:700;';
+    title.textContent = 'Nouvelle version disponible!';
     
     const message = document.createElement('div');
     message.style.cssText = 'font-size:0.9em;opacity:0.95;';
-    message.textContent = 'Une mise à jour est disponible. Rechargez la page pour l\'installer.';
+    message.textContent = 'Cliquez sur "Mettre à jour" pour installer la mise à jour de l\'application.';
+    
+    text.appendChild(title);
+    text.appendChild(message);
+    content.appendChild(icon);
+    content.appendChild(text);
     
     const buttons = document.createElement('div');
-    buttons.style.cssText = 'display:flex;gap:8px;';
+    buttons.style.cssText = 'display:flex;gap:8px;flex-shrink:0;';
     
     const updateBtn = document.createElement('button');
     updateBtn.textContent = 'Mettre à jour';
-    updateBtn.style.cssText = 'flex:1;padding:8px;border:none;border-radius:6px;background:white;color:#2563eb;font-weight:600;cursor:pointer;';
+    updateBtn.style.cssText = 'padding:10px 20px;border:none;border-radius:6px;background:white;color:#d97706;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);transition:transform 0.2s;';
+    updateBtn.onmouseover = () => updateBtn.style.transform = 'scale(1.05)';
+    updateBtn.onmouseout = () => updateBtn.style.transform = 'scale(1)';
     updateBtn.addEventListener('click', () => {
       window.location.reload();
     });
     
     const laterBtn = document.createElement('button');
     laterBtn.textContent = 'Plus tard';
-    laterBtn.style.cssText = 'flex:1;padding:8px;border:1px solid white;border-radius:6px;background:transparent;color:white;font-weight:600;cursor:pointer;';
+    laterBtn.style.cssText = 'padding:10px 20px;border:1px solid white;border-radius:6px;background:transparent;color:white;font-weight:600;cursor:pointer;transition:opacity 0.3s;';
     laterBtn.addEventListener('click', () => {
       notification.remove();
     });
@@ -18631,18 +18905,17 @@
     buttons.appendChild(updateBtn);
     buttons.appendChild(laterBtn);
     
-    notification.appendChild(title);
-    notification.appendChild(message);
+    notification.appendChild(content);
     notification.appendChild(buttons);
     
     document.body.appendChild(notification);
     
-    // Auto-dismiss after 30 seconds
-    setTimeout(() => {
-      if(document.body.contains(notification)){
-        notification.remove();
-      }
-    }, 30000);
+    // Show banner at top to shift content down
+    const oldMargin = document.body.style.marginTop;
+    document.body.style.marginTop = '80px';
+    document.body.style.transition = 'margin-top 0.3s ease';
+    
+    console.log('[PWA] Update notification shown to user');
   }
   
   // Show sync success notification

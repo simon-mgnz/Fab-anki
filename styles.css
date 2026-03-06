@@ -42,6 +42,188 @@ h1{font-size:1rem;margin:0}
 
 .controls{display:flex;gap:8px;align-items:center}
 
+#reviewMenuPanel{display:none}
+
+.review-icon-btn{
+  position:relative;
+  font-size:0 !important;
+  color:var(--fg)
+}
+
+/* Strict final overrides for review layout consistency. */
+.review-mobile-active .card-content,
+.review-desktop-active .card-content{
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+  align-items:center !important;
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow:hidden !important;
+}
+
+.review-mobile-active .card-content > #front,
+.review-mobile-active .card-content > #back,
+.review-desktop-active .card-content > #front,
+.review-desktop-active .card-content > #back{
+  display:flex !important;
+  flex:0 0 auto !important;
+  width:100% !important;
+  max-height:100% !important;
+  justify-content:center !important;
+  align-items:center !important;
+  text-align:center !important;
+  overflow:auto !important;
+}
+
+.review-mobile-active .card-content > #front > *,
+.review-mobile-active .card-content > #back > *,
+.review-desktop-active .card-content > #front > *,
+.review-desktop-active .card-content > #back > *{
+  margin-top:0 !important;
+  margin-bottom:0 !important;
+}
+
+.review-mobile-active .card > div[style*="justify-content:space-between"],
+.review-desktop-active .card > div[style*="justify-content:space-between"]{
+  margin-top:auto !important;
+}
+
+.review-mobile-active #respButtons button,
+.review-desktop-active #respButtons button,
+.review-mobile-active #requestModBtn,
+.review-desktop-active #requestModBtn{
+  border-radius:999px !important;
+  aspect-ratio:1 / 1 !important;
+}
+
+.review-mobile-active #respButtons button,
+.review-desktop-active #respButtons button{
+  flex:0 0 auto !important;
+}
+
+.review-mobile-active #progressInfo,
+.review-desktop-active #progressInfo{
+  display:none !important;
+  visibility:hidden !important;
+  width:0 !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+}
+
+/* Final review layout hotfixes: restore full-height centering and stable action row behavior. */
+.review-mobile-active .card{
+  display:flex !important;
+  flex-direction:column !important;
+  height:100% !important;
+  min-height:100% !important;
+}
+
+.review-mobile-active .card-content,
+.review-desktop-active .card-content{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow:hidden !important;
+}
+
+.review-mobile-active .card-content > #front,
+.review-mobile-active .card-content > #back,
+.review-desktop-active .card-content > #front,
+.review-desktop-active .card-content > #back{
+  display:flex !important;
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  width:100% !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+}
+
+/* Prevent hidden preloaded back from occupying layout space in front view. */
+.review-mobile-active #back.back-preloaded,
+.review-desktop-active #back.back-preloaded{
+  display:none !important;
+}
+
+.review-mobile-active #back,
+.review-desktop-active #back,
+.review-mobile-active #back *,
+.review-desktop-active #back *{
+  text-align:center !important;
+}
+
+/* Edit button + answer/grade controls on one stable line. */
+.review-mobile-active .card > div[style*="justify-content:space-between"] > .buttons,
+.review-desktop-active .card > div[style*="justify-content:space-between"] > .buttons{
+  display:grid !important;
+  grid-template-columns:auto minmax(0,1fr) !important;
+  align-items:center !important;
+  column-gap:8px !important;
+  width:100% !important;
+}
+
+.review-mobile-active .card > div[style*="justify-content:space-between"] > .buttons #requestModBtn,
+.review-desktop-active .card > div[style*="justify-content:space-between"] > .buttons #requestModBtn{
+  grid-column:1 !important;
+  grid-row:1 !important;
+  position:static !important;
+  margin:0 !important;
+}
+
+.review-mobile-active #showAnswer,
+.review-mobile-active #respButtons,
+.review-desktop-active #showAnswer,
+.review-desktop-active #respButtons{
+  grid-column:2 !important;
+  grid-row:1 !important;
+  width:100% !important;
+}
+
+/* Keep response buttons hidden on front view; only show after JS toggles display. */
+.review-mobile-active #respButtons[style*="display:none"],
+.review-mobile-active #respButtons[style*="display: none"],
+.review-desktop-active #respButtons[style*="display:none"],
+.review-desktop-active #respButtons[style*="display: none"]{
+  display:none !important;
+}
+
+.review-mobile-active #respButtons:not([style*="display:none"]):not([style*="display: none"]),
+.review-desktop-active #respButtons:not([style*="display:none"]):not([style*="display: none"]){
+  display:flex !important;
+  flex-wrap:nowrap !important;
+  justify-content:center !important;
+  gap:clamp(4px, 1.6vw, 8px) !important;
+  margin-top:0 !important;
+  margin-left:0 !important;
+  overflow:hidden !important;
+}
+
+.review-icon-btn.review-back-btn::before{
+  content:'';
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:12px;
+  height:12px;
+  border-left:3px solid currentColor;
+  border-bottom:3px solid currentColor;
+  transform:translate(-35%,-50%) rotate(45deg)
+}
+
+.review-icon-btn.review-dots-btn::before{
+  content:'';
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:18px;
+  height:6px;
+  transform:translate(-50%,-50%);
+  background:
+    radial-gradient(circle closest-side, currentColor 95%, transparent 100%) left center / 6px 6px no-repeat,
+    radial-gradient(circle closest-side, currentColor 95%, transparent 100%) center center / 6px 6px no-repeat,
+    radial-gradient(circle closest-side, currentColor 95%, transparent 100%) right center / 6px 6px no-repeat
+}
+
 .deck-input{width:420px;max-width:40vw}
 
 .card{background:var(--card);border-radius:10px;padding:20px;box-shadow:0 6px 20px rgba(2,6,23,0.08);min-height:220px;display:flex;flex-direction:column;gap:12px}
@@ -863,5 +1045,688 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
 
    showProfilePopup now toggles overlay.open when inserting the modal */
 
+/* Review-only mobile UI (iOS-like top bar + full-screen card) */
+@media (min-width:641px){
+  html.review-desktop-global,
+  body.review-desktop-global{
+    height:100%;
+    overflow:hidden
+  }
+
+  .review-desktop-active{
+    max-width:none !important;
+    margin:0 !important;
+    padding:0 !important;
+    min-height:100vh;
+    background:var(--bg)
+  }
+
+  .review-desktop-active main{
+    margin-top:0 !important;
+    padding:10px 14px 12px;
+    display:flex !important;
+    flex-direction:column !important;
+    height:calc(100vh - var(--review-header-h, 72px)) !important;
+    min-height:0 !important;
+    max-height:calc(100vh - var(--review-header-h, 72px));
+    overflow:hidden
+  }
+
+  .review-desktop-active header .controls > button:not(#homeBtn):not(#reviewMenuBtn),
+  .review-desktop-active header .controls > input,
+  .review-desktop-active header .controls > div:not(#reviewMenuPanel){
+    display:none !important
+  }
+
+  .review-desktop-active #homeBtn,
+  .review-desktop-active #reviewMenuBtn{
+    display:inline-flex !important;
+    width:44px;
+    height:44px;
+    min-width:44px;
+    min-height:44px;
+    border-radius:50%;
+    padding:0;
+    align-items:center;
+    justify-content:center
+  }
+
+  .review-desktop-active #status{
+    display:none !important
+  }
+
+  .review-desktop-active #dueInline,
+  .review-desktop-active #meta{
+    display:none !important
+  }
+
+  .review-desktop-active main > div{margin-top:0 !important}
+
+  .review-desktop-active main > div:nth-child(2){
+    display:flex !important;
+    align-items:stretch !important;
+    gap:0 !important;
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    height:100%
+  }
+
+  .review-desktop-active main > div:nth-child(2) > div{
+    flex:1 1 auto;
+    min-height:0;
+    height:100%;
+    display:flex;
+    flex-direction:column
+  }
+
+  .review-desktop-active .card{
+    width:100%;
+    max-width:none !important;
+    height:100%;
+    min-height:0 !important;
+    margin:0;
+    border-radius:16px;
+    border:1px solid rgba(0,0,0,0.12);
+    box-shadow:0 12px 28px rgba(0,0,0,0.12);
+    background-color:var(--card);
+    background-image:var(--card-pattern, none);
+    display:grid;
+    grid-template-rows:minmax(0,1fr) auto;
+    overflow:hidden
+  }
+
+  [data-theme='dark'] .review-desktop-active .card{
+    border-color:rgba(255,255,255,0.14);
+    box-shadow:0 12px 28px rgba(0,0,0,0.45)
+  }
+
+  .review-desktop-active .card-content{
+    display:flex !important;
+    flex-direction:column !important;
+    justify-content:center !important;
+    align-items:center !important;
+    min-height:0 !important;
+    flex:1 1 auto !important;
+    overflow:auto !important;
+    width:100% !important
+  }
+
+  .review-desktop-active .card-content > #front,
+  .review-desktop-active .card-content > #back{
+    width:100%;
+    flex:0 0 auto;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    max-height:100%;
+    overflow:auto;
+    overscroll-behavior:contain
+  }
+
+  .review-desktop-active #multiDeckTitle,
+  .review-desktop-active #always{
+    flex:0 0 auto
+  }
+
+  .review-desktop-active #respButtons{
+    display:flex;
+    flex-wrap:nowrap;
+    gap:8px;
+    justify-content:center;
+    overflow:hidden;
+    margin-top:10px !important
+  }
+
+  .review-desktop-active #respButtons button{
+    width:66px;
+    height:66px;
+    min-width:66px;
+    min-height:66px;
+    border-radius:50%;
+    padding:8px;
+    font-size:0.74rem;
+    font-weight:700;
+    line-height:1.1;
+    text-align:center;
+    white-space:normal
+  }
+
+  .review-desktop-active #respButtons #passer{
+    border:1px solid rgba(0,0,0,0.2);
+    background:transparent;
+    color:var(--fg)
+  }
+
+  @media (max-width:760px){
+    .review-desktop-active #respButtons{
+      display:grid;
+      width:100%;
+      justify-content:end;
+      grid-template-columns:68px 68px 68px;
+      grid-template-rows:68px 68px 68px;
+      grid-template-areas:
+        "again passer hard"
+        "again passer good"
+        "again passer easy";
+      gap:6px;
+      margin-left:auto
+    }
+
+    .review-desktop-active #respButtons #again{grid-area:again;align-self:center}
+    .review-desktop-active #respButtons #passer{grid-area:passer;align-self:center}
+    .review-desktop-active #respButtons #hard{grid-area:hard}
+    .review-desktop-active #respButtons #good{grid-area:good}
+    .review-desktop-active #respButtons #easy{grid-area:easy}
+    .review-desktop-active #progressInfo{
+      display:none !important
+    }
+
+    .review-desktop-active #requestModBtn{
+      min-width:52px !important;
+      min-height:52px !important;
+      width:52px;
+      height:52px;
+      border-radius:50% !important;
+      font-size:1.3rem !important;
+      padding:5px !important
+    }
+
+  }
+
+  .review-desktop-active footer{display:none !important}
+}
+
+@media (max-width:640px){
+  html.review-mobile-global,
+  body.review-mobile-global{
+    width:100%;
+    height:calc(var(--vh, 1vh) * 100);
+    max-height:calc(var(--vh, 1vh) * 100);
+    overflow:hidden;
+    overscroll-behavior:none;
+    background:var(--card)
+  }
+
+  .review-mobile-active{
+    max-width:none !important;
+    margin:0 !important;
+    padding:0 !important;
+    width:100%;
+    min-height:calc(var(--vh, 1vh) * 100);
+    background:var(--card)
+  }
+
+  .review-mobile-active header{
+    position:sticky;
+    top:0;
+    z-index:1200;
+    background:var(--card);
+    padding:calc(6px + env(safe-area-inset-top)) 12px 8px;
+    border-bottom:1px solid rgba(0,0,0,0.08)
+  }
+
+  .review-mobile-active #appTitle{
+    flex:1;
+    justify-content:center;
+    min-width:0;
+    font-size:0.975rem;
+    font-weight:700;
+    text-align:center
+  }
+
+  .review-mobile-active #appTitle img{display:none !important}
+
+  .review-mobile-active #appTitle span{
+    display:block;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    width:100%
+  }
+
+  .review-mobile-active .controls{
+    position:absolute;
+    inset:0 12px 0 12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    pointer-events:none
+  }
+
+  .review-mobile-active .controls > button{
+    pointer-events:auto
+  }
+
+  .review-mobile-active .controls > button:not(#homeBtn):not(#reviewMenuBtn),
+  .review-mobile-active .controls > input,
+  .review-mobile-active .controls > div:not(#reviewMenuPanel){
+    display:none !important
+  }
+
+  .review-mobile-active #homeBtn,
+  .review-mobile-active #reviewMenuBtn{
+    display:inline-flex !important;
+    width:44px;
+    height:44px;
+    min-width:44px;
+    min-height:44px;
+    border-radius:50%;
+    padding:0;
+    align-items:center;
+    justify-content:center;
+    font-size:1.45rem;
+    line-height:1
+  }
+
+  .review-mobile-active #reviewMenuBtn{font-size:1.55rem}
+
+  .review-mobile-active main{
+    margin-top:0 !important;
+    padding:0;
+    display:flex !important;
+    flex-direction:column !important;
+    height:calc((var(--vh, 1vh) * 100) - var(--review-header-h, 72px) - env(safe-area-inset-bottom) - var(--ios-searchbar-gap, 0px)) !important;
+    min-height:0 !important;
+    max-height:calc((var(--vh, 1vh) * 100) - var(--review-header-h, 72px) - env(safe-area-inset-bottom) - var(--ios-searchbar-gap, 0px));
+    overflow:hidden;
+    background:var(--card)
+  }
+
+  .review-mobile-active main > div{
+    margin-top:0 !important
+  }
+
+  .review-mobile-active main > div:nth-child(2){
+    display:flex !important;
+    align-items:stretch !important;
+    gap:0 !important;
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    height:100% !important
+  }
+
+  .review-mobile-active main > div:nth-child(2) > div{
+    flex:1 1 auto;
+    min-height:0;
+    height:100% !important;
+    display:flex;
+    flex-direction:column
+  }
+
+  .review-mobile-active #status{
+    display:none !important
+  }
+
+  .review-mobile-active #dueInline,
+  .review-mobile-active #meta{
+    display:none !important
+  }
+
+  .review-mobile-active .card{
+    width:100%;
+    max-width:none !important;
+    margin:0;
+    border-radius:0;
+    min-height:0 !important;
+    height:100% !important;
+    max-height:100% !important;
+    padding:10px 10px calc(8px + env(safe-area-inset-bottom));
+    box-shadow:none;
+    border:0;
+    background-color:var(--card);
+    background-image:var(--card-pattern, none);
+    display:grid;
+    grid-template-rows:minmax(0,1fr) auto;
+    overflow:hidden
+  }
+
+  .review-mobile-active .card-content{
+    display:flex !important;
+    flex-direction:column !important;
+    justify-content:center !important;
+    align-items:center !important;
+    min-height:0 !important;
+    height:100% !important;
+    padding-top:0 !important;
+    overflow:auto !important;
+    width:100% !important
+  }
+
+  .review-mobile-active .card-content > #front,
+  .review-mobile-active .card-content > #back{
+    width:100%;
+    flex:0 0 auto;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    max-height:100%;
+    overflow:auto;
+    overscroll-behavior:contain
+  }
+
+  .review-mobile-active #multiDeckTitle,
+  .review-mobile-active #always{
+    flex:0 0 auto
+  }
+
+  .review-mobile-active .buttons{
+    min-width:0;
+    width:100%;
+    overflow:hidden
+  }
+
+  .review-mobile-active .progress-container{
+    min-width:0;
+    width:100%
+  }
+
+  .review-mobile-active #respButtons{
+    display:flex;
+    flex-wrap:nowrap;
+    gap:6px;
+    justify-content:center;
+    overflow:hidden;
+    margin-top:12px !important
+  }
+
+  .review-mobile-active #respButtons button{
+    width:52px;
+    height:52px;
+    min-width:52px;
+    min-height:52px;
+    border-radius:50%;
+    padding:5px;
+    font-size:0.63rem;
+    font-weight:700;
+    line-height:1.05;
+    text-align:center;
+    white-space:normal
+  }
+
+  .review-mobile-active #respButtons #passer{
+    border:1px solid rgba(0,0,0,0.2);
+    background:transparent;
+    color:var(--fg)
+  }
+
+  @media (max-width:430px){
+    .review-mobile-active #respButtons{
+      display:grid;
+      width:100%;
+      justify-content:end;
+      grid-template-columns:52px 52px 52px;
+      grid-template-rows:52px 52px 52px;
+      grid-template-areas:
+        "again passer hard"
+        "again passer good"
+        "again passer easy";
+      gap:5px;
+      margin-left:auto
+    }
+
+    .review-mobile-active #respButtons #again{grid-area:again;align-self:center}
+    .review-mobile-active #respButtons #passer{grid-area:passer;align-self:center}
+    .review-mobile-active #respButtons #hard{grid-area:hard}
+    .review-mobile-active #respButtons #good{grid-area:good}
+    .review-mobile-active #respButtons #easy{grid-area:easy}
+    @media (max-width:380px){
+      .review-mobile-active #respButtons button{
+        width:48px;
+        height:48px;
+        min-width:48px;
+        min-height:48px;
+        font-size:0.6rem;
+        padding:4px
+      }
+
+      .review-mobile-active #requestModBtn{
+        min-width:48px !important;
+        min-height:48px !important;
+        width:48px;
+        height:48px;
+        font-size:1.1rem !important
+      }
+
+      .review-mobile-active #respButtons{
+        gap:4px
+      }
+
+      @supports (width: 380px){
+        .review-mobile-active #respButtons{
+          grid-template-columns:48px 48px 48px;
+          grid-template-rows:48px 48px 48px;
+          gap:4px
+        }
+      }
+    }
+
+  }
+
+  .review-mobile-active #showAnswer{
+    width:100%;
+    min-height:48px;
+    border-radius:12px;
+    padding:10px 14px;
+    font-size:1.15rem
+  }
+
+  /* Bottom controls layout in review: buttons first row, then edit(left)/counter(right). */
+  .review-mobile-active .card > div[style*="justify-content:space-between"]{
+    display:flex !important;
+    flex-direction:column;
+    align-items:stretch !important;
+    justify-content:flex-start !important;
+    gap:8px;
+    width:100%;
+    margin-top:0 !important
+  }
+
+  .review-mobile-active .card > div[style*="justify-content:space-between"] > .buttons{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    min-width:0
+  }
+
+  .review-mobile-active .card > div[style*="justify-content:space-between"] > .buttons #requestModBtn{
+    order:-1
+  }
+
+  .review-mobile-active .card > div[style*="justify-content:space-between"] > .progress-container{
+    width:100%;
+    margin-top:0 !important;
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr) auto;
+    align-items:center;
+    column-gap:10px;
+    row-gap:4px;
+    min-width:0
+  }
+
+  .review-mobile-active #requestModBtn{
+    position:static !important;
+    left:auto !important;
+    right:auto !important;
+    bottom:auto !important;
+    min-width:52px !important;
+    min-height:52px !important;
+    width:52px;
+    height:52px;
+    margin:0 !important;
+    padding:5px !important;
+    border-radius:50% !important;
+    font-size:1.2rem !important
+  }
+
+  .review-mobile-active .progress-container .progress{
+    grid-column:2;
+    grid-row:1;
+    width:100%;
+    margin:0 !important
+  }
+
+  .review-mobile-active #progressInfo{
+    display:none !important
+  }
+
+  .review-mobile-active #progressContainer,
+  .review-mobile-active .progress-container{
+    margin-top:0 !important
+  }
+
+  .review-mobile-active footer{
+    display:none !important
+  }
+
+  .review-mobile-active #reviewMenuPanel{
+    position:absolute;
+    right:0;
+    top:calc(100% + 6px);
+    display:none;
+    flex-direction:column;
+    gap:6px;
+    min-width:180px;
+    padding:8px;
+    border-radius:12px;
+    background:var(--card);
+    border:1px solid rgba(0,0,0,0.08);
+    box-shadow:0 10px 30px rgba(0,0,0,0.18);
+    pointer-events:auto;
+    z-index:1300
+  }
+
+  .review-mobile-active #reviewMenuPanel.open{
+    display:flex
+  }
+
+  .review-mobile-active #reviewMenuPanel button{
+    width:100%;
+    height:auto;
+    min-height:40px;
+    border-radius:10px;
+    padding:8px 10px;
+    text-align:left;
+    font-size:0.9rem;
+    background:transparent;
+    color:var(--fg);
+    border:1px solid rgba(0,0,0,0.08)
+  }
+
+  /* Ensure due counter block is hidden in all review full-screen variants. */
+  .review-mobile-active #meta,
+  .review-mobile-active #dueInline,
+  .review-desktop-active #meta,
+  .review-desktop-active #dueInline{
+    display:none !important;
+    visibility:hidden !important;
+    height:0 !important;
+    margin:0 !important;
+    overflow:hidden !important
+  }
+
+  /* Keep preloaded back out of layout so front can be truly centered. */
+  .review-mobile-active #back.back-preloaded,
+  .review-desktop-active #back.back-preloaded{
+    flex:0 0 auto !important;
+    height:0 !important;
+    min-height:0 !important;
+    margin:0 !important;
+    padding:0 !important;
+    overflow:hidden !important;
+    border:0 !important
+  }
+
+  /* Enforce true x/y centering for front and back in review. */
+  .review-mobile-active .card-content > #front,
+  .review-mobile-active .card-content > #back,
+  .review-desktop-active .card-content > #front,
+  .review-desktop-active .card-content > #back{
+    justify-content:center !important;
+    align-items:center !important;
+    text-align:center !important
+  }
+
+  .review-mobile-active #back,
+  .review-desktop-active #back,
+  .review-mobile-active #back *,
+  .review-desktop-active #back *{
+    text-align:center !important
+  }
+
+  /* Stable one-row actions: edit button fixed on the left of answer/grade controls. */
+  .review-mobile-active .card > div[style*="justify-content:space-between"] > .buttons,
+  .review-desktop-active .card > div[style*="justify-content:space-between"] > .buttons{
+    display:grid !important;
+    grid-template-columns:auto minmax(0,1fr) !important;
+    align-items:center !important;
+    column-gap:8px !important;
+    width:100% !important
+  }
+
+  .review-mobile-active .card > div[style*="justify-content:space-between"] > .buttons #requestModBtn,
+  .review-desktop-active .card > div[style*="justify-content:space-between"] > .buttons #requestModBtn{
+    grid-column:1 !important;
+    position:static !important;
+    margin:0 !important;
+    width:clamp(42px, 12vw, 52px) !important;
+    height:clamp(42px, 12vw, 52px) !important;
+    min-width:clamp(42px, 12vw, 52px) !important;
+    min-height:clamp(42px, 12vw, 52px) !important;
+    border-radius:50% !important;
+    padding:4px !important
+  }
+
+  .review-mobile-active #showAnswer,
+  .review-mobile-active #respButtons,
+  .review-desktop-active #showAnswer,
+  .review-desktop-active #respButtons{
+    grid-column:2 !important;
+    width:100% !important
+  }
+
+  .review-mobile-active #respButtons,
+  .review-desktop-active #respButtons{
+    display:flex !important;
+    flex-wrap:nowrap !important;
+    justify-content:center !important;
+    gap:clamp(4px, 1.6vw, 8px) !important;
+    margin-top:0 !important;
+    overflow:hidden !important
+  }
+
+  .review-mobile-active #respButtons button,
+  .review-desktop-active #respButtons button{
+    width:clamp(42px, 12vw, 58px) !important;
+    height:clamp(42px, 12vw, 58px) !important;
+    min-width:clamp(42px, 12vw, 58px) !important;
+    min-height:clamp(42px, 12vw, 58px) !important;
+    padding:clamp(3px, 1vw, 7px) !important;
+    font-size:clamp(0.58rem, 1.7vw, 0.72rem) !important;
+    line-height:1.05 !important
+  }
+
+  .review-desktop-active #progressInfo,
+  .review-mobile-active #progressInfo{
+    display:none !important
+  }
+}
 
 
+
+
+
+/* Hide histogram completely during review mode - removes layout gap. */
+.review-mobile-active #stats, .review-desktop-active #stats{
+  display:none !important;
+  visibility:hidden !important;
+  position:absolute !important;
+  width:0 !important;
+  height:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+  overflow:hidden !important;
+}

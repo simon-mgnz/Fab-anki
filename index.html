@@ -24,7 +24,7 @@
   <!-- Firebase configuration -->
   <script src="./config.js"></script>
   <!-- Styles -->
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=20260306-016">
 </head>
 <body>
   <div class="app" id="app" data-theme="light">
@@ -41,6 +41,14 @@
         <button id="homeBtn" class="secondary" data-label-text="Accueil" data-label-emoji="🏠" style="display:none">Accueil</button>
         <!-- <button id="loadBtn" class="secondary" data-label-text="Charger" data-label-emoji="📂">Charger</button> -->
         <button id="toggleStats" class="secondary" data-label-text="Histogramme" data-label-emoji="📊">Histogramme</button>
+        <button id="reviewMenuBtn" class="secondary" style="display:none" aria-label="Menu" aria-expanded="false" aria-controls="reviewMenuPanel">...</button>
+        <div id="reviewMenuPanel" class="review-menu-panel" role="menu" aria-hidden="true">
+          <button type="button" data-menu-action="browse">Parcourir decks</button>
+          <button type="button" data-menu-action="market">Marché</button>
+          <button type="button" data-menu-action="profile">Profil</button>
+          <button type="button" data-menu-action="sync">Synchroniser</button>
+          <button type="button" data-menu-action="stats">Histogramme</button>
+        </div>
       </div>
     </header>
 
