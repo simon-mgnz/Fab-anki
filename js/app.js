@@ -9347,6 +9347,9 @@
       
       try{ if(timeSec > 20) incLocal('fabanki:long_answer_total', 1); }catch(e){}
 
+      // Keep mission counters tied to actual review actions (not per-card snapshots)
+      try{ trackMissionReviewProgress(reviewMode, q); }catch(e){}
+
       // quality handling
       if(q < 3){
         incLocal('fabanki:fail_total',1);
@@ -14768,15 +14771,18 @@
         { id: 'study_20', name: 'Réviser 20 cartes aujourd\'hui', type: 'cards', target: 20, goal: 20, reward: { xp: 50, credits: 5 }, difficulty: 'easy' },
         { id: 'session_1', name: 'Compléter une session d\'étude', type: 'sessions', target: 1, goal: 1, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
         { id: 'accuracy_70', name: 'Atteindre 70% de précision', type: 'accuracy', target: 70, goal: 70, reward: { xp: 50, credits: 5 }, difficulty: 'easy' },
+        { id: 'mode_2', name: 'Utiliser 2 modes différents aujourd\'hui', type: 'modes_used', target: 2, goal: 2, reward: { xp: 60, credits: 6 }, difficulty: 'easy' },
         { id: 'study_10m', name: 'Réviser au moins 10 minutes', type: 'time', target: 10, goal: 10, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
         { id: 'review_1', name: 'Réviser au moins un deck', type: 'decks', target: 1, goal: 1, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
         { id: 'study_50', name: 'Réviser 50 cartes aujourd\'hui', type: 'cards', target: 50, goal: 50, reward: { xp: 100, credits: 10 }, difficulty: 'medium' },
         { id: 'accuracy_80', name: 'Atteindre 80% de précision', type: 'accuracy', target: 80, goal: 80, reward: { xp: 120, credits: 12 }, difficulty: 'medium' },
+        { id: 'mode_4', name: 'Utiliser 4 modes différents aujourd\'hui', type: 'modes_used', target: 4, goal: 4, reward: { xp: 120, credits: 12 }, difficulty: 'medium' },
         { id: 'no_overdue', name: 'Terminer sans cartes en retard', type: 'overdue', target: 0, goal: 1, reward: { xp: 130, credits: 15 }, difficulty: 'medium' },
         { id: 'session_2', name: 'Faire deux sessions séparées', type: 'sessions', target: 2, goal: 2, reward: { xp: 100, credits: 10 }, difficulty: 'medium' },
         { id: 'backlog_20', name: 'Réduire le retard de 20%', type: 'backlog', target: 20, goal: 20, reward: { xp: 140, credits: 16 }, difficulty: 'medium' },
         { id: 'study_100', name: 'Réviser 100 cartes aujourd\'hui', type: 'cards', target: 100, goal: 100, reward: { xp: 200, credits: 25 }, difficulty: 'hard' },
         { id: 'accuracy_90', name: 'Atteindre 90% de précision', type: 'accuracy_high', target: 90, goal: 90, reward: { xp: 220, credits: 28 }, difficulty: 'hard' },
+        { id: 'mode_6', name: 'Utiliser 6 modes différents aujourd\'hui', type: 'modes_used', target: 6, goal: 6, reward: { xp: 220, credits: 24 }, difficulty: 'hard' },
         { id: 'perfect_day', name: 'Journée parfaite: 0 retard + 80%', type: 'perfect', target: 80, goal: 100, reward: { xp: 250, credits: 30 }, difficulty: 'hard' },
         { id: 'study_45m', name: 'Réviser au moins 45 minutes', type: 'time', target: 45, goal: 45, reward: { xp: 220, credits: 25 }, difficulty: 'hard' },
         { id: 'backlog_50', name: 'Réduire le retard de 50%', type: 'backlog', target: 50, goal: 50, reward: { xp: 260, credits: 32 }, difficulty: 'hard' }
@@ -14784,15 +14790,18 @@
       weekly: [
         { id: 'study_4days', name: 'Réviser 4 jours différents', type: 'days_active', target: 4, goal: 4, reward: { xp: 300, credits: 30 }, difficulty: 'easy' },
         { id: 'study_300', name: 'Réviser 300 cartes cette semaine', type: 'cards', target: 300, goal: 300, reward: { xp: 320, credits: 35 }, difficulty: 'easy' },
+        { id: 'mode_master_5', name: 'Utiliser 5 modes différents cette semaine', type: 'modes_used_week', target: 5, goal: 5, reward: { xp: 340, credits: 38 }, difficulty: 'easy' },
         { id: 'accuracy_75w', name: 'Atteindre 75% de précision moyenne', type: 'avg_accuracy', target: 75, goal: 75, reward: { xp: 300, credits: 30 }, difficulty: 'easy' },
         { id: 'no_overdue_3', name: 'Terminer 3 jours sans retard', type: 'perfect_days', target: 3, goal: 3, reward: { xp: 350, credits: 40 }, difficulty: 'easy' },
         { id: 'study_6days', name: 'Réviser 6 jours différents', type: 'days_active', target: 6, goal: 6, reward: { xp: 500, credits: 60 }, difficulty: 'medium' },
         { id: 'study_600', name: 'Réviser 600 cartes cette semaine', type: 'cards', target: 600, goal: 600, reward: { xp: 520, credits: 65 }, difficulty: 'medium' },
+        { id: 'mode_master_8', name: 'Utiliser 8 modes différents cette semaine', type: 'modes_used_week', target: 8, goal: 8, reward: { xp: 560, credits: 72 }, difficulty: 'medium' },
         { id: 'accuracy_85w', name: 'Atteindre 85% de précision moyenne', type: 'avg_accuracy', target: 85, goal: 85, reward: { xp: 550, credits: 70 }, difficulty: 'medium' },
         { id: 'backlog_50w', name: 'Réduire le retard de 50%', type: 'backlog', target: 50, goal: 50, reward: { xp: 580, credits: 75 }, difficulty: 'medium' },
         { id: 'week_no_overdue', name: 'Terminer la semaine sans retard', type: 'overdue', target: 0, goal: 1, reward: { xp: 600, credits: 80 }, difficulty: 'medium' },
         { id: 'study_7days', name: 'Réviser tous les jours', type: 'days_active', target: 7, goal: 7, reward: { xp: 700, credits: 100 }, difficulty: 'hard' },
         { id: 'study_1000', name: 'Réviser 1 000 cartes', type: 'cards', target: 1000, goal: 1000, reward: { xp: 750, credits: 110 }, difficulty: 'hard' },
+        { id: 'mode_master_11', name: 'Utiliser 11 modes différents cette semaine', type: 'modes_used_week', target: 11, goal: 11, reward: { xp: 820, credits: 125 }, difficulty: 'hard' },
         { id: 'accuracy_90w', name: 'Atteindre 90% de précision', type: 'avg_accuracy', target: 90, goal: 90, reward: { xp: 800, credits: 120 }, difficulty: 'hard' },
         { id: 'consecutive_7', name: 'Zéro retard pendant 7 jours', type: 'consecutive_perfect', target: 7, goal: 7, reward: { xp: 850, credits: 130 }, difficulty: 'hard' },
         { id: 'study_5h', name: 'Réviser au moins 5 heures', type: 'time', target: 300, goal: 300, reward: { xp: 780, credits: 115 }, difficulty: 'hard' }
@@ -15024,46 +15033,76 @@
         // For accuracy missions - calculate today's and week's accuracy
         try{
           // Today's accuracy
-          let todayCorrect = 0, todayTotal = 0;
-          for(const k of Object.keys(localStorage)){
-            if(!k.includes(':card:')) continue;
-            try{
-              const st = JSON.parse(localStorage.getItem(k) || '{}');
-              if(st && st.last){
-                const d = new Date(st.last);
-                if(d.toDateString() === now.toDateString()){
-                  todayTotal++;
-                  // Count as correct if last review was quality >= 3
-                  if(st.lastQuality && Number(st.lastQuality) >= 3) todayCorrect++;
+          let todayCorrect = Number(localStorage.getItem('fabanki:mission_today_review_correct') || 0);
+          let todayTotal = Number(localStorage.getItem('fabanki:mission_today_review_total') || 0);
+
+          // Fallback for legacy data before mission counters existed
+          if(todayTotal <= 0){
+            todayCorrect = 0;
+            todayTotal = 0;
+            for(const k of Object.keys(localStorage)){
+              if(!k.includes(':card:')) continue;
+              try{
+                const st = JSON.parse(localStorage.getItem(k) || '{}');
+                if(st && st.last){
+                  const d = new Date(st.last);
+                  if(d.toDateString() === now.toDateString()){
+                    todayTotal++;
+                    // Count as correct if last review was quality >= 3
+                    if(Number(st.lastQuality) >= 3) todayCorrect++;
+                  }
                 }
-              }
-            }catch(e){}
+              }catch(e){}
+            }
           }
+
           const todayAccuracy = todayTotal > 0 ? Math.round((todayCorrect / todayTotal) * 100) : 0;
           updateMission(dailyMissions, 'accuracy_70', todayAccuracy, 'daily');
           updateMission(dailyMissions, 'accuracy_80', todayAccuracy, 'daily');
           updateMission(dailyMissions, 'accuracy_90', todayAccuracy, 'daily');
           
           // Week's accuracy
-          let weekCorrect = 0, weekTotal = 0;
-          for(const k of Object.keys(localStorage)){
-            if(!k.includes(':card:')) continue;
-            try{
-              const st = JSON.parse(localStorage.getItem(k) || '{}');
-              if(st && st.last){
-                const d = new Date(st.last);
-                if(d >= weekStart){
-                  weekTotal++;
-                  if(st.lastQuality && Number(st.lastQuality) >= 3) weekCorrect++;
+          let weekCorrect = Number(localStorage.getItem('fabanki:mission_week_review_correct') || 0);
+          let weekTotal = Number(localStorage.getItem('fabanki:mission_week_review_total') || 0);
+
+          // Fallback for legacy data before mission counters existed
+          if(weekTotal <= 0){
+            weekCorrect = 0;
+            weekTotal = 0;
+            for(const k of Object.keys(localStorage)){
+              if(!k.includes(':card:')) continue;
+              try{
+                const st = JSON.parse(localStorage.getItem(k) || '{}');
+                if(st && st.last){
+                  const d = new Date(st.last);
+                  if(d >= weekStart){
+                    weekTotal++;
+                    if(Number(st.lastQuality) >= 3) weekCorrect++;
+                  }
                 }
-              }
-            }catch(e){}
+              }catch(e){}
+            }
           }
+
           const weekAccuracy = weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : 0;
           updateMission(weeklyMissions, 'accuracy_75w', weekAccuracy, 'weekly');
           updateMission(weeklyMissions, 'accuracy_85w', weekAccuracy, 'weekly');
           updateMission(weeklyMissions, 'accuracy_90w', weekAccuracy, 'weekly');
         }catch(e){ console.warn('accuracy tracking error:', e) }
+
+        // Track distinct mode usage for daily and weekly mode quests
+        try{
+          const todayModes = JSON.parse(localStorage.getItem('fabanki:mission_today_modes') || '[]');
+          const weekModes = JSON.parse(localStorage.getItem('fabanki:mission_week_modes') || '[]');
+          const todayModesUsed = Array.isArray(todayModes) ? todayModes.length : 0;
+          const weekModesUsed = Array.isArray(weekModes) ? weekModes.length : 0;
+          updateMission(dailyMissions, 'mode_2', todayModesUsed, 'daily');
+          updateMission(dailyMissions, 'mode_4', todayModesUsed, 'daily');
+          updateMission(dailyMissions, 'mode_6', todayModesUsed, 'daily');
+          updateMission(weeklyMissions, 'mode_master_5', weekModesUsed, 'weekly');
+          updateMission(weeklyMissions, 'mode_master_8', weekModesUsed, 'weekly');
+          updateMission(weeklyMissions, 'mode_master_11', weekModesUsed, 'weekly');
+        }catch(e){ console.warn('mode usage tracking error:', e) }
         
         // Track days active this week
         try{
@@ -16440,6 +16479,9 @@
           localStorage.setItem('fabanki:score_mpsi_semaine', '0');
           localStorage.setItem('fabanki:time_spent_week', '0');
           localStorage.setItem('fabanki:time_spent_week_sec', '0');
+          localStorage.setItem('fabanki:mission_week_review_total', '0');
+          localStorage.setItem('fabanki:mission_week_review_correct', '0');
+          localStorage.setItem('fabanki:mission_week_modes', JSON.stringify([]));
         }
       }catch(e){}
     }
@@ -16455,6 +16497,9 @@
           localStorage.setItem('fabanki:score_mpsi_today', '0');
           localStorage.setItem('fabanki:time_spent_today', '0');
           localStorage.setItem('fabanki:time_spent_today_sec', '0');
+          localStorage.setItem('fabanki:mission_today_review_total', '0');
+          localStorage.setItem('fabanki:mission_today_review_correct', '0');
+          localStorage.setItem('fabanki:mission_today_modes', JSON.stringify([]));
 
           try{
             const yesterday = new Date();
@@ -16520,6 +16565,57 @@
         localStorage.setItem('fabanki:time_spent_today', String(Math.floor(newDaySec / 60)));
         localStorage.setItem('fabanki:time_spent_week', String(Math.floor(newWeekSec / 60)));
       }catch(e){ console.warn('time accumulation error:', e) }
+    }
+
+    function normalizeMissionMode(mode){
+      try{
+        const raw = String(mode || '').trim();
+        if(!raw) return '';
+        const map = {
+          anki: 'default',
+          original: 'default'
+        };
+        return map[raw] || raw;
+      }catch(e){ return ''; }
+    }
+
+    function trackMissionReviewProgress(mode, quality){
+      try{
+        resetWeeklyIfNeeded();
+        resetDailyIfNeeded();
+
+        const q = Number(quality);
+        const isCorrect = Number.isFinite(q) && q >= 3;
+
+        const todayTotal = Number(localStorage.getItem('fabanki:mission_today_review_total') || 0) + 1;
+        localStorage.setItem('fabanki:mission_today_review_total', String(todayTotal));
+        if(isCorrect){
+          const todayCorrect = Number(localStorage.getItem('fabanki:mission_today_review_correct') || 0) + 1;
+          localStorage.setItem('fabanki:mission_today_review_correct', String(todayCorrect));
+        }
+
+        const weekTotal = Number(localStorage.getItem('fabanki:mission_week_review_total') || 0) + 1;
+        localStorage.setItem('fabanki:mission_week_review_total', String(weekTotal));
+        if(isCorrect){
+          const weekCorrect = Number(localStorage.getItem('fabanki:mission_week_review_correct') || 0) + 1;
+          localStorage.setItem('fabanki:mission_week_review_correct', String(weekCorrect));
+        }
+
+        const normalizedMode = normalizeMissionMode(mode);
+        if(normalizedMode){
+          const todayModes = JSON.parse(localStorage.getItem('fabanki:mission_today_modes') || '[]');
+          if(!todayModes.includes(normalizedMode)){
+            todayModes.push(normalizedMode);
+            localStorage.setItem('fabanki:mission_today_modes', JSON.stringify(todayModes));
+          }
+
+          const weekModes = JSON.parse(localStorage.getItem('fabanki:mission_week_modes') || '[]');
+          if(!weekModes.includes(normalizedMode)){
+            weekModes.push(normalizedMode);
+            localStorage.setItem('fabanki:mission_week_modes', JSON.stringify(weekModes));
+          }
+        }
+      }catch(e){ console.warn('trackMissionReviewProgress error:', e); }
     }
 
     function countMasteredCards(){
