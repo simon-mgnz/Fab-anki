@@ -1,0 +1,284 @@
+<deck name="Chapitre 18 - Transformation chimiques en solution aqueuse" tags='Chimie::Contrôle de cours'><fields><rich-text name='Front' sides='11'></rich-text><tex name='TeX' sides='11'></tex><rich-text name='Back' sides='01'></rich-text><tex name='Formula' sides='01'></tex><rich-text name='Texte enrichi' sides='01'></rich-text><tex name='TeX2' sides='01'></tex><rich-text name='Texte enrichi2' sides='01'></rich-text><tex name='TeX5' sides='01'></tex><rich-text name='Texte enrichi3' sides='01'></rich-text><tex name='TeX3' sides='01'></tex><rich-text name='Texte enrichi4' sides='01'></rich-text><tex name='TeX4' sides='01'></tex></fields><cards><card><rich-text name='Front'><p>Tracer les domaines de prédominance pour un couple acide-base de pKA donné.</p><p>Exemple : couple CH₃COOH / CH₃COO⁻ avec pKA = 4,8</p></rich-text><rich-text name='Back'><p><strong>Domaines de prédominance :</strong></p><p>Sur un axe de pH, on trace la frontière à pH = pKA.</p><p><br/></p></rich-text><tex name='Formula'>\begin{array}{ccc} \text{Forme acide}\quad \text{pK}_A  \quad \text{Forme basique} \\ \text{majoritaire}\quad \downarrow \quad \text{majoritaire} \\ \text{CH}_3\text{COOH}\quad 4{,}8 \quad \text{CH}_3\text{COO}^- \\ \xrightarrow[\qquad\qquad\qquad]{\text{pH}} \end{array}</tex><rich-text name='Texte enrichi'><p><strong>Règle :</strong></p>
+<p>• Si pH &lt; pKA : la forme acide AH prédomine</p>
+<p>• Si pH = pKA : [AH] = [A⁻]</p>
+<p>• Si pH &gt; pKA : la forme basique A⁻ prédomine</p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Diagramme :</strong></p><p><br/></p></rich-text><tex name='TeX5'>\boxed{ \begin{array}{c|c} \text{pH} \lt 4{,}8  \text{pH} > 4{,}8 \\ \hline \text{CH}_3\text{COOH} \text{CH}_3\text{COO}^- \\ \text{prédomine}  \text{prédomine} \end{array} }</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p><strong>Justification :</strong></p>
+<p><br/></p></rich-text><tex name='TeX3'>\text{pH} = \text{pK}_A + \log\frac{[A^-]}{[AH]}</tex></card><card><rich-text name='Front'><p>Solution avec [Ag⁺]₀ = [CO₃²⁻]₀ = 1,0×10⁻² mol·L⁻¹. Le précipité Ag₂CO₃(s) va-t-il se former ?</p><p>Données : pKS = 11,1</p></rich-text><rich-text name='Back'><p><strong>Démarche :</strong></p><p>1. Équilibre de solubilité :</p><p><br/></p></rich-text><tex name='Formula'>Ag_2CO_{3(s)} \rightleftharpoons 2Ag^+ + CO_3^{2-}</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>2. Produit de solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX2'>K_S = [Ag^+]^2[CO_3^{2-}]</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>Avec pKS = 11,1 :</p>
+<p><br/></p></rich-text><tex name='TeX5'>K_S = 10^{-11{,}1} \approx 7{,}9 \times 10^{-12}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p>3. Quotient réactionnel initial :</p>
+<p><br/></p></rich-text><tex name='TeX3'>Q_{r,i} = [Ag^+]_0^2[CO_3^{2-}]_0 = (1{,}0 \times 10^{-2})^2(1{,}0 \times 10^{-2}) = 1{,}0 \times 10^{-6}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p>4. Comparaison :</p>
+<p><br/></p>
+<p>Qr,i &gt; Ks → Le système est <strong>sursaturé</strong></p>
+<p><br/></p>
+<p><strong>Conclusion :</strong> Le précipité Ag₂CO₃(s) <strong>va se former</strong>.</p></rich-text><tex name='TeX4'>Q_{r,i} = 10^{-6} > K_S = 7{,}9 \times 10^{-12}</tex></card><card><rich-text name='Front'><p>Déterminer le nombre d'oxydation (n.o.) de chaque élément dans : F₂, F⁻, MnO₄⁻, PbO₂, NO₃⁻</p></rich-text><rich-text name='Back'><p><strong>F₂ (difluor) :</strong></p>
+<p>Corps simple</p></rich-text><tex name='Formula'>\boxed{\text{F}_2: \quad \text{n.o.}(F) = 0}</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p><strong>F⁻ (ion fluorure) :</strong></p>
+<p>Ion monoatomique</p>
+<p><br/></p></rich-text><tex name='TeX2'>\boxed{F^-: \quad \text{n.o.}(F) = -I}</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p><strong>MnO₄⁻ (ion permanganate) :</strong></p>
+<p>n.o.(O) = -II</p>
+<p>Somme : n.o.(Mn) + 4×(-2) = -I</p>
+<p><br/></p></rich-text><tex name='TeX5'>\boxed{MnO_4^-: \quad \text{n.o.}(Mn) = +VII, \quad \text{n.o.}(O) = -II}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p><strong>PbO₂ (dioxyde de plomb) :</strong></p>
+<p>n.o.(O) = -II</p>
+<p>Somme : n.o.(Pb) + 2×(-2) = 0</p>
+<p><br/></p></rich-text><tex name='TeX3'>\boxed{PbO_2: \quad \text{n.o.}(Pb) = +IV, \quad \text{n.o.}(O) = -II}</tex><rich-text name='Texte enrichi4'><p><strong>NO₃⁻ (ion nitrate) :</strong></p>
+<p>n.o.(O) = -II</p>
+<p>Somme : n.o.(N) + 3×(-2) = -I</p>
+<p><br/></p></rich-text><tex name='TeX4'>\boxed{NO_3^-: \quad \text{n.o.}(N) = +V, \quad \text{n.o.}(O) = -II}</tex></card><card><rich-text name='Front'><p>Couple Mn(OH)₃(s) / Mn(OH)₂(s) : déterminer les n.o. et la pente de la frontière dans un diagramme E-pH.</p></rich-text><rich-text name='Back'><p><strong>Nombres d'oxydation :</strong></p><p>1. Mn(OH)₃ :</p><p>n.o.(Mn) + 3×(-1) = 0</p><p><br/></p></rich-text><tex name='Formula'>\boxed{\text{n.o.}(Mn) = +3 \text{ dans } Mn(OH)_3}</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>2. Mn(OH)₂ :</p>
+<p>n.o.(Mn) + 2×(-1) = 0</p>
+<p><br/></p></rich-text><tex name='TeX2'>\boxed{\text{n.o.}(Mn) = +II \text{ dans } Mn(OH)_2}</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p><strong>Demi-équation électronique :</strong></p>
+<p>Réduction : Mn(III) → Mn(II), donc 1 électron échangé</p>
+<p><br/></p></rich-text><tex name='TeX5'>Mn(OH)_{3(s)} + e^- + H^+ \rightleftharpoons Mn(OH)_{2(s)} + H_2O</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p><strong>Pente de la frontière :</strong></p>
+<p>Nombre d'électrons : n = 1</p>
+<p>Nombre de protons : p = 1</p>
+<p><br/></p></rich-text><tex name='TeX3'>\frac{dE}{dpH} = -\frac{0{,}06 \times p}{n} = -\frac{0{,}06 \times 1}{1}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p><strong>Résultat :</strong></p>
+<p><br/></p></rich-text><tex name='TeX4'>\boxed{\frac{dE}{dpH} = -0{,}06 \text{ V}}</tex></card><card><rich-text name='Front'><p>Solution avec [Bi³⁺]₀ = [I⁻]₀ = 1,0×10⁻² mol·L⁻¹. Le précipité BiI₃(s) va-t-il se former ?</p><p>Données : pKS = 18,1</p></rich-text><rich-text name='Back'><p><strong>Démarche :</strong></p><p>1. Équilibre de solubilité :</p><p><br/></p></rich-text><tex name='Formula'>BiI_{3(s)} \rightleftharpoons Bi^{3+} + 3I^-</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>2. Produit de solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX2'>K_S = [Bi^{3+}][I^-]^3</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>Avec pKS = 18,1 :</p>
+<p><br/></p></rich-text><tex name='TeX5'>K_S = 10^{-18{,}1} \approx 7{,}9 \times 10^{-19}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p>3. Quotient réactionnel initial :</p>
+<p><br/></p></rich-text><tex name='TeX3'>Q_{r,i} = [Bi^{3+}]_0[I^-]_0^3 = (1{,}0 \times 10^{-2})(1{,}0 \times 10^{-2})^3 = 1{,}0 \times 10^{-8}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p>4. Comparaison :</p>
+<p><br/></p>
+<p>Qr,i &gt; KS → Le système est sursaturé</p>
+<p><br/></p>
+<p><strong>Conclusion :</strong> Le précipité BiI₃(s) <strong>va se former</strong>.</p></rich-text><tex name='TeX4'>Q_{r,i} = 10^{-8} \gt K_S = 7{,}9 \times 10^{-19}</tex></card><card><rich-text name='Front'><p>Solution avec [Pb²⁺]₀ = [Cl⁻]₀ = 1,0×10⁻² mol·L⁻¹. Le précipité PbCl₂(s) va-t-il se former ?</p><p>Données : pKS = 4,8</p></rich-text><rich-text name='Back'><p><strong>Démarche :</strong></p><p>1. Équilibre de solubilité :</p><p><br/></p></rich-text><tex name='Formula'>PbCl_{2(s)} \rightleftharpoons Pb^{2+} + 2Cl^-</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>2. Produit de solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX2'>K_S = [Pb^{2+}][Cl^-]^2</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>Avec pKS = 4,8 :</p>
+<p><br/></p></rich-text><tex name='TeX5'>K_S = 10^{-4{,}8} \approx 1{,}6 \times 10^{-5}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p>3. Quotient réactionnel initial :</p>
+<p><br/></p></rich-text><tex name='TeX3'>Q_{r,i} = [Pb^{2+}]_0[Cl^-]_0^2 = (1{,}0 \times 10^{-2})(1{,}0 \times 10^{-2})^2 = 1{,}0 \times 10^{-6}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p>4. Comparaison :</p>
+<p><br/></p>
+<p>Qr,i &gt; Ks → Le système <strong>n'est pas saturé</strong></p>
+<p><br/></p>
+<p><strong>Conclusion :</strong> Le précipité PbCl₂(s) <strong>ne se formera pas</strong>.</p></rich-text><tex name='TeX4'>Q_{r,i} = 10^{-6} \lt K_S = 1{,}6 \times 10^{-5}</tex></card><card><rich-text name='Front'><p>Diagramme E-pH du fer : déterminer la pente de la frontière séparant Fe(OH)₃(s) et Fe²⁺, puis celle séparant Fe(s) et Fe(OH)₂(s).</p></rich-text><rich-text name='Back'><p><br/></p>
+<p><strong>Frontière Fe(OH)₃(s) / Fe²⁺ :</strong></p>
+<p>1. Nombres d'oxydation :</p>
+<p>• Fe(OH)₃ : n.o.(Fe) = +III</p>
+<p>• Fe²⁺ : n.o.(Fe) = +II</p>
+<p><br/></p></rich-text><tex name='Formula'></tex><rich-text name='Texte enrichi'><p>2. Demi-équation électronique :</p><p><br/></p></rich-text><tex name='TeX2'>Fe(OH)_{3(s)} + e^- + 3H^+ \rightleftharpoons Fe^{2+} + 3H_2O</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>3. Formule de Nernst à l'équilibre :</p>
+<p>n = 1 électron, p = 3 protons</p>
+<p><br/></p></rich-text><tex name='TeX5'>\frac{dE}{dpH} = -\frac{0{,}06 \times p}{n} = -\frac{0{,}06 \times 3}{1} = \boxed{-0{,}18 \text{ V}}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p><strong>Frontière Fe(s) / Fe(OH)₂(s) :</strong></p>
+<p>1. Nombres d'oxydation :</p>
+<p>• Fe(s) : n.o.(Fe) = 0</p>
+<p>• Fe(OH)₂ : n.o.(Fe) = +II</p>
+<p><br/></p>
+<p>2. Demi-équation :</p>
+<p><br/></p></rich-text><tex name='TeX3'>Fe(OH)_{2(s)} + 2e^- + 2H^+ \rightleftharpoons Fe_{(s)} + 2H_2O</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p>3. Pente :</p>
+<p>n = 2 électrons, p = 2 protons</p>
+<p><br/></p></rich-text><tex name='TeX4'>\frac{dE}{dpH} = -\frac{0{,}06 \times 2}{2} = \boxed{-0{,}06 \text{ V}}</tex></card><card><rich-text name='Front'><p>Placer un couple Acide/Base A/B (pKA = 9,2) et les couples de l'eau sur un axe de pKA. La réaction de A avec HO⁻ sera-t-elle totale ? Donner la constante d'équilibre.</p>
+<p>Exemple : couple NH₄⁺ / NH₃ avec pKA = 9,2</p></rich-text><rich-text name='Back'><p><strong>Axe de pKA :</strong></p><p><br/></p></rich-text><tex name='Formula'>HO^- \quad ↑ \quad 14 \quad H_2O \\ NH_4^+ \quad | \quad 9{,}2 \quad NH_3 \\ H_2O \quad | \quad 0 \quad H_3O^+ 
+</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p><strong>Réaction de NH₄⁺ avec HO⁻ :</strong></p>
+<p><br/></p></rich-text><tex name='TeX2'>RP : NH_4^+ + HO^- \longrightarrow NH_3 + H_2O</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p><strong>Règle des γ :</strong></p>
+<p>La réaction fait intervenir :</p>
+<p>• L'acide du couple de pKA = 9,2 (NH₄⁺)</p>
+<p>• La base du couple de pKA = 14 (HO⁻)</p>
+<p><br/></p>
+<p>Écart entre les pKA : ΔpKA = |14 - 9,2| = 4,8</p>
+<p><br/></p>
+<p>Comme ΔpKA &gt; 4, la réaction est <strong>totale</strong>.</p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p><strong>Constante d'équilibre :</strong></p><p><br/></p></rich-text><tex name='TeX3'>K = \frac{K_A(\text{NH}_4^+)}{K_A(H_2O)} = \frac{10^{-9{,}2}}{10^{-14}} = 10^{14-9{,}2} = 10^{4{,}8}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p><strong>Valeur numérique :</strong></p>
+<p><br/></p></rich-text><tex name='TeX4'>\boxed{K \approx 6{,}3 \times 10^4}</tex></card><card><rich-text name='Front'><p>Qu'est-ce qu'un acide indifférent dans l'eau ? Donner un exemple. Quel est le comportement de la base conjuguée dans l'eau ?</p></rich-text><rich-text name='Back'><p><strong>Définition :</strong></p>
+<p>Un acide indifférent est une espèce dont la réaction avec l'eau pour céder un proton est <strong>négligeable</strong>.</p>
+<p><br/></p></rich-text><tex name='Formula'>AH + H_2O \rightleftharpoons A^- + H_3O^+ \quad \text{(réaction négligeable)}</tex><rich-text name='Texte enrichi'><p><strong>Exemples :</strong></p><p>• Méthane CH₄</p><p>• Éthanol C₂H₅OH</p><p>• Ammoniac NH₃ en tant qu'acide (son pKA en tant qu'acide est très élevé)</p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Comportement de la base conjuguée :</strong></p><p>La base conjuguée A⁻ d'un acide indifférent est une <strong>base forte</strong> dans l'eau.</p><p>Elle réagit totalement avec l'eau :</p><p><br/></p></rich-text><tex name='TeX5'>A^- + H_2O \longrightarrow AH + HO^-</tex><rich-text name='Texte enrichi3'><p><strong>Critère :</strong></p>
+<p>Un acide est indifférent dans l'eau si pKA &gt; 14.</p>
+<p>Exemples de pKA :</p>
+<p>• CH₄ : pKA ≈ 50</p>
+<p>• NH₃ (en tant qu'acide) : pKA ≈ 35</p></rich-text></card><card><rich-text name='Front'><p>Qu'est-ce qu'un acide faible dans l'eau ? Donner un exemple. Quel est le comportement de la base conjuguée dans l'eau ?</p></rich-text><rich-text name='Back'><p><strong>Définition :</strong></p><p>Un acide faible est un acide dont la réaction avec l'eau est <strong>partielle</strong> (équilibre chimique). Il ne se dissocie que partiellement.</p><p><br/></p></rich-text><tex name='Formula'>AH + H_2O \rightleftharpoons A^- + H_3O^+</tex><rich-text name='Texte enrichi'><p>Avec une constante d'acidité :</p><p><br/></p></rich-text><tex name='TeX2'>K_A = \frac{[A^-][H_3O^+]}{[AH]}</tex><rich-text name='Texte enrichi2'><p><strong>Exemples :</strong></p>
+<p>• Acide éthanoïque CH₃COOH (pKA = 4,8)</p>
+<p>• Ion ammonium NH₄⁺ (pKA = 9,2)</p>
+<p>• Acide fluorhydrique HF (pKA = 3,2)</p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p><strong>Comportement de la base conjuguée :</strong></p><p>La base conjuguée A⁻ d'un acide faible est une <strong>base faible</strong> dans l'eau.</p><p>Elle réagit partiellement avec l'eau :</p><p><br/></p></rich-text><tex name='TeX3'>A^- + H_2O \rightleftharpoons AH + HO^-</tex><rich-text name='Texte enrichi4'><p><strong>Critère :</strong></p>
+<p>Un acide est faible dans l'eau si 0 &lt; pKA &lt; 14.</p></rich-text></card><card><rich-text name='Front'><p>Solution contenant [Mn³⁺]₀ = 1,0×10⁻³ mol·L⁻¹. À quel pH observe-t-on la formation du précipité Mn(OH)₃(s) ?</p><p>Données : pKS = 36</p></rich-text><rich-text name='Back'><p><br/></p>
+<p><strong>Démarche :</strong></p>
+<p>1. Équilibre de solubilité :</p>
+<p><br/></p></rich-text><tex name='Formula'>Mn(OH)_{3(s)} \rightleftharpoons Mn^{3+} + 3HO^-</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>2. Produit de solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX2'>K_S = [Mn^{3+}][HO^-]^3</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>Avec pKS = 36 :</p>
+<p><br/></p></rich-text><tex name='TeX5'>K_S = 10^{-36}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p>3. Condition de précipitation :</p>
+<p>Le précipité se forme dès que [Mn³⁺][HO⁻]³ = KS</p>
+<p><br/></p></rich-text><tex name='TeX3'>[HO^-]^3 = \frac{K_S}{[Mn^{3+}]_0} = \frac{10^{-36}}{10^{-3}} = 10^{-33} \\ \\ [HO^-] = 10^{-11} \text{ mol·L}^{-1}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p>4. Calcul du pH :</p>
+<p><br/></p>
+<p><strong>pH de précipitation :</strong></p>
+<p><br/></p></rich-text><tex name='TeX4'>pOH = -\log[HO^-] = -\log(10^{-11}) = 11 \\ \\ \boxed{pH = 14 - pOH = 14 - 11 = 3}</tex></card><card><rich-text name='Front'><p>Fluorure de baryum BaF₂(s), de produit de solubilité KS : exprimer sa solubilité s dans l'eau pure en fonction de KS.</p></rich-text><rich-text name='Back'><p><strong>Démarche :</strong></p><p>1. Équilibre de solubilité :</p><p><br/></p></rich-text><tex name='Formula'>BaF_{2(s)} \rightleftharpoons Ba^{2+} + 2F^-</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>2. À l'équilibre, si s mol de BaF₂ se dissolvent :</p>
+<p><br/></p></rich-text><tex name='TeX2'>[Ba^{2+}] = s \quad \text{et} \quad [F^-] = 2s</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>3. Produit de solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX5'>K_S = [Ba^{2+}][F^-]^2 = s(2s)^2 = 4s^3</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p>4. Expression de la solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX3'>s^3 = \frac{K_S}{4}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p><strong>Solubilité :</strong></p>
+<p><br/></p></rich-text><tex name='TeX4'>\boxed{s = \left(\frac{K_S}{4}\right)^{1/3}}</tex></card><card><rich-text name='Front'><p>Diagramme E-pH de l'aluminium : déterminer la pente de la frontière séparant Al(OH)₃(s) et Al(s), puis celle séparant Al(s) et Al(OH)₄⁻.</p></rich-text><rich-text name='Back'><p><strong>Frontière Al(OH)₃(s) / Al(s) :</strong></p>
+<p>1. Nombres d'oxydation :</p>
+<p>• Al(OH)₃ : n.o.(Al) = +III</p>
+<p>• Al(s) : n.o.(Al) = 0</p>
+<p><br/></p></rich-text><tex name='Formula'></tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>2. Demi-équation électronique :</p>
+<p><br/></p></rich-text><tex name='TeX2'>Al(OH)_{3(s)} + 3e^- + 3H^+ \rightleftharpoons Al_{(s)} + 3H_2O</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>3. Pente :</p>
+<p>n = 3 électrons, p = 3 protons</p>
+<p><br/></p></rich-text><tex name='TeX5'>\frac{dE}{dpH} = -\frac{0{,}06 \times 3}{3} = \boxed{-0{,}06 \text{ V}}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p><strong>Frontière Al(s) / Al(OH)₄⁻ :</strong></p>
+<p>1. Nombres d'oxydation :</p>
+<p>• Al(s) : n.o.(Al) = 0</p>
+<p>• Al(OH)₄⁻ : n.o.(Al) = +3</p>
+<p><br/></p>
+<p>2. Demi-équation :</p>
+<p><br/></p></rich-text><tex name='TeX3'>Al(OH)_4^- + 3e^- \rightleftharpoons Al_{(s)} + 4HO^-</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p>3. En milieu basique, pas de H⁺ → utiliser HO⁻</p>
+<p>Relation : E = f(pOH) avec pente +0,06×p/n</p>
+<p>Ou : E = f(pH) avec pente -0,06×p/n où p = nb de HO⁻</p>
+<p>Ici p = 4, n = 3 :</p>
+<p><br/></p></rich-text><tex name='TeX4'>\frac{dE}{dpH} = -\frac{0{,}06 \times 4}{3} = \boxed{-0{,}08 \text{ V}}</tex></card><card><rich-text name='Front'><p>Déterminer le nombre d'oxydation (n.o.) de chaque élément dans : Ce⁴⁺, H₂, MnO₂, PbO, NO₂⁻</p></rich-text><rich-text name='Back'><p><strong>Ce⁴⁺ (ion cérium IV) :</strong></p>
+<p>Ion monoatomique →</p></rich-text><tex name='Formula'>\boxed{Ce^{4+}: \quad \text{n.o.}(Ce) = +IV}</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p><strong>H₂ (dihydrogène) :</strong></p>
+<p>Corps simple →</p>
+<p><br/></p></rich-text><tex name='TeX2'>\boxed{H_2: \quad \text{n.o.}(H) = 0}</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p><strong>MnO₂ (dioxyde de manganèse) :</strong></p>
+<p>n.o.(O) = -II</p>
+<p>Somme : n.o.(Mn) + 2×(-2) = 0</p>
+<p><br/></p></rich-text><tex name='TeX5'>\boxed{MnO_2: \quad \text{n.o.}(Mn) = +4, \quad \text{n.o.}(O) = -2}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p><strong>PbO (monoxyde de plomb) :</strong></p>
+<p>n.o.(O) = -II</p>
+<p>Somme : n.o.(Pb) + (-2) = 0</p>
+<p><br/></p></rich-text><tex name='TeX3'>\boxed{PbO: \quad \text{n.o.}(Pb) = +II, \quad \text{n.o.}(O) = -II}</tex><rich-text name='Texte enrichi4'><p><strong>NO₂⁻ (ion nitrite) :</strong></p>
+<p>n.o.(O) = -II</p>
+<p>Somme : n.o.(N) + 2×(-2) = -I</p>
+<p><br/></p></rich-text><tex name='TeX4'>\boxed{NO_2^-: \quad \text{n.o.}(N) = +III, \quad \text{n.o.}(O) = -II}</tex></card><card><rich-text name='Front'><p>Bromure de plomb PbBr₂(s), de produit de solubilité Ks : exprimer sa solubilité s dans l'eau pure en fonction de KS.</p></rich-text><rich-text name='Back'><p><strong>Démarche :</strong></p><p>1. Équilibre de solubilité :</p><p><br/></p></rich-text><tex name='Formula'>PbBr_{2(s)} \rightleftharpoons Pb^{2+} + 2Br^-</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>2. À l'équilibre, si s mol de PbBr₂ se dissolvent :</p>
+<p><br/></p></rich-text><tex name='TeX2'>[Pb^{2+}] = s \quad \text{et} \quad [Br^-] = 2s</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>3. Produit de solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX5'>K_S = [Pb^{2+}][Br^-]^2 = s(2s)^2 = 4s^3</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p>4. Expression de la solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX3'>s^3 = \frac{K_S}{4}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p><strong>Solubilité :</strong></p>
+<p><br/></p></rich-text><tex name='TeX4'>\boxed{s = \left(\frac{K_S}{4}\right)^{1/3}}</tex></card><card><rich-text name='Front'><p>Solution contenant [Mn²⁺]₀ = 1,0×10⁻³ mol·L⁻¹. À quel pH observe-t-on la formation du précipité Mn(OH)₂(s) ?</p><p>Données : pKS = 13</p></rich-text><rich-text name='Back'><p><strong>Démarche :</strong></p><p>1. Équilibre de solubilité :</p><p><br/></p></rich-text><tex name='Formula'>Mn(OH)_{2(s)} \rightleftharpoons Mn^{2+} + 2HO^-</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>2. Produit de solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX2'>K_S = [Mn^{2+}][HO^-]^2</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>Avec pKS = 13 :</p>
+<p><br/></p></rich-text><tex name='TeX5'>K_S = 10^{-13}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p>3. Condition de précipitation :</p>
+<p>Le précipité se forme dès que [Mn²⁺][HO⁻]² = Ks</p>
+<p><br/></p></rich-text><tex name='TeX3'>[HO^-]^2 = \frac{K_S}{[Mn^{2+}]_0} = \frac{10^{-13}}{10^{-3}} = 10^{-10} \\ \\ [HO^-] = 10^{-5} \text{ mol·L}^{-1}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p>4. Calcul du pH :</p>
+<p><br/></p>
+<p><strong>pH de précipitation :</strong></p>
+<p><br/></p></rich-text><tex name='TeX4'>pOH = -\log[HO^-] = -\log(10^{-5}) = 5 \\ \\ \boxed{pH = 14 - pOH = 14 - 5 = 9}</tex></card><card><rich-text name='Front'><p>Déterminer le nombre d'oxydation (n.o.) de chaque élément dans : NO₃⁻, H₂, NH₄⁺, AgCl(s), IO₃⁻, Cr₂O₇²⁻</p></rich-text><rich-text name='Back'><p><strong>NO₃⁻ (ion nitrate) :</strong></p>
+<p>n.o.(N) = +5, n.o.(O) = -II</p>
+<p><br/></p></rich-text><tex name='Formula'>\boxed{NO_3^-: \quad \text{n.o.}(N) = +V, \quad \text{n.o.}(O) = -II}</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p><strong>H₂ (dihydrogène) :</strong></p>
+<p>n.o.(H) = 0</p>
+<p><br/></p></rich-text><tex name='TeX2'>\boxed{H_2: \quad \text{n.o.}(H) = 0}</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p><strong>NH₄⁺ (ion ammonium) :</strong></p>
+<p>n.o.(H) = +I</p>
+<p>Somme : n.o.(N) + 4×(+1) = +I</p>
+<p><br/></p></rich-text><tex name='TeX5'>\boxed{NH_4^+: \quad \text{n.o.}(N) = -III, \quad \text{n.o.}(H) = +I}</tex><rich-text name='Texte enrichi3'><p><strong>AgCl(s) (chlorure d'argent) :</strong></p>
+<p>n.o.(Ag) = +1, n.o.(Cl) = -I</p>
+<p><br/></p>
+<p><strong>IO₃⁻ (ion iodate) :</strong></p>
+<p>n.o.(O) = -2, donc n.o.(I) + 3×(-2) = -I</p>
+<p><br/></p></rich-text><tex name='TeX3'>\boxed{AgCl: \quad \text{n.o.}(Ag) = +I, \quad \text{n.o.}(Cl) = -I} \\ \\ \boxed{IO_3^-: \quad \text{n.o.}(I) = +V, \quad \text{n.o.}(O) = -II}</tex><rich-text name='Texte enrichi4'><p><strong>Cr₂O₇²⁻ (ion dichromate) :</strong></p>
+<p>n.o.(O) = -II</p>
+<p>Somme : 2×n.o.(Cr) + 7×(-2) = -II</p>
+<p>2×n.o.(Cr) = +XII</p>
+<p><br/></p></rich-text><tex name='TeX4'>\boxed{Cr_2O_7^{2-}: \quad \text{n.o.}(Cr) = +VI, \quad \text{n.o.}(O) = -II}</tex></card><card><rich-text name='Front'><p>Solution avec [Ca²⁺]₀ = [AsO₄³⁻]₀ = 1,0×10⁻³ mol·L⁻¹. Le précipité Ca₃(AsO₄)₂(s) va-t-il se former ?</p><p>Données : pKS = 18,2</p></rich-text><rich-text name='Back'><p><strong>Démarche :</strong></p><p>1. Équilibre de solubilité :</p><p><br/></p></rich-text><tex name='Formula'>Ca_3(AsO_4)_{2(s)} \rightleftharpoons 3Ca^{2+} + 2AsO_4^{3-}</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>2. Produit de solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX2'>K_S = [Ca^{2+}]^3[AsO_4^{3-}]^2</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>Avec pKS = 18,2 :</p>
+<p><br/></p></rich-text><tex name='TeX5'>K_S = 10^{-18{,}2} \approx 6{,}3 \times 10^{-19}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p>3. Quotient réactionnel initial :</p>
+<p><br/></p></rich-text><tex name='TeX3'>Q_{r,i} = [Ca^{2+}]_0^3[AsO_4^{3-}]_0^2 = (1{,}0 \times 10^{-3})^3(1{,}0 \times 10^{-3})^2 = 1{,}0 \times 10^{-15}</tex><rich-text name='Texte enrichi4'><p>4. Comparaison :</p>
+<p><br/></p>
+<p>Qr,i &gt; Ks → Le système est <strong>sursaturé</strong></p>
+<p><br/></p>
+<p><strong>Conclusion :</strong> Le précipité Ca₃(AsO₄)₂(s) <strong>va se former</strong>.</p></rich-text><tex name='TeX4'>Q_{r,i} = 10^{-15} \gt K_S = 6{,}3 \times 10^{-19}</tex></card><card><rich-text name='Front'><p>Fluorure de magnésium MgF₂(s), de produit de solubilité KS : exprimer sa solubilité s dans l'eau pure en fonction de KS.</p></rich-text><rich-text name='Back'><p><strong>Démarche :</strong></p><p>1. Équilibre de solubilité :</p><p><br/></p></rich-text><tex name='Formula'>MgF_{2(s)} \rightleftharpoons Mg^{2+} + 2F^-</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>2. À l'équilibre, si s mol de MgF₂ se dissolvent :</p>
+<p><br/></p></rich-text><tex name='TeX2'>[Mg^{2+}] = s \quad \text{et} \quad [F^-] = 2s</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>3. Produit de solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX5'>K_S = [Mg^{2+}][F^-]^2 = s(2s)^2 = 4s^3</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p>4. Expression de la solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX3'>s^3 = \frac{K_S}{4}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p><strong>Solubilité :</strong></p>
+<p><br/></p></rich-text><tex name='TeX4'>\boxed{s = \left(\frac{K_S}{4}\right)^{1/3}}</tex></card><card><rich-text name='Front'><p>Déterminer le nombre d'oxydation (n.o.) de chaque élément dans : F₂, PbO₂, H₂O₂, BrO₃⁻, NO₂</p></rich-text><rich-text name='Back'><p><br/></p>
+<p><strong>F₂ (difluor) :</strong></p>
+<p>Corps simple</p>
+<p><br/></p></rich-text><tex name='Formula'>\boxed{\text{F}_2: \quad \text{n.o.}(F) = 0}</tex><rich-text name='Texte enrichi'><p><strong>PbO₂ (dioxyde de plomb) :</strong></p>
+<p>n.o.(O) = -II</p>
+<p>Somme : n.o.(Pb) + 2×(-2) = 0</p>
+<p><br/></p></rich-text><tex name='TeX2'>\boxed{PbO_2: \quad \text{n.o.}(Pb) = +IV, \quad \text{n.o.}(O) = -II}</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p><strong>H₂O₂ (peroxyde d'hydrogène) :</strong></p>
+<p>n.o.(H) = +I</p>
+<p>Liaison O-O → n.o.(O) = -I (exception!)</p>
+<p>Vérif : 2×(+1) + 2×(-1) = 0 ✓</p>
+<p><br/></p></rich-text><tex name='TeX5'>\boxed{H_2O_2: \quad \text{n.o.}(H) = +I, \quad \text{n.o.}(O) = -I}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p><strong>BrO₃⁻ (ion bromate) :</strong></p>
+<p>n.o.(O) = -II</p>
+<p>Somme : n.o.(Br) + 3×(-2) = -I</p>
+<p><br/></p></rich-text><tex name='TeX3'>\boxed{BrO_3^-: \quad \text{n.o.}(Br) = +V, \quad \text{n.o.}(O) = -II}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p><strong>NO₂ (dioxyde d'azote) :</strong></p>
+<p>n.o.(O) = -II</p>
+<p>Somme : n.o.(N) + 2×(-2) = 0</p>
+<p><br/></p></rich-text><tex name='TeX4'>\boxed{NO_2: \quad \text{n.o.}(N) = +IV, \quad \text{n.o.}(O) = -II}</tex></card><card><rich-text name='Front'><p>Hydroxyde de cobalt Co(OH)₃(s), de produit de solubilité KS : exprimer sa solubilité s dans l'eau pure en fonction de KS.</p></rich-text><rich-text name='Back'><p><strong>Démarche :</strong></p><p>1. Équilibre de solubilité :</p><p><br/></p></rich-text><tex name='Formula'>Co(OH)_{3(s)} \rightleftharpoons Co^{3+} + 3HO^-</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>2. À l'équilibre, si s mol de Co(OH)₃ se dissolvent :</p>
+<p><br/></p></rich-text><tex name='TeX2'>[Co^{3+}] = s \quad \text{et} \quad [HO^-] = 3s</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p>3. Produit de solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX5'>K_S = [Co^{3+}][HO^-]^3 = s(3s)^3 = 27s^4</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p>4. Expression de la solubilité :</p>
+<p><br/></p></rich-text><tex name='TeX3'>s^4 = \frac{K_S}{27}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p><strong>Solubilité :</strong></p>
+<p><br/></p></rich-text><tex name='TeX4'>\boxed{s = \left(\frac{K_S}{27}\right)^{1/4}}</tex></card><card><rich-text name='Front'><p>Qu'est-ce qu'un acide fort dans l'eau ? Donner un exemple. Quel est le comportement de la base conjuguée dans l'eau ?</p></rich-text><rich-text name='Back'><p><strong>Définition :</strong></p><p>Un acide fort est un acide dont la réaction avec l'eau est <strong>totale</strong>. Il se dissocie complètement dans l'eau.</p><p><br/></p></rich-text><tex name='Formula'>AH + H_2O \longrightarrow A^- + H_3O^+</tex><rich-text name='Texte enrichi'><p><strong>Exemple :</strong></p>
+<p>• Acide chlorhydrique HCl</p>
+<p>• Acide nitrique HNO₃</p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Comportement de la base conjuguée :</strong></p><p>La base conjuguée A⁻ d'un acide fort est une <strong>base indifférente</strong> dans l'eau.</p><p>Elle ne réagit pas avec l'eau (réaction négligeable) :</p><p><br/></p></rich-text><tex name='TeX5'>A^- + H_2O \rightleftharpoons AH + HO^- \quad \text{(réaction négligeable)}</tex><rich-text name='Texte enrichi3'><p><strong>Critère :</strong></p>
+<p>Un acide est fort dans l'eau si pKA &lt; 0.</p>
+<p>Exemples de pKA :</p>
+<p>• HCl : pKA ≈ -6</p>
+<p>• HNO₃ : pKA ≈ -1,3</p></rich-text></card><card><rich-text name='Front'><p>Pour deux couples Ox/Red avec potentiels standards E°₁ et E°₂ :</p><p>- Écrire l'équation de réaction entre meilleur oxydant et meilleur réducteur</p><p>- Exprimer la constante d'équilibre en fonction des E°</p><p>Exemple : MnO₄⁻/Mn²⁺ (E°₁ = 1,51 V) et Fe³⁺/Fe²⁺ (E°₂ = 0,77 V)</p></rich-text><rich-text name='Back'><p><br/></p>
+<p><strong>Identification :</strong></p>
+<p>E°₁ &gt; E°₂ donc :</p>
+<p>• Meilleur oxydant : MnO₄⁻ (couple de E° le plus élevé)</p>
+<p>• Meilleur réducteur : Fe²⁺ (couple de E° le plus faible)</p>
+<p><br/></p></rich-text><tex name='Formula'></tex><rich-text name='Texte enrichi'><p><strong>Demi-équations :</strong></p><p><br/></p></rich-text><tex name='TeX2'>MnO_4^- + 8H^+ + 5e^- \longrightarrow Mn^{2+} + 4H_2O \\ Fe^{3+} + e^- \longrightarrow Fe^{2+}</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p><strong>Équation de réaction :</strong></p>
+<p>Multiplier la 2ᵉ par 5 et combiner :</p>
+<p><br/></p></rich-text><tex name='TeX5'>\boxed{MnO_4^- + 5Fe^{2+} + 8H^+ \longrightarrow Mn^{2+} + 5Fe^{3+} + 4H_2O}</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p><strong>Constante d'équilibre :</strong></p>
+<p>Loi de Nernst à l'équilibre :</p>
+<p><br/></p></rich-text><tex name='TeX3'>E_1^\circ - E_2^\circ = \frac{RT}{nF}\ln K</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p>Avec n = 5 électrons échangés :</p>
+<p><br/></p>
+<p>Application numérique (à 25°C) :</p>
+<p><br/></p></rich-text><tex name='TeX4'>\boxed{\log K = \frac{n(E_1^\circ - E_2^\circ)}{0{,}06} = \frac{5(1{,}51 - 0{,}77)}{0{,}06} \approx 62} \\ \\ K \approx 10^{62}</tex></card><card><rich-text name='Front'><p>Couple Mn(OH)₃(s) / Mn²⁺ : déterminer les n.o. et la pente de la frontière dans un diagramme E-pH.</p></rich-text><rich-text name='Back'><p><strong>Nombres d'oxydation :</strong></p>
+<p>1. Mn(OH)₃ :</p>
+<p>n.o.(O) = -2, n.o.(H) = +I</p>
+<p>Somme : n.o.(Mn) + 3×[(+1) + (-2)] = 0</p>
+<p><br/></p></rich-text><tex name='Formula'>\boxed{\text{n.o.}(Mn) = +3 \text{ dans } Mn(OH)_3}</tex><rich-text name='Texte enrichi'><p><br/></p>
+<p>2. Mn²⁺ :</p>
+<p><br/></p></rich-text><tex name='TeX2'>\boxed{\text{n.o.}(Mn) = +2 \text{ dans } Mn^{2+}}</tex><rich-text name='Texte enrichi2'><p><br/></p>
+<p><strong>Demi-équation électronique :</strong></p>
+<p>Réduction : Mn(III) → Mn(II), donc 1 électron échangé</p>
+<p><br/></p></rich-text><tex name='TeX5'>Mn(OH)_{3(s)} + e^- + 3H^+ \rightleftharpoons Mn^{2+} + 3H_2O</tex><rich-text name='Texte enrichi3'><p><br/></p>
+<p><strong>Pente de la frontière :</strong></p>
+<p>Nombre d'électrons : n = 1</p>
+<p>Nombre de protons : p = 3</p>
+<p><br/></p></rich-text><tex name='TeX3'>\frac{dE}{dpH} = -\frac{0{,}06 \times p}{n} = -\frac{0{,}06 \times 3}{1}</tex><rich-text name='Texte enrichi4'><p><br/></p>
+<p><strong>Résultat :</strong></p>
+<p><br/></p></rich-text><tex name='TeX4'>\boxed{\frac{dE}{dpH} = -0{,}18 \text{ V}}</tex></card></cards></deck>
