@@ -1,4 +1,4 @@
-// Single-file app implementing requested functions.
+﻿// Single-file app implementing requested functions.
   try{ window.__fabanki_booted = true; }catch(e){}
 
   // ============================================
@@ -248,13 +248,149 @@
 
   // ========== I18N TRANSLATION SYSTEM ==========
   const _i18n = {
-    fr: { browseDecks: 'Parcourir decks', market: 'Marché', profile: 'Profil', syncProgress: 'Synchroniser mes progrès', home: 'Accueil', histogram: 'Histogramme', showAnswer: 'Afficher la réponse', fail: 'Raté', hard: 'Difficile', good: 'Bon', easy: 'Facile', skip: 'Passer', dueCards: 'Cartes prêtes :', reviewed: 'Révisées', browseDecksTitle: 'Parcourir les decks (./decks/)', refresh: 'Rafraîchir', close: 'Fermer', statusMsg: "Fournissez l'URL d'un deck via le paramètre", progressInfo: 'Révisées : 0 / 0', requestMod: 'Demander une modification de cette carte', modeAnki: 'Mode Anki', fillblank: 'Texte à trou', timer: 'Rappel sous pression', activeMemory: 'Mémoire active', step: 'Étape par étape', reverse: 'Revers', random: 'Aléatoire', hold: 'Maintien', multiple: 'Multiple', calcul: 'Calcul', associer: 'Associer', rush: 'Rush', original: 'Original', streakDays: 'jours', totalReviewed: 'Cartes lues', todayReviewed: "Aujourd'hui", xp: 'XP', streak: 'Série', level: 'Niveau', credits: 'Crédits', newCard: 'Nouveau', dueNow: 'Maintenant', dueTomorrow: 'Demain', dueFar: 'Longtemps', toDo: 'à faire', chooseADeck: 'Choisissez un deck pour commencer', start: 'Commencer', open: 'Ouvrir', back: 'Retour', reviewAll: 'Réviser tous les decks du dossier', recap: 'Récapitulatif', cardsReviewed: 'Cartes révisées', totalTime: 'Temps total', avgTime: 'Temps moyen / carte', accuracy: 'Précision', grade: 'Note', noCards: 'Aucune carte à réviser maintenant', locked: 'Verrouillé', buy: 'Acheter pour', subtitle: 'Flashcards (sans compte)', daily: 'Quotidienne', weekly: 'Hebdomadaire', missions: 'Missions', deckCards: 'cartes', clickToChoose: 'Cliquer ici pour choisir un deck', seeAnswer: 'Voir la réponse', nextCard: 'Prochaine carte', correct: 'Corriger', deckNotFound: 'Deck introuvable', deckNotFoundMsg: 'Ce deck est introuvable. Vérifiez le chemin ou rechargez la liste.', cannotLoadDeck: 'Impossible de charger le deck', deckFileError: 'Le fichier de deck n\'a pas pu être chargé.', retry: 'Réessayer', noCardsToReviewNow: 'Aucune carte à réviser maintenant', noCardsToReview: 'Aucune carte à réviser', multiDeckReview: 'Révision Multi-Deck', cannotLoadDecks: 'Impossible de charger les decks', errorDefault: 'Erreur', errorOccurred: 'Une erreur est survenue.', browseDecksBtn: 'Parcourir decks', homeReturn: 'Retour accueil', unexpectedError: 'Erreur inattendue', errorDuringExec: 'Une erreur est survenue pendant l\'exécution.', jsError: 'Erreur JavaScript', promiseRejected: 'Promesse rejetée', promiseError: 'Erreur Promise', operationFailed: 'Une opération a échoué.', pageNotFound: 'Page introuvable', pageNotFoundMsg: 'Le contenu demandé n\'existe pas ou a été déplacé.', downloadingDeck: 'Téléchargement du deck...', xmlInvalidPermissive: 'XML invalide – tentative décodage permissif (HTML)', deckLoaded: 'Deck chargé – prêt pour révision', errorLoadingDeck: 'Erreur chargement deck: ', multiDeckLoaded: 'Multi-Deck chargé – prêt pour révision', errorLoadingMultiDeck: 'Erreur chargement multi-deck: ', reviewDoneToday: 'Révision terminée pour aujourd\'hui', noCardsToday: 'Aucune carte à réviser aujourd\'hui', selectXmlFile: 'Sélectionnez un fichier XML à charger...', xmlInvalidLocal: 'XML invalide – utilisation décodage permissif pour le fichier local', deckLoadedLocal: 'Deck chargé depuis fichier local', errorReadingLocal: 'Erreur lecture du fichier local', welcomeStatus: "Bienvenue sur Fab'Anki", searchingCards: 'Recherche des cartes à réviser maintenant...', analyzingDecks: 'Analyse des decks...', errorShowNextCard: 'Erreur: fonction showNextCard introuvable', noCardsDue: 'Aucune carte à réviser maintenant', deckIncompatible: 'Deck incompatible', modeLocked: 'Mode bloqué', questReward: 'Récompense de quête', openBrowser: 'Ouvrir dans le navigateur', confirmBtn: 'Confirmer', backBtn: 'Retour', resetBtn: 'Réinitialiser', targetRetention: 'Rétention ciblée (FSRS)', cards: 'Cartes', timerSettings: 'Temps de révision', timerDesc: 'Définissez le temps maximum pour voir chaque côté de la carte :', frontTime: 'Temps pour la face (secondes) :', backTime: 'Temps pour le revers (secondes) :', rushSettings: 'Paramètres Rush', rushDesc: 'Configurez la difficulté. Les temps diminuent au fur et à mesure que vous répondez correctement !', rushHardest: 'Temps le plus rapide - Face (secondes) :', rushEasiest: 'Temps le plus lent - Face (secondes) :', rushDiff: 'Difficulté (cartes à réussir) :', pseudo: 'Pseudo', editPseudo: 'Modifier', cardsRead: 'Cartes lues', languageSelector: 'Langue / Language', french: '🇫🇷 Français', english: '🇬🇧 English', darkMode: 'Mode sombre', selectTitle: 'Titre sélectionné', noTitle: '(Aucun titre)', noTitlesUnlocked: 'Aucun titre déverrouillé pour le moment.', unlockedTitles: 'Titres déverrouillés', themeBox: 'Mode sombre', marketTitle: 'Marché', seasonalOffer: 'Offre saisonnière', newMode: 'NOUVEAU MODE', challengeMode: 'MODE DÉFI', profileTitle: 'Profil', save: 'Enregistrer', cancel: 'Annuler', todayReviewedFull: "Cartes lues aujourd'hui", nextLevelIn: 'Prochain niveau dans', xpLabel: 'XP', leaderboard: 'Classement', titles: 'Titres', mpsiScoreMonthly: 'Score MPSI mensuel', consecutiveDays: 'Jours consécutifs' },
-    en: { browseDecks: 'Browse decks', market: 'Market', profile: 'Profile', syncProgress: 'Sync my progress', home: 'Home', histogram: 'Histogram', showAnswer: 'Show answer', fail: 'Again', hard: 'Hard', good: 'Good', easy: 'Easy', skip: 'Skip', dueCards: 'Cards due:', reviewed: 'Reviewed', browseDecksTitle: 'Browse decks (./decks/)', refresh: 'Refresh', close: 'Close', statusMsg: 'Provide a deck URL via the parameter', progressInfo: 'Reviewed: 0 / 0', requestMod: 'Request a modification for this card', modeAnki: 'Anki Mode', fillblank: 'Fill in the blank', timer: 'Timed recall', activeMemory: 'Active memory', step: 'Step by step', reverse: 'Reverse', random: 'Random', hold: 'Hold', multiple: 'Multiple', calcul: 'Calculation', associer: 'Match', rush: 'Rush', original: 'Original', streakDays: 'days', totalReviewed: 'Cards read', todayReviewed: 'Today', xp: 'XP', streak: 'Streak', level: 'Level', credits: 'Credits', newCard: 'New', dueNow: 'Now', dueTomorrow: 'Tomorrow', dueFar: 'Long time', toDo: 'due', chooseADeck: 'Choose a deck to start', start: 'Start', open: 'Open', back: 'Back', reviewAll: 'Review all decks in folder', recap: 'Recap', cardsReviewed: 'Cards reviewed', totalTime: 'Total time', avgTime: 'Avg time / card', accuracy: 'Accuracy', grade: 'Grade', noCards: 'No cards to review now', locked: 'Locked', buy: 'Buy for', subtitle: 'Flashcards (no account)', daily: 'Daily', weekly: 'Weekly', missions: 'Missions', deckCards: 'cards', clickToChoose: 'Click here to choose a deck', seeAnswer: 'See the answer', nextCard: 'Next card', correct: 'Correct', deckNotFound: 'Deck not found', deckNotFoundMsg: 'This deck cannot be found.', cannotLoadDeck: 'Cannot load deck', deckFileError: 'The deck file could not be loaded.', retry: 'Retry', noCardsToReviewNow: 'No cards to review now', noCardsToReview: 'No cards to review', multiDeckReview: 'Multi-Deck Review', cannotLoadDecks: 'Cannot load decks', errorDefault: 'Error', errorOccurred: 'An error occurred.', browseDecksBtn: 'Browse decks', homeReturn: 'Back to home', unexpectedError: 'Unexpected error', errorDuringExec: 'An error occurred during execution.', jsError: 'JavaScript Error', promiseRejected: 'Promise rejected', promiseError: 'Promise Error', operationFailed: 'An operation failed.', pageNotFound: 'Page not found', pageNotFoundMsg: 'The requested content does not exist.', downloadingDeck: 'Downloading deck...', xmlInvalidPermissive: 'Invalid XML – trying permissive decoding', deckLoaded: 'Deck loaded – ready for review', errorLoadingDeck: 'Error loading deck: ', multiDeckLoaded: 'Multi-Deck loaded – ready for review', errorLoadingMultiDeck: 'Error loading multi-deck: ', reviewDoneToday: 'Review done for today', noCardsToday: 'No cards to review today', selectXmlFile: 'Select an XML file to load...', xmlInvalidLocal: 'Invalid XML – using permissive decoding', deckLoadedLocal: 'Deck loaded from local file', errorReadingLocal: 'Error reading local file', welcomeStatus: "Welcome to Fab'Anki", searchingCards: 'Searching for cards to review now...', analyzingDecks: 'Analyzing decks...', errorShowNextCard: 'Error: showNextCard function not found', noCardsDue: 'No cards to review now', deckIncompatible: 'Deck incompatible', modeLocked: 'Mode locked', questReward: 'Quest reward', openBrowser: 'Open in browser', confirmBtn: 'Confirm', backBtn: 'Back', resetBtn: 'Reset', targetRetention: 'Target retention (FSRS)', cards: 'Cards', timerSettings: 'Review time', timerDesc: 'Set the maximum time to view each side:', frontTime: 'Time for front (seconds):', backTime: 'Time for back (seconds):', rushSettings: 'Rush Settings', rushDesc: 'Configure difficulty.', rushHardest: 'Fastest time - Front (seconds):', rushEasiest: 'Slowest time - Front (seconds):', rushDiff: 'Difficulty (cards to succeed):', pseudo: 'Username', editPseudo: 'Edit', cardsRead: 'Cards read', languageSelector: 'Language', french: '🇫🇷 French', english: '🇬🇧 English', darkMode: 'Dark mode', selectTitle: 'Selected title', noTitle: '(No title)', noTitlesUnlocked: 'No titles unlocked yet.', unlockedTitles: 'Unlocked titles', themeBox: 'Dark mode', marketTitle: 'Market', seasonalOffer: 'Seasonal offer', newMode: 'NEW MODE', challengeMode: 'CHALLENGE MODE', profileTitle: 'Profile', save: 'Save', cancel: 'Cancel', todayReviewedFull: 'Cards read today', nextLevelIn: 'Next level in', xpLabel: 'XP', leaderboard: 'Leaderboard', titles: 'Titles', mpsiScoreMonthly: 'Monthly MPSI Score', consecutiveDays: 'Consecutive days' }
+    fr: { browseDecks: 'Parcourir decks', market: 'MarchÃ©', profile: 'Profil', syncProgress: 'Synchroniser mes progrÃ¨s', home: 'Accueil', histogram: 'Histogramme', showAnswer: 'Afficher la rÃ©ponse', fail: 'RatÃ©', hard: 'Difficile', good: 'Bon', easy: 'Facile', skip: 'Passer', dueCards: 'Cartes prÃªtes :', reviewed: 'RÃ©visÃ©es', browseDecksTitle: 'Parcourir les decks (./decks/)', refresh: 'RafraÃ®chir', close: 'Fermer', statusMsg: "Fournissez l'URL d'un deck via le paramÃ¨tre", progressInfo: 'RÃ©visÃ©es : 0 / 0', requestMod: 'Demander une modification de cette carte', modeAnki: 'Mode Anki', fillblank: 'Texte Ã  trou', timer: 'Rappel sous pression', activeMemory: 'MÃ©moire active', step: 'Ã‰tape par Ã©tape', reverse: 'Revers', random: 'AlÃ©atoire', hold: 'Maintien', multiple: 'Multiple', calcul: 'Calcul', associer: 'Associer', rush: 'Rush', original: 'Original', streakDays: 'jours', totalReviewed: 'Cartes lues', todayReviewed: "Aujourd'hui", xp: 'XP', streak: 'SÃ©rie', level: 'Niveau', credits: 'CrÃ©dits', newCard: 'Nouveau', dueNow: 'Maintenant', dueTomorrow: 'Demain', dueFar: 'Longtemps', toDo: 'Ã  faire', chooseADeck: 'Choisissez un deck pour commencer', start: 'Commencer', open: 'Ouvrir', back: 'Retour', reviewAll: 'RÃ©viser tous les decks du dossier', recap: 'RÃ©capitulatif', cardsReviewed: 'Cartes rÃ©visÃ©es', totalTime: 'Temps total', avgTime: 'Temps moyen / carte', accuracy: 'PrÃ©cision', grade: 'Note', noCards: 'Aucune carte Ã  rÃ©viser maintenant', locked: 'VerrouillÃ©', buy: 'Acheter pour', subtitle: 'Flashcards (sans compte)', daily: 'Quotidienne', weekly: 'Hebdomadaire', missions: 'Missions', deckCards: 'cartes', clickToChoose: 'Cliquer ici pour choisir un deck', seeAnswer: 'Voir la rÃ©ponse', nextCard: 'Prochaine carte', correct: 'Corriger', deckNotFound: 'Deck introuvable', deckNotFoundMsg: 'Ce deck est introuvable. VÃ©rifiez le chemin ou rechargez la liste.', cannotLoadDeck: 'Impossible de charger le deck', deckFileError: 'Le fichier de deck n\'a pas pu Ãªtre chargÃ©.', retry: 'RÃ©essayer', noCardsToReviewNow: 'Aucune carte Ã  rÃ©viser maintenant', noCardsToReview: 'Aucune carte Ã  rÃ©viser', multiDeckReview: 'RÃ©vision Multi-Deck', cannotLoadDecks: 'Impossible de charger les decks', errorDefault: 'Erreur', errorOccurred: 'Une erreur est survenue.', browseDecksBtn: 'Parcourir decks', homeReturn: 'Retour accueil', unexpectedError: 'Erreur inattendue', errorDuringExec: 'Une erreur est survenue pendant l\'exÃ©cution.', jsError: 'Erreur JavaScript', promiseRejected: 'Promesse rejetÃ©e', promiseError: 'Erreur Promise', operationFailed: 'Une opÃ©ration a Ã©chouÃ©.', pageNotFound: 'Page introuvable', pageNotFoundMsg: 'Le contenu demandÃ© n\'existe pas ou a Ã©tÃ© dÃ©placÃ©.', downloadingDeck: 'TÃ©lÃ©chargement du deck...', xmlInvalidPermissive: 'XML invalide â€“ tentative dÃ©codage permissif (HTML)', deckLoaded: 'Deck chargÃ© â€“ prÃªt pour rÃ©vision', errorLoadingDeck: 'Erreur chargement deck: ', multiDeckLoaded: 'Multi-Deck chargÃ© â€“ prÃªt pour rÃ©vision', errorLoadingMultiDeck: 'Erreur chargement multi-deck: ', reviewDoneToday: 'RÃ©vision terminÃ©e pour aujourd\'hui', noCardsToday: 'Aucune carte Ã  rÃ©viser aujourd\'hui', selectXmlFile: 'SÃ©lectionnez un fichier XML Ã  charger...', xmlInvalidLocal: 'XML invalide â€“ utilisation dÃ©codage permissif pour le fichier local', deckLoadedLocal: 'Deck chargÃ© depuis fichier local', errorReadingLocal: 'Erreur lecture du fichier local', welcomeStatus: "Bienvenue sur Fab'Anki", searchingCards: 'Recherche des cartes Ã  rÃ©viser maintenant...', analyzingDecks: 'Analyse des decks...', errorShowNextCard: 'Erreur: fonction showNextCard introuvable', noCardsDue: 'Aucune carte Ã  rÃ©viser maintenant', deckIncompatible: 'Deck incompatible', modeLocked: 'Mode bloquÃ©', questReward: 'RÃ©compense de quÃªte', openBrowser: 'Ouvrir dans le navigateur', confirmBtn: 'Confirmer', backBtn: 'Retour', resetBtn: 'RÃ©initialiser', targetRetention: 'RÃ©tention ciblÃ©e (FSRS)', cards: 'Cartes', timerSettings: 'Temps de rÃ©vision', timerDesc: 'DÃ©finissez le temps maximum pour voir chaque cÃ´tÃ© de la carte :', frontTime: 'Temps pour la face (secondes) :', backTime: 'Temps pour le revers (secondes) :', rushSettings: 'ParamÃ¨tres Rush', rushDesc: 'Configurez la difficultÃ©. Les temps diminuent au fur et Ã  mesure que vous rÃ©pondez correctement !', rushHardest: 'Temps le plus rapide - Face (secondes) :', rushEasiest: 'Temps le plus lent - Face (secondes) :', rushDiff: 'DifficultÃ© (cartes Ã  rÃ©ussir) :', pseudo: 'Pseudo', editPseudo: 'Modifier', cardsRead: 'Cartes lues', languageSelector: 'Langue / Language', french: 'ðŸ‡«ðŸ‡· FranÃ§ais', english: 'ðŸ‡¬ðŸ‡§ English', darkMode: 'Mode sombre', selectTitle: 'Titre sÃ©lectionnÃ©', noTitle: '(Aucun titre)', noTitlesUnlocked: 'Aucun titre dÃ©verrouillÃ© pour le moment.', unlockedTitles: 'Titres dÃ©verrouillÃ©s', themeBox: 'Mode sombre', marketTitle: 'MarchÃ©', seasonalOffer: 'Offre saisonniÃ¨re', newMode: 'NOUVEAU MODE', challengeMode: 'MODE DÃ‰FI', profileTitle: 'Profil', save: 'Enregistrer', cancel: 'Annuler', todayReviewedFull: "Cartes lues aujourd'hui", nextLevelIn: 'Prochain niveau dans', xpLabel: 'XP', leaderboard: 'Classement', titles: 'Titres', mpsiScoreMonthly: 'Score MPSI mensuel', consecutiveDays: 'Jours consÃ©cutifs' },
+    en: { browseDecks: 'Browse decks', market: 'Market', profile: 'Profile', syncProgress: 'Sync my progress', home: 'Home', histogram: 'Histogram', showAnswer: 'Show answer', fail: 'Again', hard: 'Hard', good: 'Good', easy: 'Easy', skip: 'Skip', dueCards: 'Cards due:', reviewed: 'Reviewed', browseDecksTitle: 'Browse decks (./decks/)', refresh: 'Refresh', close: 'Close', statusMsg: 'Provide a deck URL via the parameter', progressInfo: 'Reviewed: 0 / 0', requestMod: 'Request a modification for this card', modeAnki: 'Anki Mode', fillblank: 'Fill in the blank', timer: 'Timed recall', activeMemory: 'Active memory', step: 'Step by step', reverse: 'Reverse', random: 'Random', hold: 'Hold', multiple: 'Multiple', calcul: 'Calculation', associer: 'Match', rush: 'Rush', original: 'Original', streakDays: 'days', totalReviewed: 'Cards read', todayReviewed: 'Today', xp: 'XP', streak: 'Streak', level: 'Level', credits: 'Credits', newCard: 'New', dueNow: 'Now', dueTomorrow: 'Tomorrow', dueFar: 'Long time', toDo: 'due', chooseADeck: 'Choose a deck to start', start: 'Start', open: 'Open', back: 'Back', reviewAll: 'Review all decks in folder', recap: 'Recap', cardsReviewed: 'Cards reviewed', totalTime: 'Total time', avgTime: 'Avg time / card', accuracy: 'Accuracy', grade: 'Grade', noCards: 'No cards to review now', locked: 'Locked', buy: 'Buy for', subtitle: 'Flashcards (no account)', daily: 'Daily', weekly: 'Weekly', missions: 'Missions', deckCards: 'cards', clickToChoose: 'Click here to choose a deck', seeAnswer: 'See the answer', nextCard: 'Next card', correct: 'Correct', deckNotFound: 'Deck not found', deckNotFoundMsg: 'This deck cannot be found.', cannotLoadDeck: 'Cannot load deck', deckFileError: 'The deck file could not be loaded.', retry: 'Retry', noCardsToReviewNow: 'No cards to review now', noCardsToReview: 'No cards to review', multiDeckReview: 'Multi-Deck Review', cannotLoadDecks: 'Cannot load decks', errorDefault: 'Error', errorOccurred: 'An error occurred.', browseDecksBtn: 'Browse decks', homeReturn: 'Back to home', unexpectedError: 'Unexpected error', errorDuringExec: 'An error occurred during execution.', jsError: 'JavaScript Error', promiseRejected: 'Promise rejected', promiseError: 'Promise Error', operationFailed: 'An operation failed.', pageNotFound: 'Page not found', pageNotFoundMsg: 'The requested content does not exist.', downloadingDeck: 'Downloading deck...', xmlInvalidPermissive: 'Invalid XML â€“ trying permissive decoding', deckLoaded: 'Deck loaded â€“ ready for review', errorLoadingDeck: 'Error loading deck: ', multiDeckLoaded: 'Multi-Deck loaded â€“ ready for review', errorLoadingMultiDeck: 'Error loading multi-deck: ', reviewDoneToday: 'Review done for today', noCardsToday: 'No cards to review today', selectXmlFile: 'Select an XML file to load...', xmlInvalidLocal: 'Invalid XML â€“ using permissive decoding', deckLoadedLocal: 'Deck loaded from local file', errorReadingLocal: 'Error reading local file', welcomeStatus: "Welcome to Fab'Anki", searchingCards: 'Searching for cards to review now...', analyzingDecks: 'Analyzing decks...', errorShowNextCard: 'Error: showNextCard function not found', noCardsDue: 'No cards to review now', deckIncompatible: 'Deck incompatible', modeLocked: 'Mode locked', questReward: 'Quest reward', openBrowser: 'Open in browser', confirmBtn: 'Confirm', backBtn: 'Back', resetBtn: 'Reset', targetRetention: 'Target retention (FSRS)', cards: 'Cards', timerSettings: 'Review time', timerDesc: 'Set the maximum time to view each side:', frontTime: 'Time for front (seconds):', backTime: 'Time for back (seconds):', rushSettings: 'Rush Settings', rushDesc: 'Configure difficulty.', rushHardest: 'Fastest time - Front (seconds):', rushEasiest: 'Slowest time - Front (seconds):', rushDiff: 'Difficulty (cards to succeed):', pseudo: 'Username', editPseudo: 'Edit', cardsRead: 'Cards read', languageSelector: 'Language', french: 'ðŸ‡«ðŸ‡· French', english: 'ðŸ‡¬ðŸ‡§ English', darkMode: 'Dark mode', selectTitle: 'Selected title', noTitle: '(No title)', noTitlesUnlocked: 'No titles unlocked yet.', unlockedTitles: 'Unlocked titles', themeBox: 'Dark mode', marketTitle: 'Market', seasonalOffer: 'Seasonal offer', newMode: 'NEW MODE', challengeMode: 'CHALLENGE MODE', profileTitle: 'Profile', save: 'Save', cancel: 'Cancel', todayReviewedFull: 'Cards read today', nextLevelIn: 'Next level in', xpLabel: 'XP', leaderboard: 'Leaderboard', titles: 'Titles', mpsiScoreMonthly: 'Monthly MPSI Score', consecutiveDays: 'Consecutive days' }
   };
+
+  function fixMojibakeText(value){
+    try{
+      let str = String(value == null ? '' : value);
+      const suspect = /[ÃÂâðŸ�ï�]/;
+      if(!suspect.test(str)) return str;
+
+      const cp1252Map = {
+        0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84,
+        0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02C6: 0x88,
+        0x2030: 0x89, 0x0160: 0x8A, 0x2039: 0x8B, 0x0152: 0x8C,
+        0x017D: 0x8E, 0x2018: 0x91, 0x2019: 0x92, 0x201C: 0x93,
+        0x201D: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97,
+        0x02DC: 0x98, 0x2122: 0x99, 0x0161: 0x9A, 0x203A: 0x9B,
+        0x0153: 0x9C, 0x017E: 0x9E, 0x0178: 0x9F
+      };
+
+      const toCp1252Bytes = (input) => {
+        const out = new Uint8Array(input.length);
+        for(let i = 0; i < input.length; i++){
+          const code = input.charCodeAt(i);
+          if(code <= 0xFF){
+            out[i] = code;
+          }else if(Object.prototype.hasOwnProperty.call(cp1252Map, code)){
+            out[i] = cp1252Map[code];
+          }else{
+            // Keep a harmless placeholder byte for unknown symbols.
+            out[i] = 0x3F;
+          }
+        }
+        return out;
+      };
+
+      // Some strings are double-encoded; decode up to a few passes.
+      for(let i = 0; i < 3; i++){
+        if(!suspect.test(str)) break;
+        const bytes = toCp1252Bytes(str);
+        const decoded = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+        if(!decoded || decoded === str) break;
+        str = decoded;
+      }
+      return str;
+    }catch(e){
+      return String(value == null ? '' : value);
+    }
+  }
+
+  function normalizeDomMojibake(rootNode){
+    try{
+      const root = rootNode || document.body;
+      if(!root) return;
+
+      const normalizeElementAttrs = (el) => {
+        if(!el || el.nodeType !== 1) return;
+        const attrs = ['title', 'placeholder', 'aria-label', 'data-label-text', 'data-label-emoji'];
+        for(const attr of attrs){
+          const raw = el.getAttribute(attr);
+          if(raw == null) continue;
+          const fixed = fixMojibakeText(raw);
+          if(fixed !== raw) el.setAttribute(attr, fixed);
+        }
+      };
+
+      if(root.nodeType === 3){
+        const fixed = fixMojibakeText(root.nodeValue);
+        if(fixed !== root.nodeValue) root.nodeValue = fixed;
+        return;
+      }
+
+      normalizeElementAttrs(root);
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null);
+      let node = walker.currentNode;
+      while(node){
+        if(node.nodeType === 3){
+          const fixed = fixMojibakeText(node.nodeValue);
+          if(fixed !== node.nodeValue) node.nodeValue = fixed;
+        }else if(node.nodeType === 1){
+          normalizeElementAttrs(node);
+        }
+        node = walker.nextNode();
+      }
+    }catch(e){}
+  }
+
+  function installMojibakeDomObserver(){
+    try{
+      if(window.__fabankiMojibakeObserverInstalled) return;
+      window.__fabankiMojibakeObserverInstalled = true;
+
+      const run = () => normalizeDomMojibake(document.body);
+      if(document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', run, { once: true });
+      }else{
+        run();
+      }
+
+      const observer = new MutationObserver((mutations) => {
+        for(const mutation of mutations){
+          if(mutation.type === 'characterData'){
+            normalizeDomMojibake(mutation.target);
+            continue;
+          }
+          if(mutation.type === 'attributes'){
+            normalizeDomMojibake(mutation.target);
+            continue;
+          }
+          for(const node of mutation.addedNodes || []){
+            normalizeDomMojibake(node);
+          }
+        }
+      });
+
+      observer.observe(document.documentElement || document.body, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['title', 'placeholder', 'aria-label', 'data-label-text', 'data-label-emoji']
+      });
+      window.__fabankiMojibakeObserver = observer;
+    }catch(e){}
+  }
+
+  function normalizeI18nStrings(){
+    try{
+      for(const lang of Object.keys(_i18n || {})){
+        const dict = _i18n[lang] || {};
+        for(const key of Object.keys(dict)){
+          if(typeof dict[key] === 'string') dict[key] = fixMojibakeText(dict[key]);
+        }
+      }
+    }catch(e){}
+  }
+  normalizeI18nStrings();
+  installMojibakeDomObserver();
 
   function t(key) {
     const lang = localStorage.getItem('fabanki:lang') || 'fr';
-    return (_i18n[lang] && _i18n[lang][key]) || (_i18n.fr && _i18n.fr[key]) || key;
+    const raw = (_i18n[lang] && _i18n[lang][key]) || (_i18n.fr && _i18n.fr[key]) || key;
+    return fixMojibakeText(raw);
   }
 
   function getRetentionCoefficient(mode){
@@ -273,6 +409,58 @@
       rush: 1.1
     };
     return map[mode] || 1;
+  }
+
+  function hideBootSplash(){
+    try{
+      const splash = document.getElementById('bootSplash');
+      if(!splash) return;
+      splash.classList.add('is-hidden');
+      splash.setAttribute('aria-hidden', 'true');
+      setTimeout(() => {
+        try{ splash.remove(); }catch(e){}
+      }, 280);
+    }catch(e){}
+  }
+
+  function showDeckLoading(active, message){
+    try{
+      const existing = document.getElementById('deckLoadingOverlay');
+      if(!active){
+        if(existing) existing.remove();
+        return;
+      }
+      if(existing){
+        const msg = existing.querySelector('.deck-loading__message');
+        if(msg) msg.textContent = message || t('downloadingDeck');
+        return;
+      }
+
+      const overlay = document.createElement('div');
+      overlay.id = 'deckLoadingOverlay';
+      overlay.className = 'deck-loading-overlay';
+
+      const card = document.createElement('div');
+      card.className = 'deck-loading-card';
+
+      const spinner = document.createElement('div');
+      spinner.className = 'deck-loading-spinner';
+
+      const title = document.createElement('div');
+      title.className = 'deck-loading__title';
+      title.textContent = 'Chargement du deck';
+
+      const msg = document.createElement('div');
+      msg.className = 'deck-loading__message';
+      msg.textContent = message || t('downloadingDeck');
+
+      card.appendChild(spinner);
+      card.appendChild(title);
+      card.appendChild(msg);
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+      hideBootSplash();
+    }catch(e){}
   }
 
   function isFsrsDisabledForDeck(){
@@ -544,7 +732,7 @@
       box.style.textAlign = 'center';
       box.innerHTML = `
         <div style="font-weight:700;margin-bottom:8px;">Ouvrir dans votre navigateur</div>
-        <div style="color:#666;margin-bottom:14px;">Cette page ne fonctionne pas dans le navigateur intégré de l'application.</div>
+        <div style="color:#666;margin-bottom:14px;">Cette page ne fonctionne pas dans le navigateur intÃ©grÃ© de l'application.</div>
       `;
       const btn = document.createElement('a');
       btn.href = url; btn.target = '_blank'; btn.rel = 'noopener noreferrer';
@@ -578,9 +766,10 @@
       elementsToTranslate.forEach(({ id, key }) => {
         const el = document.getElementById(id);
         if (el && tr[key]) {
-          el.textContent = tr[key];
+          const safeLabel = fixMojibakeText(tr[key]);
+          el.textContent = safeLabel;
           if (el.setAttribute) {
-            el.setAttribute('data-label-text', tr[key]);
+            el.setAttribute('data-label-text', safeLabel);
           }
         }
       });
@@ -827,28 +1016,28 @@
     modesContainer.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;';
 
     const modeIcons = {
-      'default': '📚',
-      'fillblank': '✍️',
-      'timer': '⏱️',
-      'activeMemory': '🧠',
-      'step': '🪜',
-      'reverse': '🔁',
-      'random': '🎲',
-      'hold': '✋',
-      'multiple': '🧩',
-      'calcul': '∫',
-      'associer': '🔗',
-      'rush': '🚀'
+      'default': 'ðŸ“š',
+      'fillblank': 'âœï¸',
+      'timer': 'â±ï¸',
+      'activeMemory': 'ðŸ§ ',
+      'step': 'ðŸªœ',
+      'reverse': 'ðŸ”',
+      'random': 'ðŸŽ²',
+      'hold': 'âœ‹',
+      'multiple': 'ðŸ§©',
+      'calcul': 'âˆ«',
+      'associer': 'ðŸ”—',
+      'rush': 'ðŸš€'
     };
 
     const modeFullNames = {
       'default': 'Mode Anki',
-      'fillblank': 'Texte à trou',
+      'fillblank': 'Texte Ã  trou',
       'timer': 'Rappel sous pression',
-      'activeMemory': 'Mémoire active',
-      'step': 'Étape par étape',
+      'activeMemory': 'MÃ©moire active',
+      'step': 'Ã‰tape par Ã©tape',
       'reverse': 'Revers',
-      'random': 'Aléatoire',
+      'random': 'AlÃ©atoire',
       'hold': 'Maintient',
       'multiple': 'Multiple',
       'calcul': 'Calcul',
@@ -862,7 +1051,7 @@
 
       const icon = document.createElement('div');
       icon.style.cssText = 'font-size:1.5em;';
-      icon.textContent = modeIcons[mode.id] || '🎯';
+      icon.textContent = modeIcons[mode.id] || 'ðŸŽ¯';
       btn.appendChild(icon);
 
       const text = document.createElement('div');
@@ -986,10 +1175,10 @@
       if(hasTextMode && isTextModeUnlocked) modes.push({id: 'fillblank', name: 'Texte', unlocked: true});
       if(hasTimerMode && isTimerModeUnlocked) modes.push({id: 'timer', name: 'Rappel', unlocked: true});
       if(hasTimerMode) modes.push({id: 'rush', name: 'Rush', unlocked: true}); // UNLOCKED FOR DEBUGGING
-      if(hasActiveMemory) modes.push({id: 'activeMemory', name: 'Mémoire', unlocked: true});
-      if(isStepModeUnlocked && stepModeCompatible) modes.push({id: 'step', name: 'Étapes', unlocked: true});
+      if(hasActiveMemory) modes.push({id: 'activeMemory', name: 'MÃ©moire', unlocked: true});
+      if(isStepModeUnlocked && stepModeCompatible) modes.push({id: 'step', name: 'Ã‰tapes', unlocked: true});
       if(reverseModeCompatible && reverseUnlocked) modes.push({id: 'reverse', name: 'Revers', unlocked: true});
-      if(randomModeCompatible && randomUnlocked) modes.push({id: 'random', name: 'Aléatoire', unlocked: true});
+      if(randomModeCompatible && randomUnlocked) modes.push({id: 'random', name: 'AlÃ©atoire', unlocked: true});
       if(holdModeCompatible && isHoldModeUnlocked) modes.push({id: 'hold', name: 'Maintient', unlocked: true});
       if(multipleModeCompatible && isMultipleModeUnlocked) modes.push({id: 'multiple', name: 'Multiple', unlocked: true});
       if(deckHasCalculTag && isCalculModeUnlocked) modes.push({id: 'calcul', name: 'Calcul', unlocked: true});
@@ -1024,7 +1213,8 @@
 
   // === Function: loadDeckFromURL ===
   async function loadDeckFromURL(url){
-    updateStatus('Téléchargement du deck...');
+    showDeckLoading(true, t('downloadingDeck'));
+    updateStatus('TÃ©lÃ©chargement du deck...');
     try{ clearErrorScreen(); }catch(e){}
     try{
       // Make sure we're not in multi-deck mode
@@ -1064,13 +1254,14 @@
       if(parsererror){
         // Fallback: some exported decks contain unescaped '<' inside TeX fields
         // which makes the file not well-formed XML. Try lenient HTML parsing.
-        updateStatus('XML invalide — tentative décodage permissif (HTML)');
+        updateStatus('XML invalide â€” tentative dÃ©codage permissif (HTML)');
         xml = parser.parseFromString(text,'text/html');
         parsererror = null;
       }
       parseXMLDeck(xml, url);
       initFSRS();
-      updateStatus('Deck chargé — prêt pour révision');
+      updateStatus('Deck chargÃ© â€” prÃªt pour rÃ©vision');
+      hideBootSplash();
     }catch(err){
       console.error(err);
       const errMsg = err && err.message ? err.message : 'Erreur inconnue';
@@ -1083,6 +1274,8 @@
         actionLabel: 'Reessayer',
         onAction: () => loadDeckFromURL(url)
       });
+    }finally{
+      showDeckLoading(false);
     }
   }
 
@@ -1288,7 +1481,7 @@
       }
       
       if(multiDeckCards.length === 0){
-        updateStatus(onlyNow ? 'Aucune carte à réviser maintenant' : 'Aucune carte à réviser');
+        updateStatus(onlyNow ? 'Aucune carte Ã  rÃ©viser maintenant' : 'Aucune carte Ã  rÃ©viser');
         renderEmpty();
         return;
       }
@@ -1299,7 +1492,7 @@
       });
       
       // Set up pseudo-deck for display
-      deck = {title: 'Révision Multi-Deck', cards: multiDeckCards.map(x => x.card)};
+      deck = {title: 'RÃ©vision Multi-Deck', cards: multiDeckCards.map(x => x.card)};
       deckKey = 'multideck';
       dueCards = multiDeckCards;
       sessionTotal = dueCards.length;
@@ -1313,9 +1506,9 @@
       
       // Ensure progress info element is visible and initialized
       const progressInfo = document.getElementById('progressInfo');
-      if(progressInfo) { progressInfo.textContent = `Revisées : 0 / ${sessionTotal}`; progressInfo.style.display = 'block'; }
+      if(progressInfo) { progressInfo.textContent = `RevisÃ©es : 0 / ${sessionTotal}`; progressInfo.style.display = 'block'; }
       
-      updateStatus('Multi-Deck chargé — prêt pour révision');
+      updateStatus('Multi-Deck chargÃ© â€” prÃªt pour rÃ©vision');
       showNextCard();
       updateProgressDisplay();
       // Update histogram for the first deck in multi-deck mode
@@ -1530,13 +1723,13 @@
       }
     }
 
-    if(deck.cards.length===0) throw new Error('Aucune carte détectée dans le fichier XML');
+    if(deck.cards.length===0) throw new Error('Aucune carte dÃ©tectÃ©e dans le fichier XML');
 
     // Store total card count for deck mastery tracking
     try{ localStorage.setItem(`fabanki:deck_card_count:${deckKey}`, String(deck.cards.length)); }catch(e){}
 
     // Update UI
-    $('#deckInfo').textContent = `Deck: ${deck.title || 'non nommé'} — ${deck.cards.length} cartes`;
+    $('#deckInfo').textContent = `Deck: ${deck.title || 'non nommÃ©'} â€” ${deck.cards.length} cartes`;
   }
 
   // === Function: interpretSides ===
@@ -1818,7 +2011,7 @@
       buttonRow.style.cssText = 'display:flex;gap:8px;margin-bottom:12px;';
       
       const backBtn = document.createElement('button');
-      backBtn.textContent = '← Retour';
+      backBtn.textContent = 'â† Retour';
       backBtn.className = 'secondary';
       backBtn.style.cssText = 'flex:1;padding:8px;font-size:0.9em;';
       backBtn.addEventListener('click', async ()=>{
@@ -1848,15 +2041,15 @@
       buttonRow.appendChild(backBtn);
       
       const resetBtn = document.createElement('button');
-      resetBtn.textContent = '♻️ Réinitialiser';
+      resetBtn.textContent = 'â™»ï¸ RÃ©initialiser';
       resetBtn.className = 'secondary';
       resetBtn.style.cssText = 'flex:1;padding:8px;font-size:0.9em;';
       resetBtn.addEventListener('click', ()=>{
-        if(confirm('Supprimer toutes les données locales pour ce deck ?')){
-          if(!deckKey) { alert('Aucun deck chargé'); return }
+        if(confirm('Supprimer toutes les donnÃ©es locales pour ce deck ?')){
+          if(!deckKey) { alert('Aucun deck chargÃ©'); return }
           const prefix = `fabanki:${deckKey}:`;
           for(const k of Object.keys(localStorage)) if(k.startsWith(prefix)) localStorage.removeItem(k);
-          alert('Données locales supprimées');
+          alert('DonnÃ©es locales supprimÃ©es');
           // Reload the overview to show fresh stats
           showDeckOverview(url);
         }
@@ -1910,13 +2103,13 @@
       for(let i = 0; i < 3; i++) {
         const star = document.createElement('span');
         if(i < Math.floor(starCount)) {
-          star.textContent = '★';
+          star.textContent = 'â˜…';
           star.style.color = '#fbbf24'; // Gold
         } else if(i === Math.floor(starCount) && starCount % 1 !== 0) {
-          star.textContent = '✦'; // Half star
+          star.textContent = 'âœ¦'; // Half star
           star.style.color = '#fbbf24';
         } else {
-          star.textContent = '☆';
+          star.textContent = 'â˜†';
           star.style.color = '#d1d5db'; // Gray
         }
         star.style.fontSize = '1.5em';
@@ -1983,9 +2176,9 @@
       }
       
       stats.innerHTML = `
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Cartes révisées</span><strong>${reviewed}</strong></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Cartes rÃ©visÃ©es</span><strong>${reviewed}</strong></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Total</span><strong>${total}</strong></div>
-        <div style="display:flex;justify-content:space-between;"><span>Précision</span><strong>${accuracy}</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span>PrÃ©cision</span><strong>${accuracy}</strong></div>
       `;
       rightPanel.appendChild(stats);
 
@@ -1994,7 +2187,7 @@
       retentionBox.style.cssText = 'margin-bottom:16px;padding:12px;border-radius:10px;background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.12);';
       const retentionTitle = document.createElement('div');
       retentionTitle.style.cssText = 'font-weight:700;margin-bottom:8px;color:#1e293b;';
-      retentionTitle.textContent = 'Rétention ciblée (FSRS)';
+      retentionTitle.textContent = 'RÃ©tention ciblÃ©e (FSRS)';
       retentionBox.appendChild(retentionTitle);
 
       const retentionRow = document.createElement('div');
@@ -2024,10 +2217,10 @@
         slider.value = String(val);
         retentionValue.textContent = `${val}%`;
         const disabled = isFsrsDisabledForDeck();
-        disableBtn.textContent = disabled ? 'Activer FSRS' : 'Désactiver FSRS';
+        disableBtn.textContent = disabled ? 'Activer FSRS' : 'DÃ©sactiver FSRS';
         retentionHint.textContent = disabled
-          ? 'FSRS désactivé : affichage aléatoire, uniquement le nombre d\'affichages est compté.'
-          : 'Plus la valeur est haute, plus les révisions sont fréquentes. 99% est très exigeant.';
+          ? 'FSRS dÃ©sactivÃ© : affichage alÃ©atoire, uniquement le nombre d\'affichages est comptÃ©.'
+          : 'Plus la valeur est haute, plus les rÃ©visions sont frÃ©quentes. 99% est trÃ¨s exigeant.';
       };
       updateRetentionUi();
 
@@ -2108,29 +2301,29 @@
         modesContainer.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start;align-items:center;';
         
         const modeIcons = {
-          'default': '📚',
-          'fillblank': '✍️',
-          'timer': '⏱️',
-          'activeMemory': '🧠',
-          'step': '🪜',
-          'reverse': '🔁',
-          'random': '🎲',
-          'hold': '✋',
-          'multiple': '🧩',
-          'calcul': '∫',
-          'associer': '🔗',
-          'original': '🎯',
-          'rush': '🚀'
+          'default': 'ðŸ“š',
+          'fillblank': 'âœï¸',
+          'timer': 'â±ï¸',
+          'activeMemory': 'ðŸ§ ',
+          'step': 'ðŸªœ',
+          'reverse': 'ðŸ”',
+          'random': 'ðŸŽ²',
+          'hold': 'âœ‹',
+          'multiple': 'ðŸ§©',
+          'calcul': 'âˆ«',
+          'associer': 'ðŸ”—',
+          'original': 'ðŸŽ¯',
+          'rush': 'ðŸš€'
         };
         
         const modeFullNames = {
           'default': 'Mode Anki',
-          'fillblank': 'Texte à trou',
+          'fillblank': 'Texte Ã  trou',
           'timer': 'Rappel sous pression',
-          'activeMemory': 'Mémoire active',
-          'step': 'Étape par étape',
+          'activeMemory': 'MÃ©moire active',
+          'step': 'Ã‰tape par Ã©tape',
           'reverse': 'Revers',
-          'random': 'Aléatoire',
+          'random': 'AlÃ©atoire',
           'hold': 'Maintient',
           'multiple': 'Multiple',
           'calcul': 'Calcul',
@@ -2173,7 +2366,7 @@
         const multipleLocked = multipleLockedByDeck || multipleLockedByQuest;
         availableModes.push({
           id: 'fillblank',
-          name: 'Texte à trou',
+          name: 'Texte Ã  trou',
           locked: fillblankLocked,
           lockReason: fillblankLockedByDeck ? 'Deck incompatible' : 'Mode bloque'
         });
@@ -2184,10 +2377,10 @@
           lockReason: timerLockedByDeck ? 'Deck incompatible' : 'Mode bloque'
         });
         // REMOVED: activeMemory mode
-        availableModes.push({id: 'activeMemory', name: 'Mémoire active', locked: !isActiveMemoryUnlocked});
+        availableModes.push({id: 'activeMemory', name: 'MÃ©moire active', locked: !isActiveMemoryUnlocked});
         availableModes.push({
           id: 'step',
-          name: 'Étape par étape',
+          name: 'Ã‰tape par Ã©tape',
           locked: stepLocked,
           lockReason: stepLockedByDeck ? 'Deck incompatible' : 'Mode bloque'
         });
@@ -2195,25 +2388,25 @@
           id: 'reverse',
           name: 'Revers',
           locked: reverseLocked,
-          lockReason: reverseLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'
+          lockReason: reverseLockedByDeck ? 'Deck incompatible' : 'RÃ©compense de quÃªte'
         });
         availableModes.push({
           id: 'random',
-          name: 'Aléatoire',
+          name: 'AlÃ©atoire',
           locked: randomLocked,
-          lockReason: randomLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'
+          lockReason: randomLockedByDeck ? 'Deck incompatible' : 'RÃ©compense de quÃªte'
         });
         availableModes.push({
           id: 'hold',
           name: 'Maintient',
           locked: holdLocked,
-          lockReason: holdLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'
+          lockReason: holdLockedByDeck ? 'Deck incompatible' : 'RÃ©compense de quÃªte'
         });
         availableModes.push({
           id: 'multiple',
           name: 'Multiple',
           locked: multipleLocked,
-          lockReason: multipleLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'
+          lockReason: multipleLockedByDeck ? 'Deck incompatible' : 'RÃ©compense de quÃªte'
         });
         const calculLockedByDeck = !deckHasCalculTag;
         const calculLockedByPurchase = deckHasCalculTag && !localStorage.getItem('fabanki:market_mode_calcul');
@@ -2284,7 +2477,7 @@
           const icon = document.createElement('div');
           icon.className = 'mode-icon';
           icon.style.cssText = 'font-size:1.4em;';
-          icon.textContent = modeIcons[mode.id] || '🎯';
+          icon.textContent = modeIcons[mode.id] || 'ðŸŽ¯';
           btn.appendChild(icon);
           
           const text = document.createElement('div');
@@ -2297,7 +2490,7 @@
             btn.style.cursor = 'not-allowed';
             const lock = document.createElement('div');
             lock.style.cssText = 'font-size:0.75em;color:#6b7280;';
-            lock.textContent = '🔒 ' + (mode.lockReason || 'Verrouillé');
+            lock.textContent = 'ðŸ”’ ' + (mode.lockReason || 'VerrouillÃ©');
             btn.appendChild(lock);
           }
           
@@ -2341,7 +2534,7 @@
         // Add helpful hint about modes
         const modeHint = document.createElement('div');
         modeHint.style.cssText = 'font-size:0.85em;color:#666;margin-bottom:12px;padding:8px;background:rgba(0,0,0,0.05);border-radius:4px;';
-        modeHint.innerHTML = '💡 Sélectionnez votre mode d\'étude, puis cliquez sur le deck pour commencer. Chaque mode offre une expérience différente!';
+        modeHint.innerHTML = 'ðŸ’¡ SÃ©lectionnez votre mode d\'Ã©tude, puis cliquez sur le deck pour commencer. Chaque mode offre une expÃ©rience diffÃ©rente!';
         rightPanel.appendChild(modeHint);
       } else if(isActiveMemoryUnlocked && !lockState.locked){
         // Show mode buttons even if no other modes are available
@@ -2353,23 +2546,23 @@
         modesContainer.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start;align-items:center;';
         
         const modeIcons = {
-          'default': '📚',
-          'activeMemory': '🧠',
-          'step': '🪜',
-          'reverse': '🔁',
-          'random': '🎲',
-          'hold': '✋',
-          'multiple': '🧩',
-          'calcul': '∫',
-          'associer': '🔗'
+          'default': 'ðŸ“š',
+          'activeMemory': 'ðŸ§ ',
+          'step': 'ðŸªœ',
+          'reverse': 'ðŸ”',
+          'random': 'ðŸŽ²',
+          'hold': 'âœ‹',
+          'multiple': 'ðŸ§©',
+          'calcul': 'âˆ«',
+          'associer': 'ðŸ”—'
         };
         
         const modeFullNames = {
           'default': 'Mode Anki',
-          'activeMemory': 'Mémoire active',
-          'step': 'Étape par étape',
+          'activeMemory': 'MÃ©moire active',
+          'step': 'Ã‰tape par Ã©tape',
           'reverse': 'Revers',
-          'random': 'Aléatoire',
+          'random': 'AlÃ©atoire',
           'hold': 'Maintient',
           'multiple': 'Multiple',
           'calcul': 'Calcul',
@@ -2403,14 +2596,14 @@
 
         const availableModes = [
           {id: 'default', name: 'Mode Anki', locked: false},
-          {id: 'fillblank', name: 'Texte à trou', locked: true, lockReason: 'Deck incompatible'},
+          {id: 'fillblank', name: 'Texte Ã  trou', locked: true, lockReason: 'Deck incompatible'},
           {id: 'timer', name: 'Rappel sous pression', locked: true, lockReason: 'Deck incompatible'},
-          {id: 'activeMemory', name: 'Mémoire active', locked: false},
-          {id: 'step', name: 'Étape par étape', locked: stepLocked, lockReason: stepLockedByDeck ? 'Deck incompatible' : 'Mode bloque'},
-          {id: 'reverse', name: 'Revers', locked: reverseLocked, lockReason: reverseLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'},
-          {id: 'random', name: 'Aléatoire', locked: randomLocked, lockReason: randomLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'},
-          {id: 'hold', name: 'Maintien', locked: holdLocked, lockReason: holdLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'},
-          {id: 'multiple', name: 'Multiple', locked: multipleLocked, lockReason: multipleLockedByDeck ? 'Deck incompatible' : 'Récompense de quête'},
+          {id: 'activeMemory', name: 'MÃ©moire active', locked: false},
+          {id: 'step', name: 'Ã‰tape par Ã©tape', locked: stepLocked, lockReason: stepLockedByDeck ? 'Deck incompatible' : 'Mode bloque'},
+          {id: 'reverse', name: 'Revers', locked: reverseLocked, lockReason: reverseLockedByDeck ? 'Deck incompatible' : 'RÃ©compense de quÃªte'},
+          {id: 'random', name: 'AlÃ©atoire', locked: randomLocked, lockReason: randomLockedByDeck ? 'Deck incompatible' : 'RÃ©compense de quÃªte'},
+          {id: 'hold', name: 'Maintien', locked: holdLocked, lockReason: holdLockedByDeck ? 'Deck incompatible' : 'RÃ©compense de quÃªte'},
+          {id: 'multiple', name: 'Multiple', locked: multipleLocked, lockReason: multipleLockedByDeck ? 'Deck incompatible' : 'RÃ©compense de quÃªte'},
           {id: 'calcul', name: 'Calcul', locked: calculLocked, lockReason: calculLockedByDeck ? 'Deck incompatible' : 'Mode bloque'},
           {id: 'associer', name: 'Associer', locked: associerLocked, lockReason: 'Deck incompatible'}
         ];
@@ -2445,7 +2638,7 @@
           const icon = document.createElement('div');
           icon.className = 'mode-icon';
           icon.style.cssText = 'font-size:1.4em;';
-          icon.textContent = modeIcons[mode.id] || '🎯';
+          icon.textContent = modeIcons[mode.id] || 'ðŸŽ¯';
           btn.appendChild(icon);
           
           const text = document.createElement('div');
@@ -2458,7 +2651,7 @@
             btn.style.cursor = 'not-allowed';
             const lock = document.createElement('div');
             lock.style.cssText = 'font-size:0.75em;color:#6b7280;';
-            lock.textContent = '🔒 ' + (mode.lockReason || 'Verrouille');
+            lock.textContent = 'ðŸ”’ ' + (mode.lockReason || 'Verrouille');
             btn.appendChild(lock);
           }
           
@@ -2502,7 +2695,7 @@
         // Add helpful hint about modes
         const modeHint = document.createElement('div');
         modeHint.style.cssText = 'font-size:0.85em;color:#666;margin-bottom:12px;padding:8px;background:rgba(0,0,0,0.05);border-radius:4px;';
-        modeHint.innerHTML = '💡 Sélectionnez votre mode d\'étude, puis cliquez sur le deck pour commencer. Chaque mode offre une expérience différente!';
+        modeHint.innerHTML = 'ðŸ’¡ SÃ©lectionnez votre mode d\'Ã©tude, puis cliquez sur le deck pour commencer. Chaque mode offre une expÃ©rience diffÃ©rente!';
         rightPanel.appendChild(modeHint);
       }
       
@@ -2510,35 +2703,35 @@
       
       if(lockState.locked && lockState.lockedByCost){
         // Show buy button
-        startBtn.textContent = `Acheter pour ${lockState.cost} ℂ`;
+        startBtn.textContent = `Acheter pour ${lockState.cost} â„‚`;
         startBtn.className = lockState.currentCredits >= lockState.cost ? 'primary' : 'secondary';
         startBtn.disabled = lockState.currentCredits < lockState.cost;
         startBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;';
         startBtn.addEventListener('click', ()=>{
           const freshState = evaluateDeckLock(url);
           if(freshState.currentCredits < freshState.cost){
-            alert(`Crédits insuffisants. Vous avez ${freshState.currentCredits} ℂ, il en faut ${freshState.cost} ℂ`);
+            alert(`CrÃ©dits insuffisants. Vous avez ${freshState.currentCredits} â„‚, il en faut ${freshState.cost} â„‚`);
             return;
           }
           if(typeof addCredits === 'function') addCredits(-freshState.cost);
           setDeckUnlocked(url);
-          alert(`Deck débloqué ! Il vous reste ${freshState.currentCredits - freshState.cost} ℂ`);
+          alert(`Deck dÃ©bloquÃ© ! Il vous reste ${freshState.currentCredits - freshState.cost} â„‚`);
           // Reload the overview to show the start button
           showDeckOverview(url);
         });
       } else if(lockState.locked && lockState.lockedByLevel){
         // Show level requirement
-        startBtn.textContent = `🔒 Niveau ${lockState.levelReq} requis`;
+        startBtn.textContent = `ðŸ”’ Niveau ${lockState.levelReq} requis`;
         startBtn.className = 'secondary';
         startBtn.disabled = true;
         startBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;opacity:0.6;cursor:not-allowed;';
       } else {
         // Show start button (deck is unlocked)
-        startBtn.textContent = 'Démarrer';
+        startBtn.textContent = 'DÃ©marrer';
         startBtn.className = 'primary';
         startBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;';
         startBtn.addEventListener('click', ()=>{ 
-          console.log('Démarrer clicked - starting review');
+          console.log('DÃ©marrer clicked - starting review');
         
         // Replace sync button with home button during review
         try{
@@ -2770,14 +2963,14 @@
         // Get stored data for this card
         const storedKey = `fabanki:${deckKeyForStats}:card:${card.id}`;
         const storedData = localStorage.getItem(storedKey);
-        let tooltipText = 'Aucune donnée';
+        let tooltipText = 'Aucune donnÃ©e';
         if(storedData){
           try{
             const st = JSON.parse(storedData);
             tooltipText = '';
             if(st.due) tooltipText = `Prochain: ${formatFutureTime(new Date(st.due))}`;
             if(st.last) tooltipText += (tooltipText ? ' | ' : '') + `Dernier: ${formatPastTime(new Date(st.last))}`;
-            if(!tooltipText) tooltipText = 'Aucune donnée';
+            if(!tooltipText) tooltipText = 'Aucune donnÃ©e';
           }catch(e){ tooltipText = 'Erreur'; }
         }
         
@@ -2787,7 +2980,7 @@
 
         const resetGradeBtn = document.createElement('button');
         resetGradeBtn.type = 'button';
-        resetGradeBtn.textContent = 'Réinitialiser note';
+        resetGradeBtn.textContent = 'RÃ©initialiser note';
         resetGradeBtn.style.cssText = 'font-size:0.72em;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.12);color:#fff;cursor:pointer;';
         resetGradeBtn.addEventListener('click', (ev) => {
           try{
@@ -3092,7 +3285,7 @@
           anyContent = true;
         }
       }
-      if(!anyContent){ backEl.innerHTML = '<em>Contenu masqué côté réponse</em>'; }
+      if(!anyContent){ backEl.innerHTML = '<em>Contenu masquÃ© cÃ´tÃ© rÃ©ponse</em>'; }
       try{ applyCardScroll(backEl); }catch(e){}
       return;
     }
@@ -3236,7 +3429,7 @@
       }
     }
 
-    if(!anyContent){ backEl.innerHTML = '<em>Contenu masqué côté réponse</em>'; }
+    if(!anyContent){ backEl.innerHTML = '<em>Contenu masquÃ© cÃ´tÃ© rÃ©ponse</em>'; }
     try{ applyCardScroll(backEl); }catch(e){}
   }
 
@@ -3254,7 +3447,7 @@
   function buildFieldElement(def, f){
     const wrapper = document.createElement('div');
     wrapper.className = 'field field-'+def.name.replace(/\s+/g,'-').toLowerCase();
-    // Treat only explicit 'tex'/'math' types as TeX — avoid matching 'text'
+    // Treat only explicit 'tex'/'math' types as TeX â€” avoid matching 'text'
     const ttype = (f.type||def.type||'').toLowerCase();
     const isTexType = ['tex','math','latex'].includes(ttype);
     const isTTS = (ttype === 'tts');
@@ -3272,21 +3465,21 @@
       btn.type = 'button';
       btn.className = 'tts-play secondary';
       btn.title = 'Lire le texte';
-      btn.textContent = '🔊';
+      btn.textContent = 'ðŸ”Š';
       btn.addEventListener('click', ()=>{
         try{
-          if(!('speechSynthesis' in window)){ alert('TTS non supporté dans ce navigateur'); return }
+          if(!('speechSynthesis' in window)){ alert('TTS non supportÃ© dans ce navigateur'); return }
           // If currently speaking, cancel (acts as stop)
-          if(window.speechSynthesis.speaking){ window.speechSynthesis.cancel(); btn.textContent = '🔊'; return }
+          if(window.speechSynthesis.speaking){ window.speechSynthesis.cancel(); btn.textContent = 'ðŸ”Š'; return }
           const text = (f.html||'').trim();
           if(!text) return;
           const u = new SpeechSynthesisUtterance(text);
           // prefer English by default for TTS unless field specifies otherwise
           u.lang = 'en-US';
           // prefer default voice; user can modify in browser
-          btn.textContent = '⏸';
-          u.onend = ()=>{ try{ btn.textContent = '🔊' }catch(e){} };
-          u.onerror = ()=>{ try{ btn.textContent = '🔊' }catch(e){} };
+          btn.textContent = 'â¸';
+          u.onend = ()=>{ try{ btn.textContent = 'ðŸ”Š' }catch(e){} };
+          u.onerror = ()=>{ try{ btn.textContent = 'ðŸ”Š' }catch(e){} };
           window.speechSynthesis.cancel();
           window.speechSynthesis.speak(u);
         }catch(e){ console.warn('TTS error', e); alert('Erreur TTS: '+(e && e.message || e)); }
@@ -3314,7 +3507,7 @@
       }catch(e){ span.textContent = texSrc }
       wrapper.appendChild(span);
     } else {
-      // Render as HTML (rich-text) — decode entities first
+      // Render as HTML (rich-text) â€” decode entities first
       wrapper.innerHTML = decodedHtml || '';
     }
     return wrapper;
@@ -3350,13 +3543,13 @@
         fieldCount = order.length;
       }
       if(reviewMode === 'step' && fieldCount <= 2){
-        console.log('🎯 [MODE] Step mode disabled - only', fieldCount, 'fields, switching to default');
+        console.log('ðŸŽ¯ [MODE] Step mode disabled - only', fieldCount, 'fields, switching to default');
         reviewMode = 'default';
         if(typeof deckKey !== 'undefined'){
           localStorage.setItem(`fabanki:review_mode:${deckKey}`, reviewMode);
         }
       }else if(reviewMode === 'step'){
-        console.log('🎯 [MODE] Step mode active with', fieldCount, 'fields');
+        console.log('ðŸŽ¯ [MODE] Step mode active with', fieldCount, 'fields');
       }
       if(reviewMode === 'multiple' && (fieldCount < 2 || fieldCount > 4)){
         reviewMode = 'default';
@@ -3530,7 +3723,7 @@
     if(folder === 'maths') return 'maths';
     if(folder === 'physique') return 'physique';
     if(folder === 'anglais') return 'anglais';
-    if(folder === 'français' || folder === 'francais') return 'francais';
+    if(folder === 'franÃ§ais' || folder === 'francais') return 'francais';
     if(folder === 'sciences industrielles' || folder === 'si') return 'si';
     if(folder === 'informatique' || folder === 'info') return 'info';
 
@@ -3538,7 +3731,7 @@
     if(title.includes('math') || url.includes('/maths/') || url.includes('maths')) return 'maths';
     if(title.includes('phys') || url.includes('/physique') || url.includes('physique')) return 'physique';
     if(title.includes('anglais') || title.includes('english') || url.includes('/anglais') || url.includes('english')) return 'anglais';
-    if(title.includes('français') || title.includes('francais') || title.includes('french') || url.includes('/français') || url.includes('/francais')) return 'francais';
+    if(title.includes('franÃ§ais') || title.includes('francais') || title.includes('french') || url.includes('/franÃ§ais') || url.includes('/francais')) return 'francais';
     if(title.includes('sciences industrielles') || title.includes('si ') || title.endsWith(' si') || url.includes('/sciences industrielles') || url.includes('/si/')) return 'si';
     if(title.includes('info') || title.includes('informatique') || title.includes('computer') || title.includes('algo') || url.includes('/informatique') || url.includes('/info/')) return 'info';
     return null;
@@ -3690,7 +3883,7 @@
     setCol('bar-long','count-long', counts.long);
     // Also update session total display if it hasn't been set (fallback)
     const infoEl = document.getElementById('progressInfo');
-    if(infoEl && sessionTotal === 0){ infoEl.textContent = `Révisées : ${reviewedCount} / ${sessionTotal}` }
+    if(infoEl && sessionTotal === 0){ infoEl.textContent = `RÃ©visÃ©es : ${reviewedCount} / ${sessionTotal}` }
   }
   
   // Update histogram for a specific deck (used in multi-deck mode)
@@ -3746,7 +3939,7 @@
     const pb = document.getElementById('progressBar');
     const total = sessionTotal || 0;
     const done = reviewedCount || 0;
-    if(infoEl) infoEl.textContent = `Révisées : ${done} / ${total}`;
+    if(infoEl) infoEl.textContent = `RÃ©visÃ©es : ${done} / ${total}`;
     if(pb){ const pct = total>0? Math.round((done/total)*100): 0; pb.style.width = pct + '%'; }
   }
 
@@ -3790,7 +3983,7 @@
     }
 
     if(quality < 3){
-      // Raté: reset and make due immediately
+      // RatÃ©: reset and make due immediately
       st.reps = 0; st.interval = 0; // due now
     } else {
       // Conservative FSRS adjustments to better separate qualities:
@@ -3915,7 +4108,7 @@
 
       const icon = document.createElement('div');
       icon.className = 'error-screen__icon';
-      icon.textContent = options.icon || '⚠️';
+      icon.textContent = options.icon || 'âš ï¸';
       if(options.iconClass) icon.classList.add(options.iconClass);
 
       const title = document.createElement('div');
@@ -4096,11 +4289,11 @@
     const dueInline = document.getElementById('dueInline'); if(dueInline) dueInline.style.display='none';
     const status = document.getElementById('status'); if(status) { status.style.display='none'; status.style.padding=''; status.style.borderRadius=''; status.style.background=''; status.style.boxShadow=''; status.textContent=''; }
     const hint = document.getElementById('histHint'); if(hint) { hint.style.display='none'; hint.style.position=''; hint.style.marginBottom=''; }
-    // Hide the "Répartition des cartes par échéance" section
+    // Hide the "RÃ©partition des cartes par Ã©chÃ©ance" section
     try{
       const allH3s = document.querySelectorAll('h3');
       for(const h3 of allH3s){
-        if(h3.textContent.includes('Répartition des cartes par échéance')){
+        if(h3.textContent.includes('RÃ©partition des cartes par Ã©chÃ©ance')){
           const parent = h3.parentElement;
           if(parent) parent.style.display='none';
           h3.style.display='none';
@@ -4109,7 +4302,7 @@
     }catch(e){}
     // Hide any lingering toasts
     document.querySelectorAll('[style*="position: fixed"][style*="zIndex"]').forEach(el => {
-      if(el.id && (el.id.includes('toast') || el.textContent.includes('Objectif') || el.textContent.includes('Quête'))) el.style.display='none';
+      if(el.id && (el.id.includes('toast') || el.textContent.includes('Objectif') || el.textContent.includes('QuÃªte'))) el.style.display='none';
     });
     const deckTitle = multiDeckMode ? 'Multideck' : (deck && deck.title ? deck.title : 'Deck');
 
@@ -4118,11 +4311,11 @@
     
     // Calculate XP and Credit modifiers based on review mode
     const xpModifiers = {
-      'default': 1,        // Mode Anki (Défaut)
-      'fillblank': 2,      // Texte à trou
+      'default': 1,        // Mode Anki (DÃ©faut)
+      'fillblank': 2,      // Texte Ã  trou
       'timer': 1.2,        // Rappel sous pression
-      'activeMemory': 1.1, // Mémoire active
-      'step': 1,           // Étape par étape
+      'activeMemory': 1.1, // MÃ©moire active
+      'step': 1,           // Ã‰tape par Ã©tape
       'hold': 1.1,         // Maintient
       'multiple': 0.9,     // Multiple
       'calcul': 1.8,       // Calcul
@@ -4130,11 +4323,11 @@
       'rush': 1            // Rush
     };
     const creditModifiers = {
-      'default': 1,        // Mode Anki (Défaut)
-      'fillblank': 1,      // Texte à trou
+      'default': 1,        // Mode Anki (DÃ©faut)
+      'fillblank': 1,      // Texte Ã  trou
       'timer': 1,          // Rappel sous pression
-      'activeMemory': 1,   // Mémoire active
-      'step': 1,           // Étape par étape
+      'activeMemory': 1,   // MÃ©moire active
+      'step': 1,           // Ã‰tape par Ã©tape
       'hold': 1,           // Maintient
       'multiple': 0.9,     // Multiple
       'calcul': 1.5,       // Calcul
@@ -4182,20 +4375,20 @@
         toast.style.boxShadow = '0 8px 24px rgba(37, 99, 235, 0.35)';
         const modeNameMap = {
           default: 'Mode Anki',
-          fillblank: 'Texte à trou',
+          fillblank: 'Texte Ã  trou',
           timer: 'Rappel sous pression',
-          activeMemory: 'Mémoire active',
-          step: 'Étape par étape',
+          activeMemory: 'MÃ©moire active',
+          step: 'Ã‰tape par Ã©tape',
           hold: 'Maintient',
           multiple: 'Multiple',
           reverse: 'Revers',
-          random: 'Aléatoire',
+          random: 'AlÃ©atoire',
           calcul: 'Calcul',
           associer: 'Associer',
           rush: 'Rush'
         };
         const modeName = modeNameMap[reviewMode] || 'Mode Anki';
-        toast.textContent = `Crédits gagnés : ${grant} (${modeName} x${creditMultiplier} crédit, x${xpMultiplier} XP)`;
+        toast.textContent = `CrÃ©dits gagnÃ©s : ${grant} (${modeName} x${creditMultiplier} crÃ©dit, x${xpMultiplier} XP)`;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3500);
       }catch(e){}
@@ -4255,7 +4448,7 @@
     else if(meanGrade >= 2.0) starsFilled = 2;
     else if(meanGrade >= 1.5) starsFilled = 1;
 
-    const stars = '★'.repeat(starsFilled) + '☆'.repeat(3 - starsFilled);
+    const stars = 'â˜…'.repeat(starsFilled) + 'â˜†'.repeat(3 - starsFilled);
     const maxCount = Math.max(1, failCount, hardCount, goodCount, easyCount);
 
     // Note difference vs last session
@@ -4290,7 +4483,7 @@
         <div style="width:100%;display:flex;flex-direction:column;gap:16px;">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
             <div>
-              <div style="font-size:0.95em;color:#6b7280;font-weight:600;">Récapitulatif</div>
+              <div style="font-size:0.95em;color:#6b7280;font-weight:600;">RÃ©capitulatif</div>
               <div style="font-size:1.4em;font-weight:700;">${deckTitle}</div>
             </div>
             <div style="font-size:1.4em;color:#fbbf24;letter-spacing:2px;">${stars}</div>
@@ -4298,7 +4491,7 @@
 
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
             <div id="recap-stat-reviewed" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
-              <div style="color:#64748b;font-size:0.8em;">Cartes révisées</div>
+              <div style="color:#64748b;font-size:0.8em;">Cartes rÃ©visÃ©es</div>
               <div style="font-weight:700;font-size:1.1em;color:#111;">${totalReviewed}</div>
             </div>
             <div id="recap-stat-time" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
@@ -4310,7 +4503,7 @@
               <div style="font-weight:700;font-size:1.1em;color:#111;">${formatTime(avgTimeSec)}</div>
             </div>
             <div id="recap-stat-precision" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
-              <div style="color:#64748b;font-size:0.8em;">Précision</div>
+              <div style="color:#64748b;font-size:0.8em;">PrÃ©cision</div>
               <div style="font-weight:700;font-size:1.1em;color:#111;">${precision}%</div>
             </div>
             <div id="recap-stat-note" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
@@ -4318,25 +4511,25 @@
               <div style="font-weight:700;font-size:1.1em;color:#111;">${note20.toFixed(1)}/20</div>
             </div>
             <div id="recap-stat-delta" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
-              <div style="color:#64748b;font-size:0.8em;">Δ Note</div>
+              <div style="color:#64748b;font-size:0.8em;">Î” Note</div>
               <div style="font-weight:700;font-size:1.1em;color:#111;">${noteDeltaText}</div>
             </div>
             <div id="recap-stat-duration" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
-              <div style="color:#64748b;font-size:0.8em;">Durée mémoire</div>
+              <div style="color:#64748b;font-size:0.8em;">DurÃ©e mÃ©moire</div>
               <div style="font-weight:700;font-size:1.1em;color:#111;">${memAvg ? `${memAvg.toFixed(1)} j` : 'N/A'}</div>
             </div>
             <div id="recap-stat-credits" class="recap-stat-box" style="background:linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 100%);border-radius:10px;padding:12px;cursor:pointer;border:1px solid rgba(59, 130, 246, 0.2);">
-              <div style="color:#64748b;font-size:0.8em;">Crédits gagnés</div>
-              <div style="font-weight:700;font-size:1.3em;color:#2563eb;">${sessionCreditsGrantedAmount}ℂ</div>
+              <div style="color:#64748b;font-size:0.8em;">CrÃ©dits gagnÃ©s</div>
+              <div style="font-weight:700;font-size:1.3em;color:#2563eb;">${sessionCreditsGrantedAmount}â„‚</div>
             </div>
           </div>
 
           <div id="recap-distribution" style="background:rgba(66, 133, 244, 0.08);border-radius:12px;padding:12px;cursor:pointer;">
-            <div style="font-weight:600;margin-bottom:8px;color:#111;">Répartition des réponses</div>
+            <div style="font-weight:600;margin-bottom:8px;color:#111;">RÃ©partition des rÃ©ponses</div>
             <div style="display:flex;gap:8px;align-items:flex-end;">
               <div style="flex:1;text-align:center;">
                 <div style="height:${Math.round((failCount/maxCount)*80)}px;background:#fecaca;border-radius:6px;transition:height .2s;"></div>
-                <div style="font-size:0.75em;color:#dc2626;">Raté</div>
+                <div style="font-size:0.75em;color:#dc2626;">RatÃ©</div>
                 <div style="font-size:0.8em;font-weight:600;color:#111;">${failCount}</div>
               </div>
               <div style="flex:1;text-align:center;">
@@ -4391,7 +4584,7 @@
       }
       
       if(!skipSessionTracking && reviewedCount >= 1){
-        // Grant mission "Réviser au moins un deck"
+        // Grant mission "RÃ©viser au moins un deck"
         try{
           if(typeof completeMission === 'function'){
             completeMission('review_one_deck', 'daily');
@@ -4420,7 +4613,7 @@
             if(state.part4_reviewSessions >= postWelcomeQuestTargets.part4_reviewSessions && !state.part4_sessionsRewarded){
               addCredits(10);
               state.part4_sessionsRewarded = true;
-              showWelcomeQuestToast('Quête extrême: 25 sessions! +10 Crédits');
+              showWelcomeQuestToast('QuÃªte extrÃªme: 25 sessions! +10 CrÃ©dits');
             }
             
             // Part 5: Update credits and level tracking (these are not card-based)
@@ -4432,12 +4625,12 @@
             if(currentCredits >= postWelcomeQuestTargets.part5_credits && !state.part5_creditsRewarded){
               addCredits(15);
               state.part5_creditsRewarded = true;
-              showWelcomeQuestToast('Quête Élite: 250 crédits accumulés! +15 Crédits');
+              showWelcomeQuestToast('QuÃªte Ã‰lite: 250 crÃ©dits accumulÃ©s! +15 CrÃ©dits');
             }
             if(currentLevel >= postWelcomeQuestTargets.part5_level && !state.part5_levelRewarded){
               addCredits(10);
               state.part5_levelRewarded = true;
-              showWelcomeQuestToast('Quête Élite: Niveau 30! +10 Crédits');
+              showWelcomeQuestToast('QuÃªte Ã‰lite: Niveau 30! +10 CrÃ©dits');
             }
             
             localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
@@ -4545,9 +4738,9 @@
       // If we've reviewed at least 1 card this session, show recap
       // Otherwise show "no cards available"
       if(reviewedCount >= 1){
-        updateStatus('Révision terminée pour aujourd\'hui');
+        updateStatus('RÃ©vision terminÃ©e pour aujourd\'hui');
       } else {
-        updateStatus('Aucune carte à réviser aujourd\'hui');
+        updateStatus('Aucune carte Ã  rÃ©viser aujourd\'hui');
       }
       renderEmpty(); 
       return;
@@ -4632,10 +4825,12 @@
     const resp = $('#respButtons'); if(resp) resp.style.display = 'none';
     const backEl = $('#back');
     if(backEl){
+      backEl.innerHTML = '';
       backEl.classList.remove('back-preloaded', 'back-visible');
       backEl.style.display = 'none';
       backEl.style.visibility = 'visible';
       backEl.style.pointerEvents = '';
+      backEl.setAttribute('aria-hidden', 'true');
     }
     
     // Display deck name if in multi-deck mode
@@ -4748,12 +4943,12 @@
       dialog.style.cssText = 'background:white;border-radius:12px;padding:24px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
       
       const title = document.createElement('h2');
-      title.textContent = '⏱️ Temps de révision';
+      title.textContent = 'â±ï¸ Temps de rÃ©vision';
       title.style.cssText = 'margin-top:0;margin-bottom:16px;color:#333;';
       dialog.appendChild(title);
       
       const desc = document.createElement('p');
-      desc.textContent = 'Définissez le temps maximum pour voir chaque côté de la carte :';
+      desc.textContent = 'DÃ©finissez le temps maximum pour voir chaque cÃ´tÃ© de la carte :';
       desc.style.cssText = 'color:#666;margin-bottom:20px;';
       dialog.appendChild(desc);
       
@@ -4823,12 +5018,12 @@
       dialog.style.cssText = 'background:white;border-radius:12px;padding:24px;max-width:450px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
       
       const title = document.createElement('h2');
-      title.textContent = '🚀 Paramètres Rush';
+      title.textContent = 'ðŸš€ ParamÃ¨tres Rush';
       title.style.cssText = 'margin-top:0;margin-bottom:16px;color:#333;';
       dialog.appendChild(title);
       
       const desc = document.createElement('p');
-      desc.textContent = 'Configurez la difficulté. Les temps diminuent au fur et à mesure que vous répondez correctement !';
+      desc.textContent = 'Configurez la difficultÃ©. Les temps diminuent au fur et Ã  mesure que vous rÃ©pondez correctement !';
       desc.style.cssText = 'color:#666;margin-bottom:20px;';
       dialog.appendChild(desc);
       
@@ -4862,7 +5057,7 @@
       
       // Difficulty input
       const difficultyLabel = document.createElement('label');
-      difficultyLabel.textContent = 'Difficulté (cartes à réussir) :';
+      difficultyLabel.textContent = 'DifficultÃ© (cartes Ã  rÃ©ussir) :';
       difficultyLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:#333;';
       dialog.appendChild(difficultyLabel);
       
@@ -4887,7 +5082,7 @@
         
         // Validate that hardest < easiest
         if(hardest >= easiest){
-          alert('Le temps le plus rapide doit être inférieur au temps le plus lent !');
+          alert('Le temps le plus rapide doit Ãªtre infÃ©rieur au temps le plus lent !');
           return;
         }
         
@@ -4952,10 +5147,10 @@
       '\\le': ['\\leq'],
       '\\ge': ['\\geq'],
       '\\neq': ['\\ne', '!='],
-      '\\pm': ['±'],
+      '\\pm': ['Â±'],
       '\\sum': ['\\Sigma'],
       '\\prod': ['\\Pi'],
-      '\\int': ['∫']
+      '\\int': ['âˆ«']
     };
     
     for(const [standard, alts] of Object.entries(variants)){
@@ -5202,22 +5397,22 @@
     buttonGrid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;';
     
     const buttons = [
-      { label: '½', latex: '\\frac{⬚}{⬚}' },
-      { label: '√', latex: '\\sqrt{⬚}' },
-      { label: 'π', latex: '\\pi' },
+      { label: 'Â½', latex: '\\frac{â¬š}{â¬š}' },
+      { label: 'âˆš', latex: '\\sqrt{â¬š}' },
+      { label: 'Ï€', latex: '\\pi' },
       { label: '+', latex: '+' },
-      { label: '−', latex: '-' },
-      { label: '×', latex: '\\times' },
+      { label: 'âˆ’', latex: '-' },
+      { label: 'Ã—', latex: '\\times' },
       { label: '_', latex: '_' },
-      { label: '^', latex: '^{⬚}' },
-      { label: '∫', latex: '\\int_{⬚}^{⬚}' },
-      { label: 'Σ', latex: '\\sum_{⬚}^{⬚}' },
-      { label: '°', latex: '\\circ' },
-      { label: '∞', latex: '\\infty' },
-      { label: '← Retour', latex: '', isControl: true, action: 'backspace' },
-      { label: '🗑️ Effacer', latex: '', isControl: true, action: 'clear' },
-      { label: '↑', latex: '', isControl: true, action: 'navUp' },
-      { label: '↓', latex: '', isControl: true, action: 'navDown' }
+      { label: '^', latex: '^{â¬š}' },
+      { label: 'âˆ«', latex: '\\int_{â¬š}^{â¬š}' },
+      { label: 'Î£', latex: '\\sum_{â¬š}^{â¬š}' },
+      { label: 'Â°', latex: '\\circ' },
+      { label: 'âˆž', latex: '\\infty' },
+      { label: 'â† Retour', latex: '', isControl: true, action: 'backspace' },
+      { label: 'ðŸ—‘ï¸ Effacer', latex: '', isControl: true, action: 'clear' },
+      { label: 'â†‘', latex: '', isControl: true, action: 'navUp' },
+      { label: 'â†“', latex: '', isControl: true, action: 'navDown' }
     ];
     
     for(const btn of buttons){
@@ -5270,7 +5465,7 @@
     
     // Validate button
     const validateBtn = document.createElement('button');
-    validateBtn.textContent = 'Vérifier';
+    validateBtn.textContent = 'VÃ©rifier';
     validateBtn.style.cssText = 'width:100%;padding:12px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:1em;margin-bottom:8px;';
     validateBtn.addEventListener('click', () => {
       const userFormula = window.__calculModeState.formula.trim();
@@ -5344,28 +5539,28 @@
     
     if(!correctFormula){
       window.__calculModeState.feedbackType = 'error';
-      window.__calculModeState.feedbackMessage = 'Aucune réponse configurée pour cette carte.';
+      window.__calculModeState.feedbackMessage = 'Aucune rÃ©ponse configurÃ©e pour cette carte.';
       window.__calculModeState.showFeedback = true;
       window.__calculModeState.displayFeedback();
       return;
     }
     
     const errorCount = calculateFormulaErrorCount(userFormula, correctFormula);
-    let quality = 0; // Raté
+    let quality = 0; // RatÃ©
     let feedbackMsg = '';
     
     if(errorCount === 0){
       quality = 5; // Facile
-      feedbackMsg = '✓ Parfait! Formule correcte.';
+      feedbackMsg = 'âœ“ Parfait! Formule correcte.';
     } else if(errorCount === 1){
       quality = 4; // Bon
-      feedbackMsg = '≈ Bon! Une petite erreur mais proche.';
+      feedbackMsg = 'â‰ˆ Bon! Une petite erreur mais proche.';
     } else if(errorCount <= 3){
       quality = 3; // Difficile
-      feedbackMsg = '✗ Difficile. 2-3 erreurs détectées.';
+      feedbackMsg = 'âœ— Difficile. 2-3 erreurs dÃ©tectÃ©es.';
     } else {
-      quality = 0; // Raté
-      feedbackMsg = '✗ Raté.';
+      quality = 0; // RatÃ©
+      feedbackMsg = 'âœ— RatÃ©.';
     }
     
     window.__calculModeState.feedbackType = errorCount === 0 ? 'success' : (errorCount === 1 ? 'warning' : 'error');
@@ -5432,7 +5627,7 @@
     
     const qualityDisplay = document.createElement('div');
     let qualityText = '';
-    if(quality === 0) qualityText = 'Raté';
+    if(quality === 0) qualityText = 'RatÃ©';
     else if(quality === 3) qualityText = 'Difficile';
     else if(quality === 4) qualityText = 'Bon';
     else if(quality === 5) qualityText = 'Facile';
@@ -5461,7 +5656,7 @@
     const input = document.createElement('input');
     input.type = 'text';
     input.id = 'fillBlankInput';
-    input.placeholder = 'Entrez votre réponse...';
+    input.placeholder = 'Entrez votre rÃ©ponse...';
     input.style.cssText = 'flex:1;min-width:200px;padding:10px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg);color:var(--text);font-size:1em;';
     input.addEventListener('keypress', (e) => {
       if(e.key === 'Enter') validateFillBlank(card);
@@ -5656,7 +5851,7 @@
     const timerText = document.createElement('div');
     timerText.id = 'rushTimerText';
     timerText.style.cssText = 'font-size:0.85em;color:#666;text-align:center;margin-bottom:12px;';
-    timerText.textContent = `⏱️ Face: ${adjustedFrontTime.toFixed(1)}s`;
+    timerText.textContent = `â±ï¸ Face: ${adjustedFrontTime.toFixed(1)}s`;
     container.appendChild(timerText);
     
     // Difficulty bar
@@ -5665,7 +5860,7 @@
     
     const difficultyLabel = document.createElement('div');
     difficultyLabel.style.cssText = 'font-size:0.75em;color:#666;margin-bottom:4px;text-align:center;';
-    difficultyLabel.textContent = `🎯 Progrès: ${goodCards}/${difficulty}`;
+    difficultyLabel.textContent = `ðŸŽ¯ ProgrÃ¨s: ${goodCards}/${difficulty}`;
     difficultyBarContainer.appendChild(difficultyLabel);
     
     const difficultyBar = document.createElement('div');
@@ -5721,7 +5916,7 @@
       if(timerText){
         // Only show timer on front side
         if(!state.isShowingBack){
-          timerText.textContent = `⏱️ Face: ${remaining.toFixed(1)}s`;
+          timerText.textContent = `â±ï¸ Face: ${remaining.toFixed(1)}s`;
         } else {
           timerText.textContent = '';
         }
@@ -5739,21 +5934,21 @@
   }
   
   function handleRushTimerExpired(){
-    // When timer expires, only show "Raté" button - BUT ONLY IF ON FRONT SIDE
+    // When timer expires, only show "RatÃ©" button - BUT ONLY IF ON FRONT SIDE
     // If on back side, do nothing (don't auto-fail)
     if(!window.rushModeState || window.rushModeState.isShowingBack) return;
     
     const respButtons = document.getElementById('respButtons');
     if(!respButtons) return;
     
-    // Hide all buttons except "Raté"
+    // Hide all buttons except "RatÃ©"
     const buttons = respButtons.querySelectorAll('button');
     buttons.forEach(btn => {
       const text = btn.textContent.trim();
-      if(text !== 'Raté' && text !== '🔴 Raté'){
+      if(text !== 'RatÃ©' && text !== 'ðŸ”´ RatÃ©'){
         btn.style.display = 'none';
       } else {
-        // Center the Raté button text
+        // Center the RatÃ© button text
         btn.style.width = '100%';
         btn.style.textAlign = 'center';
         btn.style.justifyContent = 'center';
@@ -5789,7 +5984,7 @@
       completeWelcomeQuestMission('part3', 'active_memory_launched', 10);
     }
     
-    // Show front for 3 seconds with blue progress bar timer, then hide it until "Afficher la Réponse" is clicked
+    // Show front for 3 seconds with blue progress bar timer, then hide it until "Afficher la RÃ©ponse" is clicked
     // Skip if paused for onboarding
     if(window.__activeMemoryPausedForOnboarding) return;
     
@@ -5935,29 +6130,29 @@
 
   const ASSOCIER_I18N = {
     fr: {
-      settingsTitle: '🔗 Mode Associer',
+      settingsTitle: 'ðŸ”— Mode Associer',
       settingsDesc: "Choisissez le nombre d'associations a faire :",
       settingsLangLabel: 'Langue :',
-      settingsLangFr: 'Français',
+      settingsLangFr: 'FranÃ§ais',
       settingsLangEn: 'English',
       confirm: 'Confirmer',
       validate: 'Valider les correspondances',
-      reset: 'Réinitialiser',
-      linked: '✓ Lié',
-      selectedQuestion: 'Question sélectionnée',
-      matchesHeader: '📋 Vos correspondances :',
+      reset: 'RÃ©initialiser',
+      linked: 'âœ“ LiÃ©',
+      selectedQuestion: 'Question sÃ©lectionnÃ©e',
+      matchesHeader: 'ðŸ“‹ Vos correspondances :',
       continue: 'Continuer',
       correct: 'Correct',
       incorrect: 'Incorrect',
-      unmatched: 'Non associé',
+      unmatched: 'Non associÃ©',
       gradeEasy: 'Facile',
       gradeGood: 'Bon',
       gradeHard: 'Difficile',
-      gradeFail: 'Raté',
-      hiddenContent: 'Contenu masqué'
+      gradeFail: 'RatÃ©',
+      hiddenContent: 'Contenu masquÃ©'
     },
     en: {
-      settingsTitle: '🔗 Match Mode',
+      settingsTitle: 'ðŸ”— Match Mode',
       settingsDesc: 'Choose how many associations to do:',
       settingsLangLabel: 'Language:',
       settingsLangFr: 'French',
@@ -5965,9 +6160,9 @@
       confirm: 'Confirm',
       validate: 'Validate matches',
       reset: 'Reset',
-      linked: '✓ Linked',
+      linked: 'âœ“ Linked',
       selectedQuestion: 'Selected question',
-      matchesHeader: '📋 Your matches:',
+      matchesHeader: 'ðŸ“‹ Your matches:',
       continue: 'Continue',
       correct: 'Correct',
       incorrect: 'Incorrect',
@@ -6082,8 +6277,8 @@
             fc.dataset.isMobileSelected = 'false';
             fc.style.background = '#f0f4f8';
             fc.style.border = '2px solid #2563eb';
-            card.style.opacity = '1';
-            card.dataset.isMatched = 'false';
+            fc.style.opacity = '1';
+            fc.dataset.isMatched = 'false';
             fc.style.boxShadow = 'none';
           });
           frontCard.dataset.isMobileSelected = 'true';
@@ -6091,8 +6286,6 @@
           frontCard.style.border = '3px solid #0369a1';
           frontCard.style.boxShadow = '0 0 12px rgba(3, 105, 161, 0.5)';
           state.mobileSelectedFront = c.id;
-            card.style.opacity = '1';
-            card.dataset.isMatched = 'false';
         }
         state.updateSelectionIndicator();
       });
@@ -6260,7 +6453,7 @@
                 selectedFrontCard.dataset.isMobileSelected = 'false';
                 const label = document.createElement('div');
                 label.style.cssText = 'margin-top:8px;font-size:0.8em;color:#16a34a;font-weight:600;';
-                label.textContent = '✓ Associé';
+                label.textContent = 'âœ“ AssociÃ©';
                 const existingLabel = selectedFrontCard.querySelector('[data-matched]');
                 if(existingLabel) existingLabel.remove();
                 label.setAttribute('data-matched', 'true');
@@ -6530,28 +6723,28 @@
           borderColor = '#059669';
           badgeColor = '#059669';
           badgeBg = '#dcfce7';
-          badgeText = `${associerT(state.lang, 'correct')} • ${associerT(state.lang, 'gradeEasy')}`;
+          badgeText = `${associerT(state.lang, 'correct')} â€¢ ${associerT(state.lang, 'gradeEasy')}`;
         } else if(isCorrect && gradeInfo.gradeKey === 'good'){
           bgColor = '#cffafe';
           borderColor = '#0891b2';
           badgeColor = '#0891b2';
           badgeBg = '#cffafe';
-          badgeText = `${associerT(state.lang, 'correct')} • ${associerT(state.lang, 'gradeGood')}`;
+          badgeText = `${associerT(state.lang, 'correct')} â€¢ ${associerT(state.lang, 'gradeGood')}`;
         } else if(isCorrect && gradeInfo.gradeKey === 'hard'){
           bgColor = '#ffedd5';
           borderColor = '#ea580c';
           badgeColor = '#ea580c';
           badgeBg = '#ffedd5';
-          badgeText = `${associerT(state.lang, 'correct')} • ${associerT(state.lang, 'gradeHard')}`;
+          badgeText = `${associerT(state.lang, 'correct')} â€¢ ${associerT(state.lang, 'gradeHard')}`;
         } else {
           bgColor = '#fee2e2';
           borderColor = '#b91c1c';
           badgeColor = '#b91c1c';
           badgeBg = '#fee2e2';
-          badgeText = `${associerT(state.lang, 'incorrect')} • ${associerT(state.lang, 'gradeFail')}`;
+          badgeText = `${associerT(state.lang, 'incorrect')} â€¢ ${associerT(state.lang, 'gradeFail')}`;
         }
       } else {
-        badgeText = `${associerT(state.lang, 'unmatched')} • ${associerT(state.lang, 'gradeFail')}`;
+        badgeText = `${associerT(state.lang, 'unmatched')} â€¢ ${associerT(state.lang, 'gradeFail')}`;
       }
       
       resultBox.style.cssText = `padding:12px;background:${bgColor};border:2px solid ${borderColor};border-radius:6px;`;
@@ -6635,7 +6828,7 @@
     window.__associerModeState = null;
     
     if(dueCards.length === 0 || currentIndex >= dueCards.length){
-      updateStatus('Révision terminée pour aujourd\'hui');
+      updateStatus('RÃ©vision terminÃ©e pour aujourd\'hui');
       renderEmpty();
       return;
     }
@@ -6720,7 +6913,7 @@
     
     // Previous button
     const prevBtn = document.createElement('button');
-    prevBtn.textContent = '← Précédent';
+    prevBtn.textContent = 'â† PrÃ©cÃ©dent';
     prevBtn.style.cssText = 'padding:10px 16px;background:#6b7280;color:white;border:none;border-radius:6px;cursor:pointer;';
     prevBtn.disabled = state.currentIndex === 0;
     prevBtn.addEventListener('click', () => {
@@ -6731,7 +6924,7 @@
     
     // Next button
     const nextBtn = document.createElement('button');
-    nextBtn.textContent = 'Suivant →';
+    nextBtn.textContent = 'Suivant â†’';
     nextBtn.style.cssText = 'padding:10px 16px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;';
     if(state.currentIndex === state.questions.length - 1){
       nextBtn.textContent = 'Terminer';
@@ -6774,7 +6967,7 @@
       if(idx < parts.length - 1){
         const input = document.createElement('input');
         input.type = 'text';
-        input.placeholder = `Réponse ${idx + 1}`;
+        input.placeholder = `RÃ©ponse ${idx + 1}`;
         input.style.cssText = 'padding:6px 8px;border:2px solid #ddd;border-radius:4px;background:#fff;color:#333;font-size:0.95em;margin:0 4px;min-width:80px;';
         input.className = 'original-blank-input';
         textContainer.appendChild(input);
@@ -6813,7 +7006,7 @@
     
     // Show answer first
     const showAnswerBtn = document.createElement('button');
-    showAnswerBtn.textContent = 'Voir la réponse';
+    showAnswerBtn.textContent = 'Voir la rÃ©ponse';
     showAnswerBtn.style.cssText = 'padding:10px 16px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;margin-bottom:12px;width:100%;font-weight:600;';
     showAnswerBtn.addEventListener('click', () => {
       const backEl = $('#back');
@@ -6832,7 +7025,7 @@
     gradeContainer.style.cssText = 'display:none;gap:8px;flex-wrap:wrap;margin-top:12px;';
     
     const gradeButtons = [
-      {label: 'Raté', quality: 0, color: '#ef4444'},
+      {label: 'RatÃ©', quality: 0, color: '#ef4444'},
       {label: 'Difficile', quality: 3, color: '#f97316'},
       {label: 'Bon', quality: 4, color: '#3b82f6'},
       {label: 'Facile', quality: 5, color: '#22c55e'}
@@ -6857,12 +7050,12 @@
     
     // Check if any answer is empty
     if(answers.some(a => !a || a.trim() === '')){
-      alert('Veuillez remplir toutes les réponses');
+      alert('Veuillez remplir toutes les rÃ©ponses');
       return;
     }
     
     // Extract correct answers from q.back
-    // Back text contains answers separated by semicolons: "réelle ; colères ; tendresses ; endormi."
+    // Back text contains answers separated by semicolons: "rÃ©elle ; colÃ¨res ; tendresses ; endormi."
     const plainBack = q.back.replace(/<[^>]*>/g, '').trim();
     
     // Split by semicolons to get individual answers
@@ -6913,15 +7106,15 @@
       allCorrect ? 'background:#dcfce7;color:#065f46;border:1px solid #6ee7b7;' :
       'background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;'
     }`;
-    feedbackDiv.innerHTML = allCorrect ? '✓ Toutes les réponses sont correctes!' : 
-                             feedbacks.filter(f => f.isCorrect).length > 0 ? '≈ Réponses partiellement correctes' :
-                             '✗ Réponses incorrectes';
+    feedbackDiv.innerHTML = allCorrect ? 'âœ“ Toutes les rÃ©ponses sont correctes!' : 
+                             feedbacks.filter(f => f.isCorrect).length > 0 ? 'â‰ˆ RÃ©ponses partiellement correctes' :
+                             'âœ— RÃ©ponses incorrectes';
     
     // Show answers if not all correct
     if(!allCorrect){
       const answersDiv = document.createElement('div');
       answersDiv.style.cssText = 'padding:12px;background:#f0f0f0;border-radius:6px;margin-top:12px;border:1px solid #ccc;';
-      answersDiv.innerHTML = '<strong>Réponses correctes:</strong><br>' + 
+      answersDiv.innerHTML = '<strong>RÃ©ponses correctes:</strong><br>' + 
         feedbacks.map((f, i) => `Blanc ${i+1}: ${f.correct}`).join('<br>');
       frontEl.appendChild(answersDiv);
     }
@@ -6963,13 +7156,13 @@
     const summaryDiv = document.createElement('div');
     summaryDiv.style.cssText = 'text-align:center;padding:24px;';
     summaryDiv.innerHTML = `
-      <h2 style="margin-bottom:12px;">Résumé</h2>
+      <h2 style="margin-bottom:12px;">RÃ©sumÃ©</h2>
       <div style="font-size:2em;font-weight:bold;color:#2563eb;margin:24px 0;">
         ${Math.round((meanScore / 5) * 100)}%
       </div>
       <div style="color:#666;">Moyenne: ${meanScore.toFixed(1)}/5</div>
       <div style="margin-top:12px;font-size:0.9em;color:#999;">
-        Questions complétées: ${state.scores.length} / ${state.questions.length}
+        Questions complÃ©tÃ©es: ${state.scores.length} / ${state.questions.length}
       </div>
     `;
     frontEl.appendChild(summaryDiv);
@@ -6982,10 +7175,10 @@
       respButtons.innerHTML = '';
       
       const qualityToGrade = {
-        5: { text: '✓ Validé', quality: 5, cls: 'rate-facile' },
+        5: { text: 'âœ“ ValidÃ©', quality: 5, cls: 'rate-facile' },
         4: { text: 'Bon', quality: 4, cls: 'rate-bon' },
         3: { text: 'Hard', quality: 3, cls: 'rate-difficile' },
-        0: { text: 'Raté', quality: 0, cls: 'rate-ratte' }
+        0: { text: 'RatÃ©', quality: 0, cls: 'rate-ratte' }
       };
       
       const suggestedGrade = qualityToGrade[meanScore] || qualityToGrade[3];
@@ -6998,7 +7191,7 @@
       
       // Manual override button
       const overrideBtn = document.createElement('button');
-      overrideBtn.textContent = '🔧 Corriger';
+      overrideBtn.textContent = 'ðŸ”§ Corriger';
       overrideBtn.className = 'secondary';
       overrideBtn.style.cssText = 'padding:10px 16px;cursor:pointer;font-size:0.85em;';
       overrideBtn.addEventListener('click', () => {
@@ -7008,7 +7201,7 @@
           { text: 'Facile', quality: 5, cls: 'rate-facile' },
           { text: 'Bon', quality: 4, cls: 'rate-bon' },
           { text: 'Difficile', quality: 3, cls: 'rate-difficile' },
-          { text: 'Raté', quality: 0, cls: 'rate-ratte' }
+          { text: 'RatÃ©', quality: 0, cls: 'rate-ratte' }
         ];
         
         qualities.forEach(q => {
@@ -7065,12 +7258,12 @@
       dialog.style.cssText = 'background:white;border-radius:12px;padding:24px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
 
       const title = document.createElement('h2');
-      title.textContent = '🧩 Mode Multiple';
+      title.textContent = 'ðŸ§© Mode Multiple';
       title.style.cssText = 'margin-top:0;margin-bottom:16px;color:#333;';
       dialog.appendChild(title);
 
       const desc = document.createElement('p');
-      desc.textContent = 'Choisissez le nombre de cartes à réviser en même temps :';
+      desc.textContent = 'Choisissez le nombre de cartes Ã  rÃ©viser en mÃªme temps :';
       desc.style.cssText = 'color:#666;margin-bottom:12px;';
       dialog.appendChild(desc);
 
@@ -7222,7 +7415,7 @@
       dialog.appendChild(title);
 
       const desc = document.createElement('p');
-      desc.textContent = 'Bienvenue dans le mode Original! Ce mode vous permet d\'étudier des questions liées ensemble.';
+      desc.textContent = 'Bienvenue dans le mode Original! Ce mode vous permet d\'Ã©tudier des questions liÃ©es ensemble.';
       desc.style.cssText = 'color:#666;margin-bottom:16px;';
       dialog.appendChild(desc);
 
@@ -7230,17 +7423,17 @@
       features.style.cssText = 'margin:16px 0;padding-left:20px;';
       
       const feature1 = document.createElement('li');
-      feature1.innerHTML = '<strong>Questions séquentielles:</strong> Naviguez entre des questions liées pas à pas';
+      feature1.innerHTML = '<strong>Questions sÃ©quentielles:</strong> Naviguez entre des questions liÃ©es pas Ã  pas';
       feature1.style.cssText = 'margin-bottom:8px;color:#555;';
       features.appendChild(feature1);
       
       const feature2 = document.createElement('li');
-      feature2.innerHTML = '<strong>Texte à trous:</strong> Complétez des phrases avec la même validation que le mode Texte';
+      feature2.innerHTML = '<strong>Texte Ã  trous:</strong> ComplÃ©tez des phrases avec la mÃªme validation que le mode Texte';
       feature2.style.cssText = 'margin-bottom:8px;color:#555;';
       features.appendChild(feature2);
       
       const feature3 = document.createElement('li');
-      feature3.innerHTML = '<strong>Score moyen:</strong> Votre score est calculé sur l\'ensemble des questions';
+      feature3.innerHTML = '<strong>Score moyen:</strong> Votre score est calculÃ© sur l\'ensemble des questions';
       feature3.style.cssText = 'color:#555;';
       features.appendChild(feature3);
       
@@ -7248,7 +7441,7 @@
 
       const hint = document.createElement('div');
       hint.style.cssText = 'padding:12px;background:#eff6ff;border-left:4px solid #2563eb;margin-bottom:16px;color:#1e40af;font-size:0.9em;';
-      hint.innerHTML = '💡 <strong>Conseil:</strong> Lisez attentivement chaque question avant de passer à la suivante.';
+      hint.innerHTML = 'ðŸ’¡ <strong>Conseil:</strong> Lisez attentivement chaque question avant de passer Ã  la suivante.';
       dialog.appendChild(hint);
 
       const buttonContainer = document.createElement('div');
@@ -7368,7 +7561,7 @@
       block.className = 'multiple-block';
       const nodes = getFrontNodesForCard(card);
       if(nodes.length === 0){
-        block.innerHTML = '<em>Contenu masqué côté question</em>';
+        block.innerHTML = '<em>Contenu masquÃ© cÃ´tÃ© question</em>';
       } else {
         nodes.forEach(node => block.appendChild(node));
       }
@@ -7405,7 +7598,7 @@
 
       const nodes = getBackNodesForCard(card);
       if(nodes.length === 0){
-        block.innerHTML = '<em>Contenu masqué côté réponse</em>';
+        block.innerHTML = '<em>Contenu masquÃ© cÃ´tÃ© rÃ©ponse</em>';
       } else {
         nodes.forEach(node => block.appendChild(node));
       }
@@ -7413,7 +7606,7 @@
       const choiceRow = document.createElement('div');
       choiceRow.className = 'multiple-choice';
       const choices = [
-        {id:'again', label:'Raté', value:0, cls:'rate-ratte'},
+        {id:'again', label:'RatÃ©', value:0, cls:'rate-ratte'},
         {id:'hard', label:'Difficile', value:3, cls:'rate-difficile'},
         {id:'good', label:'Bon', value:4, cls:'rate-bon'},
         {id:'easy', label:'Facile', value:5, cls:'rate-facile'}
@@ -7465,7 +7658,7 @@
     answerLocked = false;
     window.__multipleModeState = null;
     if(dueCards.length === 0 || currentIndex >= dueCards.length){
-      updateStatus('Révision terminée pour aujourd\'hui');
+      updateStatus('RÃ©vision terminÃ©e pour aujourd\'hui');
       renderEmpty();
       return;
     }
@@ -7483,7 +7676,7 @@
     if(!nextBtn){
       nextBtn = document.createElement('button');
       nextBtn.id = 'nextStepBtn';
-      nextBtn.textContent = 'Prochaine étape';
+      nextBtn.textContent = 'Prochaine Ã©tape';
       nextBtn.style.cssText = 'padding:10px 16px;border:2px solid #2563eb;border-radius:8px;background:#2563eb;color:#fff;cursor:pointer;font-size:0.95em;font-weight:700;transition:all 0.2s;';
       if(showAnswerBtn.parentNode){
         showAnswerBtn.parentNode.insertBefore(nextBtn, showAnswerBtn);
@@ -7545,26 +7738,26 @@
       if(mode === 'fillblank'){
         steps = [
           {
-            title: '✍️ Mode entrée libre',
-            text: 'Bienvenue en mode entrée libre! Vous allez devoir réécrire les mots ou les phrases. Soyez précis!',
+            title: 'âœï¸ Mode entrÃ©e libre',
+            text: 'Bienvenue en mode entrÃ©e libre! Vous allez devoir rÃ©Ã©crire les mots ou les phrases. Soyez prÃ©cis!',
             target: 'front',
             position: 'bottom'
           },
           {
-            title: 'Tapez votre réponse',
-            text: 'Écrivez les lettres manquantes exactement. Les accents et majuscules comptent! Une fois satisfait, appuyez sur Entrée ou cliquez Valider.',
+            title: 'Tapez votre rÃ©ponse',
+            text: 'Ã‰crivez les lettres manquantes exactement. Les accents et majuscules comptent! Une fois satisfait, appuyez sur EntrÃ©e ou cliquez Valider.',
             target: 'fillBlankInput',
             position: 'top'
           },
           {
             title: 'Validation intelligente',
-            text: 'Notre système comprend les petites erreurs (accents, majuscules). Si vous avez 80%+ correct, c\'est "Bon"! Sinon si c\'est 50%+, c\'est "Partiel".',
+            text: 'Notre systÃ¨me comprend les petites erreurs (accents, majuscules). Si vous avez 80%+ correct, c\'est "Bon"! Sinon si c\'est 50%+, c\'est "Partiel".',
             target: 'back',
             position: 'top'
           },
           {
-            title: 'Double récompense',
-            text: 'Le mode entrée libre vous rapporte 2x plus d\'XP et 2.5x plus de crédits! Cela récompense votre précision. Plus difficile = plus lucratif!',
+            title: 'Double rÃ©compense',
+            text: 'Le mode entrÃ©e libre vous rapporte 2x plus d\'XP et 2.5x plus de crÃ©dits! Cela rÃ©compense votre prÃ©cision. Plus difficile = plus lucratif!',
             target: 'none',
             position: 'center'
           }
@@ -7572,32 +7765,32 @@
       } else if(mode === 'timer'){
         steps = [
           {
-            title: '⏱️ Mode Rappel sous pression',
-            text: 'Bienvenue en mode Rappel sous pression! Vous avez un temps limité pour répondre. Testez votre rapidité!',
+            title: 'â±ï¸ Mode Rappel sous pression',
+            text: 'Bienvenue en mode Rappel sous pression! Vous avez un temps limitÃ© pour rÃ©pondre. Testez votre rapiditÃ©!',
             target: 'timerModeContainer',
             position: 'bottom'
           },
           {
-            title: 'Barre de progression colorée',
-            text: 'La barre du bas change de couleur: Vert (Facile) → Bleu (Bon) → Orange (Difficile). Cela vous montre le temps restant rapidement.',
+            title: 'Barre de progression colorÃ©e',
+            text: 'La barre du bas change de couleur: Vert (Facile) â†’ Bleu (Bon) â†’ Orange (Difficile). Cela vous montre le temps restant rapidement.',
             target: 'timerBar',
             position: 'bottom'
           },
           {
             title: 'Soyez rapide!',
-            text: 'Vous n\'avez que peu de temps pour répondre. Plus vous cliquez vite sur "Afficher la réponse", plus vous pouvez vous mettre une bonne note.',
+            text: 'Vous n\'avez que peu de temps pour rÃ©pondre. Plus vous cliquez vite sur "Afficher la rÃ©ponse", plus vous pouvez vous mettre une bonne note.',
             target: 'respButtons',
             position: 'top'
           },
           {
             title: 'Auto-avance automatique',
-            text: 'Au revers, si le temps expire, votre résultat est clické automatiquement (on part du principe que ce n\'est pas raté). Vous pouvez aussi répondre manuellement avant la fin.',
+            text: 'Au revers, si le temps expire, votre rÃ©sultat est clickÃ© automatiquement (on part du principe que ce n\'est pas ratÃ©). Vous pouvez aussi rÃ©pondre manuellement avant la fin.',
             target: 'respButtons',
             position: 'top'
           },
           {
             title: 'Bonus XP',
-            text: 'Le mode Rappel sous pression vous rapporte 1.2x XP supplémentaire. Bonne révision!',
+            text: 'Le mode Rappel sous pression vous rapporte 1.2x XP supplÃ©mentaire. Bonne rÃ©vision!',
             target: 'none',
             position: 'center'
           }
@@ -7605,32 +7798,32 @@
       } else if(mode === 'activeMemory'){
         steps = [
           {
-            title: '🧠 Mode Mémoire active',
-            text: 'Bienvenue en mode Mémoire active! Vous avez 3 secondes pour lire la question, puis elle disparaît. Engagez votre mémoire!',
+            title: 'ðŸ§  Mode MÃ©moire active',
+            text: 'Bienvenue en mode MÃ©moire active! Vous avez 3 secondes pour lire la question, puis elle disparaÃ®t. Engagez votre mÃ©moire!',
             target: 'front',
             position: 'bottom'
           },
           {
-            title: 'Compte à rebours de 3 secondes',
-            text: 'Une barre bleue progresse pendant 3 secondes. Lisez vite et mémorisez bien car elle disparaîtra après!',
+            title: 'Compte Ã  rebours de 3 secondes',
+            text: 'Une barre bleue progresse pendant 3 secondes. Lisez vite et mÃ©morisez bien car elle disparaÃ®tra aprÃ¨s!',
             target: 'activeMemoryTimerContainer',
             position: 'bottom'
           },
           {
-            title: 'La question disparaît',
-            text: 'Une fois les 3 secondes écoulées, la question disparaît. Vous ne verrez que le bouton "Afficher la réponse".',
+            title: 'La question disparaÃ®t',
+            text: 'Une fois les 3 secondes Ã©coulÃ©es, la question disparaÃ®t. Vous ne verrez que le bouton "Afficher la rÃ©ponse".',
             target: 'showAnswer',
             position: 'top'
           },
           {
-            title: 'Répondez de mémoire',
-            text: 'Essayez de répondre sans voir la question. Cliquez "Afficher la réponse" quand vous êtes prêt.',
+            title: 'RÃ©pondez de mÃ©moire',
+            text: 'Essayez de rÃ©pondre sans voir la question. Cliquez "Afficher la rÃ©ponse" quand vous Ãªtes prÃªt.',
             target: 'showAnswer',
             position: 'top'
           },
           {
-            title: 'Amélioration de la rétention',
-            text: 'Ce mode force votre cerveau à former des connexions plus fortes. Vous mémoriserez mieux à long terme! Bonus de 1.1x XP pour ce mode.',
+            title: 'AmÃ©lioration de la rÃ©tention',
+            text: 'Ce mode force votre cerveau Ã  former des connexions plus fortes. Vous mÃ©moriserez mieux Ã  long terme! Bonus de 1.1x XP pour ce mode.',
             target: 'none',
             position: 'center'
           }
@@ -7638,7 +7831,7 @@
       } else if(mode === 'step'){
         steps = [
           {
-            title: '🪜 Mode Etape par etape',
+            title: 'ðŸªœ Mode Etape par etape',
             text: 'Chaque champ de la carte apparait un par un. Prenez le temps d y repondre avant de passer au suivant.',
             target: 'front',
             position: 'bottom'
@@ -7659,26 +7852,26 @@
       } else if(mode === 'hold'){
         steps = [
           {
-            title: '✋ Mode Maintient',
-            text: 'Bienvenue en mode Maintient! La question reste visible et la réponse est floutée.',
+            title: 'âœ‹ Mode Maintient',
+            text: 'Bienvenue en mode Maintient! La question reste visible et la rÃ©ponse est floutÃ©e.',
             target: 'back',
             position: 'bottom'
           },
           {
             title: 'Maintiens pour reveler',
-            text: 'Maintenez votre clic ou votre doigt sur la zone floutée pour voir la réponse. Relâchez pour refaire apparaître le flou.',
+            text: 'Maintenez votre clic ou votre doigt sur la zone floutÃ©e pour voir la rÃ©ponse. RelÃ¢chez pour refaire apparaÃ®tre le flou.',
             target: 'back',
             position: 'top'
           },
           {
             title: 'Notez tout de suite',
-            text: 'Les boutons de réponse sont déjà visibles sous la carte. Il n y a pas de bouton "Afficher la réponse" dans ce mode.',
+            text: 'Les boutons de rÃ©ponse sont dÃ©jÃ  visibles sous la carte. Il n y a pas de bouton "Afficher la rÃ©ponse" dans ce mode.',
             target: 'respButtons',
             position: 'top'
           },
           {
             title: 'Bonus XP',
-            text: 'Le mode Maintient vous rapporte 1.1x XP, sans bonus de crédits.',
+            text: 'Le mode Maintient vous rapporte 1.1x XP, sans bonus de crÃ©dits.',
             target: 'none',
             position: 'center'
           }
@@ -7686,14 +7879,14 @@
       } else if(mode === 'calcul'){
         steps = [
           {
-            title: '∫ Mode Calcul',
-            text: 'Bienvenue en mode Calcul! Vous allez construire des formules LaTeX mathématiques.',
+            title: 'âˆ« Mode Calcul',
+            text: 'Bienvenue en mode Calcul! Vous allez construire des formules LaTeX mathÃ©matiques.',
             target: 'calculContainer',
             position: 'bottom'
           },
           {
             title: 'Boutons rapides',
-            text: 'Utilisez les boutons (+, −, ×, ÷, ∫, Σ, etc.) pour ajouter des opérateurs et fonctions à votre formule.',
+            text: 'Utilisez les boutons (+, âˆ’, Ã—, Ã·, âˆ«, Î£, etc.) pour ajouter des opÃ©rateurs et fonctions Ã  votre formule.',
             target: 'calculButtonGrid',
             position: 'top'
           },
@@ -7705,19 +7898,19 @@
           },
           {
             title: 'Navigation au clavier',
-            text: 'Les flèches gauche/droite bougent votre curseur. Retour efface, Effacer réinitialise tout.',
+            text: 'Les flÃ¨ches gauche/droite bougent votre curseur. Retour efface, Effacer rÃ©initialise tout.',
             target: 'calculInput',
             position: 'top'
           },
           {
-            title: 'Vérification intelligente',
-            text: '0 erreurs = Facile, 1 erreur = Bon, 2-3 = Difficile, 4+ = Raté. Les variantes LaTeX (\\infty vs \\infin) sont pardonnées.',
+            title: 'VÃ©rification intelligente',
+            text: '0 erreurs = Facile, 1 erreur = Bon, 2-3 = Difficile, 4+ = RatÃ©. Les variantes LaTeX (\\infty vs \\infin) sont pardonnÃ©es.',
             target: 'calculContainer',
             position: 'bottom'
           },
           {
             title: 'Bonus important',
-            text: 'Le mode Calcul vous rapporte 1.5x retention, 1.8x XP et 1.5x crédit. Un excellent mode pour progresser!',
+            text: 'Le mode Calcul vous rapporte 1.5x retention, 1.8x XP et 1.5x crÃ©dit. Un excellent mode pour progresser!',
             target: 'none',
             position: 'center'
           }
@@ -7762,94 +7955,94 @@
     
     switch(mode){
       case 'fillblank':
-        title = '✍️ Mode Texte à trou';
+        title = 'âœï¸ Mode Texte Ã  trou';
         content = `
-          <p><strong>Bienvenue en mode Texte à trou!</strong></p>
-          <p>Complétez les mots manquants dans les phrases. Vous devez écrire exactement ce qui manque.</p>
+          <p><strong>Bienvenue en mode Texte Ã  trou!</strong></p>
+          <p>ComplÃ©tez les mots manquants dans les phrases. Vous devez Ã©crire exactement ce qui manque.</p>
           <ul style="text-align:left;margin:12px 0;">
-            <li>📝 Lisez la phrase avec les trous</li>
-            <li>⌨️ Tapez les lettres manquantes</li>
-            <li>✅ Validez votre réponse</li>
-            <li>💰 Gagnez 2x plus d'XP pour cette précision!</li>
+            <li>ðŸ“ Lisez la phrase avec les trous</li>
+            <li>âŒ¨ï¸ Tapez les lettres manquantes</li>
+            <li>âœ… Validez votre rÃ©ponse</li>
+            <li>ðŸ’° Gagnez 2x plus d'XP pour cette prÃ©cision!</li>
           </ul>
-          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>💡 Conseil:</strong> Les lettres manquantes s'affichent en vert après révélation.</p>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>ðŸ’¡ Conseil:</strong> Les lettres manquantes s'affichent en vert aprÃ¨s rÃ©vÃ©lation.</p>
         `;
         break;
       
       case 'timer':
-        title = '⏱️ Mode Rappel sous pression';
+        title = 'â±ï¸ Mode Rappel sous pression';
         content = `
           <p><strong>Bienvenue en mode Rappel sous pression!</strong></p>
-          <p>Testez votre rapidité sous pression temporelle. Plus vous êtes rapide, meilleure votre note!</p>
+          <p>Testez votre rapiditÃ© sous pression temporelle. Plus vous Ãªtes rapide, meilleure votre note!</p>
           <ul style="text-align:left;margin:12px 0;">
-            <li>👀 Un chronomètre compte à rebours</li>
-            <li>🎨 Barre verte → bleue → orange</li>
-            <li>📌 Un seul bouton visible à la fois</li>
-            <li>⚡ Auto-avance à la fin du chrono</li>
-            <li>💫 Gagnez 1.2x d'XP!</li>
+            <li>ðŸ‘€ Un chronomÃ¨tre compte Ã  rebours</li>
+            <li>ðŸŽ¨ Barre verte â†’ bleue â†’ orange</li>
+            <li>ðŸ“Œ Un seul bouton visible Ã  la fois</li>
+            <li>âš¡ Auto-avance Ã  la fin du chrono</li>
+            <li>ðŸ’« Gagnez 1.2x d'XP!</li>
           </ul>
-          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>🔵 Note:</strong> Le côté Revers reste toujours bleu (moins de pression).</p>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>ðŸ”µ Note:</strong> Le cÃ´tÃ© Revers reste toujours bleu (moins de pression).</p>
         `;
         break;
       
       case 'activeMemory':
-        title = '🧠 Mode Mémoire active';
+        title = 'ðŸ§  Mode MÃ©moire active';
         content = `
-          <p><strong>Bienvenue en mode Mémoire active!</strong></p>
-          <p>3 secondes pour lire la question, puis elle disparaît. Engagez votre mémoire!</p>
+          <p><strong>Bienvenue en mode MÃ©moire active!</strong></p>
+          <p>3 secondes pour lire la question, puis elle disparaÃ®t. Engagez votre mÃ©moire!</p>
           <ul style="text-align:left;margin:12px 0;">
-            <li>⏱️ 3 secondes pour lire l'avant</li>
-            <li>💭 L'avant se cache après les 3 sec</li>
-            <li>🔵 Une barre de progression bleue</li>
-            <li>📚 Répondez de mémoire</li>
-            <li>✨ Gagnez 1.1x d'XP!</li>
+            <li>â±ï¸ 3 secondes pour lire l'avant</li>
+            <li>ðŸ’­ L'avant se cache aprÃ¨s les 3 sec</li>
+            <li>ðŸ”µ Une barre de progression bleue</li>
+            <li>ðŸ“š RÃ©pondez de mÃ©moire</li>
+            <li>âœ¨ Gagnez 1.1x d'XP!</li>
           </ul>
-          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>🎯 Astuce:</strong> Vérifiez votre réponse en cliquant "Afficher la réponse".</p>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>ðŸŽ¯ Astuce:</strong> VÃ©rifiez votre rÃ©ponse en cliquant "Afficher la rÃ©ponse".</p>
         `;
         break;
       case 'hold':
-        title = '✋ Mode Maintient';
+        title = 'âœ‹ Mode Maintient';
         content = `
           <p><strong>Bienvenue en mode Maintient!</strong></p>
           <p>La question reste visible, la reponse est floutee. Maintenez pour la voir, relachez pour la cacher.</p>
           <ul style="text-align:left;margin:12px 0;">
-            <li>👀 La face reste visible</li>
-            <li>🫳 Maintenez pour reveler la reponse</li>
-            <li>🧊 Le flou revient au relachement</li>
-            <li>✅ Les boutons de reponse sont visibles</li>
-            <li>✨ Gagnez 1.1x d'XP</li>
+            <li>ðŸ‘€ La face reste visible</li>
+            <li>ðŸ«³ Maintenez pour reveler la reponse</li>
+            <li>ðŸ§Š Le flou revient au relachement</li>
+            <li>âœ… Les boutons de reponse sont visibles</li>
+            <li>âœ¨ Gagnez 1.1x d'XP</li>
           </ul>
-          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>💡 Conseil:</strong> Gardez le pouce sur la zone floutee pour verifier vite.</p>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>ðŸ’¡ Conseil:</strong> Gardez le pouce sur la zone floutee pour verifier vite.</p>
         `;
         break;
       case 'multiple':
-        title = '🧩 Mode Multiple';
+        title = 'ðŸ§© Mode Multiple';
         content = `
           <p><strong>Bienvenue en mode Multiple!</strong></p>
           <p>Revisez plusieurs cartes a la fois. Les contenus sont separes par des barres grises.</p>
           <ul style="text-align:left;margin:12px 0;">
-            <li>📚 Plusieurs faces d un coup</li>
-            <li>👀 Une seule reponse pour tout afficher</li>
-            <li>✅ Notez chaque carte avant de continuer</li>
-            <li>📉 Coefficients 0.9x retention, XP, credits</li>
+            <li>ðŸ“š Plusieurs faces d un coup</li>
+            <li>ðŸ‘€ Une seule reponse pour tout afficher</li>
+            <li>âœ… Notez chaque carte avant de continuer</li>
+            <li>ðŸ“‰ Coefficients 0.9x retention, XP, credits</li>
           </ul>
-          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>💡 Conseil:</strong> Utilisez-le pour des sessions rapides.</p>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>ðŸ’¡ Conseil:</strong> Utilisez-le pour des sessions rapides.</p>
         `;
         break;
       
       default:
-        title = '📚 Bienvenue dans Fab\'Anki!';
+        title = 'ðŸ“š Bienvenue dans Fab\'Anki!';
         content = `
-          <p><strong>Vous êtes en mode Anki (Défaut).</strong></p>
-          <p>Mode classique de révision avec l'algorithme SM-2. Pas de pression, apprenez à votre rythme.</p>
+          <p><strong>Vous Ãªtes en mode Anki (DÃ©faut).</strong></p>
+          <p>Mode classique de rÃ©vision avec l'algorithme SM-2. Pas de pression, apprenez Ã  votre rythme.</p>
           <ul style="text-align:left;margin:12px 0;">
-            <li>📖 Lisez la question</li>
-            <li>🤔 Réfléchissez à la réponse</li>
-            <li>👀 Cliquez "Afficher la réponse"</li>
-            <li>⭐ Notez votre réponse: Facile, Bon, Difficile, Raté</li>
-            <li>💯 Gagnez de l'XP!</li>
+            <li>ðŸ“– Lisez la question</li>
+            <li>ðŸ¤” RÃ©flÃ©chissez Ã  la rÃ©ponse</li>
+            <li>ðŸ‘€ Cliquez "Afficher la rÃ©ponse"</li>
+            <li>â­ Notez votre rÃ©ponse: Facile, Bon, Difficile, RatÃ©</li>
+            <li>ðŸ’¯ Gagnez de l'XP!</li>
           </ul>
-          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>💡 Conseil:</strong> Essayez d'autres modes depuis "Parcourir decks"!</p>
+          <p style="font-size:0.9em;color:#666;margin-top:16px;"><strong>ðŸ’¡ Conseil:</strong> Essayez d'autres modes depuis "Parcourir decks"!</p>
         `;
         break;
     }
@@ -7890,28 +8083,28 @@
       
       const steps = [
         {
-          title: 'Bienvenue au Marché!',
-          text: 'Le Marché vous permet d\'acheter des fonctionnalités premium avec les crédits (ℂ) que vous gagnez en révisant!',
+          title: 'Bienvenue au MarchÃ©!',
+          text: 'Le MarchÃ© vous permet d\'acheter des fonctionnalitÃ©s premium avec les crÃ©dits (â„‚) que vous gagnez en rÃ©visant!',
           position: 'center'
         },
         {
-          title: 'Modes d\'étude',
-          text: 'Plein de modes d\'étude à débloquer : Certains sont compatibles avec tous les decks, d\'autres sont spécifiques à certains types de cartes (ex: Texte à trou pour les cartes avec du texte long). Essayez-les tous!',
+          title: 'Modes d\'Ã©tude',
+          text: 'Plein de modes d\'Ã©tude Ã  dÃ©bloquer : Certains sont compatibles avec tous les decks, d\'autres sont spÃ©cifiques Ã  certains types de cartes (ex: Texte Ã  trou pour les cartes avec du texte long). Essayez-les tous!',
           position: 'center'
         },
         {
           title: 'Personnalisations',
-          text: 'Débloquez des Couleurs de fond, Motifs, Polices, Couleurs de cartes et Animations!',
+          text: 'DÃ©bloquez des Couleurs de fond, Motifs, Polices, Couleurs de cartes et Animations!',
           position: 'center'
         },
         {
-          title: 'Titres aléatoires',
-          text: 'Débloquez des titres aléatoires à différents niveaux de rareté. Votre titre s\'affiche sur le leaderboard pour montrer votre prestige!',
+          title: 'Titres alÃ©atoires',
+          text: 'DÃ©bloquez des titres alÃ©atoires Ã  diffÃ©rents niveaux de raretÃ©. Votre titre s\'affiche sur le leaderboard pour montrer votre prestige!',
           position: 'center'
         },
         {
           title: 'Conseil',
-          text: 'Montez de niveau pour débloquer plus de personnalisations gratuites! Soyez régulier dans vos révisions pour accumuler crédits et XP rapidement.',
+          text: 'Montez de niveau pour dÃ©bloquer plus de personnalisations gratuites! Soyez rÃ©gulier dans vos rÃ©visions pour accumuler crÃ©dits et XP rapidement.',
           position: 'center'
         }
       ];
@@ -7994,7 +8187,7 @@
       if(fill){
         fill.style.width = progress + '%';
         
-        // Change color based on progress: Green → Blue → Orange → Red
+        // Change color based on progress: Green â†’ Blue â†’ Orange â†’ Red
         if(progress < 30){
           fill.style.background = '#10b981';  // Green
         } else if(progress < 60){
@@ -8036,7 +8229,7 @@
     if(!window.timerModeState) return;
     window.timerModeState.autoClickActive = true;
     
-    // Get all response buttons (Facile > Bon > Difficile > Raté)
+    // Get all response buttons (Facile > Bon > Difficile > RatÃ©)
     const easyBtn = document.getElementById('easy');
     const goodBtn = document.getElementById('good');
     const hardBtn = document.getElementById('hard');
@@ -8074,14 +8267,14 @@
     const hardBtn = document.getElementById('hard');
     const failBtn = document.getElementById('again');
     
-    // If button state is fixed (answer has been shown), show the fixed button PLUS always show Raté
+    // If button state is fixed (answer has been shown), show the fixed button PLUS always show RatÃ©
     if(window.timerModeState && window.timerModeState.fixedButtonState){
       const fixed = window.timerModeState.fixedButtonState;
       
       if(easyBtn) easyBtn.style.display = fixed === 'easy' ? 'inline-block' : 'none';
       if(goodBtn) goodBtn.style.display = fixed === 'good' ? 'inline-block' : 'none';
       if(hardBtn) hardBtn.style.display = fixed === 'hard' ? 'inline-block' : 'none';
-      // Always show Raté button when back content is shown
+      // Always show RatÃ© button when back content is shown
       if(failBtn) failBtn.style.display = 'inline-block';
       return;
     }
@@ -8127,7 +8320,7 @@
     }
     
     if(!correctAnswer){
-      alert('Erreur: réponse correcte non trouvée');
+      alert('Erreur: rÃ©ponse correcte non trouvÃ©e');
       return;
     }
     
@@ -8163,10 +8356,10 @@
       
       // Create buttons based on result quality
       const qualityToGrade = {
-        5: { text: '✓ Validé', quality: 5, cls: 'rate-facile' },
+        5: { text: 'âœ“ ValidÃ©', quality: 5, cls: 'rate-facile' },
         4: { text: 'Bon', quality: 4, cls: 'rate-bon' },
         3: { text: 'Hard', quality: 3, cls: 'rate-difficile' },
-        0: { text: 'Raté', quality: 0, cls: 'rate-ratte' }
+        0: { text: 'RatÃ©', quality: 0, cls: 'rate-ratte' }
       };
       
       const gradeInfo = qualityToGrade[result.quality];
@@ -8181,7 +8374,7 @@
       
       // Add manual override button
       const overrideBtn = document.createElement('button');
-      overrideBtn.textContent = '🔧 Corriger';
+      overrideBtn.textContent = 'ðŸ”§ Corriger';
       overrideBtn.className = 'secondary';
       overrideBtn.style.cssText = 'padding:10px 16px;cursor:pointer;font-size:0.85em;';
       overrideBtn.addEventListener('click', () => {
@@ -8192,7 +8385,7 @@
           { text: 'Facile', quality: 5, cls: 'rate-facile' },
           { text: 'Bon', quality: 4, cls: 'rate-bon' },
           { text: 'Difficile', quality: 3, cls: 'rate-difficile' },
-          { text: 'Raté', quality: 0, cls: 'rate-ratte' }
+          { text: 'RatÃ©', quality: 0, cls: 'rate-ratte' }
         ];
         
         qualities.forEach(q => {
@@ -8265,7 +8458,7 @@
     // Remove ellipsis (...)
     text = text.replace(/\.\.\./g, '');
     // Normalize dashes/hyphens
-    text = text.replace(/[-–—]/g, '-');
+    text = text.replace(/[-â€“â€”]/g, '-');
     return text.trim();
   }
   
@@ -8352,9 +8545,9 @@
     const userCleaned = cleanPunctuation(userAnswer).toLowerCase();
     const correctCleaned = cleanPunctuation(correctAnswer).toLowerCase();
     
-    // Exact match -> Validé (quality 5)
+    // Exact match -> ValidÃ© (quality 5)
     if(userCleaned === correctCleaned){
-      return { quality: 5, message: 'Validé', isCorrect: true };
+      return { quality: 5, message: 'ValidÃ©', isCorrect: true };
     }
     
     // Check for special patterns (e.g., "He emphasizes / lays emphasis on...")
@@ -8392,9 +8585,9 @@
     let bestPartialMatch = null;
     for(const part of parts){
       const partSimilarity = calculateSimilarity(userCleaned, part);
-      // If one variant matches exactly, it's valid (Validé)
+      // If one variant matches exactly, it's valid (ValidÃ©)
       if(userCleaned === part){
-        return { quality: 5, message: 'Validé', isCorrect: true };
+        return { quality: 5, message: 'ValidÃ©', isCorrect: true };
       }
       // If variant matches with <20% errors, it's Good (Bon) - user got one of the options
       if(partSimilarity.errorRate < 0.20){
@@ -8414,8 +8607,8 @@
     // If we found a partial match, return it
     if(bestPartialMatch) return bestPartialMatch;
     
-    // Default: Raté (quality 0)
-    return { quality: 0, message: 'Raté', isCorrect: false, diff: similarity.diff };
+    // Default: RatÃ© (quality 0)
+    return { quality: 0, message: 'RatÃ©', isCorrect: false, diff: similarity.diff };
   }
   
   function checkSpecialPattern(userAnswer, correctAnswer){
@@ -8528,7 +8721,7 @@
       }
     }
     
-    const specialCharRegex = /[.éèêëàâäùûüôöçœæñ\-_!?]/i;
+    const specialCharRegex = /[.Ã©Ã¨ÃªÃ«Ã Ã¢Ã¤Ã¹Ã»Ã¼Ã´Ã¶Ã§Å“Ã¦Ã±\-_!?]/i;
     const onlySpecialDiff = extraChars.concat(missingChars).every(d => specialCharRegex.test(d.char));
     
     return {
@@ -8580,27 +8773,27 @@
     // Result header
     const resultDiv = document.createElement('div');
     const resultColors = {
-      'Validé': '#2ecc71',
+      'ValidÃ©': '#2ecc71',
       'Bon': '#3498db',
       'BON': '#3498db',
       'Hard': '#f39c12',
-      'Raté': '#e74c3c'
+      'RatÃ©': '#e74c3c'
     };
     const color = resultColors[result.message] || '#999';
     resultDiv.style.cssText = `background:${color}20;border-left:4px solid ${color};padding:8px;margin-bottom:12px;font-weight:700;color:${color};`;
-    resultDiv.textContent = `Résultat: ${result.message}`;
+    resultDiv.textContent = `RÃ©sultat: ${result.message}`;
     feedbackEl.appendChild(resultDiv);
     
     // Back content (correct answer)
     const correctDiv = document.createElement('div');
     correctDiv.style.cssText = 'margin-bottom:12px;padding:8px;background:#f0f0f0;border-radius:4px;';
-    correctDiv.innerHTML = `<strong>Réponse correcte:</strong><br>${correctAnswer}`;
+    correctDiv.innerHTML = `<strong>RÃ©ponse correcte:</strong><br>${correctAnswer}`;
     feedbackEl.appendChild(correctDiv);
     
     // User's answer with visual feedback
     const userDiv = document.createElement('div');
     userDiv.style.cssText = 'margin-bottom:12px;padding:8px;background:#f9f9f9;border-radius:4px;';
-    userDiv.innerHTML = '<strong>Votre réponse:</strong><br>';
+    userDiv.innerHTML = '<strong>Votre rÃ©ponse:</strong><br>';
     
     // Render user answer with strike-through extra chars and green missing chars
     if(result.diff){
@@ -8679,7 +8872,8 @@
           return;
         }
         console.log('showAnswer clicked');
-        if(!hasPreloadedBack){
+        const shouldRenderCurrentBack = !hasPreloadedBack || window.innerWidth > 640;
+        if(shouldRenderCurrentBack){
           renderBack(c);
           console.log('renderBack completed');
         }
@@ -8755,15 +8949,15 @@
             window.rushModeState.animationHandle = null;
           }
           
-          // Reset button visibility - but keep only "Raté" visible if timer expired
+          // Reset button visibility - but keep only "RatÃ©" visible if timer expired
           const respButtons = document.getElementById('respButtons');
           if(respButtons){
             const buttons = respButtons.querySelectorAll('button');
             if(window.rushModeState.timerExpired){
-              // Timer expired - keep only "Raté" visible
+              // Timer expired - keep only "RatÃ©" visible
               buttons.forEach(btn => {
                 const text = btn.textContent.trim();
-                if(text === 'Raté' || text === '🔴 Raté'){
+                if(text === 'RatÃ©' || text === 'ðŸ”´ RatÃ©'){
                   btn.style.display = 'inline-flex';
                 } else {
                   btn.style.display = 'none';
@@ -8876,16 +9070,16 @@
               submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
               status: 'pending'
             });
-            console.log('✔️ Modification request synced to cloud with ID:', docRef.id);
+            console.log('âœ”ï¸ Modification request synced to cloud with ID:', docRef.id);
           }catch(cloudError){
             console.error('Failed to sync modification request to cloud:', cloudError);
-            alert('Avertissement: La demande a été enregistrée localement mais n\'a pas pu être synchronisée avec le cloud. Erreur: ' + cloudError.message);
+            alert('Avertissement: La demande a Ã©tÃ© enregistrÃ©e localement mais n\'a pas pu Ãªtre synchronisÃ©e avec le cloud. Erreur: ' + cloudError.message);
           }
         } else {
           console.warn('Firestore not available - modification saved locally only');
         }
         
-        alert('Demande de modification enregistrée ! Le développeur sera notifié.');
+        alert('Demande de modification enregistrÃ©e ! Le dÃ©veloppeur sera notifiÃ©.');
         
         // Close overlay
         const overlay = document.getElementById('modRequestOverlay');
@@ -8905,7 +9099,7 @@
       // Log to console for reference
       console.log(`=== ${requests.length} DEMANDE(S) DE MODIFICATION ===`);
       if(requests.length === 0){
-        console.log('Aucune demande de modification enregistrée.');
+        console.log('Aucune demande de modification enregistrÃ©e.');
         alert('Aucune demande de modification.');
         return;
       }
@@ -8923,10 +9117,10 @@
       
       const header = document.createElement('div');
       header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;';
-      header.innerHTML = `<h2 style="margin:0;">🛠️ Admin Panel - Demandes de Modification (${requests.length})</h2>`;
+      header.innerHTML = `<h2 style="margin:0;">ðŸ› ï¸ Admin Panel - Demandes de Modification (${requests.length})</h2>`;
       
       const closeBtn = document.createElement('button');
-      closeBtn.textContent = '×';
+      closeBtn.textContent = 'Ã—';
       closeBtn.className = 'secondary';
       closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;';
       closeBtn.addEventListener('click', () => panel.remove());
@@ -8967,24 +9161,24 @@
         actionBtns.style.cssText = 'display:flex;gap:8px;';
         
         const acceptBtn = document.createElement('button');
-        acceptBtn.innerHTML = '✔️ Accepter';
+        acceptBtn.innerHTML = 'âœ”ï¸ Accepter';
         acceptBtn.className = 'primary';
         acceptBtn.style.cssText = 'padding:6px 12px;font-size:0.9em;background:#16a34a;';
         acceptBtn.addEventListener('click', () => {
           if(confirm('Accepter cette modification ?')){
-            console.log('✅ ACCEPTED:', req);
+            console.log('âœ… ACCEPTED:', req);
             removeRequest(index);
           }
         });
         actionBtns.appendChild(acceptBtn);
         
         const rejectBtn = document.createElement('button');
-        rejectBtn.innerHTML = '❌ Refuser';
+        rejectBtn.innerHTML = 'âŒ Refuser';
         rejectBtn.className = 'secondary';
         rejectBtn.style.cssText = 'padding:6px 12px;font-size:0.9em;background:#dc2626;color:#fff;';
         rejectBtn.addEventListener('click', () => {
           if(confirm('Refuser cette modification ?')){
-            console.log('❌ REJECTED:', req);
+            console.log('âŒ REJECTED:', req);
             removeRequest(index);
           }
         });
@@ -9014,7 +9208,7 @@
               <pre style="background:#fef2f2;padding:8px;border-radius:4px;overflow-x:auto;font-size:0.8em;white-space:pre-wrap;">${(req.originalFields[fieldName]?.html || 'N/A').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
             </div>
             <div>
-              <strong style="color:#16a34a;">Modifié:</strong>
+              <strong style="color:#16a34a;">ModifiÃ©:</strong>
               <pre style="background:#f0fdf4;padding:8px;border-radius:4px;overflow-x:auto;font-size:0.8em;white-space:pre-wrap;">${req.modifiedFields[fieldName].replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
             </div>
           `;
@@ -9038,7 +9232,7 @@
       alert('Erreur: ' + e.message);
     }
   };
-  console.log('💡 Admin: Tapez showModificationRequests() pour ouvrir le panneau d\'administration.');
+  console.log('ðŸ’¡ Admin: Tapez showModificationRequests() pour ouvrir le panneau d\'administration.');
 
   const againBtn = $('#again');
   if(againBtn) againBtn.addEventListener('click', ()=>{ answerCurrent(0) });
@@ -9141,7 +9335,7 @@
       sessionData.push({cardId: c.id, grade: 0, timeSpent: timeSec, deckKey: cardData ? cardData.deckKey : null});
       try{
         const currentDeckKey = (multiDeckMode && cardData) ? cardData.deckKey : deckKey;
-        console.log('🎯 [QUEST] Calling from PASS action, mode:', reviewMode);
+        console.log('ðŸŽ¯ [QUEST] Calling from PASS action, mode:', reviewMode);
         if(typeof window.syncPostWelcomeQuestProgress === 'function'){
           window.syncPostWelcomeQuestProgress({
             mode: reviewMode,
@@ -9151,10 +9345,10 @@
             masteredDelta: 0
           });
         }else{
-          console.warn('🎯 [QUEST] syncPostWelcomeQuestProgress not yet available');
+          console.warn('ðŸŽ¯ [QUEST] syncPostWelcomeQuestProgress not yet available');
         }
       }catch(e){
-        console.error('🎯 [QUEST] Error calling from pass:', e);
+        console.error('ðŸŽ¯ [QUEST] Error calling from pass:', e);
       }
       updateProgressDisplay();
       try{ incLocal('fabanki:pass_total', 1); adjustMpsiScores(-6); }catch(e){}
@@ -9162,7 +9356,7 @@
       try{ localStorage.setItem('fabanki:consec_correct','0'); localStorage.setItem('fabanki:consec_difficult','0'); localStorage.setItem('fabanki:consec_no_pass','0'); }catch(e){}
       // remove from due list and show next
       dueCards.splice(currentIndex, 1);
-      if(currentIndex >= dueCards.length){ updateStatus('Révision terminée pour aujourd\'hui'); renderEmpty(); }
+      if(currentIndex >= dueCards.length){ updateStatus('RÃ©vision terminÃ©e pour aujourd\'hui'); renderEmpty(); }
       else { showNextCard(); }
       const dueEl2 = $('#dueCount'); if(dueEl2) dueEl2.textContent = dueCards.length;
       // In multi-deck mode, update histogram for current deck after moving to next card
@@ -9216,7 +9410,7 @@
     // Update rush mode state based on response
     if(reviewMode === 'rush' && window.rushModeState){
       if(q === 0){
-        // Raté - reset the counter
+        // RatÃ© - reset the counter
         window.rushModeState.goodCardsInRow = 0;
       } else {
         // Any other response (Difficile, Bon, Facile) - increment
@@ -9328,7 +9522,7 @@
       
       try{
         const currentDeckKey = (multiDeckMode && cardData) ? cardData.deckKey : deckKey;
-        console.log('🎯 [QUEST] Calling from answerCurrent, mode:', reviewMode, 'quality:', q);
+        console.log('ðŸŽ¯ [QUEST] Calling from answerCurrent, mode:', reviewMode, 'quality:', q);
         if(typeof window.syncPostWelcomeQuestProgress === 'function'){
           window.syncPostWelcomeQuestProgress({
             mode: reviewMode,
@@ -9339,10 +9533,10 @@
             quality: q
           });
         }else{
-          console.warn('🎯 [QUEST] syncPostWelcomeQuestProgress not yet available');
+          console.warn('ðŸŽ¯ [QUEST] syncPostWelcomeQuestProgress not yet available');
         }
       }catch(e){
-        console.error('🎯 [QUEST] Error calling from answerCurrent:', e);
+        console.error('ðŸŽ¯ [QUEST] Error calling from answerCurrent:', e);
       }
       
       try{ if(timeSec > 20) incLocal('fabanki:long_answer_total', 1); }catch(e){}
@@ -9386,7 +9580,7 @@
       return;
     }
     if(dueCards.length === 0 || currentIndex >= dueCards.length){ 
-      updateStatus('Révision terminée pour aujourd\'hui'); 
+      updateStatus('RÃ©vision terminÃ©e pour aujourd\'hui'); 
       renderEmpty(); 
       answerLocked = false;
       return;
@@ -9420,7 +9614,7 @@
                   if(parsed.expiry && parsed.expiry > Date.now()){
                     const mult = boosterMultipliers[boosterId] || 1;
                     xp = Math.floor(xp * mult);
-                    console.log(`[BOOSTER] Applied ${boosterId}: ×${mult} multiplier, total XP: ${xp}`);
+                    console.log(`[BOOSTER] Applied ${boosterId}: Ã—${mult} multiplier, total XP: ${xp}`);
                     break; // Only apply one booster at a time
                   }
                 }catch(e){}
@@ -9616,7 +9810,7 @@
     if(loadBtn){
       loadBtn.addEventListener('click', ()=>{
         const picker = document.getElementById('filePicker');
-        if(picker) { picker.value = ''; picker.click(); updateStatus('Sélectionnez un fichier XML à charger...') }
+        if(picker) { picker.value = ''; picker.click(); updateStatus('SÃ©lectionnez un fichier XML Ã  charger...') }
       });
     }
 
@@ -9635,13 +9829,13 @@
             let parsererror = xml.querySelector('parsererror');
             if(parsererror){
               // Try lenient HTML parse as fallback for malformed XML (unescaped '<' in TeX)
-              updateStatus('XML invalide — utilisation d\u00e9codage permissif pour le fichier local');
+              updateStatus('XML invalide â€” utilisation d\u00e9codage permissif pour le fichier local');
               xml = parser.parseFromString(text,'text/html');
               parsererror = null;
             }
             parseXMLDeck(xml, f.name);
             initFSRS();
-            updateStatus('Deck chargé depuis fichier local');
+            updateStatus('Deck chargÃ© depuis fichier local');
             // set deckURL for consistency but do not try to write to ./decks/
             deckURL = './decks/'+f.name;
             history.replaceState(null,'', '?deck='+encodeURIComponent(f.name));
@@ -9696,7 +9890,7 @@
         if(hint) {
           hint.style.display = showHintBox ? 'block' : 'none';
         }
-        const label = showHintBox ? 'Info' : 'Info (masquée)';
+        const label = showHintBox ? 'Info' : 'Info (masquÃ©e)';
         toggleHintBtn.setAttribute('data-label-text', label);
         try{ if(typeof updateTopBarLabels === 'function') updateTopBarLabels(); }catch(e){}
       });
@@ -9722,7 +9916,7 @@
         const currentColorName = localStorage.getItem('fabanki:current_color_name');
         if (currentColorName) {
           const colors = [
-            { name: 'Clair (défaut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
+            { name: 'Clair (dÃ©faut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
             { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
             { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
             { name: 'Vert', light: '#e8f5e9', dark: '#0d2818', level: 5 },
@@ -9735,15 +9929,15 @@
             { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 25 },
             { name: 'Corail', light: '#ffebee', dark: '#2d0a0a', level: 25 },
             { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 30 },
-            { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 30 },
+            { name: 'PÃªche', light: '#ffd7a8', dark: '#3a1f0a', level: 30 },
             { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 35 },
-            { name: 'Gradient Doré', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35 },
+            { name: 'Gradient DorÃ©', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35 },
             { name: 'Gradient Rose-Vert', light: 'linear-gradient(135deg, #f8bbd0 0%, #a5d6a7 100%)', dark: 'linear-gradient(135deg, #4a0e2a 0%, #1d3a1f 100%)', level: 40 },
             { name: 'Gradient Prisma', light: 'linear-gradient(135deg, #e8f4f8 0%, #fce4ec 50%, #f3e5f5 100%)', dark: 'linear-gradient(135deg, #0a1a2e 0%, #2a0e1f 50%, #25071a 100%)', level: 45 },
             { name: 'Gradient Bleu Royal', light: 'linear-gradient(135deg, #64b5f6 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0a2558 0%, #1a2a3a 100%)', level: 45 },
             { name: 'Gradient Aurora', light: 'linear-gradient(135deg, #e0f2f1 0%, #fffde7 50%, #ffebee 100%)', dark: 'linear-gradient(135deg, #0d1816 0%, #332d00 50%, #2d0a0a 100%)', level: 48 },
-            { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
-            { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
+            { name: 'Gradient OcÃ©an', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
+            { name: 'Gradient ForÃªt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
           ];
           const color = colors.find(c => c.name === currentColorName);
           if (color) {
@@ -9756,7 +9950,7 @@
         const currentCardColorName = localStorage.getItem('fabanki:current_card_color_name');
         if (currentCardColorName) {
           const cardColors = [
-            { name: 'Défaut', id: 'default', light: '#fff', dark: '#111319', level: 0 },
+            { name: 'DÃ©faut', id: 'default', light: '#fff', dark: '#111319', level: 0 },
             { name: 'Bleu clair', id: 'lightblue', light: '#e4f1fa', dark: '#1a2a3a', level: 5 },
             { name: 'Vert clair', id: 'lightgreen', light: '#e8f5e9', dark: '#1b2d1f', level: 10 },
             { name: 'Rose clair', id: 'lightpink', light: '#fce4ec', dark: '#3a1f2e', level: 15 },
@@ -9764,19 +9958,19 @@
             { name: 'Indigo', id: 'indigo', light: '#e8eaf6', dark: '#1a1535', level: 25 },
             { name: 'Indigo profond', id: 'indigo_deep', light: '#d8d3f0', dark: '#1a0754', level: 0 },
             { name: 'Cyan', id: 'cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 28 },
-            { name: 'Orange pâle', id: 'pale_orange', light: '#ffe0b2', dark: '#2d1b0a', level: 22 },
+            { name: 'Orange pÃ¢le', id: 'pale_orange', light: '#ffe0b2', dark: '#2d1b0a', level: 22 },
             { name: 'Menthe', id: 'mint', light: '#e0f2f1', dark: '#0d1816', level: 30 },
             { name: 'Lavande', id: 'lavender', light: '#f3e5f5', dark: '#2a0e3a', level: 32 },
-            { name: 'Pêche', id: 'peach', light: '#ffd7a8', dark: '#3a1f0a', level: 35 },
+            { name: 'PÃªche', id: 'peach', light: '#ffd7a8', dark: '#3a1f0a', level: 35 },
             { name: 'Ciel', id: 'sky', light: '#b3e5fc', dark: '#0a3a4a', level: 38 },
             { name: 'Turquoise', id: 'turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 40 },
-            { name: 'Or pâle', id: 'gold', light: '#ffecb3', dark: '#3d2d00', level: 42 },
+            { name: 'Or pÃ¢le', id: 'gold', light: '#ffecb3', dark: '#3d2d00', level: 42 },
             { name: 'Vert sapin', id: 'fir', light: '#a5d6a7', dark: '#1d3a1f', level: 45 },
             { name: 'Rose vif', id: 'hotpink', light: '#f8bbd0', dark: '#4a0e2a', level: 45 },
             { name: 'Bleu royal', id: 'royal', light: '#64b5f6', dark: '#0a2558', level: 48 },
             { name: 'Sunrise', id: 'sunrise', light: '#ffcc80', dark: '#4d2600', level: 50 },
-            { name: 'Gradient Océan', id: 'gradient_ocean', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 55 },
-            { name: 'Gradient Forêt', id: 'gradient_forest', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 55 }
+            { name: 'Gradient OcÃ©an', id: 'gradient_ocean', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 55 },
+            { name: 'Gradient ForÃªt', id: 'gradient_forest', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 55 }
           ];
           const cardColor = cardColors.find(c => c.name === currentCardColorName);
           if (cardColor) {
@@ -9800,7 +9994,7 @@
           updateReviewMobileHeader();
           return;
         }
-        const text = (window.innerWidth <= 640) ? "Fab'Anki" : "Fab'Anki — Flashcards";
+        const text = (window.innerWidth <= 640) ? "Fab'Anki" : "Fab'Anki â€” Flashcards";
         el.style.display = 'flex';
         el.style.alignItems = 'center';
         el.style.gap = '8px';
@@ -9984,11 +10178,11 @@
       // Show or create welcome page
       let welcomeEl = document.getElementById('welcomeDecks');
       if(!welcomeEl){
-        // Recreate welcome page if it was removed
+        // Recreate a light shell while the deck browser is opening.
         welcomeEl = document.createElement('div');
         welcomeEl.id = 'welcomeDecks';
-        welcomeEl.style.cssText = 'padding:20px;text-align:center;';
-        welcomeEl.innerHTML = '<h2>Fab\'Anki</h2><p>Choisissez un deck pour commencer</p>';
+        welcomeEl.style.cssText = 'padding:24px 18px;display:flex;justify-content:center;';
+        welcomeEl.innerHTML = '<div style="width:min(560px,96vw);background:var(--card);border:1px solid rgba(0,102,255,0.12);border-radius:14px;padding:18px 16px;box-shadow:0 10px 26px rgba(2,6,23,0.08);text-align:center"><div style="font-size:1.1rem;font-weight:800;margin-bottom:4px">Fab\'Anki</div><div class="muted small">PrÃ©paration du navigateur de decks...</div></div>';
         document.body.insertBefore(welcomeEl, document.body.firstChild);
       }
       welcomeEl.style.display = 'block';
@@ -10026,7 +10220,7 @@
       try{
         const entries = await fetchDirectory('./decks/');
         if(!entries || entries.length===0){ 
-          deckMsg.textContent = 'Aucun fichier trouvé dans ./decks/'; 
+          deckMsg.textContent = 'Aucun fichier trouvÃ© dans ./decks/'; 
           return;
         }
         deckMsg.textContent = '';
@@ -10083,7 +10277,7 @@
             const folderPath = prefix + folder;
             const badge = document.createElement('span');
             badge.className = 'due-badge';
-            badge.innerHTML = `<div class="due-num"></div><div class="due-label">à faire</div>`;
+            badge.innerHTML = `<div class="due-num"></div><div class="due-label">Ã  faire</div>`;
             
             const act = document.createElement('div');
             const b = document.createElement('button'); b.className='secondary'; b.textContent='Ouvrir';
@@ -10126,14 +10320,19 @@
             nm.textContent = displayName;
             nm.title = fullDeckName; // Show full path on hover
             const act = document.createElement('div');
-              if(file.toLowerCase().endsWith('.xml')){ const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
+              if(file.toLowerCase().endsWith('.xml')){ const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
                 const b=document.createElement('button'); b.className='secondary';
-                b.textContent = (window.innerWidth <= 640) ? '▶️' : 'Accéder';
+                b.textContent = (window.innerWidth <= 640) ? 'â–¶ï¸' : 'AccÃ©der';
                 b.addEventListener('click', async ()=>{ 
                   const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
                   if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
                   const deckUrl = './decks/'+prefix+file;
-                  await showDeckOverview(deckUrl);
+                  showDeckLoading(true, t('downloadingDeck'));
+                  try{
+                    await showDeckOverview(deckUrl);
+                  }finally{
+                    showDeckLoading(false);
+                  }
                 });
                 act.appendChild(dueBadge); act.appendChild(b);
                 // asynchronously compute number of cards due now for this deck and display
@@ -10156,7 +10355,7 @@
           const xmlFiles = Array.from(files).filter(f => f.toLowerCase().endsWith('.xml'));
           if(xmlFiles.length > 0){
             const allBtn = document.createElement('div'); allBtn.className = 'deck-entry'; allBtn.style.marginTop = '12px'; allBtn.style.borderTop = '1px solid rgba(0,0,0,0.06)'; allBtn.style.paddingTop = '12px';
-            const allBtnText = document.createElement('div'); allBtnText.textContent = '📚 Réviser tous les decks du dossier'; allBtnText.style.fontWeight = '600';
+            const allBtnText = document.createElement('div'); allBtnText.textContent = 'ðŸ“š RÃ©viser tous les decks du dossier'; allBtnText.style.fontWeight = '600';
             const allBtnAct = document.createElement('div');
             const reviewAllBtn = document.createElement('button'); reviewAllBtn.className = 'secondary'; reviewAllBtn.textContent = 'Commencer';
             reviewAllBtn.addEventListener('click', async ()=>{
@@ -10191,23 +10390,23 @@
             const row = document.createElement('div'); row.className='deck-entry';
             const decoded = (()=>{ try{ return decodeURIComponent(e.replace(/\+/g,' ')) }catch(x){ return e } })();
             const name = document.createElement('div'); name.textContent = decoded.replace(/\.xml$/i,'');
-            const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
+            const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
             name.appendChild(dueBadge);
             const actions = document.createElement('div');
-            if(e.endsWith('.xml')){ const dueBadge2 = document.createElement('span'); dueBadge2.className = 'due-badge'; dueBadge2.innerHTML = '<div class="due-num"></div><div class="due-label">à faire</div>';
+            if(e.endsWith('.xml')){ const dueBadge2 = document.createElement('span'); dueBadge2.className = 'due-badge'; dueBadge2.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
               const btn = document.createElement('button'); btn.className='secondary';
               try{
                 const relPath = normalizeDeckPath(base+e);
                 const lockState = evaluateDeckLock(relPath);
                 if(lockState.locked){
                   if(lockState.lockedByLevel){
-                    btn.textContent = `🔒 Niveau ${lockState.levelReq}`;
+                    btn.textContent = `ðŸ”’ Niveau ${lockState.levelReq}`;
                     btn.disabled = true;
-                    btn.title = 'Atteignez le niveau requis pour débloquer ce deck';
+                    btn.title = 'Atteignez le niveau requis pour dÃ©bloquer ce deck';
                   } else if(lockState.lockedByCost){
-                    btn.textContent = `Acheter ${lockState.cost}ℂ`;
+                    btn.textContent = `Acheter ${lockState.cost}â„‚`;
                     btn.disabled = lockState.currentCredits < lockState.cost;
-                    btn.title = lockState.currentCredits < lockState.cost ? 'Crédits insuffisants' : 'Débloquer ce deck';
+                    btn.title = lockState.currentCredits < lockState.cost ? 'CrÃ©dits insuffisants' : 'DÃ©bloquer ce deck';
                     btn.addEventListener('click', ()=>{
                       const freshState = evaluateDeckLock(relPath);
                       if(freshState.lockedByLevel) return;
@@ -10218,22 +10417,32 @@
                     });
                   }
                 } else {
-                  btn.textContent = (window.innerWidth <= 640) ? '📂' : 'Accéder';
+                  btn.textContent = (window.innerWidth <= 640) ? 'ðŸ“‚' : 'AccÃ©der';
                   btn.addEventListener('click', async ()=>{ 
                     const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
                     if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
                     const deckUrl = base+e;
-                    await showDeckOverview(deckUrl);
+                    showDeckLoading(true, t('downloadingDeck'));
+                    try{
+                      await showDeckOverview(deckUrl);
+                    }finally{
+                      showDeckLoading(false);
+                    }
                   });
                 }
               }catch(err){
                 console.warn('Lock check error for', e, err);
-                btn.textContent = (window.innerWidth <= 640) ? '📂' : 'Accéder';
+                btn.textContent = (window.innerWidth <= 640) ? 'ðŸ“‚' : 'AccÃ©der';
                 btn.addEventListener('click', async ()=>{ 
                   const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
                   if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
                   const deckUrl = base+e;
-                  await showDeckOverview(deckUrl);
+                  showDeckLoading(true, t('downloadingDeck'));
+                  try{
+                    await showDeckOverview(deckUrl);
+                  }finally{
+                    showDeckLoading(false);
+                  }
                 });
               }
               actions.appendChild(dueBadge2); actions.appendChild(btn);
@@ -10243,7 +10452,7 @@
             row.appendChild(name); row.appendChild(actions); deckList.appendChild(row);
           }
         }
-      }catch(err){ deckMsg.textContent = 'Impossible d\'accéder à ./decks/ — invoquez via un serveur HTTP (non supporté en file://)'; }
+      }catch(err){ deckMsg.textContent = 'Impossible d\'accÃ©der Ã  ./decks/ â€” invoquez via un serveur HTTP (non supportÃ© en file://)'; }
     }
     if(browseBtn) browseBtn.addEventListener('click', openDeckBrowser);
     // Expose openDeckBrowser and renderPath globally for retour button
@@ -10448,7 +10657,7 @@
         if(!k.includes(':card:')) continue;
         try{
           const st = JSON.parse(localStorage.getItem(k) || '{}');
-          // Count as reviewed if it has reps>0 OR it was seen (has last) — include Pass actions
+          // Count as reviewed if it has reps>0 OR it was seen (has last) â€” include Pass actions
           if(st && ((st.reps && st.reps>0) || st.last)) total++;
           if(st && st.last){ const d = new Date(st.last); if(d.toDateString() === now.toDateString()) today++; }
         }catch(e){}
@@ -10475,7 +10684,7 @@
         const currentColorName = localStorage.getItem('fabanki:current_color_name');
         if(currentColorName) {
           const colors = [
-            { name: 'Clair (défaut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
+            { name: 'Clair (dÃ©faut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
             { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
             { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
             { name: 'Vert', light: '#e8f5e9', dark: '#0d2818', level: 5 },
@@ -10488,15 +10697,15 @@
             { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 25 },
             { name: 'Corail', light: '#ffebee', dark: '#2d0a0a', level: 25 },
             { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 30 },
-            { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 30 },
+            { name: 'PÃªche', light: '#ffd7a8', dark: '#3a1f0a', level: 30 },
             { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 35 },
-            { name: 'Gradient Doré', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35 },
+            { name: 'Gradient DorÃ©', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35 },
             { name: 'Gradient Rose-Vert', light: 'linear-gradient(135deg, #f8bbd0 0%, #a5d6a7 100%)', dark: 'linear-gradient(135deg, #4a0e2a 0%, #1d3a1f 100%)', level: 40 },
             { name: 'Gradient Prisma', light: 'linear-gradient(135deg, #e8f4f8 0%, #fce4ec 50%, #f3e5f5 100%)', dark: 'linear-gradient(135deg, #0a1a2e 0%, #2a0e1f 50%, #25071a 100%)', level: 45 },
             { name: 'Gradient Bleu Royal', light: 'linear-gradient(135deg, #64b5f6 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0a2558 0%, #1a2a3a 100%)', level: 45 },
             { name: 'Gradient Aurora', light: 'linear-gradient(135deg, #e0f2f1 0%, #fffde7 50%, #ffebee 100%)', dark: 'linear-gradient(135deg, #0d1816 0%, #332d00 50%, #2d0a0a 100%)', level: 48 },
-            { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
-            { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
+            { name: 'Gradient OcÃ©an', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
+            { name: 'Gradient ForÃªt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
           ];
           const found = colors.find(c => c.name === currentColorName);
           if(found){
@@ -10521,10 +10730,11 @@
         }, 300);
         
         const stats = getProfileStats();
+        const clean = fixMojibakeText;
         const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='1200';
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
         const m = document.createElement('div'); m.className='modal'; m.style.cssText='maxWidth:420px;width:90%;max-height:90vh;overflow-y:auto;';
-        const h = document.createElement('h3'); h.textContent=`👤 ${t('profileTitle')}`; h.style.marginTop='0'; h.style.marginBottom='16px'; h.style.fontSize='1.5rem'; m.appendChild(h);
+        const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.marginTop='0'; h.style.marginBottom='16px'; h.style.fontSize='1.5rem'; m.appendChild(h);
         
         // Pseudo display (from localStorage) - Improved styling
         const userPseudo = localStorage.getItem('pseudo') || '';
@@ -10577,11 +10787,11 @@
         const statsBox = document.createElement('div');
         statsBox.style.cssText = 'padding:16px;background:linear-gradient(135deg, #1e293b 0%, #334155 100%);color:white;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
         
-        const p1 = document.createElement('div'); p1.className='profile-total'; p1.style.marginBottom='8px'; p1.innerHTML = `<strong>📚 ${t('totalReviewed')}:</strong> ${stats.totalReviewed}`; statsBox.appendChild(p1);
-        const p2 = document.createElement('div'); p2.className='profile-today'; p2.style.marginBottom='8px'; p2.innerHTML = `<strong>📅 ${t('todayReviewedFull')}:</strong> ${stats.todayReviewed}`; statsBox.appendChild(p2);
-        const p3 = document.createElement('div'); p3.className='profile-xp'; p3.style.marginBottom='8px'; p3.innerHTML = `<strong>✨ ${t('xpLabel')}:</strong> ${stats.xpTotal}`; statsBox.appendChild(p3);
-        const p4 = document.createElement('div'); p4.className='profile-streak'; p4.style.marginBottom='8px'; p4.innerHTML = `<strong>🔥 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`; statsBox.appendChild(p4);
-        const p5 = document.createElement('div'); p5.className='profile-mpsi'; p5.innerHTML = `<strong>📊 ${t('mpsiScoreMonthly')}:</strong> ${getLocalNum('fabanki:score_mpsi_mois')}`; statsBox.appendChild(p5);
+        const p1 = document.createElement('div'); p1.className='profile-total'; p1.style.marginBottom='8px'; p1.innerHTML = clean(`<strong>\uD83D\uDCDA ${t('totalReviewed')}:</strong> ${stats.totalReviewed}`); statsBox.appendChild(p1);
+        const p2 = document.createElement('div'); p2.className='profile-today'; p2.style.marginBottom='8px'; p2.innerHTML = clean(`<strong>\uD83D\uDCC5 ${t('todayReviewedFull')}:</strong> ${stats.todayReviewed}`); statsBox.appendChild(p2);
+        const p3 = document.createElement('div'); p3.className='profile-xp'; p3.style.marginBottom='8px'; p3.innerHTML = clean(`<strong>\u2728 ${t('xpLabel')}:</strong> ${stats.xpTotal}`); statsBox.appendChild(p3);
+        const p4 = document.createElement('div'); p4.className='profile-streak'; p4.style.marginBottom='8px'; p4.innerHTML = clean(`<strong>\uD83D\uDD25 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`); statsBox.appendChild(p4);
+        const p5 = document.createElement('div'); p5.className='profile-mpsi'; p5.innerHTML = clean(`<strong>\uD83D\uDCCA ${t('mpsiScoreMonthly')}:</strong> ${getLocalNum('fabanki:score_mpsi_mois')}`); statsBox.appendChild(p5);
         
         m.appendChild(statsBox);
 
@@ -10591,13 +10801,13 @@
           langSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin:12px 0;';
           const langLabel = document.createElement('div');
           langLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:#333;';
-          langLabel.textContent = '🌐 Langue / Language';
+          langLabel.textContent = clean(`\uD83C\uDF10 ${t('languageSelector')}`);
           langSelectorBox.appendChild(langLabel);
           
           const currentLang = localStorage.getItem('fabanki:lang') || 'fr';
           const langs = [
-            { code: 'fr', label: '🇫🇷 Français' },
-            { code: 'en', label: '🇬🇧 English' }
+            { code: 'fr', label: t('french') },
+            { code: 'en', label: t('english') }
           ];
           
           const langButtonsContainer = document.createElement('div');
@@ -10620,7 +10830,7 @@
                 b.style.fontWeight = sel ? '600' : '500';
               }
               try{ if(typeof updateUILanguage === 'function') updateUILanguage(lang.code); }catch(e){}
-              try{ if(typeof showWelcomeQuestToast === 'function') showWelcomeQuestToast(`Langue changée en ${lang.label}`); }catch(e){}
+              try{ if(typeof showWelcomeQuestToast === 'function') showWelcomeQuestToast(clean(`Langue changee en ${lang.label}`)); }catch(e){}
             });
             langButtonsContainer.appendChild(btn);
           }
@@ -10634,7 +10844,7 @@
         titleSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin:12px 0;';
         const titleSelectorLabel = document.createElement('div');
         titleSelectorLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:#333;';
-        titleSelectorLabel.textContent = '👑 Titre sélectionné';
+        titleSelectorLabel.textContent = clean(`\uD83C\uDFF7 ${t('selectTitle')}`);
         titleSelectorBox.appendChild(titleSelectorLabel);
         
         // Get all unlocked titles
@@ -10662,7 +10872,7 @@
           // Add option for no title
           const noneOption = document.createElement('option');
           noneOption.value = '';
-          noneOption.textContent = '(Aucun titre)';
+          noneOption.textContent = t('noTitle');
           select.appendChild(noneOption);
           
           // Add unlocked titles
@@ -10681,14 +10891,14 @@
             const selectedTitle = e.target.value;
             if(selectedTitle){
               localStorage.setItem('fabanki:selected_title', selectedTitle);
-              showXpToast(`Titre sélectionné: ${selectedTitle}`);
+              showXpToast(clean(`Titre selectionne: ${selectedTitle}`));
               // Trigger sync to update leaderboard
               try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
               // Trigger full state sync to preserve title across browsers
               try{ if(typeof autoSync === 'function') autoSync().catch(e => console.warn('autoSync failed:', e)); }catch(e){}
             } else {
               localStorage.removeItem('fabanki:selected_title');
-              showXpToast('Aucun titre sélectionné');
+              showXpToast(t('noTitle'));
               // Trigger sync to update leaderboard
               try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
               // Trigger full state sync to preserve title across browsers
@@ -10707,7 +10917,7 @@
         } else {
           const noTitlesMsg = document.createElement('div');
           noTitlesMsg.style.cssText = 'font-size:0.9em;color:#999;';
-          noTitlesMsg.textContent = 'Aucun titre déverrouillé pour le moment.';
+          noTitlesMsg.textContent = t('noTitlesUnlocked');
           titleSelectorBox.appendChild(noTitlesMsg);
         }
         
@@ -10718,7 +10928,7 @@
         themeBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;';
         const themeLabel = document.createElement('div');
         themeLabel.style.cssText = 'font-weight:700;color:#333;';
-        themeLabel.textContent = '🌙 Mode sombre';
+        themeLabel.textContent = clean(`\uD83C\uDF19 ${t('darkMode')}`);
         themeBox.appendChild(themeLabel);
 
         const themeToggle = document.createElement('button');
@@ -10756,7 +10966,7 @@
         // Classement button (emoji only)
         const rankBtn = document.createElement('button'); 
         rankBtn.className = 'secondary'; 
-        rankBtn.textContent = '🏆';
+        rankBtn.textContent = '\uD83C\uDFC6';
         rankBtn.title = t('leaderboard');
         rankBtn.style.cssText = 'padding:12px;font-size:1.5em;';
         rankBtn.addEventListener('click', ()=>{ try{ showLeaderboardPopup(); }catch(e){ console.warn(e) } });
@@ -10765,7 +10975,7 @@
         // Titres button (emoji only)
         const titlesBtn = document.createElement('button'); 
         titlesBtn.className='secondary'; 
-        titlesBtn.textContent = '👑';
+        titlesBtn.textContent = '\uD83C\uDFF7';
         titlesBtn.title = t('titles');
         titlesBtn.style.cssText = 'padding:12px;font-size:1.5em;';
         titlesBtn.addEventListener('click', ()=>{ try{ showTitlesPopup(); }catch(e){ console.warn(e) } });
@@ -10774,8 +10984,8 @@
         // Theme personalization button
         const themeBtn = document.createElement('button'); 
         themeBtn.className='secondary'; 
-        themeBtn.textContent='🎨';
-        themeBtn.title = 'Personnalisation du thème';
+        themeBtn.textContent='\uD83C\uDFA8';
+        themeBtn.title = 'Personnalisation du theme';
         themeBtn.style.cssText = 'padding:12px;font-size:1.5em;';
         themeBtn.addEventListener('click', ()=>{
           try{
@@ -10789,7 +10999,7 @@
         // Tutorial button
         const tutorialBtn = document.createElement('button'); 
         tutorialBtn.className='secondary'; 
-        tutorialBtn.textContent='📖';
+        tutorialBtn.textContent='\uD83D\uDCD6';
         tutorialBtn.title = 'Tutoriel';
         tutorialBtn.style.cssText = 'padding:12px;font-size:1.5em;';
         tutorialBtn.addEventListener('click', ()=>{
@@ -10810,7 +11020,7 @@
         // PWA Install Tutorial button
         const pwaInstallBtn = document.createElement('button'); 
         pwaInstallBtn.className='secondary'; 
-        pwaInstallBtn.textContent='📱';
+        pwaInstallBtn.textContent='\uD83D\uDCF1';
         pwaInstallBtn.title = 'Installer l\'app';
         pwaInstallBtn.style.cssText = 'padding:12px;font-size:1.5em;';
         pwaInstallBtn.addEventListener('click', (ev)=>{
@@ -10827,7 +11037,7 @@
         // Daily goal button
         const dailyGoalBtn = document.createElement('button'); 
         dailyGoalBtn.className='secondary'; 
-        dailyGoalBtn.textContent='🎯';
+        dailyGoalBtn.textContent='\uD83C\uDFAF';
         dailyGoalBtn.title = 'Objectif quotidien';
         dailyGoalBtn.style.cssText = 'padding:12px;font-size:1.5em;';
         dailyGoalBtn.addEventListener('click', ()=>{
@@ -10871,7 +11081,7 @@
           m.appendChild(levelBox);
         }catch(e){ /* ignore level rendering errors */ }
 
-        const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='×'; cb.style.cssText='position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;'; cb.addEventListener('click', ()=>{ ov.remove(); }); m.appendChild(cb);
+        const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='x'; cb.style.cssText='position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;'; cb.addEventListener('click', ()=>{ ov.remove(); }); m.appendChild(cb);
         ov.appendChild(m); document.body.appendChild(ov);
         // mark overlay open so CSS fade can run, then animate modal open
         try{ ov.classList.add('open'); ov.setAttribute('aria-hidden','false'); m.classList.add('open');
@@ -10886,14 +11096,15 @@
       try{
         const ov = document.getElementById('profileOverlay');
         if(!ov) return;
+        const clean = fixMojibakeText;
         const stats = getProfileStats();
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
         const pseudoNode = ov.querySelector('#profilePseudo'); if(pseudoNode) pseudoNode.textContent = `${t('pseudo')}: ${localStorage.getItem('pseudo') || ''}`;
-        const totalNode = ov.querySelector('.profile-total'); if(totalNode) totalNode.innerHTML = `<strong>📚 ${t('totalReviewed')}:</strong> ${stats.totalReviewed}`;
-        const todayNode = ov.querySelector('.profile-today'); if(todayNode) todayNode.innerHTML = `<strong>📅 ${t('todayReviewedFull')}:</strong> ${stats.todayReviewed}`;
-        const xpNode = ov.querySelector('.profile-xp'); if(xpNode) xpNode.innerHTML = `<strong>✨ ${t('xpLabel')}:</strong> ${stats.xpTotal}`;
-        const streakNode = ov.querySelector('.profile-streak'); if(streakNode) streakNode.innerHTML = `<strong>🔥 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`;
-        const mpsiNode = ov.querySelector('.profile-mpsi'); if(mpsiNode) mpsiNode.innerHTML = `<strong>📊 ${t('mpsiScoreMonthly')}:</strong> ${getLocalNum('fabanki:score_mpsi_mois')}`;
+        const totalNode = ov.querySelector('.profile-total'); if(totalNode) totalNode.innerHTML = clean(`<strong>\uD83D\uDCDA ${t('totalReviewed')}:</strong> ${stats.totalReviewed}`);
+        const todayNode = ov.querySelector('.profile-today'); if(todayNode) todayNode.innerHTML = clean(`<strong>\uD83D\uDCC5 ${t('todayReviewedFull')}:</strong> ${stats.todayReviewed}`);
+        const xpNode = ov.querySelector('.profile-xp'); if(xpNode) xpNode.innerHTML = clean(`<strong>\u2728 ${t('xpLabel')}:</strong> ${stats.xpTotal}`);
+        const streakNode = ov.querySelector('.profile-streak'); if(streakNode) streakNode.innerHTML = clean(`<strong>\uD83D\uDD25 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`);
+        const mpsiNode = ov.querySelector('.profile-mpsi'); if(mpsiNode) mpsiNode.innerHTML = clean(`<strong>\uD83D\uDCCA ${t('mpsiScoreMonthly')}:</strong> ${getLocalNum('fabanki:score_mpsi_mois')}`);
         // Update credit count
         const creditNum = ov.querySelector('.credit-count');
         if(creditNum){
@@ -10925,7 +11136,7 @@
         }catch(e){}
         // refresh pseudo display (target the specific element, not the first div)
         try{ const p0 = ov.querySelector('#profilePseudo'); if(p0) p0.textContent = `${t('pseudo')}: ${localStorage.getItem('pseudo') || ''}` }catch(e){}
-        try{ const s = ov.querySelector('.profile-streak'); if(s) s.innerHTML = `<strong>🔥 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}` }catch(e){}
+        try{ const s = ov.querySelector('.profile-streak'); if(s) s.innerHTML = clean(`<strong>\uD83D\uDD25 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`) }catch(e){}
       }catch(e){}
     }
 
@@ -10941,7 +11152,7 @@
         const db = window.__fabanki_firestore;
         if(!db){ console.error('Firestore not available'); return; }
         
-        console.log('🔍 [MERGE] Scanning for duplicate entries...');
+        console.log('ðŸ” [MERGE] Scanning for duplicate entries...');
         const snapshot = await db.collection('Classement').get();
         const entries = [];
         snapshot.forEach(doc => {
@@ -10965,38 +11176,38 @@
         });
         
         if(duplicates.length === 0){
-          console.log('✅ No duplicates found!');
+          console.log('âœ… No duplicates found!');
           return;
         }
         
-        console.log(`⚠️ Found ${duplicates.length} user(s) with duplicate entries:`);
+        console.log(`âš ï¸ Found ${duplicates.length} user(s) with duplicate entries:`);
         duplicates.forEach(dup => {
-          console.log(`  📛 ${dup.pseudo}: ${dup.docs.length} entries`);
+          console.log(`  ðŸ“› ${dup.pseudo}: ${dup.docs.length} entries`);
           dup.docs.forEach((doc, idx) => {
-            console.log(`    ${idx + 1}. ID: ${doc.id}, Score: ${doc.data.Score_MPSI || 0}, Cards: ${doc.data['Cartes révisées'] || 0}, Level: ${doc.data.Niveau || 0}`);
+            console.log(`    ${idx + 1}. ID: ${doc.id}, Score: ${doc.data.Score_MPSI || 0}, Cards: ${doc.data['Cartes rÃ©visÃ©es'] || 0}, Level: ${doc.data.Niveau || 0}`);
           });
         });
         
         if(dryRun){
           console.log('');
-          console.log('🔴 DRY RUN MODE - No changes made.');
+          console.log('ðŸ”´ DRY RUN MODE - No changes made.');
           console.log('To actually merge duplicates, run: fabanki_mergeDuplicates(false)');
           return;
         }
         
         console.log('');
-        console.log('🔄 [MERGE] Starting merge process...');
+        console.log('ðŸ”„ [MERGE] Starting merge process...');
         let mergedCount = 0;
         
         for(const dup of duplicates){
           // Find the "best" entry to keep (highest score, most cards, latest sync)
           let bestDoc = dup.docs[0];
           let bestScore = Number(bestDoc.data.Score_MPSI || 0);
-          let bestCards = Number(bestDoc.data['Cartes révisées'] || 0);
+          let bestCards = Number(bestDoc.data['Cartes rÃ©visÃ©es'] || 0);
           
           for(const doc of dup.docs){
             const score = Number(doc.data.Score_MPSI || 0);
-            const cards = Number(doc.data['Cartes révisées'] || 0);
+            const cards = Number(doc.data['Cartes rÃ©visÃ©es'] || 0);
             if(score > bestScore || (score === bestScore && cards > bestCards)){
               bestDoc = doc;
               bestScore = score;
@@ -11004,12 +11215,12 @@
             }
           }
           
-          console.log(`  ✨ Keeping best entry for "${dup.pseudo}": ID ${bestDoc.id}`);
+          console.log(`  âœ¨ Keeping best entry for "${dup.pseudo}": ID ${bestDoc.id}`);
           
           // Delete all other entries
           for(const doc of dup.docs){
             if(doc.id !== bestDoc.id){
-              console.log(`    🗑️ Deleting duplicate: ID ${doc.id}`);
+              console.log(`    ðŸ—‘ï¸ Deleting duplicate: ID ${doc.id}`);
               await db.collection('Classement').doc(doc.id).delete();
               mergedCount++;
             }
@@ -11017,12 +11228,138 @@
         }
         
         console.log('');
-        console.log(`✅ [MERGE] Complete! Removed ${mergedCount} duplicate entries.`);
-        console.log('🔄 Refresh the leaderboard to see changes.');
+        console.log(`âœ… [MERGE] Complete! Removed ${mergedCount} duplicate entries.`);
+        console.log('ðŸ”„ Refresh the leaderboard to see changes.');
       }catch(e){
-        console.error('❌ [MERGE] Error:', e);
+        console.error('âŒ [MERGE] Error:', e);
       }
     };
+
+    async function mergeAllClassementDuplicates(dryRun = true, silent = false){
+      try{
+        const db = window.__fabanki_firestore;
+        if(!db) return { mergedUsers: 0, removedDocs: 0, skipped: true };
+
+        const snapshot = await db.collection('Classement').get();
+        const entries = [];
+        snapshot.forEach(doc => entries.push({ id: doc.id, data: doc.data() || {} }));
+
+        const groups = {};
+        for(const entry of entries){
+          const pseudoRaw = String(entry.data.Pseudo || '').trim();
+          if(!pseudoRaw) continue;
+          const key = pseudoRaw.toLowerCase();
+          if(!groups[key]) groups[key] = [];
+          groups[key].push(entry);
+        }
+
+        const duplicates = Object.values(groups).filter(arr => arr.length > 1);
+        if(!silent) console.log(`[MERGE-ALL] duplicate groups: ${duplicates.length}`);
+        if(duplicates.length === 0) return { mergedUsers: 0, removedDocs: 0 };
+        if(dryRun) return { mergedUsers: duplicates.length, removedDocs: 0, dryRun: true };
+
+        const numericFields = [
+          'XP', 'Niveau', 'Cartes r?vis?es', 'Bonnes r?ponses', 'Rat?s', 'Passer',
+          'Streak_max', 'Streak_current', 'Daily_goal', 'Cartes ma?tris?es',
+          'Qu?tes_quotidiennes', 'Score_MPSI', 'XP_semaine', 'Score_MPSI_semaine', 'Score_MPSI_mois'
+        ];
+
+        let mergedUsers = 0;
+        let removedDocs = 0;
+
+        for(const docs of duplicates){
+          let target = docs[0];
+          for(const d of docs){
+            const aCards = Number(target.data['Cartes r?vis?es'] || 0);
+            const bCards = Number(d.data['Cartes r?vis?es'] || 0);
+            const aScore = Number(target.data.Score_MPSI || 0);
+            const bScore = Number(d.data.Score_MPSI || 0);
+            if(bCards > aCards || (bCards === aCards && bScore > aScore)) target = d;
+          }
+
+          const mergedDoc = { ...(target.data || {}) };
+          for(const f of numericFields){
+            mergedDoc[f] = docs.reduce((sum, d) => sum + Number(d.data?.[f] || 0), 0);
+          }
+
+          const mergeTextArray = (field) => {
+            const set = new Set();
+            for(const d of docs){
+              const arr = Array.isArray(d.data?.[field]) ? d.data[field] : [];
+              for(const v of arr){
+                const s = (typeof v === 'string') ? v : JSON.stringify(v);
+                if(s) set.add(s);
+              }
+            }
+            return Array.from(set).map(v => {
+              try{ return JSON.parse(v); }catch(e){ return v; }
+            });
+          };
+
+          mergedDoc.Badges = mergeTextArray('Badges');
+          mergedDoc.Objectifs = mergeTextArray('Objectifs');
+          mergedDoc.Titres = mergeTextArray('Titres');
+          mergedDoc['Derni?re synchronisation'] = new Date().toISOString();
+          mergedDoc['Derni?re mise ? jour'] = new Date().toISOString();
+
+          await db.collection('Classement').doc(target.id).set(sanitizeAndValidateUserData(mergedDoc), { merge: true });
+
+          for(const d of docs){
+            if(d.id !== target.id){
+              await db.collection('Classement').doc(d.id).delete();
+              removedDocs++;
+            }
+          }
+
+          mergedUsers++;
+        }
+
+        if(!silent) console.log(`[MERGE-ALL] done. users=${mergedUsers}, removed=${removedDocs}`);
+        return { mergedUsers, removedDocs };
+      }catch(e){
+        const errCode = String(e?.code || '');
+        const errMsg = String(e?.message || e || '');
+        const isPermissionError = errCode === 'permission-denied' || /insufficient permissions|permission denied/i.test(errMsg);
+        if(!silent || !isPermissionError){
+          console.warn('[MERGE-ALL] failed:', e);
+        }
+        return {
+          mergedUsers: 0,
+          removedDocs: 0,
+          skipped: !!isPermissionError,
+          error: errMsg
+        };
+      }
+    }
+
+    function applySimonBonusIfNeeded(){
+      try{
+        const pseudo = String(localStorage.getItem('pseudo') || '').trim().toLowerCase();
+        const flagKeyV1 = 'fabanki:migration_simon_bonus_v1';
+        const flagKeyV2 = 'fabanki:migration_simon_bonus_v2_cards';
+        if(pseudo !== 'simon') return false;
+        let changed = false;
+
+        if(localStorage.getItem(flagKeyV1) !== '1'){
+          const currentGood = Number(localStorage.getItem('fabanki:good_total') || 0);
+          localStorage.setItem('fabanki:good_total', String(currentGood + 11262));
+
+          const streakMax = Math.max(Number(localStorage.getItem('fabanki:streak_max') || 0), 54);
+          localStorage.setItem('fabanki:streak_max', String(streakMax));
+          localStorage.setItem(flagKeyV1, '1');
+          changed = true;
+        }
+
+        if(localStorage.getItem(flagKeyV2) !== '1'){
+          const currentCards = Number(localStorage.getItem('fabanki:cards_total') || 0);
+          localStorage.setItem('fabanki:cards_total', String(currentCards + 11262));
+          localStorage.setItem(flagKeyV2, '1');
+          changed = true;
+        }
+
+        return changed;
+      }catch(e){ return false; }
+    }
 
     // Toast notification for market
     function showMarketToast(message){
@@ -11054,12 +11391,12 @@
         const header = document.createElement('div');
         header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;max-width:1200px;margin-left:auto;margin-right:auto;';
         const title = document.createElement('h2');
-        title.textContent = '🛍️ Marché';
+        title.textContent = 'ðŸ›ï¸ MarchÃ©';
         title.style.cssText = 'margin:0;font-size:2em;';
         header.appendChild(title);
         
         const backBtn = document.createElement('button');
-        backBtn.textContent = '← Retour';
+        backBtn.textContent = 'â† Retour';
         backBtn.className = 'secondary';
         backBtn.addEventListener('click', ()=>{ container.remove(); });
         header.appendChild(backBtn);
@@ -11080,7 +11417,7 @@
         const purchaseItem = (itemId, cost, onSuccess) => {
           const balance = getBalance();
           if(balance < cost){
-            alert(`Crédits insuffisants. Vous avez ${balance} ℂ, il en faut ${cost} ℂ`);
+            alert(`CrÃ©dits insuffisants. Vous avez ${balance} â„‚, il en faut ${cost} â„‚`);
             return false;
           }
           if(typeof addCredits === 'function') addCredits(-cost);
@@ -11093,7 +11430,7 @@
               if(state.part3_marketPurchase >= postWelcomeQuestTargets.part3_marketPurchase && !state.part3_marketRewarded){
                 addCredits(10);
                 state.part3_marketRewarded = true;
-                showWelcomeQuestToast('Quête avancée: Achat au marché! +10 Crédits');
+                showWelcomeQuestToast('QuÃªte avancÃ©e: Achat au marchÃ©! +10 CrÃ©dits');
               }
               localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
               refreshPostWelcomeQuestUI();
@@ -11103,7 +11440,7 @@
           return true;
         };
         
-        // ===== CAROUSEL SECTION: MODES DE RÉVISION =====
+        // ===== CAROUSEL SECTION: MODES DE RÃ‰VISION =====
         const carouselContainer = document.createElement('section');
         carouselContainer.style.cssText = 'margin-bottom:40px;position:relative;';
         
@@ -11112,7 +11449,7 @@
         carouselHeader.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;';
         
         const carouselTitle = document.createElement('h3');
-        carouselTitle.textContent = '🎮 Modes de révision avancés';
+        carouselTitle.textContent = 'ðŸŽ® Modes de rÃ©vision avancÃ©s';
         carouselTitle.style.cssText = 'margin:0;font-size:1.6em;';
         carouselHeader.appendChild(carouselTitle);
         
@@ -11120,13 +11457,13 @@
         carouselNavBtns.style.cssText = 'display:flex;gap:8px;align-items:center;';
         
         const prevBtn = document.createElement('button');
-        prevBtn.innerHTML = '←';
+        prevBtn.innerHTML = 'â†';
         prevBtn.style.cssText = 'padding:8px 16px;border-radius:8px;background:#667eea;color:white;border:none;font-size:1.2em;cursor:pointer;font-weight:700;transition:all 0.3s;';
         prevBtn.addEventListener('mouseover', ()=>{ prevBtn.style.background = '#5568d3'; });
         prevBtn.addEventListener('mouseout', ()=>{ prevBtn.style.background = '#667eea'; });
         
         const nextBtn = document.createElement('button');
-        nextBtn.innerHTML = '→';
+        nextBtn.innerHTML = 'â†’';
         nextBtn.style.cssText = 'padding:8px 16px;border-radius:8px;background:#667eea;color:white;border:none;font-size:1.2em;cursor:pointer;font-weight:700;transition:all 0.3s;';
         nextBtn.addEventListener('mouseover', ()=>{ nextBtn.style.background = '#5568d3'; });
         nextBtn.addEventListener('mouseout', ()=>{ nextBtn.style.background = '#667eea'; });
@@ -11216,7 +11553,7 @@
         carouselContainer.addEventListener('mouseenter', stopAutoRotate);
         carouselContainer.addEventListener('mouseleave', startAutoRotate);
         
-        // ===== SECTION 1: MODE TEXTE À TROU (TOP) =====
+        // ===== SECTION 1: MODE TEXTE Ã€ TROU (TOP) =====
         const textModeSection = document.createElement('section');
         textModeSection.style.cssText = 'flex:0 0 100%;min-width:100%;';
         
@@ -11241,7 +11578,7 @@
           ? 'font-size:3em;text-align:center;'
           : 'font-size:4em;text-align:center;min-width:120px;';
         iconDiv.style.cssText = iconStyle;
-        iconDiv.textContent = '✨📝';
+        iconDiv.textContent = 'âœ¨ðŸ“';
         textModeCard.appendChild(iconDiv);
         
         // Content section
@@ -11252,18 +11589,18 @@
         modeBadge.style.cssText = isMobile
           ? 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.8em;font-weight:700;margin-bottom:8px;'
           : 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.85em;font-weight:700;margin-bottom:12px;';
-        modeBadge.textContent = '🆕 NOUVEAU MODE';
+        modeBadge.textContent = 'ðŸ†• NOUVEAU MODE';
         contentDiv.appendChild(modeBadge);
         
         const modeTitle = document.createElement('h3');
-        modeTitle.textContent = 'Mode Texte à trou';
+        modeTitle.textContent = 'Mode Texte Ã  trou';
         modeTitle.style.cssText = isMobile 
           ? 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.5em;'
           : 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.8em;';
         contentDiv.appendChild(modeTitle);
         
         const modeDesc = document.createElement('p');
-        modeDesc.textContent = 'Remplissez les blancs et validez vos réponses. Disponible sur tous les decks compatibles avec ce mode. Une nouvelle manière d\'apprendre !';
+        modeDesc.textContent = 'Remplissez les blancs et validez vos rÃ©ponses. Disponible sur tous les decks compatibles avec ce mode. Une nouvelle maniÃ¨re d\'apprendre !';
         modeDesc.style.cssText = isMobile
           ? 'margin:0;font-size:0.9em;color:#FFFFFF;opacity:0.95;line-height:1.5;'
           : 'margin:0;font-size:1em;color:#FFFFFF;opacity:0.95;line-height:1.5;';
@@ -11281,20 +11618,20 @@
         priceDiv.style.cssText = isMobile
           ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
           : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
-        priceDiv.textContent = '100 ℂ';
+        priceDiv.textContent = '100 â„‚';
         btnDiv.appendChild(priceDiv);
         
         const modeBtn = document.createElement('button');
         modeBtn.style.cssText = isMobile
           ? 'width:100%;background:#FFFFFF;color:#667eea;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
           : 'width:100%;background:#FFFFFF;color:#667eea;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
-        modeBtn.textContent = isTextModeUnlocked ? '✓ Déverrouillé' : 'Débloquer';
+        modeBtn.textContent = isTextModeUnlocked ? 'âœ“ DÃ©verrouillÃ©' : 'DÃ©bloquer';
         modeBtn.disabled = !!isTextModeUnlocked;
         
         if(!isTextModeUnlocked){
           modeBtn.addEventListener('click', ()=>{
             if(purchaseItem(textModeItemId, textModeCost, ()=>{
-              showMarketToast('Mode "Texte à trou" déverrouillé ! 🎉');
+              showMarketToast('Mode "Texte Ã  trou" dÃ©verrouillÃ© ! ðŸŽ‰');
               showMarketPage();
             })){
               showMarketPage();
@@ -11333,7 +11670,7 @@
           ? 'font-size:3em;text-align:center;'
           : 'font-size:4em;text-align:center;min-width:120px;';
         timerIconDiv.style.cssText = timerIconStyle;
-        timerIconDiv.textContent = '⏱️🔥';
+        timerIconDiv.textContent = 'â±ï¸ðŸ”¥';
         timerModeCard.appendChild(timerIconDiv);
         
         const timerContentDiv = document.createElement('div');
@@ -11343,7 +11680,7 @@
         timerBadge.style.cssText = isMobile
           ? 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.8em;font-weight:700;margin-bottom:8px;'
           : 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.85em;font-weight:700;margin-bottom:12px;';
-        timerBadge.textContent = '🆕 NOUVEAU MODE';
+        timerBadge.textContent = 'ðŸ†• NOUVEAU MODE';
         timerContentDiv.appendChild(timerBadge);
         
         const timerTitle = document.createElement('h3');
@@ -11354,7 +11691,7 @@
         timerContentDiv.appendChild(timerTitle);
         
         const timerDesc = document.createElement('p');
-        timerDesc.textContent = 'Testez votre rapidité ! Vous avez un temps limité pour chaque question. Répondez avant que le temps s\'écoule. Gagnez 1.2x XP supplémentaire !';
+        timerDesc.textContent = 'Testez votre rapiditÃ© ! Vous avez un temps limitÃ© pour chaque question. RÃ©pondez avant que le temps s\'Ã©coule. Gagnez 1.2x XP supplÃ©mentaire !';
         timerDesc.style.cssText = isMobile
           ? 'margin:0;font-size:0.9em;color:#FFFFFF;opacity:0.95;line-height:1.5;'
           : 'margin:0;font-size:1em;color:#FFFFFF;opacity:0.95;line-height:1.5;';
@@ -11371,20 +11708,20 @@
         timerPriceDiv.style.cssText = isMobile
           ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
           : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
-        timerPriceDiv.textContent = '100 ℂ';
+        timerPriceDiv.textContent = '100 â„‚';
         timerBtnDiv.appendChild(timerPriceDiv);
         
         const timerBtn = document.createElement('button');
         timerBtn.style.cssText = isMobile
           ? 'width:100%;background:#FFFFFF;color:#FF6B6B;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
           : 'width:100%;background:#FFFFFF;color:#FF6B6B;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
-        timerBtn.textContent = isTimerModeUnlocked ? '✓ Déverrouillé' : 'Débloquer';
+        timerBtn.textContent = isTimerModeUnlocked ? 'âœ“ DÃ©verrouillÃ©' : 'DÃ©bloquer';
         timerBtn.disabled = !!isTimerModeUnlocked;
         
         if(!isTimerModeUnlocked){
           timerBtn.addEventListener('click', ()=>{
             if(purchaseItem(timerModeItemId, timerModeCost, ()=>{
-              showMarketToast('Mode "Rappel sous pression" déverrouillé ! 🎉');
+              showMarketToast('Mode "Rappel sous pression" dÃ©verrouillÃ© ! ðŸŽ‰');
               showMarketPage();
             })){
               showMarketPage();
@@ -11423,7 +11760,7 @@
           ? 'font-size:3em;text-align:center;'
           : 'font-size:4em;text-align:center;min-width:120px;';
         rushIconDiv.style.cssText = rushIconStyle;
-        rushIconDiv.textContent = '🚀💨';
+        rushIconDiv.textContent = 'ðŸš€ðŸ’¨';
         rushModeCard.appendChild(rushIconDiv);
         
         const rushContentDiv = document.createElement('div');
@@ -11433,7 +11770,7 @@
         rushBadge.style.cssText = isMobile
           ? 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.8em;font-weight:700;margin-bottom:8px;'
           : 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.85em;font-weight:700;margin-bottom:12px;';
-        rushBadge.textContent = '🔥 MODE DÉFI';
+        rushBadge.textContent = 'ðŸ”¥ MODE DÃ‰FI';
         rushContentDiv.appendChild(rushBadge);
         
         const rushTitle = document.createElement('h3');
@@ -11444,7 +11781,7 @@
         rushContentDiv.appendChild(rushTitle);
         
         const rushDesc = document.createElement('p');
-        rushDesc.textContent = 'Défi ultime ! Le temps diminue à chaque bonne réponse. Tenez la cadence et gagnez 1.2x Crédits !';
+        rushDesc.textContent = 'DÃ©fi ultime ! Le temps diminue Ã  chaque bonne rÃ©ponse. Tenez la cadence et gagnez 1.2x CrÃ©dits !';
         rushDesc.style.cssText = isMobile
           ? 'margin:0;font-size:0.9em;color:#FFFFFF;opacity:0.95;line-height:1.5;'
           : 'margin:0;font-size:1em;color:#FFFFFF;opacity:0.95;line-height:1.5;';
@@ -11461,20 +11798,20 @@
         rushPriceDiv.style.cssText = isMobile
           ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
           : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
-        rushPriceDiv.textContent = '150 ℂ';
+        rushPriceDiv.textContent = '150 â„‚';
         rushBtnDiv.appendChild(rushPriceDiv);
         
         const rushBtn = document.createElement('button');
         rushBtn.style.cssText = isMobile
           ? 'width:100%;background:#FFFFFF;color:#f5576c;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
           : 'width:100%;background:#FFFFFF;color:#f5576c;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
-        rushBtn.textContent = isRushModeUnlocked ? '✓ Déverrouillé' : 'Débloquer';
+        rushBtn.textContent = isRushModeUnlocked ? 'âœ“ DÃ©verrouillÃ©' : 'DÃ©bloquer';
         rushBtn.disabled = !!isRushModeUnlocked;
         
         if(!isRushModeUnlocked){
           rushBtn.addEventListener('click', ()=>{
             if(purchaseItem(rushModeItemId, rushModeCost, ()=>{
-              showMarketToast('Mode "Rush" déverrouillé ! 🎉');
+              showMarketToast('Mode "Rush" dÃ©verrouillÃ© ! ðŸŽ‰');
               showMarketPage();
             })){
               showMarketPage();
@@ -11513,7 +11850,7 @@
           ? 'font-size:3em;text-align:center;'
           : 'font-size:4em;text-align:center;min-width:120px;';
         calculIconDiv.style.cssText = calculIconStyle;
-        calculIconDiv.textContent = '∫📐';
+        calculIconDiv.textContent = 'âˆ«ðŸ“';
         calculModeCard.appendChild(calculIconDiv);
         
         const calculContentDiv = document.createElement('div');
@@ -11523,7 +11860,7 @@
         calculBadge.style.cssText = isMobile
           ? 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.8em;font-weight:700;margin-bottom:8px;'
           : 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.85em;font-weight:700;margin-bottom:12px;';
-        calculBadge.textContent = '🆕 NOUVEAU MODE';
+        calculBadge.textContent = 'ðŸ†• NOUVEAU MODE';
         calculContentDiv.appendChild(calculBadge);
         
         const calculTitle = document.createElement('h3');
@@ -11534,7 +11871,7 @@
         calculContentDiv.appendChild(calculTitle);
         
         const calculDesc = document.createElement('p');
-        calculDesc.textContent = 'Construisez des formules LaTeX avec une grille de boutons ! Validez vos réponses mathématiques avec un rendu KaTeX en temps réel. Gagnez 1.8x XP supplémentaire ! Uniquement pour les decks de calculs mentaux et formules.';
+        calculDesc.textContent = 'Construisez des formules LaTeX avec une grille de boutons ! Validez vos rÃ©ponses mathÃ©matiques avec un rendu KaTeX en temps rÃ©el. Gagnez 1.8x XP supplÃ©mentaire ! Uniquement pour les decks de calculs mentaux et formules.';
         calculDesc.style.cssText = isMobile
           ? 'margin:0;font-size:0.9em;color:#FFFFFF;opacity:0.95;line-height:1.5;'
           : 'margin:0;font-size:1em;color:#FFFFFF;opacity:0.95;line-height:1.5;';
@@ -11551,20 +11888,20 @@
         calculPriceDiv.style.cssText = isMobile
           ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
           : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
-        calculPriceDiv.textContent = '100 ℂ';
+        calculPriceDiv.textContent = '100 â„‚';
         calculBtnDiv.appendChild(calculPriceDiv);
         
         const calculBtn = document.createElement('button');
         calculBtn.style.cssText = isMobile
           ? 'width:100%;background:#FFFFFF;color:#4facfe;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
           : 'width:100%;background:#FFFFFF;color:#4facfe;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
-        calculBtn.textContent = isCalculModeUnlocked ? '✓ Déverrouillé' : 'Débloquer';
+        calculBtn.textContent = isCalculModeUnlocked ? 'âœ“ DÃ©verrouillÃ©' : 'DÃ©bloquer';
         calculBtn.disabled = !!isCalculModeUnlocked;
         
         if(!isCalculModeUnlocked){
           calculBtn.addEventListener('click', ()=>{
             if(purchaseItem(calculModeItemId, calculModeCost, ()=>{
-              showMarketToast('Mode "Calcul" déverrouillé ! 🎉');
+              showMarketToast('Mode "Calcul" dÃ©verrouillÃ© ! ðŸŽ‰');
               showMarketPage();
             })){
               showMarketPage();
@@ -11595,7 +11932,7 @@
         personnalisationSection.style.cssText = 'margin-bottom:40px;';
         
         const personneTitle = document.createElement('h3');
-        personneTitle.textContent = '🎨 Personnalisation';
+        personneTitle.textContent = 'ðŸŽ¨ Personnalisation';
         personneTitle.style.cssText = 'margin-bottom:20px;font-size:1.6em;';
         personnalisationSection.appendChild(personneTitle);
         
@@ -11638,7 +11975,7 @@
             }
             preview.textContent = item.name;
           } else if(type === 'animation'){
-            preview.textContent = '✨ ' + item.name;
+            preview.textContent = 'âœ¨ ' + item.name;
             preview.style.fontWeight = '600';
           } else if(type === 'font'){
             preview.style.fontFamily = item.stack;
@@ -11660,9 +11997,9 @@
           const reqDiv = document.createElement('div');
           reqDiv.style.cssText = 'font-size:0.85em;color:#666;';
           if(isLockedByLevel){
-            reqDiv.textContent = `🔒 Niveau ${item.level}`;
+            reqDiv.textContent = `ðŸ”’ Niveau ${item.level}`;
           } else if(isLockedByPurchase){
-            reqDiv.textContent = `${item.credit} ℂ`;
+            reqDiv.textContent = `${item.credit} â„‚`;
           } else if(item.level > 0){
             reqDiv.textContent = `Niveau ${item.level}`;
           } else {
@@ -11677,29 +12014,29 @@
           btn.style.cssText = 'padding:10px 16px;border-radius:6px;font-weight:700;cursor:pointer;transition:all 0.3s;border:none;';
           
           if(isPurchased){
-            btn.textContent = '✓ Acheté';
+            btn.textContent = 'âœ“ AchetÃ©';
             btn.disabled = true;
             btn.style.background = '#e0e0e0';
             btn.style.color = '#999';
             btn.style.cursor = 'not-allowed';
           } else if(isLockedByLevel){
-            btn.textContent = '🔒 Verrouillé';
+            btn.textContent = 'ðŸ”’ VerrouillÃ©';
             btn.disabled = true;
             btn.style.background = '#e0e0e0';
             btn.style.color = '#999';
             btn.style.cursor = 'not-allowed';
           } else {
-            btn.textContent = `Acheter ${item.credit} ℂ`;
+            btn.textContent = `Acheter ${item.credit} â„‚`;
             btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
             btn.style.color = 'white';
             btn.addEventListener('click', () => {
               if(currentCredits < item.credit){
-                alert(`Crédits insuffisants. Vous avez ${getBalance()} ℂ, il en faut ${item.credit} ℂ`);
+                alert(`CrÃ©dits insuffisants. Vous avez ${getBalance()} â„‚, il en faut ${item.credit} â„‚`);
                 return;
               }
               if(typeof addCredits === 'function') addCredits(-item.credit);
               localStorage.setItem(`fabanki:market_${type}_${item.id}`, 'true');
-              showMarketToast(`${item.name} acheté ! 🎉`);
+              showMarketToast(`${item.name} achetÃ© ! ðŸŽ‰`);
               showMarketPage();
               
               // Track welcome quest market purchase for Part 3
@@ -11710,7 +12047,7 @@
                   if(state.part3_marketPurchase >= postWelcomeQuestTargets.part3_marketPurchase && !state.part3_marketRewarded){
                     addCredits(10);
                     state.part3_marketRewarded = true;
-                    showWelcomeQuestToast('Quête avancée: Achat au marché! +10 Crédits');
+                    showWelcomeQuestToast('QuÃªte avancÃ©e: Achat au marchÃ©! +10 CrÃ©dits');
                   }
                   localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
                   refreshPostWelcomeQuestUI();
@@ -11728,7 +12065,7 @@
         
         // Fonts subsection
         const fontsSubtitle = document.createElement('h4');
-        fontsSubtitle.textContent = '✏️ Polices de caractère';
+        fontsSubtitle.textContent = 'âœï¸ Polices de caractÃ¨re';
         fontsSubtitle.style.cssText = 'margin:20px 0 12px 0;font-size:1.2em;color:#555;';
         personnalisationSection.appendChild(fontsSubtitle);
         
@@ -11745,7 +12082,7 @@
         
         // Colors subsection
         const colorsSubtitle = document.createElement('h4');
-        colorsSubtitle.textContent = '🎨 Couleurs de fond';
+        colorsSubtitle.textContent = 'ðŸŽ¨ Couleurs de fond';
         colorsSubtitle.style.cssText = 'margin:20px 0 12px 0;font-size:1.2em;color:#555;';
         personnalisationSection.appendChild(colorsSubtitle);
         
@@ -11753,8 +12090,8 @@
           { name: 'Rose', id: 'rose', light: '#fce4ec', dark: '#2a0e1f', level: 10, credit: 30 },
           { name: 'Cyan', id: 'cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 20, credit: 40 },
           { name: 'Menthe', id: 'menthe', light: '#e0f2f1', dark: '#0d1816', level: 25, credit: 50 },
-          { name: 'Pêche', id: 'peche', light: '#ffd7a8', dark: '#3a1f0a', level: 30, credit: 60 },
-          { name: 'Gradient Doré', id: 'gradient_dore', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35, credit: 80 }
+          { name: 'PÃªche', id: 'peche', light: '#ffd7a8', dark: '#3a1f0a', level: 30, credit: 60 },
+          { name: 'Gradient DorÃ©', id: 'gradient_dore', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35, credit: 80 }
         ];
         
         const colorsGrid = document.createElement('div');
@@ -11764,20 +12101,20 @@
         
         // Patterns subsection
         const patternsSubtitle = document.createElement('h4');
-        patternsSubtitle.textContent = '🖼️ Motifs de fond';
+        patternsSubtitle.textContent = 'ðŸ–¼ï¸ Motifs de fond';
         patternsSubtitle.style.cssText = 'margin:20px 0 12px 0;font-size:1.2em;color:#555;';
         personnalisationSection.appendChild(patternsSubtitle);
         
         const patterns = [
           { name: 'Grille', id: 'grid', pattern: 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)', level: 10, credit: 25 },
           { name: 'Vagues', id: 'waves', pattern: 'repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.02) 0, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 40px)', level: 30, credit: 35 },
-          { name: 'Carrés', id: 'squares', pattern: 'linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.03))', level: 35, credit: 45 },
+          { name: 'CarrÃ©s', id: 'squares', pattern: 'linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.03))', level: 35, credit: 45 },
           { name: 'Chevrons', id: 'chevron', pattern: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.02), rgba(0,0,0,0.02) 2px, transparent 2px, transparent 8px, rgba(0,0,0,0.02) 8px, rgba(0,0,0,0.02) 10px, transparent 10px, transparent 16px)', level: 32, credit: 40 },
           { name: 'Topographie', id: 'hero_topography', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M0 60 Q30 40 60 60 T120 60' fill='none' stroke='%2399a' stroke-opacity='0.30' stroke-width='2'/><path d='M0 80 Q30 60 60 80 T120 80' fill='none' stroke='%2399a' stroke-opacity='0.20' stroke-width='2'/><path d='M0 40 Q30 20 60 40 T120 40' fill='none' stroke='%2399a' stroke-opacity='0.20' stroke-width='2'/></svg>\")", level: 45, credit: 45 },
           { name: 'Hexagones', id: 'hero_hex', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='90' viewBox='0 0 100 90'><path d='M25 5 L75 5 L95 45 L75 85 L25 85 L5 45 Z' fill='none' stroke='%2399a' stroke-opacity='0.30' stroke-width='2'/></svg>\")", level: 50, credit: 50 },
           { name: 'Circuit', id: 'hero_circuit', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 20 H60 V10 H110' fill='none' stroke='%2399a' stroke-opacity='0.30' stroke-width='2'/><path d='M10 80 H50 V110 H110' fill='none' stroke='%2399a' stroke-opacity='0.20' stroke-width='2'/><circle cx='60' cy='10' r='3' fill='%2399a' fill-opacity='0.35'/><circle cx='50' cy='110' r='3' fill='%2399a' fill-opacity='0.35'/><circle cx='60' cy='20' r='3' fill='%2399a' fill-opacity='0.30'/></svg>\")", level: 55, credit: 55 },
           { name: 'Puzzle', id: 'hero_jigsaw', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 10 H50 V30 H70 V10 H110 V110 H70 V90 H50 V110 H10 Z' fill='none' stroke='%2399a' stroke-opacity='0.30' stroke-width='2'/><circle cx='60' cy='30' r='6' fill='none' stroke='%2399a' stroke-opacity='0.30' stroke-width='2'/></svg>\")", level: 60, credit: 60 },
-          { name: '42 Pattern 🎯', id: 'welcome42', pattern: 'url(css/42pattern.png)', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_42_pattern') === 'true' }
+          { name: '42 Pattern ðŸŽ¯', id: 'welcome42', pattern: 'url(css/42pattern.png)', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_42_pattern') === 'true' }
         ];
         
         const patternsGrid = document.createElement('div');
@@ -11787,7 +12124,7 @@
 
         // Card patterns subsection
         const cardPatternsSubtitle = document.createElement('h4');
-        cardPatternsSubtitle.textContent = '🃏 Motifs des cartes';
+        cardPatternsSubtitle.textContent = 'ðŸƒ Motifs des cartes';
         cardPatternsSubtitle.style.cssText = 'margin:20px 0 12px 0;font-size:1.2em;color:#555;';
         personnalisationSection.appendChild(cardPatternsSubtitle);
 
@@ -11805,7 +12142,7 @@
         
         // Animations subsection
         const animationsSubtitle = document.createElement('h4');
-        animationsSubtitle.textContent = '✨ Animations';
+        animationsSubtitle.textContent = 'âœ¨ Animations';
         animationsSubtitle.style.cssText = 'margin:20px 0 12px 0;font-size:1.2em;color:#555;';
         personnalisationSection.appendChild(animationsSubtitle);
         
@@ -11824,7 +12161,7 @@
         animations.forEach(a => animationsGrid.appendChild(createPersonalizationCard(a, 'animation')));
         personnalisationSection.appendChild(animationsGrid);
         
-        // ===== SECTION 1C: MODE MÉMOIRE ACTIVE (REMOVED) =====
+        // ===== SECTION 1C: MODE MÃ‰MOIRE ACTIVE (REMOVED) =====
         // Active Memory mode section removed from market per user request
         /*
         const activeMemoryModeSection = document.createElement('section');
@@ -11847,7 +12184,7 @@
           ? 'font-size:3em;text-align:center;'
           : 'font-size:4em;text-align:center;min-width:120px;';
         activeMemoryIconDiv.style.cssText = activeMemoryIconStyle;
-        activeMemoryIconDiv.textContent = '🧠💡';
+        activeMemoryIconDiv.textContent = 'ðŸ§ ðŸ’¡';
         activeMemoryModeCard.appendChild(activeMemoryIconDiv);
         
         const activeMemoryContentDiv = document.createElement('div');
@@ -11857,18 +12194,18 @@
         activeMemoryBadge.style.cssText = isMobile
           ? 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.8em;font-weight:700;margin-bottom:8px;'
           : 'display:inline-block;background:rgba(255,255,255,0.3);color:#FFFFFF;padding:6px 12px;border-radius:6px;font-size:0.85em;font-weight:700;margin-bottom:12px;';
-        activeMemoryBadge.textContent = '✓ DÉVERROUILLÉ';
+        activeMemoryBadge.textContent = 'âœ“ DÃ‰VERROUILLÃ‰';
         activeMemoryContentDiv.appendChild(activeMemoryBadge);
         
         const activeMemoryTitle = document.createElement('h3');
-        activeMemoryTitle.textContent = 'Mode Mémoire active';
+        activeMemoryTitle.textContent = 'Mode MÃ©moire active';
         activeMemoryTitle.style.cssText = isMobile 
           ? 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.5em;'
           : 'margin:0 0 8px 0;color:#FFFFFF;font-size:1.8em;';
         activeMemoryContentDiv.appendChild(activeMemoryTitle);
         
         const activeMemoryDesc = document.createElement('p');
-        activeMemoryDesc.textContent = 'Entraînez votre mémoire active ! Vous avez 3 secondes pour mémoriser la question avant qu\'elle disparaisse. Relèvez le défi et gagnez 1.1x XP !';
+        activeMemoryDesc.textContent = 'EntraÃ®nez votre mÃ©moire active ! Vous avez 3 secondes pour mÃ©moriser la question avant qu\'elle disparaisse. RelÃ¨vez le dÃ©fi et gagnez 1.1x XP !';
         activeMemoryDesc.style.cssText = isMobile
           ? 'margin:0;font-size:0.9em;color:#FFFFFF;opacity:0.95;line-height:1.5;'
           : 'margin:0;font-size:1em;color:#FFFFFF;opacity:0.95;line-height:1.5;';
@@ -11885,14 +12222,14 @@
         activeMemoryStatusDiv.style.cssText = isMobile
           ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
           : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
-        activeMemoryStatusDiv.textContent = '✓ Offert';
+        activeMemoryStatusDiv.textContent = 'âœ“ Offert';
         activeMemoryBtnDiv.appendChild(activeMemoryStatusDiv);
         
         const activeMemoryBtn = document.createElement('button');
         activeMemoryBtn.style.cssText = isMobile
           ? 'width:100%;background:#FFFFFF;color:#6C5CE7;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
           : 'width:100%;background:#FFFFFF;color:#6C5CE7;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
-        activeMemoryBtn.textContent = '✓ Déverrouillé';
+        activeMemoryBtn.textContent = 'âœ“ DÃ©verrouillÃ©';
         activeMemoryBtn.disabled = true;
         
         activeMemoryBtnDiv.appendChild(activeMemoryBtn);
@@ -11903,7 +12240,7 @@
         content.appendChild(activeMemoryModeSection);
         */
         
-        // ===== SECTION 2: OFFRES SPÉCIALES (TITRES + XP) =====
+        // ===== SECTION 2: OFFRES SPÃ‰CIALES (TITRES + XP) =====
         const specialsSection = document.createElement('section');
         specialsSection.style.cssText = 'margin-bottom:40px;';
         const mathematicianTiers = {
@@ -11915,7 +12252,7 @@
         };
         
         const specialsTitle = document.createElement('h3');
-        specialsTitle.textContent = '⭐ Offres spéciales';
+        specialsTitle.textContent = 'â­ Offres spÃ©ciales';
         specialsTitle.style.cssText = 'font-size:1.5em;margin-bottom:16px;color:#666;';
         specialsSection.appendChild(specialsTitle);
         
@@ -11925,7 +12262,7 @@
         // Mathematician Titles organized by tier
         const titlesHeaderDiv = document.createElement('div');
         titlesHeaderDiv.style.cssText = 'grid-column: 1 / -1;';
-        titlesHeaderDiv.innerHTML = '<h4 style="color:#666;margin:0 0 12px 0;">👑 Titres Mathématicien</h4>';
+        titlesHeaderDiv.innerHTML = '<h4 style="color:#666;margin:0 0 12px 0;">ðŸ‘‘ Titres MathÃ©maticien</h4>';
         specialsGrid.appendChild(titlesHeaderDiv);
         
         // Iterate through tiers and display one mathematician per tier
@@ -11968,13 +12305,13 @@
           card.appendChild(titleEl);
           
           const desc = document.createElement('p');
-          desc.textContent = tierData.mathematicians.length > 1 ? `Au hasard parmi ${tierData.mathematicians.length} mathématiciens` : 'Titre prestigieux de mathématicien';
+          desc.textContent = tierData.mathematicians.length > 1 ? `Au hasard parmi ${tierData.mathematicians.length} mathÃ©maticiens` : 'Titre prestigieux de mathÃ©maticien';
           desc.style.cssText = `margin:0 0 12px 0;font-size:0.9em;color:${tierData.textColor};flex:1;opacity:0.95;`;
           card.appendChild(desc);
           
           const priceDiv = document.createElement('div');
           priceDiv.style.cssText = `margin-bottom:12px;font-weight:700;color:${canAfford ? tierData.textColor : '#ff0000'};`;
-          priceDiv.innerHTML = `<strong>Prix:</strong> ${tierData.cost} ℂ`;
+          priceDiv.innerHTML = `<strong>Prix:</strong> ${tierData.cost} â„‚`;
           card.appendChild(priceDiv);
           
           const btn = document.createElement('button');
@@ -11984,18 +12321,18 @@
           
           btn.addEventListener('click', ()=>{
             if(!canAfford){
-              showMarketToast(`Crédits insuffisants! Vous avez ${currentCredits} ℂ`);
+              showMarketToast(`CrÃ©dits insuffisants! Vous avez ${currentCredits} â„‚`);
               return;
             }
             if(purchaseItem(itemId, tierData.cost, ()=>{
-              // Choisir aléatoirement un titre du tier
+              // Choisir alÃ©atoirement un titre du tier
               const randomIndex = Math.floor(Math.random() * tierData.mathematicians.length);
               const chosenTitle = tierData.mathematicians[randomIndex];
               // Enregistrer le titre choisi
               const titleStorageKey = `fabanki:title_chosen_${tierKey}`;
               localStorage.setItem(titleStorageKey, chosenTitle);
               // Show toast instead of alert
-              showMarketToast(`Titre "${chosenTitle}" (${tierData.name}) acquis aléatoirement !`);
+              showMarketToast(`Titre "${chosenTitle}" (${tierData.name}) acquis alÃ©atoirement !`);
               
               // Track welcome quest first title
               try{
@@ -12025,13 +12362,13 @@
         // XP Boosters section header
         const boostersHeaderDiv = document.createElement('div');
         boostersHeaderDiv.style.cssText = 'grid-column: 1 / -1;margin-top:12px;';
-        boostersHeaderDiv.innerHTML = '<h4 style="color:#666;margin:0 0 12px 0;">⚡ Boosts XP</h4>';
+        boostersHeaderDiv.innerHTML = '<h4 style="color:#666;margin:0 0 12px 0;">âš¡ Boosts XP</h4>';
         specialsGrid.appendChild(boostersHeaderDiv);
         
         const xpBoosters = [
-          {icon: '🟢', multiplier: '×1.5 XP', duration: '1 heure', cost: 30, itemId: 'booster_1h', durationMs: 3600000},
-          {icon: '🟡', multiplier: '×2 XP', duration: '15 minutes', cost: 20, itemId: 'booster_15m', durationMs: 900000},
-          {icon: '🔴', multiplier: '×5 XP', duration: '5 minutes', cost: 50, itemId: 'booster_5m', durationMs: 300000}
+          {icon: 'ðŸŸ¢', multiplier: 'Ã—1.5 XP', duration: '1 heure', cost: 30, itemId: 'booster_1h', durationMs: 3600000},
+          {icon: 'ðŸŸ¡', multiplier: 'Ã—2 XP', duration: '15 minutes', cost: 20, itemId: 'booster_15m', durationMs: 900000},
+          {icon: 'ðŸ”´', multiplier: 'Ã—5 XP', duration: '5 minutes', cost: 50, itemId: 'booster_5m', durationMs: 300000}
         ];
         
         xpBoosters.forEach(({icon, multiplier, duration, cost, itemId, durationMs}) => {
@@ -12061,13 +12398,13 @@
           
           const priceDiv = document.createElement('div');
           priceDiv.style.cssText = `color:${canAfford ? '#000' : '#e74c3c'};margin-bottom:12px;font-weight:${canAfford ? '600' : '700'};`;
-          priceDiv.innerHTML = `<strong>Prix:</strong> ${cost} ℂ`;
+          priceDiv.innerHTML = `<strong>Prix:</strong> ${cost} â„‚`;
           card.appendChild(priceDiv);
           
           const btn = document.createElement('button');
           btn.className = 'primary';
           btn.style.cssText = 'width:100%;';
-          btn.textContent = isActive ? '✓ Actif' : 'Activer';
+          btn.textContent = isActive ? 'âœ“ Actif' : 'Activer';
           btn.disabled = isActive;
           
           if(!isActive){
@@ -12077,7 +12414,7 @@
                   purchasedAt: Date.now(),
                   expiry: Date.now() + durationMs
                 }));
-                alert(`Boost ${multiplier} activé pendant ${duration} !`);
+                alert(`Boost ${multiplier} activÃ© pendant ${duration} !`);
                 showMarketPage();
               })){
                 showMarketPage();
@@ -12096,7 +12433,7 @@
         const decksSection = document.createElement('section');
         decksSection.style.cssText = 'margin-bottom:40px;';
         const decksTitle = document.createElement('h3');
-        decksTitle.textContent = '📚 Decks à débloquer';
+        decksTitle.textContent = 'ðŸ“š Decks Ã  dÃ©bloquer';
         decksTitle.style.cssText = 'font-size:1.5em;margin-bottom:16px;color:#666;';
         decksSection.appendChild(decksTitle);
         
@@ -12179,12 +12516,12 @@
               if(isLockedByCost){
                 const lockInfo = document.createElement('div');
                 const canAfford = currentCredits >= cost;
-                lockInfo.innerHTML = `<strong>💳 Coût:</strong> ${cost} ℂ`;
+                lockInfo.innerHTML = `<strong>ðŸ’³ CoÃ»t:</strong> ${cost} â„‚`;
                 lockInfo.style.cssText = `color:${canAfford ? '#000' : '#e74c3c'};margin-bottom:6px;`;
                 infoDiv.appendChild(lockInfo);
               } else if(isLockedByLevel){
                 const lockInfo = document.createElement('div');
-                lockInfo.innerHTML = `<strong>🔒 Niveau requis:</strong> ${levelReq}`;
+                lockInfo.innerHTML = `<strong>ðŸ”’ Niveau requis:</strong> ${levelReq}`;
                 lockInfo.style.cssText = 'color:#e74c3c;margin-bottom:6px;';
                 infoDiv.appendChild(lockInfo);
               }
@@ -12195,18 +12532,18 @@
               const actionBtn = document.createElement('button');
               if(isLockedByCost){
                 const canAfford = currentCredits >= cost;
-                actionBtn.textContent = `Acheter pour ${cost} ℂ`;
+                actionBtn.textContent = `Acheter pour ${cost} â„‚`;
                 actionBtn.className = canAfford ? 'primary' : 'secondary';
                 actionBtn.disabled = !canAfford;
                 actionBtn.addEventListener('click', ()=>{
                   const fresh = getBalance();
                   if(fresh < cost){
-                    alert(`Crédits insuffisants. Vous avez ${fresh} ℂ, il en faut ${cost} ℂ`);
+                    alert(`CrÃ©dits insuffisants. Vous avez ${fresh} â„‚, il en faut ${cost} â„‚`);
                     return;
                   }
                   if(typeof addCredits === 'function') addCredits(-cost);
                   unlockDeck(path);
-                  showMarketToast(`Deck "${titleText}" acheté ! Il vous reste ${fresh - cost} ℂ`);
+                  showMarketToast(`Deck "${titleText}" achetÃ© ! Il vous reste ${fresh - cost} â„‚`);
                   // Refresh market to hide purchased deck
                   setTimeout(() => {
                     const mc = document.getElementById('marketContainer');
@@ -12215,7 +12552,7 @@
                   }, 1500);
                 });
               } else if(isLockedByLevel){
-                actionBtn.textContent = `Niveau ${levelReq} nécessaire`;
+                actionBtn.textContent = `Niveau ${levelReq} nÃ©cessaire`;
                 actionBtn.className = 'secondary';
                 actionBtn.disabled = true;
                 actionBtn.style.opacity = '0.5';
@@ -12232,7 +12569,7 @@
           decksCarousel.appendChild(errorMsg);
         }
         
-        // Add sections in correct order: Mode Texte à trou first, then Titles/Offers, then Decks, then Personnalisation
+        // Add sections in correct order: Mode Texte Ã  trou first, then Titles/Offers, then Decks, then Personnalisation
         content.appendChild(specialsSection);
         content.appendChild(decksSection);
         content.appendChild(personnalisationSection);
@@ -12311,7 +12648,7 @@
         const m = document.createElement('div'); m.className = 'modal'; m.style.maxWidth='400px';
         const t = document.createElement('h3'); t.textContent = 'Objectif quotidien'; t.style.margin = '0 0 16px 0';
         m.appendChild(t);
-        const desc = document.createElement('p'); desc.textContent = 'Combien de cartes voulez-vous réviser chaque jour ?'; desc.style.color = 'var(--muted)'; desc.style.marginBottom = '16px';
+        const desc = document.createElement('p'); desc.textContent = 'Combien de cartes voulez-vous rÃ©viser chaque jour ?'; desc.style.color = 'var(--muted)'; desc.style.marginBottom = '16px';
         m.appendChild(desc);
         const input = document.createElement('input'); input.type = 'number'; input.min = '0'; input.value = (currentGoal || currentGoal === 0) ? String(currentGoal) : '20'; input.style.width = '100%'; input.style.padding = '10px'; input.style.borderRadius = '6px'; input.style.border = '1px solid var(--border)'; input.style.fontSize = '1em'; input.style.marginBottom = '16px';
         m.appendChild(input);
@@ -12323,7 +12660,7 @@
             return;
           }
           if(raw < 0){
-            alert('Objectif invalide : le nombre doit être positif ou nul.');
+            alert('Objectif invalide : le nombre doit Ãªtre positif ou nul.');
             return;
           }
           const val = raw;
@@ -12376,7 +12713,7 @@
         toast.style.zIndex = '9998';
         toast.style.boxShadow = '0 8px 24px rgba(16, 185, 129, 0.4)';
         toast.style.textAlign = 'center';
-        toast.textContent = '🎉 Objectif quotidien atteint !';
+        toast.textContent = 'ðŸŽ‰ Objectif quotidien atteint !';
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 4000);
       }catch(e){ console.warn('milestone toast error', e); }
@@ -12496,7 +12833,7 @@
           const creditReward = rewards[mission] || 0;
           if(creditReward > 0){
             addCredits(creditReward);
-            showWelcomeQuestToast(`Mission accomplie ! +${creditReward} ℂ`);
+            showWelcomeQuestToast(`Mission accomplie ! +${creditReward} â„‚`);
           }
           markWelcomeQuestRewarded(state, part, mission);
         }
@@ -12516,7 +12853,7 @@
       const reward = typeof rewardMap[mission] === 'number' ? rewardMap[mission] : (creditReward || 0);
       if(unlocked && reward > 0 && !isWelcomeQuestRewarded(state, part, mission)){
         addCredits(reward);
-        showWelcomeQuestToast(`Mission accomplie ! +${reward} ℂ`);
+        showWelcomeQuestToast(`Mission accomplie ! +${reward} â„‚`);
         markWelcomeQuestRewarded(state, part, mission);
         localStorage.setItem('fabanki:welcome_quest', JSON.stringify(state));
       }
@@ -12537,7 +12874,7 @@
       const indigoRewarded = localStorage.getItem('fabanki:welcome_quest_indigo') === 'true';
       if(part1Done && !indigoRewarded){
         localStorage.setItem('fabanki:welcome_quest_indigo', 'true');
-        showWelcomeQuestToast('🎁 Thème Indigo débloqué !', 5000);
+        showWelcomeQuestToast('ðŸŽ ThÃ¨me Indigo dÃ©bloquÃ© !', 5000);
         refreshWelcomeQuestUI();
         scheduleQuestSync();
       }
@@ -12546,7 +12883,7 @@
       const patternUnlocked = localStorage.getItem('fabanki:welcome_quest_42_pattern') === 'true';
       if(part2Done && !patternUnlocked){
         localStorage.setItem('fabanki:welcome_quest_42_pattern', 'true');
-        showWelcomeQuestToast('🎉 Motif 42 débloqué !', 5000);
+        showWelcomeQuestToast('ðŸŽ‰ Motif 42 dÃ©bloquÃ© !', 5000);
         refreshWelcomeQuestUI();
         scheduleQuestSync();
       }
@@ -12573,7 +12910,7 @@
         try{ refreshPostWelcomeQuestUI(); }catch(e){}
         
         // Show completion toast
-        showWelcomeQuestToast('🎉 Quête de bienvenue terminée !', 6000);
+        showWelcomeQuestToast('ðŸŽ‰ QuÃªte de bienvenue terminÃ©e !', 6000);
         
         // Remove the quest card from UI
         setTimeout(() => {
@@ -12617,7 +12954,7 @@
 
       const preview = document.createElement('div');
       preview.style.cssText = `width:72px;height:72px;border-radius:10px;border:1px solid #e5e7eb;background:${previewStyle || '#f3f4f6'};display:flex;align-items:center;justify-content:center;font-weight:700;color:#111827;`;
-      preview.textContent = previewEmoji || (locked ? '🔒' : '🎁');
+      preview.textContent = previewEmoji || (locked ? 'ðŸ”’' : 'ðŸŽ');
       card.appendChild(preview);
 
       const content = document.createElement('div');
@@ -12644,7 +12981,7 @@
 
       const badge = document.createElement('div');
       badge.style.cssText = `padding:6px 10px;border-radius:999px;font-size:0.8em;font-weight:700;${locked ? 'background:#e5e7eb;color:#6b7280;' : 'background:#d1fae5;color:#065f46;'}`;
-      badge.textContent = locked ? 'Verrouillé' : 'Débloqué';
+      badge.textContent = locked ? 'VerrouillÃ©' : 'DÃ©bloquÃ©';
       card.appendChild(content);
       card.appendChild(badge);
       return card;
@@ -12661,15 +12998,15 @@
       const part3Locked = !part2Done;
       
       // Part 1
-      const part1 = createQuestPart('Partie 1: Découverte', [
-        { label: 'Terminer la présentation (si vous l\'avez déjà fait cliquez sur le bouton livre dans le profil)', done: state.part1.onboarding_done, reward: '5 ℂ' },
-        { label: 'Ouvrir le Profil ⚙️', done: state.part1.profile_opened, reward: '3 ℂ' },
-        { label: 'Ouvrir le Marché 🛍️', done: state.part1.market_opened, reward: '3 ℂ' },
-        { label: 'Définir un objectif 🎯', done: state.part1.goal_set, reward: '3 ℂ' }
+      const part1 = createQuestPart('Partie 1: DÃ©couverte', [
+        { label: 'Terminer la prÃ©sentation (si vous l\'avez dÃ©jÃ  fait cliquez sur le bouton livre dans le profil)', done: state.part1.onboarding_done, reward: '5 â„‚' },
+        { label: 'Ouvrir le Profil âš™ï¸', done: state.part1.profile_opened, reward: '3 â„‚' },
+        { label: 'Ouvrir le MarchÃ© ðŸ›ï¸', done: state.part1.market_opened, reward: '3 â„‚' },
+        { label: 'DÃ©finir un objectif ðŸŽ¯', done: state.part1.goal_set, reward: '3 â„‚' }
       ], !part1Done);
       container.appendChild(part1);
       container.appendChild(createRewardCardUI({
-        title: 'Récompense partie 1',
+        title: 'RÃ©compense partie 1',
         subtitle: 'Theme Indigo',
         details: 'Fond + cartes',
         locked: !part1Done,
@@ -12678,33 +13015,33 @@
       
       // Part 2 (locked until Part 1 done)
       const part2 = createQuestPart(' PremiersPartie 2: pas', [
-        { label: 'Ouvrir un deck', done: !part2Locked && state.part2.deck_opened, reward: '3 ℂ' },
-        { label: 'Réviser 50 cartes', done: !part2Locked && state.part2.cards_50_reviewed, reward: '5 ℂ', progress: part2Locked ? null : `${state.totalCardsReviewed}/50` },
-        { label: 'Terminer une session', done: !part2Locked && state.part2.session_completed, reward: '5 ℂ' }
+        { label: 'Ouvrir un deck', done: !part2Locked && state.part2.deck_opened, reward: '3 â„‚' },
+        { label: 'RÃ©viser 50 cartes', done: !part2Locked && state.part2.cards_50_reviewed, reward: '5 â„‚', progress: part2Locked ? null : `${state.totalCardsReviewed}/50` },
+        { label: 'Terminer une session', done: !part2Locked && state.part2.session_completed, reward: '5 â„‚' }
       ], !part2Done, part2Locked);
       container.appendChild(part2);
       container.appendChild(createRewardCardUI({
-        title: 'Récompense partie 2',
+        title: 'RÃ©compense partie 2',
         subtitle: 'Motif 42 exclusif',
         locked: !part2Done,
         previewStyle: 'linear-gradient(135deg, #c7d2fe 0%, #e0e7ff 100%)'
       }));
       
       // Part 3 (locked until Part 2 done)
-      const part3 = createQuestPart('Partie 3: Maîtriser Fab\'Anki', [
-        { label: 'Compléter l\'objectif du jour', done: !part3Locked && state.part3.daily_goal_completed, reward: '10 ℂ' },
-        { label: 'Acheter au Marché', done: !part3Locked && state.part3.market_purchase, reward: '10 ℂ' },
-        { label: 'Obtenir un titre', done: !part3Locked && state.part3.first_title, reward: '10 ℂ' },
-        { label: 'Accomplir 3 quêtes quotidiennes', done: !part3Locked && state.part3.three_daily_quests, reward: '10 ℂ', progress: part3Locked ? null : `${state.dailyQuestsCompleted}/3` },
-        { label: 'Lancer le mode Mémoire active', done: !part3Locked && state.part3.active_memory_launched, reward: '10 ℂ' }
+      const part3 = createQuestPart('Partie 3: MaÃ®triser Fab\'Anki', [
+        { label: 'ComplÃ©ter l\'objectif du jour', done: !part3Locked && state.part3.daily_goal_completed, reward: '10 â„‚' },
+        { label: 'Acheter au MarchÃ©', done: !part3Locked && state.part3.market_purchase, reward: '10 â„‚' },
+        { label: 'Obtenir un titre', done: !part3Locked && state.part3.first_title, reward: '10 â„‚' },
+        { label: 'Accomplir 3 quÃªtes quotidiennes', done: !part3Locked && state.part3.three_daily_quests, reward: '10 â„‚', progress: part3Locked ? null : `${state.dailyQuestsCompleted}/3` },
+        { label: 'Lancer le mode MÃ©moire active', done: !part3Locked && state.part3.active_memory_launched, reward: '10 â„‚' }
       ], !part3Done, part3Locked);
       container.appendChild(part3);
       container.appendChild(createRewardCardUI({
-        title: 'Récompense partie 3',
+        title: 'RÃ©compense partie 3',
         subtitle: 'Mode Etape par etape',
         locked: !part3Done,
         previewStyle: '#e5e7eb',
-        previewEmoji: '🪜'
+        previewEmoji: 'ðŸªœ'
       }));
       
       return container;
@@ -12716,7 +13053,7 @@
       
       const header = document.createElement('div');
       header.style.cssText = 'font-weight:700;color:#4b5563;margin-bottom:8px;font-size:0.95em;display:flex;align-items:center;gap:6px;';
-      header.innerHTML = locked ? `🔒 ${title}` : `${title}`;
+      header.innerHTML = locked ? `ðŸ”’ ${title}` : `${title}`;
       part.appendChild(header);
       
       missions.forEach(mission => {
@@ -12729,7 +13066,7 @@
         const displayDone = !locked && !!mission.done;
         const checkbox = document.createElement('div');
         checkbox.style.cssText = `width:20px;height:20px;border-radius:4px;border:2px solid ${displayDone ? '#10b981' : '#d1d5db'};background:${displayDone ? '#10b981' : 'white'};display:flex;align-items:center;justify-content:center;color:white;font-size:0.75em;font-weight:700;`;
-        checkbox.textContent = displayDone ? '✓' : '';
+        checkbox.textContent = displayDone ? 'âœ“' : '';
         leftSide.appendChild(checkbox);
         
         const label = document.createElement('span');
@@ -12769,7 +13106,7 @@
       titleBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;';
       
       const title = document.createElement('h2');
-      title.textContent = '🎯 Quête de bienvenue';
+      title.textContent = 'ðŸŽ¯ QuÃªte de bienvenue';
       title.style.margin = '0';
       title.style.color = 'var(--muted)';
       title.style.fontSize = '1.2em';
@@ -12798,18 +13135,18 @@
       timeSec: 60 * 60,
       totalCards: 250,
       reverseCards: 50,
-      // Part 3: Quête avancée
+      // Part 3: QuÃªte avancÃ©e
       part3_timeSec: 3 * 60 * 60,
       part3_decksReviewed: 20,
       part3_masteredCards: 50,
       part3_randomCards: 100,
       part3_marketPurchase: 1,
-      // Part 4: Quête Extrême
+      // Part 4: QuÃªte ExtrÃªme
       part4_reviewSessions: 25,
       part4_totalCards: 500,
       part4_timerCards: 50,
       part4_maintenanceCards: 50,
-      // Part 5: Quête Élite
+      // Part 5: QuÃªte Ã‰lite
       part5_credits: 250,
       part5_level: 30,
       part5_multipleCards: 100,
@@ -12943,7 +13280,7 @@
         state.rewardUnlocked = true;
         localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
         localStorage.setItem('fabanki:mode_reverse_unlocked', 'true');
-        showWelcomeQuestToast('🔁 Mode Revers débloqué !', 5000);
+        showWelcomeQuestToast('ðŸ” Mode Revers dÃ©bloquÃ© !', 5000);
         refreshPostWelcomeQuestUI();
         scheduleQuestSync();
       }
@@ -12953,7 +13290,7 @@
         state.randomUnlocked = true;
         localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
         localStorage.setItem('fabanki:mode_random_unlocked', 'true');
-        showWelcomeQuestToast('🎲 Mode Aléatoire débloqué !', 5000);
+        showWelcomeQuestToast('ðŸŽ² Mode AlÃ©atoire dÃ©bloquÃ© !', 5000);
         refreshPostWelcomeQuestUI();
         scheduleQuestSync();
       }
@@ -12968,7 +13305,7 @@
           if(state.timeSec >= postWelcomeQuestTargets.timeSec && !state.timeRewarded){
             addCredits(10);
             state.timeRewarded = true;
-            showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+            showWelcomeQuestToast('Mission accomplie ! +10 â„‚');
           }
           localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
           refreshPostWelcomeQuestUI();
@@ -12981,7 +13318,7 @@
           if(state.part3_timeSec >= postWelcomeQuestTargets.part3_timeSec && !state.part3_timeRewarded){
             addCredits(10);
             state.part3_timeRewarded = true;
-            showWelcomeQuestToast('Quête avancée: 3 heures! +10 Crédits');
+            showWelcomeQuestToast('QuÃªte avancÃ©e: 3 heures! +10 CrÃ©dits');
             localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
             refreshPostWelcomeQuestUI();
             scheduleQuestSync();
@@ -12993,10 +13330,10 @@
     function syncPostWelcomeQuestProgress({ mode, timeSec, reviewed, deckKey, masteredDelta, quality }){
       // Log with timestamp to force visibility in console
       const timestamp = new Date().toLocaleTimeString();
-      console.log(`🎯 [QUEST ${timestamp}] Function called with:`, { mode, reviewed, deckKey });
+      console.log(`ðŸŽ¯ [QUEST ${timestamp}] Function called with:`, { mode, reviewed, deckKey });
       try{
         const state = initPostWelcomeQuest();
-        console.log(`🎯 [QUEST ${timestamp}] Current state:`, { stepCards: state.stepCards, activeCards: state.activeCards, reverseCards: state.reverseCards });
+        console.log(`ðŸŽ¯ [QUEST ${timestamp}] Current state:`, { stepCards: state.stepCards, activeCards: state.activeCards, reverseCards: state.reverseCards });
         const part1Done = Number(state.stepCards || 0) >= postWelcomeQuestTargets.stepCards &&
           Number(state.activeCards || 0) >= postWelcomeQuestTargets.activeCards &&
           Number(state.timeSec || 0) >= postWelcomeQuestTargets.timeSec;
@@ -13008,17 +13345,17 @@
             changed = true;
           }
           if(mode === 'step' && state.stepCards < postWelcomeQuestTargets.stepCards){
-            console.log('🎯 [QUEST] ✅ Incrementing stepCards from', state.stepCards, 'to', state.stepCards + 1);
+            console.log('ðŸŽ¯ [QUEST] âœ… Incrementing stepCards from', state.stepCards, 'to', state.stepCards + 1);
             state.stepCards += 1;
             changed = true;
           }
           if(mode === 'activeMemory' && state.activeCards < postWelcomeQuestTargets.activeCards){
-            console.log('🎯 [QUEST] ✅ Incrementing activeCards from', state.activeCards, 'to', state.activeCards + 1);
+            console.log('ðŸŽ¯ [QUEST] âœ… Incrementing activeCards from', state.activeCards, 'to', state.activeCards + 1);
             state.activeCards += 1;
             changed = true;
           }
           if(mode === 'reverse' && state.reverseCards < postWelcomeQuestTargets.reverseCards){
-            console.log('🎯 [QUEST] ✅ Incrementing reverseCards from', state.reverseCards, 'to', state.reverseCards + 1);
+            console.log('ðŸŽ¯ [QUEST] âœ… Incrementing reverseCards from', state.reverseCards, 'to', state.reverseCards + 1);
             state.reverseCards += 1;
             changed = true;
           }
@@ -13073,7 +13410,7 @@
             if(state.part5_multipleCards >= postWelcomeQuestTargets.part5_multipleCards && !state.part5_multipleRewarded){
               addCredits(25);
               state.part5_multipleRewarded = true;
-              showWelcomeQuestToast('Quête Élite: 100 cartes en mode Multiple! +25 Crédits');
+              showWelcomeQuestToast('QuÃªte Ã‰lite: 100 cartes en mode Multiple! +25 CrÃ©dits');
             }
           }
           // Part 5 tracking: Calcul mode cards
@@ -13083,7 +13420,7 @@
             if(state.part5_calculCards >= postWelcomeQuestTargets.part5_calculCards && !state.part5_calculRewarded){
               addCredits(25);
               state.part5_calculRewarded = true;
-              showWelcomeQuestToast('Quête Élite: 50 cartes en mode Calcul! +25 Crédits');
+              showWelcomeQuestToast('QuÃªte Ã‰lite: 50 cartes en mode Calcul! +25 CrÃ©dits');
             }
           }
           // Part 5 tracking: Total cards across ALL modes
@@ -13094,7 +13431,7 @@
             if(state.part5_totalCards >= postWelcomeQuestTargets.part5_totalCards && !state.part5_totalRewarded){
               addCredits(25);
               state.part5_totalRewarded = true;
-              showWelcomeQuestToast('Tous les modes! +25 Crédits');
+              showWelcomeQuestToast('Tous les modes! +25 CrÃ©dits');
             }
           }
           // Part 3 tracking: Different decks reviewed
@@ -13110,7 +13447,7 @@
               if(decksSet.size >= postWelcomeQuestTargets.part3_decksReviewed && !state.part3_decksRewarded){
                 addCredits(10);
                 state.part3_decksRewarded = true;
-                showWelcomeQuestToast('Quête avancée: 20 decks! +10 Crédits');
+                showWelcomeQuestToast('QuÃªte avancÃ©e: 20 decks! +10 CrÃ©dits');
               }
             }
           }
@@ -13121,7 +13458,7 @@
             if(state.part3_masteredCards >= postWelcomeQuestTargets.part3_masteredCards && !state.part3_masteredRewarded){
               addCredits(10);
               state.part3_masteredRewarded = true;
-              showWelcomeQuestToast('Quête avancée: 50 cartes maîtrisées! +10 Crédits');
+              showWelcomeQuestToast('QuÃªte avancÃ©e: 50 cartes maÃ®trisÃ©es! +10 CrÃ©dits');
             }
           }
         }
@@ -13129,13 +13466,13 @@
           addCredits(10);
           state.stepRewarded = true;
           changed = true;
-          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+          showWelcomeQuestToast('Mission accomplie ! +10 â„‚');
         }
         if(state.activeCards >= postWelcomeQuestTargets.activeCards && !state.activeRewarded){
           addCredits(10);
           state.activeRewarded = true;
           changed = true;
-          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+          showWelcomeQuestToast('Mission accomplie ! +10 â„‚');
         }
         if(timeSec && timeSec > 0){
           const totalSec = Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0);
@@ -13148,19 +13485,19 @@
           addCredits(10);
           state.timeRewarded = true;
           changed = true;
-          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+          showWelcomeQuestToast('Mission accomplie ! +10 â„‚');
         }
         if(part2Unlocked && state.totalCards >= postWelcomeQuestTargets.totalCards && !state.totalRewarded){
           addCredits(20);
           state.totalRewarded = true;
           changed = true;
-          showWelcomeQuestToast('Mission accomplie ! +20 ℂ');
+          showWelcomeQuestToast('Mission accomplie ! +20 â„‚');
         }
         if(part2Unlocked && state.reverseCards >= postWelcomeQuestTargets.reverseCards && !state.reverseRewarded){
           addCredits(10);
           state.reverseRewarded = true;
           changed = true;
-          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+          showWelcomeQuestToast('Mission accomplie ! +10 â„‚');
         }
         const timerUnlocked = !!localStorage.getItem('fabanki:market_mode_rappel_sous_pression');
         if(timerUnlocked && !state.timerUnlocked){
@@ -13171,14 +13508,14 @@
           addCredits(10);
           state.timerRewarded = true;
           changed = true;
-          showWelcomeQuestToast('Mission accomplie ! +10 ℂ');
+          showWelcomeQuestToast('Mission accomplie ! +10 â„‚');
         }
         // Part 3 reward checks
         if(state.part3_randomCards >= postWelcomeQuestTargets.part3_randomCards && !state.part3_randomRewarded){
           addCredits(10);
           state.part3_randomRewarded = true;
           changed = true;
-          showWelcomeQuestToast('Quête avancée: 100 cartes aléatoires! +10 Crédits');
+          showWelcomeQuestToast('QuÃªte avancÃ©e: 100 cartes alÃ©atoires! +10 CrÃ©dits');
         }
         
         // Part 4 reward checks (card-based quests)
@@ -13186,32 +13523,32 @@
           addCredits(25);
           state.part4_cardsRewarded = true;
           changed = true;
-          showWelcomeQuestToast('Quête extrême: 500 cartes! +25 Crédits');
+          showWelcomeQuestToast('QuÃªte extrÃªme: 500 cartes! +25 CrÃ©dits');
         }
         if(state.part4_timerCards >= postWelcomeQuestTargets.part4_timerCards && !state.part4_timerRewarded){
           addCredits(10);
           state.part4_timerRewarded = true;
           changed = true;
-          showWelcomeQuestToast('Quête extrême: 50 cartes timer! +10 Crédits');
+          showWelcomeQuestToast('QuÃªte extrÃªme: 50 cartes timer! +10 CrÃ©dits');
         }
         if(state.part4_maintenanceCards >= postWelcomeQuestTargets.part4_maintenanceCards && !state.part4_maintenanceRewarded){
           addCredits(15);
           state.part4_maintenanceRewarded = true;
           changed = true;
-          showWelcomeQuestToast('Quête extrême: 50 cartes maintenance! +15 Crédits');
+          showWelcomeQuestToast('QuÃªte extrÃªme: 50 cartes maintenance! +15 CrÃ©dits');
         }
 
         if(changed){
-          console.log('🎯 [QUEST] ✅ State updated!', { stepCards: state.stepCards, activeCards: state.activeCards, reverseCards: state.reverseCards });
+          console.log('ðŸŽ¯ [QUEST] âœ… State updated!', { stepCards: state.stepCards, activeCards: state.activeCards, reverseCards: state.reverseCards });
           localStorage.setItem('fabanki:post_welcome_quest', JSON.stringify(state));
           refreshPostWelcomeQuestUI();
           checkPostWelcomeQuestCompletion();
           scheduleQuestSync();
         }else{
-          console.log('🎯 [QUEST] ⚠️ No changes:', { mode, reviewed, stepCards: state.stepCards, part2Unlocked: false });
+          console.log('ðŸŽ¯ [QUEST] âš ï¸ No changes:', { mode, reviewed, stepCards: state.stepCards, part2Unlocked: false });
         }
       }catch(e){
-        console.error('🎯 [QUEST] ❌ ERROR:', e);
+        console.error('ðŸŽ¯ [QUEST] âŒ ERROR:', e);
         console.error('Stack:', e.stack);
       }
     }
@@ -13229,7 +13566,7 @@
       card.style.cssText = 'margin-top:16px;padding:16px;';
 
       const title = document.createElement('h2');
-      title.textContent = '🎯 Quête avancée';
+      title.textContent = 'ðŸŽ¯ QuÃªte avancÃ©e';
       title.style.margin = '0 0 12px 0';
       title.style.color = 'var(--muted)';
       title.style.fontSize = '1.2em';
@@ -13238,18 +13575,18 @@
       const timeMinutes = Math.floor(Number(state.timeSec || 0) / 60);
 
       const part1 = createQuestPart('Partie 1', [
-        { label: 'Réviser 25 cartes avec le mode Étape par étape', done: state.stepCards >= postWelcomeQuestTargets.stepCards, reward: '10 ℂ', progress: `${Math.min(state.stepCards, postWelcomeQuestTargets.stepCards)}/${postWelcomeQuestTargets.stepCards}` },
-        { label: 'Réviser 25 cartes avec le mode Mémoire active', done: state.activeCards >= postWelcomeQuestTargets.activeCards, reward: '10 ℂ', progress: `${Math.min(state.activeCards, postWelcomeQuestTargets.activeCards)}/${postWelcomeQuestTargets.activeCards}` },
-        { label: 'Passer 1 heure sur l\'application', done: state.timeSec >= postWelcomeQuestTargets.timeSec, reward: '10 ℂ', progress: `${Math.min(timeMinutes, 60)}/60 min` }
+        { label: 'RÃ©viser 25 cartes avec le mode Ã‰tape par Ã©tape', done: state.stepCards >= postWelcomeQuestTargets.stepCards, reward: '10 â„‚', progress: `${Math.min(state.stepCards, postWelcomeQuestTargets.stepCards)}/${postWelcomeQuestTargets.stepCards}` },
+        { label: 'RÃ©viser 25 cartes avec le mode MÃ©moire active', done: state.activeCards >= postWelcomeQuestTargets.activeCards, reward: '10 â„‚', progress: `${Math.min(state.activeCards, postWelcomeQuestTargets.activeCards)}/${postWelcomeQuestTargets.activeCards}` },
+        { label: 'Passer 1 heure sur l\'application', done: state.timeSec >= postWelcomeQuestTargets.timeSec, reward: '10 â„‚', progress: `${Math.min(timeMinutes, 60)}/60 min` }
       ], true, false);
       card.appendChild(part1);
 
       const rewardCard = createRewardCardUI({
-        title: 'Récompense',
+        title: 'RÃ©compense',
         subtitle: 'Mode Revers',
         locked: !state.completed,
         previewStyle: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)',
-        previewEmoji: '🔁'
+        previewEmoji: 'ðŸ”'
       });
       rewardCard.style.marginTop = '10px';
       card.appendChild(rewardCard);
@@ -13257,24 +13594,24 @@
       const part1Done = state.stepCards >= postWelcomeQuestTargets.stepCards && state.activeCards >= postWelcomeQuestTargets.activeCards && state.timeSec >= postWelcomeQuestTargets.timeSec;
       const part2Locked = !part1Done;
       const part2 = createQuestPart('Partie 2', [
-        { label: 'Réviser 250 cartes', done: !part2Locked && state.totalCards >= postWelcomeQuestTargets.totalCards, reward: '20 ℂ', progress: part2Locked ? null : `${Math.min(state.totalCards, postWelcomeQuestTargets.totalCards)}/${postWelcomeQuestTargets.totalCards}` },
-        { label: 'Réviser 50 cartes en mode Revers', done: !part2Locked && state.reverseCards >= postWelcomeQuestTargets.reverseCards, reward: '10 ℂ', progress: part2Locked ? null : `${Math.min(state.reverseCards, postWelcomeQuestTargets.reverseCards)}/${postWelcomeQuestTargets.reverseCards}` },
-        { label: 'Débloquer le mode Rappel sous pression', done: !part2Locked && state.timerUnlocked, reward: '10 ℂ' }
+        { label: 'RÃ©viser 250 cartes', done: !part2Locked && state.totalCards >= postWelcomeQuestTargets.totalCards, reward: '20 â„‚', progress: part2Locked ? null : `${Math.min(state.totalCards, postWelcomeQuestTargets.totalCards)}/${postWelcomeQuestTargets.totalCards}` },
+        { label: 'RÃ©viser 50 cartes en mode Revers', done: !part2Locked && state.reverseCards >= postWelcomeQuestTargets.reverseCards, reward: '10 â„‚', progress: part2Locked ? null : `${Math.min(state.reverseCards, postWelcomeQuestTargets.reverseCards)}/${postWelcomeQuestTargets.reverseCards}` },
+        { label: 'DÃ©bloquer le mode Rappel sous pression', done: !part2Locked && state.timerUnlocked, reward: '10 â„‚' }
       ], true, part2Locked);
       card.appendChild(part2);
 
       const part2Done = state.totalCards >= postWelcomeQuestTargets.totalCards && state.reverseCards >= postWelcomeQuestTargets.reverseCards && state.timerUnlocked;
       const rewardCardPart2 = createRewardCardUI({
-        title: 'Récompense',
-        subtitle: 'Mode Aléatoire',
+        title: 'RÃ©compense',
+        subtitle: 'Mode AlÃ©atoire',
         locked: !part2Done,
         previewStyle: 'linear-gradient(135deg, #fde68a 0%, #f59e0b 100%)',
-        previewEmoji: '🎲'
+        previewEmoji: 'ðŸŽ²'
       });
       rewardCardPart2.style.marginTop = '10px';
       card.appendChild(rewardCardPart2);
 
-      // Part 3: Quête avancée
+      // Part 3: QuÃªte avancÃ©e
       const part2Done_part3 = state.totalCards >= postWelcomeQuestTargets.totalCards && state.reverseCards >= postWelcomeQuestTargets.reverseCards && state.timerUnlocked;
       const part3Locked = !part2Done_part3;
       const decksReviewedSet = new Set((state.part3_decksReviewedSet || '').split(',').filter(x => x));
@@ -13282,11 +13619,11 @@
       const timePart3Hours = Math.floor(timeMinPart3 / 60);
       
       const part3 = createQuestPart('Partie 3', [
-        { label: 'Passer 3 heures sur l\'application', done: !part3Locked && state.part3_timeSec >= postWelcomeQuestTargets.part3_timeSec, reward: '10 ℂ', progress: part3Locked ? null : `${Math.min(timePart3Hours, 3)}/3 h` },
-        { label: 'Réviser 20 decks différents', done: !part3Locked && decksReviewedSet.size >= postWelcomeQuestTargets.part3_decksReviewed, reward: '10 ℂ', progress: part3Locked ? null : `${Math.min(decksReviewedSet.size, 20)}/20` },
-        { label: 'Avoir 50 cartes Maîtrisées', done: !part3Locked && state.part3_masteredCards >= postWelcomeQuestTargets.part3_masteredCards, reward: '10 ℂ', progress: part3Locked ? null : `${Math.min(state.part3_masteredCards, 50)}/50` },
-        { label: 'Réviser 100 cartes en mode Aléatoire', done: !part3Locked && state.part3_randomCards >= postWelcomeQuestTargets.part3_randomCards, reward: '10 ℂ', progress: part3Locked ? null : `${Math.min(state.part3_randomCards, 100)}/100` },
-        { label: 'Acheter une personnalisation dans le marché', done: !part3Locked && state.part3_marketPurchase >= postWelcomeQuestTargets.part3_marketPurchase, reward: '10 ℂ' }
+        { label: 'Passer 3 heures sur l\'application', done: !part3Locked && state.part3_timeSec >= postWelcomeQuestTargets.part3_timeSec, reward: '10 â„‚', progress: part3Locked ? null : `${Math.min(timePart3Hours, 3)}/3 h` },
+        { label: 'RÃ©viser 20 decks diffÃ©rents', done: !part3Locked && decksReviewedSet.size >= postWelcomeQuestTargets.part3_decksReviewed, reward: '10 â„‚', progress: part3Locked ? null : `${Math.min(decksReviewedSet.size, 20)}/20` },
+        { label: 'Avoir 50 cartes MaÃ®trisÃ©es', done: !part3Locked && state.part3_masteredCards >= postWelcomeQuestTargets.part3_masteredCards, reward: '10 â„‚', progress: part3Locked ? null : `${Math.min(state.part3_masteredCards, 50)}/50` },
+        { label: 'RÃ©viser 100 cartes en mode AlÃ©atoire', done: !part3Locked && state.part3_randomCards >= postWelcomeQuestTargets.part3_randomCards, reward: '10 â„‚', progress: part3Locked ? null : `${Math.min(state.part3_randomCards, 100)}/100` },
+        { label: 'Acheter une personnalisation dans le marchÃ©', done: !part3Locked && state.part3_marketPurchase >= postWelcomeQuestTargets.part3_marketPurchase, reward: '10 â„‚' }
       ], true, part3Locked);
       card.appendChild(part3);
 
@@ -13297,11 +13634,11 @@
                         state.part3_marketPurchase >= postWelcomeQuestTargets.part3_marketPurchase;
 
       const rewardCardPart3 = createRewardCardUI({
-        title: 'Récompense',
+        title: 'RÃ©compense',
         subtitle: 'Mode Maintien',
         locked: !part3Done,
         previewStyle: 'linear-gradient(135deg, #c084fc 0%, #a855f7 100%)',
-        previewEmoji: '✋'
+        previewEmoji: 'âœ‹'
       });
       rewardCardPart3.style.marginTop = '10px';
       card.appendChild(rewardCardPart3);
@@ -13309,10 +13646,10 @@
       // Unlock Hold mode when Part 3 is complete
       if(part3Done && localStorage.getItem('fabanki:mode_hold_unlocked') !== 'true'){
         localStorage.setItem('fabanki:mode_hold_unlocked', 'true');
-        showWelcomeQuestToast('Mode Maintient déverrouillé ! ✋');
+        showWelcomeQuestToast('Mode Maintient dÃ©verrouillÃ© ! âœ‹');
       }
 
-      // Part 4: Quête Extrême
+      // Part 4: QuÃªte ExtrÃªme
       const sessionsPart4 = Number(state.part4_reviewSessions || 0);
       const totalCardsPart4 = Number(state.part4_totalCards || 0);
       const timerCardsPart4 = Number(state.part4_timerCards || 0);
@@ -13325,19 +13662,19 @@
       const part4Done = part3Done && part4Sessions && part4Cards && part4Timer && part4Maintenance;
       
       const part4 = createQuestPart('Partie 4', [
-        { label: 'Compléter 25 sessions de révisions', done: part4Sessions, reward: '10 ℂ', progress: part3Done ? `${Math.min(sessionsPart4, 25)}/25` : 'Verrouillée' },
-        { label: 'Réviser 500 cartes', done: part4Cards, reward: '25 ℂ', progress: part3Done ? `${Math.min(totalCardsPart4, 500)}/500` : 'Verrouillée' },
-        { label: 'Réviser 50 cartes en mode Rappel sous pression', done: part4Timer, reward: '10 ℂ', progress: part3Done ? `${Math.min(timerCardsPart4, 50)}/50` : 'Verrouillée' },
-        { label: 'Réviser 50 cartes en mode Maintien', done: part4Maintenance, reward: '15 ℂ', progress: part3Done ? `${Math.min(maintenanceCardsPart4, 50)}/50` : 'Verrouillée' }
+        { label: 'ComplÃ©ter 25 sessions de rÃ©visions', done: part4Sessions, reward: '10 â„‚', progress: part3Done ? `${Math.min(sessionsPart4, 25)}/25` : 'VerrouillÃ©e' },
+        { label: 'RÃ©viser 500 cartes', done: part4Cards, reward: '25 â„‚', progress: part3Done ? `${Math.min(totalCardsPart4, 500)}/500` : 'VerrouillÃ©e' },
+        { label: 'RÃ©viser 50 cartes en mode Rappel sous pression', done: part4Timer, reward: '10 â„‚', progress: part3Done ? `${Math.min(timerCardsPart4, 50)}/50` : 'VerrouillÃ©e' },
+        { label: 'RÃ©viser 50 cartes en mode Maintien', done: part4Maintenance, reward: '15 â„‚', progress: part3Done ? `${Math.min(maintenanceCardsPart4, 50)}/50` : 'VerrouillÃ©e' }
       ], true, !part3Done);
       card.appendChild(part4);
 
       const rewardCardPart4 = createRewardCardUI({
-        title: 'Récompense',
+        title: 'RÃ©compense',
         subtitle: 'Mode Multiple',
         locked: !part4Done,
         previewStyle: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
-        previewEmoji: '📚'
+        previewEmoji: 'ðŸ“š'
       });
       rewardCardPart4.style.marginTop = '10px';
       card.appendChild(rewardCardPart4);
@@ -13345,10 +13682,10 @@
       // Unlock Multiple mode when Part 4 is complete
       if(part4Done && localStorage.getItem('fabanki:mode_multiple_unlocked') !== 'true'){
         localStorage.setItem('fabanki:mode_multiple_unlocked', 'true');
-        showWelcomeQuestToast('Mode Multiple déverrouillé ! 🧩');
+        showWelcomeQuestToast('Mode Multiple dÃ©verrouillÃ© ! ðŸ§©');
       }
 
-      // Part 5: Quête Élite
+      // Part 5: QuÃªte Ã‰lite
       const creditsPart5 = Number(state.part5_credits || 0);
       const levelPart5 = Number(state.part5_level || 0);
       const multipleCardsPart5 = Number(state.part5_multipleCards || 0);
@@ -13363,20 +13700,20 @@
       const part5Done = part4Done && part5Credits && part5Level && part5Multiple && part5Calcul && part5Total;
       
       const part5 = createQuestPart('Partie 5', [
-        { label: 'Accumuler 250 crédits', done: part5Credits, reward: '15 ℂ', progress: part4Done ? `${Math.min(creditsPart5, 250)}/250` : 'Verrouillée' },
-        { label: 'Atteindre le niveau 30', done: part5Level, reward: '10 ℂ', progress: part4Done ? `${Math.min(levelPart5, 30)}/30` : 'Verrouillée' },
-        { label: 'Réviser 100 cartes en mode Multiple', done: part5Multiple, reward: '25 ℂ', progress: part4Done ? `${Math.min(multipleCardsPart5, 100)}/100` : 'Verrouillée' },
-        { label: 'Réviser 50 cartes en mode Calcul', done: part5Calcul, reward: '25 ℂ', progress: part4Done ? `${Math.min(calculCardsPart5, 50)}/50` : 'Verrouillée' },
-        { label: 'Réviser 2000 cartes au total', done: part5Total, reward: '25 ℂ', progress: part4Done ? `${Math.min(totalCardsPart5, 2000)}/2000` : 'Verrouillée' }
+        { label: 'Accumuler 250 crÃ©dits', done: part5Credits, reward: '15 â„‚', progress: part4Done ? `${Math.min(creditsPart5, 250)}/250` : 'VerrouillÃ©e' },
+        { label: 'Atteindre le niveau 30', done: part5Level, reward: '10 â„‚', progress: part4Done ? `${Math.min(levelPart5, 30)}/30` : 'VerrouillÃ©e' },
+        { label: 'RÃ©viser 100 cartes en mode Multiple', done: part5Multiple, reward: '25 â„‚', progress: part4Done ? `${Math.min(multipleCardsPart5, 100)}/100` : 'VerrouillÃ©e' },
+        { label: 'RÃ©viser 50 cartes en mode Calcul', done: part5Calcul, reward: '25 â„‚', progress: part4Done ? `${Math.min(calculCardsPart5, 50)}/50` : 'VerrouillÃ©e' },
+        { label: 'RÃ©viser 2000 cartes au total', done: part5Total, reward: '25 â„‚', progress: part4Done ? `${Math.min(totalCardsPart5, 2000)}/2000` : 'VerrouillÃ©e' }
       ], true, !part4Done);
       card.appendChild(part5);
 
       const rewardCardPart5 = createRewardCardUI({
-        title: 'Récompense',
+        title: 'RÃ©compense',
         subtitle: 'Mode Associer',
         locked: !part5Done,
         previewStyle: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-        previewEmoji: '🔗'
+        previewEmoji: 'ðŸ”—'
       });
       rewardCardPart5.style.marginTop = '10px';
       card.appendChild(rewardCardPart5);
@@ -13384,7 +13721,7 @@
       // Unlock Associer mode when Part 5 is complete (but keep it unlocked for debugging)
       if(part5Done && localStorage.getItem('fabanki:mode_associer_unlocked') !== 'true'){
         localStorage.setItem('fabanki:mode_associer_unlocked', 'true');
-        showWelcomeQuestToast('Mode Associer déverrouillé ! 🔗');
+        showWelcomeQuestToast('Mode Associer dÃ©verrouillÃ© ! ðŸ”—');
       }
 
       return card;
@@ -13526,8 +13863,14 @@
       try{
         const inventory = {};
         for(const k of Object.keys(localStorage)){
-          // Collect all marketplace purchases and deck unlocks
-          if(k.startsWith('fabanki:market_') || k.startsWith('fabanki:deck_unlocked:')){
+          // Collect persistent unlocks/settings that must survive device changes/reinstall
+          if(
+            k.startsWith('fabanki:market_') ||
+            k.startsWith('fabanki:deck_unlocked:') ||
+            k.startsWith('fabanki:title_chosen_') ||
+            k === 'fabanki:titles_cache' ||
+            k.startsWith('fabanki:migration_')
+          ){
             inventory[k] = localStorage.getItem(k);
           }
         }
@@ -13909,13 +14252,14 @@
         const el = ensureSyncStatusEl();
         if(!el) return;
         if(active){
-          el.textContent = text || 'Synchronisation en cours…';
+          hideBootSplash();
+          el.textContent = text || 'Synchronisation en coursâ€¦';
           el.style.display = 'block';
         } else {
           el.textContent = '';
           el.style.display = 'none';
         }
-        showSyncLoading(active, text || 'Synchronisation en cours…');
+        showSyncLoading(active, text || 'Synchronisation en coursâ€¦');
       }catch(e){}
     }
 
@@ -13935,7 +14279,7 @@
 
         if(existing){
           const msg = existing.querySelector('.sync-loading__message');
-          if(msg) msg.textContent = message || 'Synchronisation en cours…';
+          if(msg) msg.textContent = message || 'Synchronisation en coursâ€¦';
           return;
         }
 
@@ -13955,7 +14299,7 @@
 
         const msg = document.createElement('div');
         msg.className = 'sync-loading__message';
-        msg.textContent = message || 'Synchronisation en cours…';
+        msg.textContent = message || 'Synchronisation en coursâ€¦';
 
         card.appendChild(spinner);
         card.appendChild(title);
@@ -14023,15 +14367,7 @@
     // Auto-sync current data to cloud (called after card review, xp, credits changes)
     async function autoSync(){
       try{
-        // Skip syncing if we haven't changed cards
         const currentCardId = currentIndex < dueCards.length ? dueCards[currentIndex]?.id : null;
-        if(!isInitialPageLoad && lastSyncCardId === currentCardId){
-          syncLog('autoSync: skipping - same card as last sync');
-          return;
-        }
-        
-        // Update last synced card
-        lastSyncCardId = currentCardId;
         const mode = localStorage.getItem('fabanki:mode');
         syncLog('autoSync: mode =', mode);
         if(mode !== 'synced') {
@@ -14052,14 +14388,8 @@
           return;
         }
         
-        // Only sync if user has actually reviewed a card since last sync
-        if(lastSyncCardId === currentCardId){
-          syncLog('autoSync: skipping - no new card activity');
-          return;
-        }
-        
         syncLog('autoSync: starting sync for user', pseudo);
-        setSyncStatus('Synchronisation en cours…', true);
+        setSyncStatus('Synchronisation en coursâ€¦', true);
         
         // PULL-BEFORE-PUSH: Check cloud for any newer updates before uploading
         try{
@@ -14111,6 +14441,7 @@
         syncLog('autoSync: collected state', { xp: st.xp, credits: st.credits, decks: Object.keys(st.decks || {}).length });
         
         await saveState(st);
+        lastSyncCardId = currentCardId;
         syncLog('Auto-sync completed successfully');
       }catch(e){ 
         syncLog('autoSync ERROR:', e);
@@ -14128,7 +14459,7 @@
         
         const localMode = localStorage.getItem('fabanki:mode');
         if(localMode !== 'synced') return; // Only restore if in synced mode
-        setSyncStatus('Synchronisation en cours…', true);
+        setSyncStatus('Synchronisation en coursâ€¦', true);
         
         // Fast path: use current user if already available
         let user = auth.currentUser;
@@ -14280,8 +14611,8 @@
       try{
         const db = window.__fabanki_firestore;
         const auth = firebase?.auth?.();
-        if(!db || !auth){ alert('La synchronisation nécessite une configuration Firebase (Auth + Firestore).'); return; }
-        const email = emailArg ?? prompt('Email pour créer un compte (Firebase)');
+        if(!db || !auth){ alert('La synchronisation nÃ©cessite une configuration Firebase (Auth + Firestore).'); return; }
+        const email = emailArg ?? prompt('Email pour crÃ©er un compte (Firebase)');
         if(!email) return;
         const password = passwordArg ?? prompt('Mot de passe');
         if(!password) return;
@@ -14303,9 +14634,9 @@
         
         // Upload to cloud
         await saveState(st);
-        alert('✅ Compte créé et progrès synchronisés.');
+        alert('âœ… Compte crÃ©Ã© et progrÃ¨s synchronisÃ©s.');
       }catch(e){ 
-        alert('❌ Échec création:\n\n' + (e?.message || e));
+        alert('âŒ Ã‰chec crÃ©ation:\n\n' + (e?.message || e));
       }
     }
 
@@ -14313,11 +14644,13 @@
       try{
         const db = window.__fabanki_firestore;
         const auth = firebase?.auth?.();
-        if(!db || !auth){ alert('La synchronisation nécessite une configuration Firebase (Auth + Firestore).'); return; }
+        if(!db || !auth){ alert('La synchronisation nÃ©cessite une configuration Firebase (Auth + Firestore).'); return; }
         const email = emailArg ?? prompt('Email de connexion'); if(!email) return;
         const password = passwordArg ?? prompt('Mot de passe'); if(!password) return;
         const { user } = await auth.signInWithEmailAndPassword(email, password);
         const uid = user.uid;
+
+        // Avoid destructive duplicate-merge here: most clients do not have delete rights.
 
         // Do not delete existing profiles on login; keep cloud history safe
 
@@ -14369,11 +14702,12 @@
 
         await saveState(chosen);
         try{ applyStateToLocalStorage(chosen); }catch(e){}
+        try{ if(applySimonBonusIfNeeded()){ await saveState(defaultUserState()); } }catch(e){}
         try{ if(typeof updateMissionProgress === 'function') updateMissionProgress(); }catch(e){}
         try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
-        alert('✅ Connexion et synchronisation terminées.');
+        alert('âœ… Connexion et synchronisation terminÃ©es.');
       }catch(e){ 
-        alert('❌ Échec connexion:\n\n' + (e?.message || e));
+        alert('âŒ Ã‰chec connexion:\n\n' + (e?.message || e));
       }
     }
 
@@ -14386,9 +14720,9 @@
         st.mode = 'local';
         st.userId = null;
         await saveState(st);
-        alert('✅ Déconnexion réussie. Vos données locales sont conservées.');
+        alert('âœ… DÃ©connexion rÃ©ussie. Vos donnÃ©es locales sont conservÃ©es.');
       }catch(e){
-        alert('❌ Échec déconnexion:\n\n' + (e?.message || e));
+        alert('âŒ Ã‰chec dÃ©connexion:\n\n' + (e?.message || e));
       }
     }
 
@@ -14401,7 +14735,7 @@
 
         // Check if Firebase is configured
         if(!db || !auth){
-          alert('❌ La synchronisation n\'est pas disponible.\n\nLa configuration Firebase est manquante ou invalide.');
+          alert('âŒ La synchronisation n\'est pas disponible.\n\nLa configuration Firebase est manquante ou invalide.');
           return;
         }
 
@@ -14421,7 +14755,7 @@
         m.style.padding = '24px';
 
         const h = document.createElement('h3');
-        h.textContent = '☁️ Synchronisation';
+        h.textContent = 'â˜ï¸ Synchronisation';
         h.style.marginTop = '0';
         h.style.marginBottom = '12px';
         h.style.fontSize = '1.5rem';
@@ -14443,12 +14777,12 @@
           const emailLabel = document.createElement('div');
           emailLabel.style.fontSize = '0.85rem';
           emailLabel.style.opacity = '0.8';
-          emailLabel.textContent = 'Connecté en tant que';
+          emailLabel.textContent = 'ConnectÃ© en tant que';
           emailLabel.style.marginBottom = '4px';
           loggedInfo.appendChild(emailLabel);
           
           const emailText = document.createElement('div');
-          emailText.textContent = currentUser.email || 'Utilisateur connecté';
+          emailText.textContent = currentUser.email || 'Utilisateur connectÃ©';
           emailText.style.fontWeight = 'bold';
           emailText.style.fontSize = '1.1rem';
           emailText.style.color = '#60a5fa';
@@ -14460,12 +14794,12 @@
           syncInfo.className = 'muted small';
           syncInfo.style.marginBottom = '20px';
           syncInfo.style.lineHeight = '1.5';
-          syncInfo.innerHTML = '✅ Vos progrès sont automatiquement synchronisés.<br>Connectez-vous sur un autre appareil pour retrouver vos données.';
+          syncInfo.innerHTML = 'âœ… Vos progrÃ¨s sont automatiquement synchronisÃ©s.<br>Connectez-vous sur un autre appareil pour retrouver vos donnÃ©es.';
           m.appendChild(syncInfo);
 
           const closeBtn = document.createElement('button');
           closeBtn.className = 'secondary';
-          closeBtn.textContent = '×';
+          closeBtn.textContent = 'Ã—';
           closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;';
           closeBtn.addEventListener('click', ()=> ov.remove());
           m.appendChild(closeBtn);
@@ -14476,10 +14810,10 @@
           actions.style.justifyContent = 'flex-end';
 
           const logoutBtn = document.createElement('button');
-          logoutBtn.textContent = 'Se déconnecter';
+          logoutBtn.textContent = 'Se dÃ©connecter';
           logoutBtn.style.background = 'var(--danger, #dc3545)';
           logoutBtn.addEventListener('click', async ()=>{
-            if(confirm('Êtes-vous sûr de vouloir vous déconnecter ?')){
+            if(confirm('ÃŠtes-vous sÃ»r de vouloir vous dÃ©connecter ?')){
               await logoutAndSync();
               ov.remove();
             }
@@ -14493,7 +14827,7 @@
           info.className = 'muted small';
           info.style.marginBottom = '16px';
           info.style.lineHeight = '1.5';
-          info.textContent = 'Connectez-vous ou créez un compte pour synchroniser vos progrès sur tous vos appareils.';
+          info.textContent = 'Connectez-vous ou crÃ©ez un compte pour synchroniser vos progrÃ¨s sur tous vos appareils.';
           m.appendChild(info);
 
           const form = document.createElement('div');
@@ -14522,7 +14856,7 @@
           password.id = 'syncPassword';
           password.name = 'password';
           password.type = 'password';
-          password.placeholder = 'Mot de passe (min 6 caractères)';
+          password.placeholder = 'Mot de passe (min 6 caractÃ¨res)';
           password.style.padding = '12px';
           password.style.fontSize = '1rem';
           password.style.flex = '1';
@@ -14534,7 +14868,7 @@
 
           const toggle = document.createElement('button');
           toggle.className = 'secondary';
-          toggle.textContent = '👁️';
+          toggle.textContent = 'ðŸ‘ï¸';
           toggle.title = 'Afficher/Masquer';
           toggle.style.padding = '12px 16px';
           toggle.addEventListener('click', (e)=>{ e.preventDefault(); password.type = (password.type==='password'?'text':'password'); });
@@ -14553,7 +14887,7 @@
 
           const closeBtn = document.createElement('button');
           closeBtn.className = 'secondary';
-          closeBtn.textContent = '×';
+          closeBtn.textContent = 'Ã—';
           closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;';
           closeBtn.addEventListener('click', ()=> ov.remove());
           m.appendChild(closeBtn);
@@ -14570,7 +14904,7 @@
 
           const createBtn = document.createElement('button');
           createBtn.className = 'secondary';
-          createBtn.textContent = 'Créer un compte';
+          createBtn.textContent = 'CrÃ©er un compte';
           
           const loginBtn = document.createElement('button');
           loginBtn.textContent = 'Se connecter';
@@ -14587,8 +14921,8 @@
           function validate(){
             const em = (email.value||'').trim();
             const pw = (password.value||'').trim();
-            if(!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { status.textContent = '⚠️ Email invalide'; return null; }
-            if(!pw || pw.length < 6){ status.textContent = '⚠️ Mot de passe trop court (min 6 caractères)'; return null; }
+            if(!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { status.textContent = 'âš ï¸ Email invalide'; return null; }
+            if(!pw || pw.length < 6){ status.textContent = 'âš ï¸ Mot de passe trop court (min 6 caractÃ¨res)'; return null; }
             status.textContent = '';
             return { em, pw };
           }
@@ -14596,13 +14930,13 @@
           createBtn.addEventListener('click', async ()=>{
             const v = validate(); if(!v) return; 
             setBusy(true); 
-            status.textContent = '⏳ Création du compte...';
+            status.textContent = 'â³ CrÃ©ation du compte...';
             status.style.color = 'var(--muted)';
             try{
               await createAccountAndSync(v.em, v.pw);
               ov.remove();
             }catch(e){ 
-              status.textContent = '❌ ' + (e?.message||e);
+              status.textContent = 'âŒ ' + (e?.message||e);
               status.style.color = 'var(--danger, #dc3545)';
             } finally { 
               setBusy(false);
@@ -14612,13 +14946,13 @@
           loginBtn.addEventListener('click', async ()=>{
             const v = validate(); if(!v) return; 
             setBusy(true); 
-            status.textContent = '⏳ Connexion...';
+            status.textContent = 'â³ Connexion...';
             status.style.color = 'var(--muted)';
             try{
               await loginAndSync(v.em, v.pw);
               ov.remove();
             }catch(e){ 
-              status.textContent = '❌ ' + (e?.message||e);
+              status.textContent = 'âŒ ' + (e?.message||e);
               status.style.color = 'var(--danger, #dc3545)';
             } finally { 
               setBusy(false);
@@ -14640,7 +14974,7 @@
         ov.appendChild(m);
         document.body.appendChild(ov);
       }catch(e){ 
-        alert('❌ Erreur lors de l\'affichage du formulaire:\n\n' + (e?.message || String(e)));
+        alert('âŒ Erreur lors de l\'affichage du formulaire:\n\n' + (e?.message || String(e)));
       }
     }
 
@@ -14683,13 +15017,29 @@
           showSyncPopup();
         }catch(err){
           console.error('Sync button click error:', err);
-          alert('❌ Erreur lors de l\'ouverture du formulaire de synchronisation:\n\n' + (err?.message || String(err)));
+          alert('âŒ Erreur lors de l\'ouverture du formulaire de synchronisation:\n\n' + (err?.message || String(err)));
         }
       });
     }
 
     // Initialize on startup
     initUserState();
+    try{
+      if(applySimonBonusIfNeeded()){
+        setTimeout(() => {
+          try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+          try{ if(typeof autoSync === 'function') autoSync().catch(()=>{}); }catch(e){}
+        }, 200);
+      }
+    }catch(e){}
+    // Keep startup merge non-destructive: leaderboard dedupe is now handled client-side.
+    setTimeout(async () => {
+      try{
+        if(localStorage.getItem('fabanki:mode') === 'synced' && window.__fabanki_firestore){
+          await mergeAllClassementDuplicates(true, true);
+        }
+      }catch(e){}
+    }, 600);
     // Check and ask for daily goal if not set
     if(!getDailyGoal()){
       setTimeout(() => {
@@ -14737,7 +15087,7 @@
                 toast.style.fontWeight = '700';
                 toast.style.zIndex = '9999';
                 toast.style.boxShadow = '0 8px 24px rgba(217, 119, 6, 0.35)';
-                toast.textContent = `+${creditsToGrant} crédits (niveau ${newLevel})`;
+                toast.textContent = `+${creditsToGrant} crÃ©dits (niveau ${newLevel})`;
                 document.body.appendChild(toast);
                 setTimeout(() => toast.remove(), 3500);
               }catch(e){}
@@ -14768,43 +15118,43 @@
     // === MISSIONS SYSTEM ===
     const missionsData = {
       daily: [
-        { id: 'study_20', name: 'Réviser 20 cartes aujourd\'hui', type: 'cards', target: 20, goal: 20, reward: { xp: 50, credits: 5 }, difficulty: 'easy' },
-        { id: 'session_1', name: 'Compléter une session d\'étude', type: 'sessions', target: 1, goal: 1, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
-        { id: 'accuracy_70', name: 'Atteindre 70% de précision', type: 'accuracy', target: 70, goal: 70, reward: { xp: 50, credits: 5 }, difficulty: 'easy' },
-        { id: 'mode_2', name: 'Utiliser 2 modes différents aujourd\'hui', type: 'modes_used', target: 2, goal: 2, reward: { xp: 60, credits: 6 }, difficulty: 'easy' },
-        { id: 'study_10m', name: 'Réviser au moins 10 minutes', type: 'time', target: 10, goal: 10, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
-        { id: 'review_1', name: 'Réviser au moins un deck', type: 'decks', target: 1, goal: 1, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
-        { id: 'study_50', name: 'Réviser 50 cartes aujourd\'hui', type: 'cards', target: 50, goal: 50, reward: { xp: 100, credits: 10 }, difficulty: 'medium' },
-        { id: 'accuracy_80', name: 'Atteindre 80% de précision', type: 'accuracy', target: 80, goal: 80, reward: { xp: 120, credits: 12 }, difficulty: 'medium' },
-        { id: 'mode_4', name: 'Utiliser 4 modes différents aujourd\'hui', type: 'modes_used', target: 4, goal: 4, reward: { xp: 120, credits: 12 }, difficulty: 'medium' },
+        { id: 'study_20', name: 'RÃ©viser 20 cartes aujourd\'hui', type: 'cards', target: 20, goal: 20, reward: { xp: 50, credits: 5 }, difficulty: 'easy' },
+        { id: 'session_1', name: 'ComplÃ©ter une session d\'Ã©tude', type: 'sessions', target: 1, goal: 1, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
+        { id: 'accuracy_70', name: 'Atteindre 70% de prÃ©cision', type: 'accuracy', target: 70, goal: 70, reward: { xp: 50, credits: 5 }, difficulty: 'easy' },
+        { id: 'mode_2', name: 'Utiliser 2 modes diffÃ©rents aujourd\'hui', type: 'modes_used', target: 2, goal: 2, reward: { xp: 60, credits: 6 }, difficulty: 'easy' },
+        { id: 'study_10m', name: 'RÃ©viser au moins 10 minutes', type: 'time', target: 10, goal: 10, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
+        { id: 'review_1', name: 'RÃ©viser au moins un deck', type: 'decks', target: 1, goal: 1, reward: { xp: 40, credits: 4 }, difficulty: 'easy' },
+        { id: 'study_50', name: 'RÃ©viser 50 cartes aujourd\'hui', type: 'cards', target: 50, goal: 50, reward: { xp: 100, credits: 10 }, difficulty: 'medium' },
+        { id: 'accuracy_80', name: 'Atteindre 80% de prÃ©cision', type: 'accuracy', target: 80, goal: 80, reward: { xp: 120, credits: 12 }, difficulty: 'medium' },
+        { id: 'mode_4', name: 'Utiliser 4 modes diffÃ©rents aujourd\'hui', type: 'modes_used', target: 4, goal: 4, reward: { xp: 120, credits: 12 }, difficulty: 'medium' },
         { id: 'no_overdue', name: 'Terminer sans cartes en retard', type: 'overdue', target: 0, goal: 1, reward: { xp: 130, credits: 15 }, difficulty: 'medium' },
-        { id: 'session_2', name: 'Faire deux sessions séparées', type: 'sessions', target: 2, goal: 2, reward: { xp: 100, credits: 10 }, difficulty: 'medium' },
-        { id: 'backlog_20', name: 'Réduire le retard de 20%', type: 'backlog', target: 20, goal: 20, reward: { xp: 140, credits: 16 }, difficulty: 'medium' },
-        { id: 'study_100', name: 'Réviser 100 cartes aujourd\'hui', type: 'cards', target: 100, goal: 100, reward: { xp: 200, credits: 25 }, difficulty: 'hard' },
-        { id: 'accuracy_90', name: 'Atteindre 90% de précision', type: 'accuracy_high', target: 90, goal: 90, reward: { xp: 220, credits: 28 }, difficulty: 'hard' },
-        { id: 'mode_6', name: 'Utiliser 6 modes différents aujourd\'hui', type: 'modes_used', target: 6, goal: 6, reward: { xp: 220, credits: 24 }, difficulty: 'hard' },
-        { id: 'perfect_day', name: 'Journée parfaite: 0 retard + 80%', type: 'perfect', target: 80, goal: 100, reward: { xp: 250, credits: 30 }, difficulty: 'hard' },
-        { id: 'study_45m', name: 'Réviser au moins 45 minutes', type: 'time', target: 45, goal: 45, reward: { xp: 220, credits: 25 }, difficulty: 'hard' },
-        { id: 'backlog_50', name: 'Réduire le retard de 50%', type: 'backlog', target: 50, goal: 50, reward: { xp: 260, credits: 32 }, difficulty: 'hard' }
+        { id: 'session_2', name: 'Faire deux sessions sÃ©parÃ©es', type: 'sessions', target: 2, goal: 2, reward: { xp: 100, credits: 10 }, difficulty: 'medium' },
+        { id: 'backlog_20', name: 'RÃ©duire le retard de 20%', type: 'backlog', target: 20, goal: 20, reward: { xp: 140, credits: 16 }, difficulty: 'medium' },
+        { id: 'study_100', name: 'RÃ©viser 100 cartes aujourd\'hui', type: 'cards', target: 100, goal: 100, reward: { xp: 200, credits: 25 }, difficulty: 'hard' },
+        { id: 'accuracy_90', name: 'Atteindre 90% de prÃ©cision', type: 'accuracy', target: 90, goal: 90, reward: { xp: 220, credits: 28 }, difficulty: 'hard' },
+        { id: 'mode_6', name: 'Utiliser 6 modes diffÃ©rents aujourd\'hui', type: 'modes_used', target: 6, goal: 6, reward: { xp: 220, credits: 24 }, difficulty: 'hard' },
+        { id: 'perfect_day', name: 'JournÃ©e parfaite: 0 retard + 80%', type: 'perfect', target: 80, goal: 100, reward: { xp: 250, credits: 30 }, difficulty: 'hard' },
+        { id: 'study_45m', name: 'RÃ©viser au moins 45 minutes', type: 'time', target: 45, goal: 45, reward: { xp: 220, credits: 25 }, difficulty: 'hard' },
+        { id: 'backlog_50', name: 'RÃ©duire le retard de 50%', type: 'backlog', target: 50, goal: 50, reward: { xp: 260, credits: 32 }, difficulty: 'hard' }
       ],
       weekly: [
-        { id: 'study_4days', name: 'Réviser 4 jours différents', type: 'days_active', target: 4, goal: 4, reward: { xp: 300, credits: 30 }, difficulty: 'easy' },
-        { id: 'study_300', name: 'Réviser 300 cartes cette semaine', type: 'cards', target: 300, goal: 300, reward: { xp: 320, credits: 35 }, difficulty: 'easy' },
-        { id: 'mode_master_5', name: 'Utiliser 5 modes différents cette semaine', type: 'modes_used_week', target: 5, goal: 5, reward: { xp: 340, credits: 38 }, difficulty: 'easy' },
-        { id: 'accuracy_75w', name: 'Atteindre 75% de précision moyenne', type: 'avg_accuracy', target: 75, goal: 75, reward: { xp: 300, credits: 30 }, difficulty: 'easy' },
+        { id: 'study_4days', name: 'RÃ©viser 4 jours diffÃ©rents', type: 'days_active', target: 4, goal: 4, reward: { xp: 300, credits: 30 }, difficulty: 'easy' },
+        { id: 'study_300', name: 'RÃ©viser 300 cartes cette semaine', type: 'cards', target: 300, goal: 300, reward: { xp: 320, credits: 35 }, difficulty: 'easy' },
+        { id: 'mode_master_5', name: 'Utiliser 5 modes diffÃ©rents cette semaine', type: 'modes_used_week', target: 5, goal: 5, reward: { xp: 340, credits: 38 }, difficulty: 'easy' },
+        { id: 'accuracy_75w', name: 'Atteindre 75% de prÃ©cision moyenne', type: 'avg_accuracy', target: 75, goal: 75, reward: { xp: 300, credits: 30 }, difficulty: 'easy' },
         { id: 'no_overdue_3', name: 'Terminer 3 jours sans retard', type: 'perfect_days', target: 3, goal: 3, reward: { xp: 350, credits: 40 }, difficulty: 'easy' },
-        { id: 'study_6days', name: 'Réviser 6 jours différents', type: 'days_active', target: 6, goal: 6, reward: { xp: 500, credits: 60 }, difficulty: 'medium' },
-        { id: 'study_600', name: 'Réviser 600 cartes cette semaine', type: 'cards', target: 600, goal: 600, reward: { xp: 520, credits: 65 }, difficulty: 'medium' },
-        { id: 'mode_master_8', name: 'Utiliser 8 modes différents cette semaine', type: 'modes_used_week', target: 8, goal: 8, reward: { xp: 560, credits: 72 }, difficulty: 'medium' },
-        { id: 'accuracy_85w', name: 'Atteindre 85% de précision moyenne', type: 'avg_accuracy', target: 85, goal: 85, reward: { xp: 550, credits: 70 }, difficulty: 'medium' },
-        { id: 'backlog_50w', name: 'Réduire le retard de 50%', type: 'backlog', target: 50, goal: 50, reward: { xp: 580, credits: 75 }, difficulty: 'medium' },
+        { id: 'study_6days', name: 'RÃ©viser 6 jours diffÃ©rents', type: 'days_active', target: 6, goal: 6, reward: { xp: 500, credits: 60 }, difficulty: 'medium' },
+        { id: 'study_600', name: 'RÃ©viser 600 cartes cette semaine', type: 'cards', target: 600, goal: 600, reward: { xp: 520, credits: 65 }, difficulty: 'medium' },
+        { id: 'mode_master_8', name: 'Utiliser 8 modes diffÃ©rents cette semaine', type: 'modes_used_week', target: 8, goal: 8, reward: { xp: 560, credits: 72 }, difficulty: 'medium' },
+        { id: 'accuracy_85w', name: 'Atteindre 85% de prÃ©cision moyenne', type: 'avg_accuracy', target: 85, goal: 85, reward: { xp: 550, credits: 70 }, difficulty: 'medium' },
+        { id: 'backlog_50w', name: 'RÃ©duire le retard de 50%', type: 'backlog', target: 50, goal: 50, reward: { xp: 580, credits: 75 }, difficulty: 'medium' },
         { id: 'week_no_overdue', name: 'Terminer la semaine sans retard', type: 'overdue', target: 0, goal: 1, reward: { xp: 600, credits: 80 }, difficulty: 'medium' },
-        { id: 'study_7days', name: 'Réviser tous les jours', type: 'days_active', target: 7, goal: 7, reward: { xp: 700, credits: 100 }, difficulty: 'hard' },
-        { id: 'study_1000', name: 'Réviser 1 000 cartes', type: 'cards', target: 1000, goal: 1000, reward: { xp: 750, credits: 110 }, difficulty: 'hard' },
-        { id: 'mode_master_11', name: 'Utiliser 11 modes différents cette semaine', type: 'modes_used_week', target: 11, goal: 11, reward: { xp: 820, credits: 125 }, difficulty: 'hard' },
-        { id: 'accuracy_90w', name: 'Atteindre 90% de précision', type: 'avg_accuracy', target: 90, goal: 90, reward: { xp: 800, credits: 120 }, difficulty: 'hard' },
-        { id: 'consecutive_7', name: 'Zéro retard pendant 7 jours', type: 'consecutive_perfect', target: 7, goal: 7, reward: { xp: 850, credits: 130 }, difficulty: 'hard' },
-        { id: 'study_5h', name: 'Réviser au moins 5 heures', type: 'time', target: 300, goal: 300, reward: { xp: 780, credits: 115 }, difficulty: 'hard' }
+        { id: 'study_7days', name: 'RÃ©viser tous les jours', type: 'days_active', target: 7, goal: 7, reward: { xp: 700, credits: 100 }, difficulty: 'hard' },
+        { id: 'study_1000', name: 'RÃ©viser 1 000 cartes', type: 'cards', target: 1000, goal: 1000, reward: { xp: 750, credits: 110 }, difficulty: 'hard' },
+        { id: 'mode_master_11', name: 'Utiliser 11 modes diffÃ©rents cette semaine', type: 'modes_used_week', target: 11, goal: 11, reward: { xp: 820, credits: 125 }, difficulty: 'hard' },
+        { id: 'accuracy_90w', name: 'Atteindre 90% de prÃ©cision', type: 'avg_accuracy', target: 90, goal: 90, reward: { xp: 800, credits: 120 }, difficulty: 'hard' },
+        { id: 'consecutive_7', name: 'ZÃ©ro retard pendant 7 jours', type: 'consecutive_perfect', target: 7, goal: 7, reward: { xp: 850, credits: 130 }, difficulty: 'hard' },
+        { id: 'study_5h', name: 'RÃ©viser au moins 5 heures', type: 'time', target: 300, goal: 300, reward: { xp: 780, credits: 115 }, difficulty: 'hard' }
       ]
     };
 
@@ -14827,7 +15177,7 @@
         const pre = document.createElement('pre');
         pre.style.whiteSpace = 'pre-wrap'; pre.style.margin = '0'; pre.style.background = 'rgba(0,0,0,0.04)';
         pre.style.padding = '12px'; pre.style.borderRadius = '8px'; pre.textContent = JSON.stringify(payload, null, 2);
-        const close = document.createElement('button'); close.className = 'secondary'; close.textContent = '×';
+        const close = document.createElement('button'); close.className = 'secondary'; close.textContent = 'Ã—';
         close.style.cssText = 'position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;'; close.addEventListener('click', ()=> ov.remove());
         m.appendChild(t); m.appendChild(pre); m.appendChild(close);
         ov.appendChild(m); document.body.appendChild(ov);
@@ -14938,7 +15288,7 @@
                 toast.style.fontWeight = '600';
                 toast.style.zIndex = '9999';
                 toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-                toast.textContent = 'Quête remplie: ' + missionData.name;
+                toast.textContent = 'QuÃªte remplie: ' + missionData.name;
                 document.body.appendChild(toast);
                 setTimeout(() => toast.remove(), 3000);
               }
@@ -15264,9 +15614,9 @@
         tabs.style.marginBottom = '10px';
 
         const dailyBtn = document.createElement('button');
-        dailyBtn.textContent = '📅 Quotidienne';
+        dailyBtn.textContent = 'ðŸ“… Quotidienne';
         const weeklyBtn = document.createElement('button');
-        weeklyBtn.textContent = '📊 Hebdomadaire';
+        weeklyBtn.textContent = 'ðŸ“Š Hebdomadaire';
 
         [dailyBtn, weeklyBtn].forEach(btn => {
           btn.className = 'secondary';
@@ -15368,7 +15718,7 @@
             const meta = document.createElement('div');
             meta.className = 'muted small';
             meta.style.marginTop = '6px';
-            meta.textContent = `${cur}/${target} • +${m.reward?.xp || 0} XP, +${m.reward?.credits || 0} ℂ`;
+            meta.textContent = `${cur}/${target} â€¢ +${m.reward?.xp || 0} XP, +${m.reward?.credits || 0} â„‚`;
 
             row.appendChild(name);
             row.appendChild(bar);
@@ -15472,7 +15822,7 @@
         const currentLevel = computeLevelAndProgress(stats.xpTotal || 0).level;
         
         const title = document.createElement('h3');
-        title.textContent = 'Personnalisation du thème';
+        title.textContent = 'Personnalisation du thÃ¨me';
         modal.appendChild(title);
         
         // Get current settings
@@ -15492,7 +15842,7 @@
         colorSection.appendChild(colorTitle);
         
         const colors = [
-          { name: 'Clair (défaut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
+          { name: 'Clair (dÃ©faut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
           { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
           { name: 'Vert', light: '#e8f5e9', dark: '#0d2818', level: 5 },
           { name: 'Rose', id: 'rose', light: '#fce4ec', dark: '#2a0e1f', level: 10, credit: 30 },
@@ -15504,15 +15854,15 @@
           { name: 'Menthe', id: 'menthe', light: '#e0f2f1', dark: '#0d1816', level: 25, credit: 50 },
           { name: 'Corail', light: '#ffebee', dark: '#382f2f', level: 25 },
           { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 30 },
-          { name: 'Pêche', id: 'peche', light: '#ffd7a8', dark: '#3a1f0a', level: 30, credit: 60 },
+          { name: 'PÃªche', id: 'peche', light: '#ffd7a8', dark: '#3a1f0a', level: 30, credit: 60 },
           { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 35 },
-          { name: 'Gradient Doré', id: 'gradient_dore', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35, credit: 80 },
+          { name: 'Gradient DorÃ©', id: 'gradient_dore', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35, credit: 80 },
           { name: 'Gradient Rose-Vert', light: 'linear-gradient(135deg, #f8bbd0 0%, #a5d6a7 100%)', dark: 'linear-gradient(135deg, #4a0e2a 0%, #1d3a1f 100%)', level: 40 },
           { name: 'Gradient Prisma', light: 'linear-gradient(135deg, #e8f4f8 0%, #fce4ec 50%, #f3e5f5 100%)', dark: 'linear-gradient(135deg, #0a1a2e 0%, #2a0e1f 50%, #25071a 100%)', level: 45 },
           { name: 'Gradient Bleu Royal', light: 'linear-gradient(135deg, #64b5f6 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0a2558 0%, #1a2a3a 100%)', level: 45 },
           { name: 'Gradient Aurora', light: 'linear-gradient(135deg, #e0f2f1 0%, #fffde7 50%, #ffebee 100%)', dark: 'linear-gradient(135deg, #0d1816 0%, #332d00 50%, #2d0a0a 100%)', level: 48 },
-          { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
-          { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
+          { name: 'Gradient OcÃ©an', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
+          { name: 'Gradient ForÃªt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
         ];
         
         const colorGrid = document.createElement('div');
@@ -15537,11 +15887,11 @@
           // Set title with unlock requirement
           if (isLocked) {
             if (isLockedByWelcome) {
-              colorOption.title = `${color.name} - Terminez la quête de bienvenue`;
+              colorOption.title = `${color.name} - Terminez la quÃªte de bienvenue`;
             } else if (isLockedByLevel) {
               colorOption.title = `${color.name} (Niveau ${color.level})`;
             } else if (isLockedByPurchase) {
-              colorOption.title = `${color.name} - Achetez au Marché (${color.credit} ℂ)`;
+              colorOption.title = `${color.name} - Achetez au MarchÃ© (${color.credit} â„‚)`;
             }
           } else {
             colorOption.title = color.name;
@@ -15551,8 +15901,8 @@
             colorOption.style.opacity = '0.4';
             colorOption.style.cursor = 'not-allowed';
             // Show lock with cost below
-            const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
-            const costHTML = isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${color.credit}ℂ</div>` : (isLockedByWelcome ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">Quête</div>` : '');
+            const lockHTML = '<div style="font-size:1.5rem;line-height:1">ðŸ”’</div>';
+            const costHTML = isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${color.credit}â„‚</div>` : (isLockedByWelcome ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">QuÃªte</div>` : '');
             colorOption.innerHTML = lockHTML + costHTML;
           }
           
@@ -15598,7 +15948,7 @@
           { name: 'Zigzag', id: 'zigzag', pattern: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 2px, transparent 2px, transparent 8px)', level: 20 },
           { name: 'Vagues', id: 'waves', pattern: 'repeating-radial-gradient(circle at 0 0, rgba(0,0,0,0.02) 0, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 40px)', level: 30, credit: 35 },
           { name: 'Hexagone', id: 'hexagon', pattern: 'radial-gradient(circle at 20px 20px, rgba(0,0,0,0.04) 8px, transparent 8px)', level: 25 },
-          { name: 'Carrés', id: 'squares', pattern: 'linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.03))', level: 35, credit: 45 },
+          { name: 'CarrÃ©s', id: 'squares', pattern: 'linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.03))', level: 35, credit: 45 },
           { name: 'Croix', id: 'cross', pattern: 'linear-gradient(0deg, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)', level: 28 },
           { name: 'Chevrons', id: 'chevron', pattern: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.02), rgba(0,0,0,0.02) 2px, transparent 2px, transparent 8px, rgba(0,0,0,0.02) 8px, rgba(0,0,0,0.02) 10px, transparent 10px, transparent 16px)', level: 32, credit: 40 },
           { name: 'Cercles', id: 'circles', pattern: 'radial-gradient(circle, rgba(0,0,0,0.05) 2px, transparent 2px)', level: 38 },
@@ -15606,12 +15956,12 @@
           { name: 'Losange', id: 'diamond', pattern: 'repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(0,0,0,0.04) 35px, rgba(0,0,0,0.04) 70px)', level: 24 },
           { name: 'Spirale', id: 'spiral', pattern: 'repeating-conic-gradient(from 0deg at 50% 50%, rgba(0,0,0,0.02) 0deg 10deg, transparent 10deg 20deg)', level: 26 },
           { name: 'Cible', id: 'target', pattern: 'radial-gradient(circle, rgba(0,0,0,0.06) 3px, transparent 3px, transparent 12px, rgba(0,0,0,0.03) 12px, transparent 12px)', level: 29 },
-          { name: 'Écailles', id: 'scales', pattern: 'radial-gradient(ellipse 100% 50% at 50% 0%, rgba(0,0,0,0.04) 50%, transparent 51%)', level: 31 },
+          { name: 'Ã‰cailles', id: 'scales', pattern: 'radial-gradient(ellipse 100% 50% at 50% 0%, rgba(0,0,0,0.04) 50%, transparent 51%)', level: 31 },
           { name: 'Feuilles', id: 'leaves', pattern: 'radial-gradient(ellipse 30% 60% at 20% 50%, rgba(0,0,0,0.03) 50%, transparent 51%)', level: 33 },
           { name: 'Triangles', id: 'triangles', pattern: 'linear-gradient(135deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(225deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(315deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%)', level: 36 },
           { name: 'Nid d\'abeille', id: 'honeycomb', pattern: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 10px)', level: 37 },
           { name: 'Pluie', id: 'rain', pattern: 'repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px), repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(0,0,0,0.01) 8px, rgba(0,0,0,0.01) 16px)', level: 39 },
-          { name: 'Toile d\'araignée', id: 'web', pattern: 'repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 5deg, rgba(0,0,0,0.02) 5deg 10deg)', level: 41 },
+          { name: 'Toile d\'araignÃ©e', id: 'web', pattern: 'repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 5deg, rgba(0,0,0,0.02) 5deg 10deg)', level: 41 },
           { name: '42', id: 'fortytwo', pattern: `
     repeating-linear-gradient(
       45deg,
@@ -15625,7 +15975,7 @@
           { name: 'Hexagones', id: 'hero_hex', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='90' viewBox='0 0 100 90'><path d='M25 5 L75 5 L95 45 L75 85 L25 85 L5 45 Z' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/></svg>\")", level: 50, credit: 50 },
           { name: 'Circuit', id: 'hero_circuit', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 20 H60 V10 H110' fill='none' stroke='%2399a' stroke-opacity='0.16' stroke-width='2'/><path d='M10 80 H50 V110 H110' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><circle cx='60' cy='10' r='3' fill='%2399a' fill-opacity='0.25'/><circle cx='50' cy='110' r='3' fill='%2399a' fill-opacity='0.25'/><circle cx='60' cy='20' r='3' fill='%2399a' fill-opacity='0.2'/></svg>\")", level: 55, credit: 55 },
           { name: 'Puzzle', id: 'hero_jigsaw', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 10 H50 V30 H70 V10 H110 V110 H70 V90 H50 V110 H10 Z' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/><circle cx='60' cy='30' r='6' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/></svg>\")", level: 60, credit: 60 },
-          { name: '42 Pattern 🎯', id: 'welcome42', pattern: 'url(css/42pattern.png)', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_42_pattern') === 'true' }
+          { name: '42 Pattern ðŸŽ¯', id: 'welcome42', pattern: 'url(css/42pattern.png)', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_42_pattern') === 'true' }
         ];
         
         const patternGrid = document.createElement('div');
@@ -15645,11 +15995,11 @@
           // Set title with unlock requirement
           if (isLocked) {
             if (isLockedByWelcome) {
-              patternOption.title = `${p.name} - Terminez la quête de bienvenue`;
+              patternOption.title = `${p.name} - Terminez la quÃªte de bienvenue`;
             } else if (isLockedByLevel) {
               patternOption.title = `${p.name} (Niveau ${p.level})`;
             } else if (isLockedByPurchase) {
-              patternOption.title = `${p.name} - Achetez au Marché (${p.credit} ℂ)`;
+              patternOption.title = `${p.name} - Achetez au MarchÃ© (${p.credit} â„‚)`;
             }
           } else {
             patternOption.title = p.name;
@@ -15659,8 +16009,8 @@
             patternOption.style.opacity = '0.4';
             patternOption.style.cursor = 'not-allowed';
             // Show lock with cost below
-            const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
-            const costHTML = isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${p.credit}ℂ</div>` : (isLockedByWelcome ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">Quête</div>` : '');
+            const lockHTML = '<div style="font-size:1.5rem;line-height:1">ðŸ”’</div>';
+            const costHTML = isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${p.credit}â„‚</div>` : (isLockedByWelcome ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">QuÃªte</div>` : '');
             patternOption.innerHTML = lockHTML + costHTML;
           } else {
             if (p.pattern !== 'none') {
@@ -15696,18 +16046,18 @@
         fontSection.className = 'customization-section';
         const fontTitle = document.createElement('div');
         fontTitle.className = 'customization-section-title';
-        fontTitle.textContent = 'Police de caractère';
+        fontTitle.textContent = 'Police de caractÃ¨re';
         fontSection.appendChild(fontTitle);
         
         const fonts = [
-          { name: 'Classique (défaut)', id: 'system', stack: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial', level: 0 },
-          { name: 'Élégant', id: 'elegant', stack: '"Georgia", "Times New Roman", serif', level: 5 },
+          { name: 'Classique (dÃ©faut)', id: 'system', stack: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial', level: 0 },
+          { name: 'Ã‰lÃ©gant', id: 'elegant', stack: '"Georgia", "Times New Roman", serif', level: 5 },
           { name: 'Moderne', id: 'modern', stack: '"Inter", "Helvetica", "Arial", sans-serif', level: 10, credit: 30 },
           { name: 'Monospace', id: 'mono', stack: '"Courier New", "Monaco", monospace', level: 15 },
           { name: 'Lisible', id: 'readable', stack: '"Trebuchet MS", sans-serif', level: 20 },
           { name: 'Confortable', id: 'comfortable', stack: '"Segoe UI", "Tahoma", sans-serif', level: 25, credit: 35 },
           { name: 'Minimaliste', id: 'minimal', stack: '"Helvetica Neue", "Arial", sans-serif', level: 30 },
-          { name: 'Littéraire', id: 'literary', stack: '"Cambria", "Palatino", serif', level: 35 },
+          { name: 'LittÃ©raire', id: 'literary', stack: '"Cambria", "Palatino", serif', level: 35 },
           { name: 'Futuriste', id: 'futuristic', stack: '"Trebuchet MS", "Lucida Grande", sans-serif', level: 40, credit: 50 },
           { name: 'Manuscrit', id: 'script', stack: '"Comic Sans MS", "Brush Script MT", cursive', level: 45 }
         ];
@@ -15730,7 +16080,7 @@
             if (isLockedByLevel) {
               fontOption.title = `${f.name} (Niveau ${f.level})`;
             } else if (isLockedByPurchase) {
-              fontOption.title = `${f.name} - Achetez au Marché (${f.credit} ℂ)`;
+              fontOption.title = `${f.name} - Achetez au MarchÃ© (${f.credit} â„‚)`;
             }
           } else {
             fontOption.title = f.name;
@@ -15743,8 +16093,8 @@
             fontOption.style.opacity = '0.4';
             fontOption.style.cursor = 'not-allowed';
             // Show lock with cost below
-            const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
-            const costHTML = isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${f.credit}ℂ</div>` : '';
+            const lockHTML = '<div style="font-size:1.5rem;line-height:1">ðŸ”’</div>';
+            const costHTML = isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${f.credit}â„‚</div>` : '';
             fontOption.innerHTML = lockHTML + costHTML;
           }
           
@@ -15819,7 +16169,7 @@
         cardColorSection.appendChild(cardColorTitle);
         
         const cardColors = [
-          { name: 'Défaut', id: 'default', light: '#fff', dark: '#111319', level: 0 },
+          { name: 'DÃ©faut', id: 'default', light: '#fff', dark: '#111319', level: 0 },
           { name: 'Bleu clair', id: 'lightblue', light: '#e3f2fd', dark: '#1a2a3a', level: 5 },
           { name: 'Vert clair', id: 'lightgreen', light: '#e8f5e9', dark: '#1b2d1f', level: 10 },
           { name: 'Rose clair', id: 'lightpink', light: '#fce4ec', dark: '#3a1f2e', level: 15 },
@@ -15827,19 +16177,19 @@
           { name: 'Indigo', id: 'indigo', light: '#e8eaf6', dark: '#1a1535', level: 25 },
           { name: 'Indigo profond', id: 'indigo_deep', light: '#d8d3f0', dark: '#1a0754', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_indigo') === 'true' },
           { name: 'Cyan', id: 'cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 28 },
-          { name: 'Orange pâle', id: 'pale_orange', light: '#ffe0b2', dark: '#2d1b0a', level: 22 },
+          { name: 'Orange pÃ¢le', id: 'pale_orange', light: '#ffe0b2', dark: '#2d1b0a', level: 22 },
           { name: 'Menthe', id: 'mint', light: '#e0f2f1', dark: '#0d1816', level: 30 },
           { name: 'Lavande', id: 'lavender', light: '#f3e5f5', dark: '#2a0e3a', level: 32 },
-          { name: 'Pêche', id: 'peach', light: '#ffd7a8', dark: '#3a1f0a', level: 35 },
+          { name: 'PÃªche', id: 'peach', light: '#ffd7a8', dark: '#3a1f0a', level: 35 },
           { name: 'Ciel', id: 'sky', light: '#b3e5fc', dark: '#0a3a4a', level: 38 },
           { name: 'Turquoise', id: 'turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 40 },
-          { name: 'Or pâle', id: 'gold', light: '#ffecb3', dark: '#3d2d00', level: 42 },
+          { name: 'Or pÃ¢le', id: 'gold', light: '#ffecb3', dark: '#3d2d00', level: 42 },
           { name: 'Vert sapin', id: 'fir', light: '#a5d6a7', dark: '#1d3a1f', level: 45 },
           { name: 'Rose vif', id: 'hotpink', light: '#f8bbd0', dark: '#4a0e2a', level: 45 },
           { name: 'Bleu royal', id: 'royal', light: '#64b5f6', dark: '#0a2558', level: 48 },
           { name: 'Sunrise', id: 'sunrise', light: '#ffcc80', dark: '#4d2600', level: 50 },
-          { name: 'Gradient Océan', id: 'gradient_ocean', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 55 },
-          { name: 'Gradient Forêt', id: 'gradient_forest', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 55 }
+          { name: 'Gradient OcÃ©an', id: 'gradient_ocean', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 55 },
+          { name: 'Gradient ForÃªt', id: 'gradient_forest', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 55 }
         ];
         
         const cardColorGrid = document.createElement('div');
@@ -15865,7 +16215,7 @@
           }
           
           if(isLocked){
-            cardColorOption.title = isLockedByWelcome ? `${color.name} - Terminez la quête de bienvenue` : `${color.name} (Niveau ${color.level})`;
+            cardColorOption.title = isLockedByWelcome ? `${color.name} - Terminez la quÃªte de bienvenue` : `${color.name} (Niveau ${color.level})`;
           } else {
             cardColorOption.title = color.name;
           }
@@ -15873,7 +16223,7 @@
           if (isLocked) {
             cardColorOption.style.opacity = '0.4';
             cardColorOption.style.cursor = 'not-allowed';
-            cardColorOption.innerHTML = '<span style="font-size:1.5rem">🔒</span>' + (isLockedByWelcome ? '<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">Quête</div>' : '');
+            cardColorOption.innerHTML = '<span style="font-size:1.5rem">ðŸ”’</span>' + (isLockedByWelcome ? '<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">QuÃªte</div>' : '');
           }
           
           if (colorValue === currentCardColor) {
@@ -15929,12 +16279,12 @@
           const isLocked = isLockedByLevel || isLockedByPurchase;
           const patternOption = document.createElement('div');
           patternOption.className = 'pattern-option ' + p.class;
-          patternOption.title = isLocked ? (isLockedByLevel ? `${p.name} (Niveau ${p.level})` : `${p.name} - Achetez au Marché (${p.credit} ℂ)`) : p.name;
+          patternOption.title = isLocked ? (isLockedByLevel ? `${p.name} (Niveau ${p.level})` : `${p.name} - Achetez au MarchÃ© (${p.credit} â„‚)`) : p.name;
           
           if (isLocked) {
             patternOption.style.opacity = '0.4';
             patternOption.style.cursor = 'not-allowed';
-            patternOption.innerHTML = '<span style="font-size:1.5rem">🔒</span>' + (isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${p.credit}ℂ</div>` : '');
+            patternOption.innerHTML = '<span style="font-size:1.5rem">ðŸ”’</span>' + (isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${p.credit}â„‚</div>` : '');
           } else {
             patternOption.textContent = p.name;
             patternOption.style.backgroundColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#111319' : '#fff';
@@ -16007,12 +16357,12 @@
           animOption.style.background = 'rgba(0,0,0,0.02)';
           animOption.style.transition = 'all 0.2s';
           
-          animOption.title = isLocked ? (isLockedByLevel ? `${anim.name} (Niveau ${anim.level})` : `${anim.name} - Achetez au Marché (${anim.credit} ℂ)`) : anim.name;
+          animOption.title = isLocked ? (isLockedByLevel ? `${anim.name} (Niveau ${anim.level})` : `${anim.name} - Achetez au MarchÃ© (${anim.credit} â„‚)`) : anim.name;
           animOption.textContent = anim.name;
           
           if (isLocked) {
             animOption.style.opacity = '0.4';
-            animOption.innerHTML = '<div style="font-size:1.5rem">🔒</div><div style="font-size:0.6rem;color:var(--muted);margin-top:2px">' + (isLockedByPurchase ? anim.credit + 'ℂ' : '') + '</div>';
+            animOption.innerHTML = '<div style="font-size:1.5rem">ðŸ”’</div><div style="font-size:0.6rem;color:var(--muted);margin-top:2px">' + (isLockedByPurchase ? anim.credit + 'â„‚' : '') + '</div>';
           }
           
           if (anim.id === currentAnimation) {
@@ -16046,7 +16396,7 @@
         
         const resetBtn = document.createElement('button');
         resetBtn.className = 'secondary';
-        resetBtn.textContent = 'Réinitialiser';
+        resetBtn.textContent = 'RÃ©initialiser';
         resetBtn.addEventListener('click', () => {
           localStorage.removeItem('fabanki:bg_color');
           localStorage.removeItem('fabanki:bg_pattern');
@@ -16058,7 +16408,7 @@
         
         const closeBtn = document.createElement('button');
         closeBtn.className = 'secondary';
-        closeBtn.textContent = '×';
+        closeBtn.textContent = 'Ã—';
         closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;';
         closeBtn.addEventListener('click', () => overlay.remove());
         modal.appendChild(closeBtn);
@@ -16309,7 +16659,7 @@
         
         // String fields: validate type and length
         sanitized.Pseudo = String(rawData.Pseudo || 'Anonyme').slice(0, 50);
-        sanitized['Niveau Prépa'] = String(rawData['Niveau Prépa'] || 'Débutant').slice(0, 50);
+        sanitized['Niveau PrÃ©pa'] = String(rawData['Niveau PrÃ©pa'] || 'DÃ©butant').slice(0, 50);
         sanitized.Selected_Title = String(rawData.Selected_Title || '').slice(0, 50);
         
         // Numeric fields: coerce to number, validate range, cap at max
@@ -16321,15 +16671,15 @@
         
         sanitized.XP = getValidNumber(rawData.XP, 0, MAX_XP);
         sanitized.Niveau = getValidNumber(rawData.Niveau, 1, MAX_LEVEL);
-        sanitized['Cartes révisées'] = getValidNumber(rawData['Cartes révisées'], 0, MAX_CARDS_REVIEWED);
-        sanitized['Bonnes réponses'] = getValidNumber(rawData['Bonnes réponses'], 0, MAX_GOOD_ANSWERS);
-        sanitized['Ratés'] = getValidNumber(rawData['Ratés'], -1000, 100000);
+        sanitized['Cartes rÃ©visÃ©es'] = getValidNumber(rawData['Cartes rÃ©visÃ©es'], 0, MAX_CARDS_REVIEWED);
+        sanitized['Bonnes rÃ©ponses'] = getValidNumber(rawData['Bonnes rÃ©ponses'], 0, MAX_GOOD_ANSWERS);
+        sanitized['RatÃ©s'] = getValidNumber(rawData['RatÃ©s'], -1000, 100000);
         sanitized['Passer'] = getValidNumber(rawData['Passer'], -1000, 100000);
         sanitized['Streak_max'] = getValidNumber(rawData['Streak_max'], 0, MAX_STREAK);
         sanitized['Streak_current'] = getValidNumber(rawData['Streak_current'], 0, MAX_STREAK);
         sanitized['Daily_goal'] = getValidNumber(rawData['Daily_goal'], 0, 200);
-        sanitized['Cartes maîtrisées'] = getValidNumber(rawData['Cartes maîtrisées'], 0, MAX_MASTERED);
-        sanitized['Quêtes_quotidiennes'] = getValidNumber(rawData['Quêtes_quotidiennes'], 0, 20);
+        sanitized['Cartes maÃ®trisÃ©es'] = getValidNumber(rawData['Cartes maÃ®trisÃ©es'], 0, MAX_MASTERED);
+        sanitized['QuÃªtes_quotidiennes'] = getValidNumber(rawData['QuÃªtes_quotidiennes'], 0, 20);
         sanitized.Score_MPSI = getValidNumber(rawData.Score_MPSI, -10000, MAX_MPSI_SCORE);
         sanitized.XP_semaine = getValidNumber(rawData.XP_semaine, 0, MAX_XP_WEEK);
         sanitized.Score_MPSI_semaine = getValidNumber(rawData.Score_MPSI_semaine, -1000, MAX_XP_SCORE_WEEK);
@@ -16358,8 +16708,8 @@
         }
         
         // ISO timestamp validation
-        sanitized['Dernière mise à jour'] = String(rawData['Dernière mise à jour'] || new Date().toISOString());
-        sanitized['Dernière synchronisation'] = String(rawData['Dernière synchronisation'] || new Date().toISOString());
+        sanitized['DerniÃ¨re mise Ã  jour'] = String(rawData['DerniÃ¨re mise Ã  jour'] || new Date().toISOString());
+        sanitized['DerniÃ¨re synchronisation'] = String(rawData['DerniÃ¨re synchronisation'] || new Date().toISOString());
         
         // IDs
         sanitized.Semaine_ID = String(rawData.Semaine_ID || '');
@@ -16412,7 +16762,7 @@
         
         // New user option
         const newUserSection = document.createElement('div'); newUserSection.style.marginBottom='16px'; newUserSection.style.padding='12px'; newUserSection.style.border='1px solid #ddd'; newUserSection.style.borderRadius='8px';
-        const newUserTitle = document.createElement('h4'); newUserTitle.textContent = '🆕 Nouvel utilisateur'; newUserTitle.style.margin='0 0 8px 0'; newUserSection.appendChild(newUserTitle);
+        const newUserTitle = document.createElement('h4'); newUserTitle.textContent = 'ðŸ†• Nouvel utilisateur'; newUserTitle.style.margin='0 0 8px 0'; newUserSection.appendChild(newUserTitle);
         const inp = document.createElement('input'); inp.type='text'; inp.placeholder='Entre ton pseudo'; inp.style.width='100%'; inp.style.padding='8px'; inp.style.fontSize='1rem'; inp.style.marginBottom='8px';
         newUserSection.appendChild(inp);
         const btn = document.createElement('button'); btn.className='primary'; btn.textContent='Commencer'; btn.style.width='100%';
@@ -16436,15 +16786,15 @@
         
         // Existing user option
         const loginSection = document.createElement('div'); loginSection.style.padding='12px'; loginSection.style.border='1px solid #ddd'; loginSection.style.borderRadius='8px'; loginSection.style.background='#f8f9fa';
-        const loginTitle = document.createElement('h4'); loginTitle.textContent = '🔐 Déjà un compte ?'; loginTitle.style.margin='0 0 8px 0'; loginSection.appendChild(loginTitle);
-        const loginDesc = document.createElement('p'); loginDesc.textContent = 'Connectez-vous pour synchroniser vos données'; loginDesc.style.fontSize='0.85em'; loginDesc.style.color='#666'; loginDesc.style.marginBottom='8px'; loginSection.appendChild(loginDesc);
+        const loginTitle = document.createElement('h4'); loginTitle.textContent = 'ðŸ” DÃ©jÃ  un compte ?'; loginTitle.style.margin='0 0 8px 0'; loginSection.appendChild(loginTitle);
+        const loginDesc = document.createElement('p'); loginDesc.textContent = 'Connectez-vous pour synchroniser vos donnÃ©es'; loginDesc.style.fontSize='0.85em'; loginDesc.style.color='#666'; loginDesc.style.marginBottom='8px'; loginSection.appendChild(loginDesc);
         const loginBtn = document.createElement('button'); loginBtn.className='secondary'; loginBtn.textContent='Se connecter'; loginBtn.style.width='100%';
         loginBtn.addEventListener('click', async ()=>{
           ov.remove();
           if(typeof loginAndSync === 'function'){
             await loginAndSync();
           } else {
-            alert('Fonctionnalité de connexion non disponible');
+            alert('FonctionnalitÃ© de connexion non disponible');
           }
         });
         loginSection.appendChild(loginBtn);
@@ -16679,17 +17029,17 @@
           const good = Number(localStorage.getItem('fabanki:good_total') || 0);
           const reviewed = stats.totalReviewed || 0;
           const pass = Number(localStorage.getItem('fabanki:pass_total') || 0);
-          if(streak >= 5) legacy.push('Régularité');
-          if(good >= 200) legacy.push('Précision');
+          if(streak >= 5) legacy.push('RÃ©gularitÃ©');
+          if(good >= 200) legacy.push('PrÃ©cision');
           if(reviewed >= 1000) legacy.push('Endurance');
-          if((reviewed - pass) >= 50) legacy.push('Zéro gaspillage');
+          if((reviewed - pass) >= 50) legacy.push('ZÃ©ro gaspillage');
           return legacy;
         }
         return out;
       }catch(e){ return [] }
     }
 
-    function tierToRoman(t){ const map=['','I','II','III','IV','V']; return map[Number(t)||0]||String(t); }
+    function tierToRoman(t){ const map=['','I','II','III','IV','V','VI','VII','VIII','IX','X']; return map[Number(t)||0]||String(t); }
 
     function computeTitles(stats){
       // stats should include totalReviewed, todayReviewed, xpTotal
@@ -16724,9 +17074,9 @@
 
         // Define title thresholds
         const defs = [
-          {nom:'Gauss', th:[100,300,600,1000,2000], val: bonnes},
-          {nom:'Fourier', th:[200,600,1200,2500,5000,10000], val: reviewed},
-          {nom:'Euler', th:[200,500,1000,2000,4000], val: (reviewed>0? Math.round((bonnes/reviewed)*100):0), isPercent:true, percentDefs:[0.75,0.80,0.85,0.90,0.92]},
+          {nom:'Gauss', th:[100,300,600,1000,2000,3500,5500,8000,11000,15000], val: bonnes},
+          {nom:'Fourier', th:[200,600,1200,2500,5000,10000,15000,22000,30000,40000], val: reviewed},
+          {nom:'Euler', th:[200,500,1000,2000,4000,7000,10000,15000,20000,30000], val: (reviewed>0? Math.round((bonnes/reviewed)*100):0), isPercent:true, percentDefs:[0.75,0.80,0.85,0.90,0.92,0.93,0.94,0.95,0.96,0.97]},
           {nom:'Newton', th:[20,50,100,200,365], val: consecCorrectMax},
           {nom:'Maxwell', th:[3,7,21,60,120], val: streakCurrent},
           {nom:'Noether', th:[50,150,400,1000,3000], val: consecNoPassMax},
@@ -16749,7 +17099,7 @@
 
         // Special one-shot objectifs
         try{
-          // Lagrange: 95% de bonnes réponses sur 500 cartes
+          // Lagrange: 95% de bonnes rÃ©ponses sur 500 cartes
           if(reviewed >= 500 && reviewed>0 && (bonnes / reviewed) >= 0.95){ objectifs.push('Lagrange'); localStorage.setItem('fabanki:objective_Lagrange','1'); }
           // Cauchy: aucune 'Passer' sur 300 cartes
           if(reviewed >= 300 && passes === 0){ objectifs.push('Cauchy'); localStorage.setItem('fabanki:objective_Cauchy','1'); }
@@ -16878,12 +17228,12 @@
         // compute Score MPSI
         const scoreMPSI = (mastered * 6) + (bonnes * 2) + (streakMax * 10) - (rates * 4) - (passes * 6);
         // determine friendly Niveau label (happy-medium tone)
-        let niveauPrep = 'Débutant';
+        let niveauPrep = 'DÃ©butant';
         if(scoreMPSI >= 7000) niveauPrep = 'Expert';
-        else if(scoreMPSI >= 4000) niveauPrep = 'Avancé';
-        else if(scoreMPSI >= 2000) niveauPrep = 'Équilibré';
+        else if(scoreMPSI >= 4000) niveauPrep = 'AvancÃ©';
+        else if(scoreMPSI >= 2000) niveauPrep = 'Ã‰quilibrÃ©';
         else if(scoreMPSI >= 800) niveauPrep = 'Progression';
-        else niveauPrep = 'Débutant';
+        else niveauPrep = 'DÃ©butant';
 
         const computedTitles = (typeof computeTitles === 'function') ? computeTitles(stats) : {titres:[], objectifs:[]};
         const titres = computedTitles.titres || [];
@@ -16946,17 +17296,17 @@
           Pseudo: pseudo,
           XP: xp,
           Niveau: lvl,
-          ['Cartes révisées']: cartes,
-          ['Dernière mise à jour']: nowIso,
-          ['Dernière synchronisation']: nowIso,
+          ['Cartes rÃ©visÃ©es']: cartes,
+          ['DerniÃ¨re mise Ã  jour']: nowIso,
+          ['DerniÃ¨re synchronisation']: nowIso,
           Score_MPSI: Math.max(0, scoreMPSI),
-          ['Bonnes réponses']: bonnes,
-          ['Ratés']: rates,
+          ['Bonnes rÃ©ponses']: bonnes,
+          ['RatÃ©s']: rates,
           ['Passer']: passes,
           ['Streak_max']: streakMax,
           ['Streak_current']: streakCurrent,
           ['Daily_goal']: dailyGoal,
-          ['Cartes maîtrisées']: mastered,
+          ['Cartes maÃ®trisÃ©es']: mastered,
           Badges: badges,
           Titres: titres,
           Objectifs: objectifs,
@@ -16966,8 +17316,8 @@
           Semaine_ID: weekId,
           Score_MPSI_mois: Math.max(0, scoreMonthLocal),
           Mois_ID: monthId,
-          ['Niveau Prépa']: niveauPrep,
-          ['Quêtes_quotidiennes']: dailyQuestsCompleted
+          ['Niveau PrÃ©pa']: niveauPrep,
+          ['QuÃªtes_quotidiennes']: dailyQuestsCompleted
         };
 
         // Anti-cheat: Validate all data before sending to Firestore
@@ -16980,13 +17330,13 @@
           if(prev && prev.exists){
             const pd = prev.data() || {};
             const prevScore = Number(pd.Score_MPSI || 0);
-            const prevCards = Number(pd['Cartes révisées'] || 0);
-            const prevSync = pd['Dernière synchronisation'] || pd['Dernière mise à jour'] || null;
+            const prevCards = Number(pd['Cartes rÃ©visÃ©es'] || 0);
+            const prevSync = pd['DerniÃ¨re synchronisation'] || pd['DerniÃ¨re mise Ã  jour'] || null;
             if(prevSync){
               const prevDate = new Date(prevSync);
               const mins = (Date.now() - prevDate.getTime()) / 60000;
-              if((scoreMPSI - prevScore) > 400 && mins < 10){ console.warn('Synchronisation bloquée (progression irréaliste)'); return false }
-              if((cartes - prevCards) > 80 && mins < 10){ console.warn('Synchronisation bloquée (progression irréaliste)'); return false }
+              if((scoreMPSI - prevScore) > 400 && mins < 10){ console.warn('Synchronisation bloquÃ©e (progression irrÃ©aliste)'); return false }
+              if((cartes - prevCards) > 80 && mins < 10){ console.warn('Synchronisation bloquÃ©e (progression irrÃ©aliste)'); return false }
             }
           }
         }catch(e){ console.warn('syncClassement anti-cheat check failed', e) }
@@ -17050,7 +17400,7 @@
         const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='860px'; m.style.width='94%'; m.style.maxHeight='80vh'; m.style.overflow='auto'; m.style.position='relative';
         const h = document.createElement('h3'); h.textContent = 'Classement'; m.appendChild(h);
         
-        const closeBtn = document.createElement('button'); closeBtn.className='secondary'; closeBtn.textContent='×'; closeBtn.style.cssText='position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;z-index:10;'; closeBtn.addEventListener('click', ()=>{ try{ if(typeof unsubGlobal === 'function') unsubGlobal(); if(typeof unsubWeek === 'function') unsubWeek(); }catch(e){} ov.remove(); }); m.appendChild(closeBtn);
+        const closeBtn = document.createElement('button'); closeBtn.className='secondary'; closeBtn.textContent='Ã—'; closeBtn.style.cssText='position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;z-index:10;'; closeBtn.addEventListener('click', ()=>{ try{ if(typeof unsubGlobal === 'function') unsubGlobal(); if(typeof unsubWeek === 'function') unsubWeek(); }catch(e){} ov.remove(); }); m.appendChild(closeBtn);
         
         // tabs
         const tabs = document.createElement('div'); tabs.style.display='flex'; tabs.style.gap='8px'; tabs.style.marginBottom='8px';
@@ -17058,7 +17408,7 @@
         const tabWeek = document.createElement('button'); tabWeek.className='secondary'; tabWeek.textContent='Classement du mois';
         tabs.appendChild(tabGlobal); tabs.appendChild(tabWeek); m.appendChild(tabs);
         const table = document.createElement('table'); table.className = 'leaderboard-table'; table.style.width='100%'; table.style.borderCollapse='collapse';
-        const thead = document.createElement('thead'); thead.innerHTML = '<tr><th>Rang</th><th>Pseudo</th><th>Titre</th><th>Niveau</th><th>Titres</th><th>Score MPSI</th><th>Cartes</th><th>Quêtes quotidiennes</th></tr>';
+        const thead = document.createElement('thead'); thead.innerHTML = '<tr><th>Rang</th><th>Pseudo</th><th>Titre</th><th>Niveau</th><th>Titres</th><th>Score MPSI</th><th>Cartes</th><th>Quetes quotidiennes</th></tr>';
         table.appendChild(thead);
         const tbody = document.createElement('tbody'); table.appendChild(tbody);
         m.appendChild(table);
@@ -17069,13 +17419,13 @@
           const anim = localStorage.getItem('fabanki:popup_animation') || 'none';
           if(anim !== 'none') m.setAttribute('data-animation', anim);
         }catch(e){}
-        if(!db){ tbody.innerHTML = '<tr><td colspan="6">Le service Classement n\'est pas configuré. Ajoutez la configuration Firebase dans index.html.</td></tr>'; return; }
+        if(!db){ tbody.innerHTML = '<tr><td colspan="6">Le service Classement n\'est pas configurÃ©. Ajoutez la configuration Firebase dans index.html.</td></tr>'; return; }
         let unsubGlobal = null, unsubWeek = null;
         
         // SECURITY: Filter function to remove suspicious entries from leaderboard
         function isValidLeaderboardEntry(d) {
           try {
-            const level = Number(d.Niveau || 0);
+            const level = Number(d.Niveau || d['Niveau PrÃ©pa'] || d['Niveau Prépa'] || 0);
             const score = Number(d.Score_MPSI || 0);
             const scoreMonth = Number(d.Score_MPSI_mois || 0);
             const scoreWeek = Number(d.Score_MPSI_semaine || 0);
@@ -17092,10 +17442,30 @@
             return false;
           }
         }
+
+        function normalizeLeaderboardKey(name){
+          return String(name || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '');
+        }
+
+        function getLeaderboardField(entry, aliases, fallback){
+          if(!entry || typeof entry !== 'object') return fallback;
+          for(const key of aliases){
+            if(entry[key] !== undefined && entry[key] !== null) return entry[key];
+          }
+          const wanted = new Set((aliases || []).map(normalizeLeaderboardKey));
+          for(const [k, v] of Object.entries(entry)){
+            if(wanted.has(normalizeLeaderboardKey(k))) return v;
+          }
+          return fallback;
+        }
         
         function renderRow(d, rank, scoreField = 'Score_MPSI'){
           // Skip users with 0 cards seen
-          const cardsReviewed = Number(d['Cartes révisées'] || 0);
+          const cardsReviewed = Number(getLeaderboardField(d, ['Cartes rÃ©visÃ©es', 'Cartes révisées', 'Cartes revisees'], 0) || 0);
           if(cardsReviewed === 0) return null;
           
           // Skip anonymous users
@@ -17109,10 +17479,10 @@
           // Add title column (selected title)
           const tdTitle = document.createElement('td');
           const selectedTitle = d.Selected_Title || '';
-          tdTitle.textContent = selectedTitle || '—';
+          tdTitle.textContent = fixMojibakeText(selectedTitle || '-');
           tdTitle.style.fontWeight = selectedTitle ? '700' : '400';
           
-          const tdNiv = document.createElement('td'); tdNiv.textContent = d['Niveau'] || d['Niveau Prépa'] || '';
+          const tdNiv = document.createElement('td'); tdNiv.textContent = getLeaderboardField(d, ['Niveau', 'Niveau PrÃ©pa', 'Niveau Prépa', 'Niveau Prepa'], '');
           const tdScore = document.createElement('td'); tdScore.textContent = d[scoreField] || 0;
           const tdBadges = document.createElement('td'); tdBadges.style.display='flex'; tdBadges.style.gap='6px';
           try{
@@ -17133,17 +17503,93 @@
               }
             }catch(e){}
           }catch(e){}
-          const tdCartes = document.createElement('td'); tdCartes.textContent = d['Cartes révisées'] || 0;
-          const tdQuests = document.createElement('td'); tdQuests.textContent = d['Quêtes_quotidiennes'] || 0;
+          const tdCartes = document.createElement('td'); tdCartes.textContent = getLeaderboardField(d, ['Cartes rÃ©visÃ©es', 'Cartes révisées', 'Cartes revisees'], 0) || 0;
+          const tdQuests = document.createElement('td'); tdQuests.textContent = getLeaderboardField(d, ['QuÃªtes_quotidiennes', 'Quêtes_quotidiennes', 'Quetes_quotidiennes'], 0) || 0;
           tr.appendChild(tdRank); tr.appendChild(tdPseudo); tr.appendChild(tdTitle); tr.appendChild(tdNiv); tr.appendChild(tdBadges); tr.appendChild(tdScore); tr.appendChild(tdCartes); tr.appendChild(tdQuests);
           return tr;
+        }
+
+        function dedupeLeaderboardEntries(rows, scoreField){
+          const byPseudo = new Map();
+          for(const raw of rows || []){
+            const pseudo = String(raw?.Pseudo || '').trim();
+            if(!pseudo) continue;
+            const key = pseudo.toLowerCase();
+            const current = byPseudo.get(key);
+            if(!current){
+              byPseudo.set(key, { ...(raw || {}) });
+              continue;
+            }
+
+            const currentScore = Number(current?.[scoreField] || 0);
+            const nextScore = Number(raw?.[scoreField] || 0);
+            const currentCards = Number(getLeaderboardField(current, ['Cartes rÃ©visÃ©es', 'Cartes révisées', 'Cartes revisees'], 0) || 0);
+            const nextCards = Number(getLeaderboardField(raw, ['Cartes rÃ©visÃ©es', 'Cartes révisées', 'Cartes revisees'], 0) || 0);
+            const currentLevel = Number(getLeaderboardField(current, ['Niveau', 'Niveau PrÃ©pa', 'Niveau Prépa', 'Niveau Prepa'], 0) || 0);
+            const nextLevel = Number(getLeaderboardField(raw, ['Niveau', 'Niveau PrÃ©pa', 'Niveau Prépa', 'Niveau Prepa'], 0) || 0);
+            const preferRaw = nextScore > currentScore || (nextScore === currentScore && (nextCards > currentCards || (nextCards === currentCards && nextLevel > currentLevel)));
+            const best = preferRaw ? (raw || {}) : current;
+            const other = preferRaw ? current : (raw || {});
+
+            const merged = { ...best };
+            merged.Score_MPSI = Math.max(Number(best.Score_MPSI || 0), Number(other.Score_MPSI || 0));
+            merged.Score_MPSI_mois = Math.max(Number(best.Score_MPSI_mois || 0), Number(other.Score_MPSI_mois || 0));
+            merged['Cartes rÃ©visÃ©es'] = Math.max(
+              Number(getLeaderboardField(best, ['Cartes rÃ©visÃ©es', 'Cartes révisées', 'Cartes revisees'], 0) || 0),
+              Number(getLeaderboardField(other, ['Cartes rÃ©visÃ©es', 'Cartes révisées', 'Cartes revisees'], 0) || 0)
+            );
+            merged['QuÃªtes_quotidiennes'] = Math.max(
+              Number(getLeaderboardField(best, ['QuÃªtes_quotidiennes', 'Quêtes_quotidiennes', 'Quetes_quotidiennes'], 0) || 0),
+              Number(getLeaderboardField(other, ['QuÃªtes_quotidiennes', 'Quêtes_quotidiennes', 'Quetes_quotidiennes'], 0) || 0)
+            );
+            merged.Niveau = Math.max(Number(best.Niveau || 0), Number(other.Niveau || 0));
+
+            const mergedTitles = [];
+            const seenTitles = new Set();
+            for(const src of [best.Titres, other.Titres]){
+              const arr = Array.isArray(src) ? src : [];
+              for(const item of arr){
+                const name = String(item?.nom || item?.name || '').trim();
+                const tier = Number(item?.tier || 0);
+                const k = `${name}::${tier}`;
+                if(!name || seenTitles.has(k)) continue;
+                seenTitles.add(k);
+                mergedTitles.push(item);
+              }
+            }
+            if(mergedTitles.length) merged.Titres = mergedTitles;
+
+            const mergedBadges = Array.from(new Set([
+              ...(Array.isArray(best.Badges) ? best.Badges : []),
+              ...(Array.isArray(other.Badges) ? other.Badges : [])
+            ].map(v => String(v || '').trim()).filter(Boolean)));
+            if(mergedBadges.length) merged.Badges = mergedBadges;
+
+            if(!merged.Selected_Title){
+              merged.Selected_Title = other.Selected_Title || '';
+            }
+
+            byPseudo.set(key, merged);
+          }
+          return Array.from(byPseudo.values());
         }
 
         function attachGlobal(){
           if(unsubGlobal) return;
           const qg = db.collection('Classement').orderBy('Score_MPSI','desc');
           unsubGlobal = qg.onSnapshot(snapshot=>{
-            try{ tbody.innerHTML=''; let r=1; snapshot.forEach(doc=>{ const d=doc.data()||{}; if(isValidLeaderboardEntry(d)) { const row = renderRow(d, r); if(row) { tbody.appendChild(row); r++; } } }); }catch(e){ console.warn('leaderboard render', e); }
+            try{
+              const allData = [];
+              snapshot.forEach(doc=>{ const d = doc.data() || {}; if(isValidLeaderboardEntry(d)) allData.push(d); });
+              const uniqueData = dedupeLeaderboardEntries(allData, 'Score_MPSI');
+              uniqueData.sort((a,b) => Number(b.Score_MPSI || 0) - Number(a.Score_MPSI || 0));
+              tbody.innerHTML = '';
+              let r = 1;
+              uniqueData.forEach(d => {
+                const row = renderRow(d, r);
+                if(row){ tbody.appendChild(row); r++; }
+              });
+            }catch(e){ console.warn('leaderboard render', e); }
           }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="7">Erreur lecture du classement</td></tr>'; });
         }
 
@@ -17155,9 +17601,10 @@
             try{ 
               const allData = [];
               snapshot.forEach(doc=>{ const d=doc.data()||{}; if(isValidLeaderboardEntry(d) && d.Mois_ID === m) { allData.push(d); } });
+              const uniqueData = dedupeLeaderboardEntries(allData, 'Score_MPSI_mois');
               // Sort by Score_MPSI_mois descending to ensure proper ranking
-              allData.sort((a,b) => (Number(b.Score_MPSI_mois || 0) - Number(a.Score_MPSI_mois || 0)));
-              tbody.innerHTML=''; let r=1; allData.forEach(d=>{ const row = renderRow(d, r, 'Score_MPSI_mois'); if(row) { tbody.appendChild(row); r++; } });
+              uniqueData.sort((a,b) => (Number(b.Score_MPSI_mois || 0) - Number(a.Score_MPSI_mois || 0)));
+              tbody.innerHTML=''; let r=1; uniqueData.forEach(d=>{ const row = renderRow(d, r, 'Score_MPSI_mois'); if(row) { tbody.appendChild(row); r++; } });
             }catch(e){ console.warn('leaderboard render', e); }
           }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="7">Erreur lecture du classement</td></tr>'; });
         }
@@ -17187,18 +17634,18 @@
         const tbox = document.createElement('div'); tbox.style.marginTop='6px';
         // definitions for titles: thresholds and descriptions
         const defs = {
-          'Gauss': {th:[100,300,600,1000,2000], desc:'Rigueur — nombre total de bonnes réponses.' , metric: ()=> Number(localStorage.getItem('fabanki:good_total')||0) },
-          'Fourier': {th:[200,600,1200,2500,5000], desc:'Travail massif — cartes révisées au total.', metric: ()=> Number(stats.totalReviewed||0) },
-          'Euler': {th:[75,80,85,90,92], desc:'Précision — pourcentage de bonnes réponses (sur un grand échantillon).', metric: ()=>{ const tot = Number(stats.totalReviewed||0); const good=Number(localStorage.getItem('fabanki:good_total')||0); return tot>0? Math.round((good/tot)*100):0 }, requiredCards: [200,500,1000,2000,4000] },
-          'Newton': {th:[20,50,100,200,365], desc:'Séquence de cartes consécutives sans "Raté" (cartes correctes d\'affilée).', metric: ()=> Number(localStorage.getItem('fabanki:consec_correct_max')||0) },
-          'Maxwell': {th:[3,7,21,60,120], desc:'Endurance — jours consécutifs d\'activité.', metric: ()=> Number(localStorage.getItem('fabanki:streak_current')||0) },
-          'Noether': {th:[50,150,400,1000,3000], desc:'Zéro gaspillage — cartes révisées sans "Passer".', metric: ()=> Number(localStorage.getItem('fabanki:consec_no_pass_max')||0) },
-          'Hadamard': {th:[50,150,400,1000,3000], desc:'Réponses longues (>20s) — temps passé par réponse.', metric: ()=> Number(localStorage.getItem('fabanki:long_answer_total')||0) },
-          'Knuth': {th:[50,100,200,500,1000], desc:'Nombre de cartes révisées en un jour.', metric: ()=> Number(localStorage.getItem('fabanki:max_daily_reviewed')||0) },
-          'Curie': {th:[2,8,20,50,120], desc:'Temps passé à réviser (heures).', metric: ()=> Math.floor(Number(localStorage.getItem('fabanki:time_spent_total_sec')||0) / 3600) },
-          'Turing': {th:[100,250,500,1000,2500], desc:'Nouvelles cartes révisées.', metric: ()=> Number(localStorage.getItem('fabanki:new_cards_total')||0) },
-          'Hippocrate': {th:[2,4,6,8,10], desc:'Modes débloqués au total.', metric: ()=> countUnlockedModes() },
-          'Conway': {th:[3,8,15,30,50], desc:'Decks maîtrisés (≥ 80%).', metric: ()=> countMasteredDecks80() }
+          'Gauss': {th:[100,300,600,1000,2000,3500,5500,8000,11000,15000], desc:'Rigueur â€” nombre total de bonnes rÃ©ponses.' , metric: ()=> Number(localStorage.getItem('fabanki:good_total')||0) },
+          'Fourier': {th:[200,600,1200,2500,5000,10000,15000,22000,30000,40000], desc:'Travail massif â€” cartes rÃ©visÃ©es au total.', metric: ()=> Number(stats.totalReviewed||0) },
+          'Euler': {th:[75,80,85,90,92,93,94,95,96,97], desc:'PrÃ©cision â€” pourcentage de bonnes rÃ©ponses (sur un grand Ã©chantillon).', metric: ()=>{ const tot = Number(stats.totalReviewed||0); const good=Number(localStorage.getItem('fabanki:good_total')||0); return tot>0? Math.round((good/tot)*100):0 }, requiredCards: [200,500,1000,2000,4000,7000,10000,15000,20000,30000] },
+          'Newton': {th:[20,50,100,200,365], desc:'SÃ©quence de cartes consÃ©cutives sans "RatÃ©" (cartes correctes d\'affilÃ©e).', metric: ()=> Number(localStorage.getItem('fabanki:consec_correct_max')||0) },
+          'Maxwell': {th:[3,7,21,60,120], desc:'Endurance â€” jours consÃ©cutifs d\'activitÃ©.', metric: ()=> Number(localStorage.getItem('fabanki:streak_current')||0) },
+          'Noether': {th:[50,150,400,1000,3000], desc:'ZÃ©ro gaspillage â€” cartes rÃ©visÃ©es sans "Passer".', metric: ()=> Number(localStorage.getItem('fabanki:consec_no_pass_max')||0) },
+          'Hadamard': {th:[50,150,400,1000,3000], desc:'RÃ©ponses longues (>20s) â€” temps passÃ© par rÃ©ponse.', metric: ()=> Number(localStorage.getItem('fabanki:long_answer_total')||0) },
+          'Knuth': {th:[50,100,200,500,1000], desc:'Nombre de cartes rÃ©visÃ©es en un jour.', metric: ()=> Number(localStorage.getItem('fabanki:max_daily_reviewed')||0) },
+          'Curie': {th:[2,8,20,50,120], desc:'Temps passÃ© Ã  rÃ©viser (heures).', metric: ()=> Math.floor(Number(localStorage.getItem('fabanki:time_spent_total_sec')||0) / 3600) },
+          'Turing': {th:[100,250,500,1000,2500], desc:'Nouvelles cartes rÃ©visÃ©es.', metric: ()=> Number(localStorage.getItem('fabanki:new_cards_total')||0) },
+          'Hippocrate': {th:[2,4,6,8,10], desc:'Modes dÃ©bloquÃ©s au total.', metric: ()=> countUnlockedModes() },
+          'Conway': {th:[3,8,15,30,50], desc:'Decks maÃ®trisÃ©s (â‰¥ 80%).', metric: ()=> countMasteredDecks80() }
         };
         if(computed.titres && computed.titres.length){
           computed.titres.forEach(t=>{
@@ -17232,7 +17679,7 @@
                 if(typeof def.metric === 'function' && t.nom === 'Euler'){
                   // For Euler, show percentage and required cards for next tier
                   const requiredCards = def.requiredCards ? def.requiredCards[curTier] : nextThreshold;
-                  label.textContent = `${cur}% — besoin de ${requiredCards} cartes vues`;
+                  label.textContent = `${cur}% â€” besoin de ${requiredCards} cartes vues`;
                 } else if(t.nom === 'Curie'){
                   label.textContent = `${cur}h / ${nextThreshold}h`;
                 } else {
@@ -17244,15 +17691,15 @@
             }
             tbox.appendChild(row);
           });
-        } else { const none = document.createElement('div'); none.className='muted small'; none.textContent='Aucun titre débloqué pour le moment.'; tbox.appendChild(none); }
+        } else { const none = document.createElement('div'); none.className='muted small'; none.textContent='Aucun titre dÃ©bloquÃ© pour le moment.'; tbox.appendChild(none); }
         list.appendChild(tbox);
 
         // Objectifs
         const obox = document.createElement('div'); obox.style.marginTop='12px';
-        const oh = document.createElement('h4'); oh.textContent='Objectifs spéciaux'; obox.appendChild(oh);
+        const oh = document.createElement('h4'); oh.textContent='Objectifs spÃ©ciaux'; obox.appendChild(oh);
         if(computed.objectifs && computed.objectifs.length){
           computed.objectifs.forEach(o=>{ const d = document.createElement('div'); d.textContent = o; obox.appendChild(d); });
-        } else { const none = document.createElement('div'); none.className='muted small'; none.textContent='Aucun objectif spécial atteint.'; obox.appendChild(none); }
+        } else { const none = document.createElement('div'); none.className='muted small'; none.textContent='Aucun objectif spÃ©cial atteint.'; obox.appendChild(none); }
         list.appendChild(obox);
 
         m.appendChild(list);
@@ -17345,9 +17792,9 @@
         const id = 'levelUpNotify';
         if(document.getElementById(id)) document.getElementById(id).remove();
         const ov = document.createElement('div'); ov.id = id; ov.className = 'level-up-notify';
-        const icon = document.createElement('div'); icon.style.fontSize='22px'; icon.textContent = '✨'; icon.style.marginBottom='6px'; icon.style.textAlign='center';
+        const icon = document.createElement('div'); icon.style.fontSize='22px'; icon.textContent = 'âœ¨'; icon.style.marginBottom='6px'; icon.style.textAlign='center';
         const h = document.createElement('div'); h.style.fontWeight='700'; h.style.fontSize='1.05rem'; h.style.textAlign='center'; h.textContent = `Niveau ${newLevel} !`;
-        const sub = document.createElement('div'); sub.className='muted small'; sub.style.textAlign='center'; sub.textContent = oldLevel? `Félicitations — vous êtes passé de ${oldLevel} à ${newLevel}` : `Nouveau niveau : ${newLevel}`;
+        const sub = document.createElement('div'); sub.className='muted small'; sub.style.textAlign='center'; sub.textContent = oldLevel? `FÃ©licitations â€” vous Ãªtes passÃ© de ${oldLevel} Ã  ${newLevel}` : `Nouveau niveau : ${newLevel}`;
         ov.appendChild(icon); ov.appendChild(h); ov.appendChild(sub);
         // Apply animation
         try { const anim = localStorage.getItem('fabanki:popup_animation') || 'none'; if(anim !== 'none') ov.setAttribute('data-animation', anim); }catch(e){}
@@ -17367,9 +17814,9 @@
         const id = 'titleUpNotify-'+name.replace(/\s+/g,'_');
         if(document.getElementById(id)) document.getElementById(id).remove();
         const ov = document.createElement('div'); ov.id = id; ov.className = 'title-up-notify';
-        const icon = document.createElement('div'); icon.style.fontSize='18px'; icon.textContent = '🏅'; icon.style.marginBottom='6px'; icon.style.textAlign='center';
+        const icon = document.createElement('div'); icon.style.fontSize='18px'; icon.textContent = 'ðŸ…'; icon.style.marginBottom='6px'; icon.style.textAlign='center';
         const h = document.createElement('div'); h.style.fontWeight='700'; h.style.fontSize='0.98rem'; h.style.textAlign='center'; h.textContent = `${name} ${tierToRoman(newTier)}`;
-        const sub = document.createElement('div'); sub.className='muted small'; sub.style.textAlign='center'; sub.textContent = oldTier? `Amélioration : ${tierToRoman(oldTier)} → ${tierToRoman(newTier)}` : `Titre débloqué : ${tierToRoman(newTier)}`;
+        const sub = document.createElement('div'); sub.className='muted small'; sub.style.textAlign='center'; sub.textContent = oldTier? `AmÃ©lioration : ${tierToRoman(oldTier)} â†’ ${tierToRoman(newTier)}` : `Titre dÃ©bloquÃ© : ${tierToRoman(newTier)}`;
         ov.appendChild(icon); ov.appendChild(h); ov.appendChild(sub);
         // Apply animation
         try { const anim = localStorage.getItem('fabanki:popup_animation') || 'none'; if(anim !== 'none') ov.setAttribute('data-animation', anim); }catch(e){}
@@ -17418,6 +17865,7 @@
 
     async function renderWelcomeDecks(){
       try{
+        hideBootSplash();
         // Restore top bar buttons (swap home back to sync)
         try{
           const syncBtn = document.getElementById('syncBtn');
@@ -17497,7 +17945,7 @@
           // Add streak display
           const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
           const streakBox = document.createElement('div'); streakBox.className = 'streak-box';
-          const streakFlame = document.createElement('div'); streakFlame.className = 'streak-flame'; streakFlame.textContent = '🔥';
+          const streakFlame = document.createElement('div'); streakFlame.className = 'streak-flame'; streakFlame.textContent = 'ðŸ”¥';
           const streakLabel = document.createElement('div'); streakLabel.className = 'streak-label'; streakLabel.textContent = 'Streak';
           const streakNum = document.createElement('div'); streakNum.className = 'streak-count'; streakNum.textContent = streakCount;
           streakBox.appendChild(streakFlame); streakBox.appendChild(streakLabel); streakBox.appendChild(streakNum);
@@ -17506,7 +17954,7 @@
           // Add credits box
           const creditCount = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
           const creditBox = document.createElement('div'); creditBox.className = 'credit-box';
-          const creditCoin = document.createElement('div'); creditCoin.className = 'credit-coin'; creditCoin.textContent = '💰';
+          const creditCoin = document.createElement('div'); creditCoin.className = 'credit-coin'; creditCoin.textContent = 'ðŸ’°';
           const creditLabel = document.createElement('div'); creditLabel.className = 'credit-label'; creditLabel.textContent = 'Credits';
           const creditNum = document.createElement('div'); creditNum.className = 'credit-count'; creditNum.textContent = creditCount;
           creditBox.appendChild(creditCoin); creditBox.appendChild(creditLabel); creditBox.appendChild(creditNum);
@@ -17527,7 +17975,7 @@
             const pctText = document.createElement('div'); pctText.className = 'goal-pct-text'; pctText.style.cssText = 'font-size:0.75em;color:#94a3b8;margin-top:4px;text-align:right;'; pctText.textContent = `${Math.round((todayReviewed/dailyGoal)*100)}%`;
             dailyGoalBox.appendChild(pctText);
           } else {
-            const noGoalText = document.createElement('div'); noGoalText.className = 'goal-no-goal-text'; noGoalText.style.cssText = 'font-size:0.8em;color:#94a3b8;text-align:center;'; noGoalText.textContent = 'Cliquez sur 🎯 pour définir un objectif';
+            const noGoalText = document.createElement('div'); noGoalText.className = 'goal-no-goal-text'; noGoalText.style.cssText = 'font-size:0.8em;color:#94a3b8;text-align:center;'; noGoalText.textContent = 'Cliquez sur ðŸŽ¯ pour dÃ©finir un objectif';
             dailyGoalBox.appendChild(noGoalText);
           }
           levelContent.appendChild(dailyGoalBox);
@@ -17565,20 +18013,20 @@
           }
           
           // Add Maintenant (now) button for quick review
-          const maintenantBtn = document.createElement('button'); maintenantBtn.className = 'maintenant-btn'; maintenantBtn.textContent = '📚 Maintenant';
+          const maintenantBtn = document.createElement('button'); maintenantBtn.className = 'maintenant-btn'; maintenantBtn.textContent = 'ðŸ“š Maintenant';
           maintenantBtn.style.cssText = 'flex:1;padding:12px;font-size:1em;border-radius:8px;';
           maintenantBtn.addEventListener('click', async ()=>{
             try{
               const rawLimit = maintenantSelect.value;
               const limitCount = (rawLimit === 'all') ? null : Number(rawLimit);
-              console.log('🔍 Maintenant button clicked - loading all decks with cards due now');
-              updateStatus('Recherche des cartes à réviser maintenant...');
+              console.log('ðŸ” Maintenant button clicked - loading all decks with cards due now');
+              updateStatus('Recherche des cartes Ã  rÃ©viser maintenant...');
               
               // Get all deck files
               let entries = [];
-              try{ entries = await fetchDirectory('./decks/'); console.log('📂 Found', entries.length, 'files in decks folder'); }catch(e){ console.error('❌ Error fetching directory:', e); entries = []; }
+              try{ entries = await fetchDirectory('./decks/'); console.log('ðŸ“‚ Found', entries.length, 'files in decks folder'); }catch(e){ console.error('âŒ Error fetching directory:', e); entries = []; }
               const allFiles = (Array.isArray(entries) ? entries : []).filter(e=> typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
-              console.log('📄 XML files found:', allFiles.length);
+              console.log('ðŸ“„ XML files found:', allFiles.length);
               
               // Collect all decks that have cards due now
               const decksWithDueCards = [];
@@ -17591,36 +18039,36 @@
                 if(cnt > 0){
                   decksWithDueCards.push(url);
                   totalDueCount += cnt;
-                  console.log('  ✓', f, '→', cnt, 'cartes à faire');
+                  console.log('  âœ“', f, 'â†’', cnt, 'cartes Ã  faire');
                 }
               }
               
-              console.log('📊 Total:', decksWithDueCards.length, 'decks with', totalDueCount, 'cards due now');
+              console.log('ðŸ“Š Total:', decksWithDueCards.length, 'decks with', totalDueCount, 'cards due now');
               
               if(decksWithDueCards.length > 0){
-                console.log('📚 Loading', decksWithDueCards.length, 'decks for review');
+                console.log('ðŸ“š Loading', decksWithDueCards.length, 'decks for review');
                 updateStatus(`Chargement de ${totalDueCount} cartes...`);
                 
                 // Remove welcome screen and load all decks with due cards
                 await removeWelcome();
-                console.log('🗑️ Welcome screen removed');
+                console.log('ðŸ—‘ï¸ Welcome screen removed');
                 
                 await loadMultipleDeckCards(decksWithDueCards, { onlyNow: true, limitCount: (Number.isFinite(limitCount) ? limitCount : null) });
-                console.log('✅ Decks loaded, total cards:', multiDeckCards.length);
+                console.log('âœ… Decks loaded, total cards:', multiDeckCards.length);
                 
                 if(typeof showNextCard === 'function'){
-                  console.log('▶️ Showing first card');
+                  console.log('â–¶ï¸ Showing first card');
                   showNextCard();
                 } else {
-                  console.error('❌ showNextCard function not available!');
+                  console.error('âŒ showNextCard function not available!');
                   updateStatus('Erreur: fonction showNextCard introuvable');
                 }
               } else {
-                console.warn('⚠️ No cards due now in any deck');
-                updateStatus('Aucune carte à réviser maintenant 🎉');
+                console.warn('âš ï¸ No cards due now in any deck');
+                updateStatus('Aucune carte Ã  rÃ©viser maintenant ðŸŽ‰');
               }
             }catch(e){
-              console.error('❌ Error loading Maintenant cards:', e);
+              console.error('âŒ Error loading Maintenant cards:', e);
               console.error('Stack trace:', e.stack);
               updateStatus('Erreur: ' + e.message);
             }
@@ -17639,7 +18087,7 @@
         // fetch deck list
         let entries = [];
         try{ entries = await fetchDirectory('./decks/'); }catch(e){ entries = []; }
-        if(!entries || entries.length===0){ const msg = document.createElement('div'); msg.textContent='Aucun deck trouvé'; card.appendChild(msg); container.appendChild(card); document.body.appendChild(container); return }
+        if(!entries || entries.length===0){ const msg = document.createElement('div'); msg.textContent='Aucun deck trouvÃ©'; card.appendChild(msg); container.appendChild(card); document.body.appendChild(container); return }
         // normalize to simple file list
         const allFiles = (Array.isArray(entries) ? entries : []).filter(e=> typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
         
@@ -17672,7 +18120,7 @@
         const topRows = rows.slice(0, limit);
         
         // show total due count next to title in red
-        try{ const totalDue = rows.reduce((s,x)=> s + (x.cnt||0), 0); title.innerHTML = `Decks disponibles <span style="color:#d9534f;margin-left:8px">(${totalDue} à faire)</span>`; }catch(e){}
+        try{ const totalDue = rows.reduce((s,x)=> s + (x.cnt||0), 0); title.innerHTML = `Decks disponibles <span style="color:#d9534f;margin-left:8px">(${totalDue} Ã  faire)</span>`; }catch(e){}
         
         for(const r of topRows){
           const row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center'; row.style.gap='8px';
@@ -17680,9 +18128,9 @@
           const nm = document.createElement('div'); nm.textContent = r.name; nm.style.fontWeight = '600';
           left.appendChild(nm);
           const act = document.createElement('div'); act.style.display='flex'; act.style.alignItems='center'; act.style.gap='8px';
-          const badge = document.createElement('span'); badge.className='due-badge'; badge.innerHTML = `<div class="due-num">${r.cnt>0? r.cnt : ''}</div><div class="due-label" style="display:${r.cnt>0?'block':'none'}">à faire</div>`;
+          const badge = document.createElement('span'); badge.className='due-badge'; badge.innerHTML = `<div class="due-num">${r.cnt>0? r.cnt : ''}</div><div class="due-label" style="display:${r.cnt>0?'block':'none'}">Ã  faire</div>`;
           const b = document.createElement('button'); b.className='secondary';
-          b.textContent = (window.innerWidth <= 640) ? '📂' : 'Charger';
+          b.textContent = (window.innerWidth <= 640) ? 'ðŸ“‚' : 'Charger';
           b.addEventListener('click', async (e)=>{ await openDeckWithModeSelection(r.url, r.name, e.currentTarget); });
           // mirror deck-browser layout: badge to the left of the Charger button
           act.appendChild(badge); act.appendChild(b);
@@ -17730,7 +18178,7 @@
             lastCard.style.height = 'auto';
             
             const lastTitle = document.createElement('h2');
-            lastTitle.textContent = '✨ Nouveaux decks ajoutés';
+            lastTitle.textContent = 'âœ¨ Nouveaux decks ajoutÃ©s';
             lastTitle.style.margin = '6px 0 12px 0';
             lastTitle.style.color = 'var(--muted)';
             lastCard.appendChild(lastTitle);
@@ -17784,11 +18232,11 @@
               
               const deckBadge = document.createElement('span');
               deckBadge.className = 'due-badge';
-              deckBadge.innerHTML = `<div class="due-num">${lastDeckCount>0? lastDeckCount : ''}</div><div class="due-label" style="display:${lastDeckCount>0?'block':'none'}">à faire</div>`;
+              deckBadge.innerHTML = `<div class="due-num">${lastDeckCount>0? lastDeckCount : ''}</div><div class="due-label" style="display:${lastDeckCount>0?'block':'none'}">Ã  faire</div>`;
               
               const deckBtn = document.createElement('button');
               deckBtn.className = 'secondary';
-              deckBtn.textContent = (window.innerWidth <= 640) ? '📂' : 'Charger';
+              deckBtn.textContent = (window.innerWidth <= 640) ? 'ðŸ“‚' : 'Charger';
               deckBtn.style.fontSize = '0.9rem';
               deckBtn.style.padding = '6px 10px';
               deckBtn.addEventListener('click', async (e)=>{ await openDeckWithModeSelection(lastDeckUrl, lastDeckName, e.currentTarget); });
@@ -17832,10 +18280,10 @@
           const unlockStat = (statId, cost) => {
             const credits = Number(localStorage.getItem('fabanki:credits') || 0);
             if(credits < cost){
-              alert(`Pas assez de crédits! Il vous faut ${cost} crédits.`);
+              alert(`Pas assez de crÃ©dits! Il vous faut ${cost} crÃ©dits.`);
               return false;
             }
-            const confirmed = confirm(`Débloquer cette statistique pour ${cost} crédits?`);
+            const confirmed = confirm(`DÃ©bloquer cette statistique pour ${cost} crÃ©dits?`);
             if(!confirmed) return false;
             
             localStorage.setItem('fabanki:credits', String(credits - cost));
@@ -18040,12 +18488,12 @@
             
             // Create stat boxes with blur/unlock system
             const statBoxes = [
-              {id: 'reviewed', label: 'Cartes révisées', value: currentStats.reviewed, icon: '📚', cost: 0, unlocked: true, description: 'Nombre total de cartes révisées'},
-              {id: 'newCards', label: 'Nouvelles cartes', value: currentStats.newCards, icon: '✨', cost: 50, unlocked: isUnlocked('newCards'), description: 'Nombre de cartes vues pour la première fois'},
-              {id: 'accuracy', label: 'Précision', value: accuracy !== null ? `${accuracy}%` : 'N/A', icon: '🎯', cost: 75, unlocked: isUnlocked('accuracy'), description: 'Pourcentage de réponses correctes'},
-              {id: 'timeSpent', label: 'Temps passé', value: timeSpentDisplay, icon: '⏱️', cost: 100, unlocked: isUnlocked('timeSpent'), description: 'Temps total consacré aux révisions'},
-              {id: 'avgTime', label: 'Temps moyen', value: `${avgTimeMinutes}min`, icon: '⏳', cost: 125, unlocked: isUnlocked('avgTime'), description: 'Temps moyen par carte'},
-              {id: 'retention', label: 'Rétention', value: retention !== null ? `${retention}%` : 'N/A', icon: '🧠', cost: 150, unlocked: isUnlocked('retention'), description: 'Taux de cartes bien mémorisées'}
+              {id: 'reviewed', label: 'Cartes rÃ©visÃ©es', value: currentStats.reviewed, icon: 'ðŸ“š', cost: 0, unlocked: true, description: 'Nombre total de cartes rÃ©visÃ©es'},
+              {id: 'newCards', label: 'Nouvelles cartes', value: currentStats.newCards, icon: 'âœ¨', cost: 50, unlocked: isUnlocked('newCards'), description: 'Nombre de cartes vues pour la premiÃ¨re fois'},
+              {id: 'accuracy', label: 'PrÃ©cision', value: accuracy !== null ? `${accuracy}%` : 'N/A', icon: 'ðŸŽ¯', cost: 75, unlocked: isUnlocked('accuracy'), description: 'Pourcentage de rÃ©ponses correctes'},
+              {id: 'timeSpent', label: 'Temps passÃ©', value: timeSpentDisplay, icon: 'â±ï¸', cost: 100, unlocked: isUnlocked('timeSpent'), description: 'Temps total consacrÃ© aux rÃ©visions'},
+              {id: 'avgTime', label: 'Temps moyen', value: `${avgTimeMinutes}min`, icon: 'â³', cost: 125, unlocked: isUnlocked('avgTime'), description: 'Temps moyen par carte'},
+              {id: 'retention', label: 'RÃ©tention', value: retention !== null ? `${retention}%` : 'N/A', icon: 'ðŸ§ ', cost: 150, unlocked: isUnlocked('retention'), description: 'Taux de cartes bien mÃ©morisÃ©es'}
             ];
             
             for(const statBox of statBoxes){
@@ -18126,7 +18574,7 @@
                 
                 const costText = document.createElement('div');
                 costText.style.cssText = 'background:rgba(0,0,0,0.8);color:white;padding:12px 20px;border-radius:8px;font-weight:bold;font-size:1.1em;text-align:center;';
-                costText.innerHTML = `🔒<br>${statBox.cost} crédits`;
+                costText.innerHTML = `ðŸ”’<br>${statBox.cost} crÃ©dits`;
                 costOverlay.appendChild(costText);
                 
                 box.appendChild(costOverlay);
@@ -18182,7 +18630,7 @@
                     yAxisLabel = 'Nouvelles';
                   } else if(window.__currentStatFilter === 'accuracy'){
                     dataKey = 'accuracy'; // calculated field
-                    yAxisLabel = 'Précision %';
+                    yAxisLabel = 'PrÃ©cision %';
                   } else if(window.__currentStatFilter === 'timeSpent'){
                     dataKey = 'timeSpent';
                     yAxisLabel = 'Temps (min)';
@@ -18191,7 +18639,7 @@
                     yAxisLabel = 'Moy (sec)';
                   } else if(window.__currentStatFilter === 'retention'){
                     dataKey = 'retention'; // calculated field
-                    yAxisLabel = 'Rétention %';
+                    yAxisLabel = 'RÃ©tention %';
                   } else {
                     dataKey = 'reviewed';
                     yAxisLabel = 'Cartes';
@@ -18436,61 +18884,61 @@
       
       const steps = [
         {
-          title: 'Récapitulatif de votre session',
-          text: 'Vous avez complété une session de révision ! Voici une analyse détaillée de votre performance.',
+          title: 'RÃ©capitulatif de votre session',
+          text: 'Vous avez complÃ©tÃ© une session de rÃ©vision ! Voici une analyse dÃ©taillÃ©e de votre performance.',
           position: 'center'
         },
         {
-          title: 'Cartes révisées',
-          text: 'Le nombre total de cartes que vous avez examinées pendant cette session.',
+          title: 'Cartes rÃ©visÃ©es',
+          text: 'Le nombre total de cartes que vous avez examinÃ©es pendant cette session.',
           target: '#recap-stat-reviewed',
           position: 'bottom'
         },
         {
           title: 'Temps total',
-          text: 'La durée totale que vous avez consacrée à cette session de révision.',
+          text: 'La durÃ©e totale que vous avez consacrÃ©e Ã  cette session de rÃ©vision.',
           target: '#recap-stat-time',
           position: 'bottom'
         },
         {
           title: 'Temps moyen par carte',
-          text: 'Le temps moyen dépensé pour réviser chaque carte.',
+          text: 'Le temps moyen dÃ©pensÃ© pour rÃ©viser chaque carte.',
           target: '#recap-stat-avgtime',
           position: 'bottom'
         },
         {
-          title: 'Précision',
-          text: 'Le pourcentage de cartes répondues correctement. Plus c\'est élevé, plus vos réponses étaient précises !',
+          title: 'PrÃ©cision',
+          text: 'Le pourcentage de cartes rÃ©pondues correctement. Plus c\'est Ã©levÃ©, plus vos rÃ©ponses Ã©taient prÃ©cises !',
           target: '#recap-stat-precision',
           position: 'bottom'
         },
         {
           title: 'Note sur 20',
-          text: 'Votre note globale pour cette session, calculée à partir de vos réponses.',
+          text: 'Votre note globale pour cette session, calculÃ©e Ã  partir de vos rÃ©ponses.',
           target: '#recap-stat-note',
           position: 'bottom'
         },
         {
-          title: 'Δ Note (variation)',
-          text: 'La différence entre votre note actuelle et celle de votre dernière session. Un nombre positif indique une amélioration !',
+          title: 'Î” Note (variation)',
+          text: 'La diffÃ©rence entre votre note actuelle et celle de votre derniÃ¨re session. Un nombre positif indique une amÃ©lioration !',
           target: '#recap-stat-delta',
           position: 'bottom'
         },
         {
-          title: 'Durée mémoire (en jours)',
-          text: 'L\'intervalle moyen entre vos révisions. Plus il est long, mieux Fab\'Anki pense que vous mémoriserez les cartes.',
+          title: 'DurÃ©e mÃ©moire (en jours)',
+          text: 'L\'intervalle moyen entre vos rÃ©visions. Plus il est long, mieux Fab\'Anki pense que vous mÃ©moriserez les cartes.',
           target: '#recap-stat-duration',
           position: 'bottom'
         },
         {
-          title: 'Répartition des réponses',
-          text: 'Un graphique montrant combien de fois vous avez répondu : Raté (rouge), Difficile (jaune), Bon (bleu), Facile (vert).',
+          title: 'RÃ©partition des rÃ©ponses',
+          text: 'Un graphique montrant combien de fois vous avez rÃ©pondu : RatÃ© (rouge), Difficile (jaune), Bon (bleu), Facile (vert).',
           target: '#recap-distribution',
           position: 'bottom'
         },
         {
-          title: 'Fin du récapitulatif',
-          text: 'Cliquez sur "Accueil" pour retourner à la sélection des decks, ou consultez votre profil pour voir vos statistiques globales. Excellent travail !',
+          title: 'Fin du rÃ©capitulatif',
+          text: 'Cliquez sur "Accueil" pour retourner Ã  la sÃ©lection des decks, ou consultez votre profil pour voir vos statistiques globales. Excellent travail !',
           target: 'none',
           position: 'center'
         }
@@ -18563,7 +19011,7 @@
         if(currentStep > 0){
           const prevBtn = document.createElement('button');
           prevBtn.className = 'secondary';
-          prevBtn.textContent = '← Précédent';
+          prevBtn.textContent = 'â† PrÃ©cÃ©dent';
           prevBtn.addEventListener('click', () => {
             currentStep--;
             renderStep();
@@ -18581,7 +19029,7 @@
         btnGroup.appendChild(skipBtn);
         
         const nextBtn = document.createElement('button');
-        nextBtn.textContent = currentStep === steps.length - 1 ? 'Terminer ✓' : 'Suivant →';
+        nextBtn.textContent = currentStep === steps.length - 1 ? 'Terminer âœ“' : 'Suivant â†’';
         nextBtn.addEventListener('click', () => {
           if(currentStep === steps.length - 1){
             localStorage.setItem('fabanki:recap_onboarding_completed', 'true');
@@ -18693,56 +19141,56 @@
       const steps = [
         {
           title: 'Bienvenue sur Fab\'Anki !',
-          text: 'Fab\'Anki est votre compagnon d\'apprentissage intelligent. Découvrez comment maximiser votre révision avec notre système de répétition espacée.',
+          text: 'Fab\'Anki est votre compagnon d\'apprentissage intelligent. DÃ©couvrez comment maximiser votre rÃ©vision avec notre systÃ¨me de rÃ©pÃ©tition espacÃ©e.',
           position: 'center'
         },
         {
           title: 'Choisissez un deck',
-          text: 'Commencez par sélectionner un deck à réviser. Le nombre en rouge indique les cartes à faire aujourd\'hui.',
+          text: 'Commencez par sÃ©lectionner un deck Ã  rÃ©viser. Le nombre en rouge indique les cartes Ã  faire aujourd\'hui.',
           target: '#featuredDeckCard',
           position: 'top'
         },
         {
-          title: 'Complétez vos missions',
-          text: 'Gagnez des XP et des crédits en complétant vos missions quotidiennes et hebdomadaires. Les barres de progression se mettent à jour automatiquement !',
+          title: 'ComplÃ©tez vos missions',
+          text: 'Gagnez des XP et des crÃ©dits en complÃ©tant vos missions quotidiennes et hebdomadaires. Les barres de progression se mettent Ã  jour automatiquement !',
           target: '.missions-card',
           position: 'top'
         },
         {
           title: 'Consultez vos statistiques',
-          text: 'La section Statistiques vous montre votre progression détaillée : cartes révisées, nouvelles cartes, précision et bien plus encore. Certaines statistiques sont verrouillées et peuvent être débloquées avec des crédits !',
+          text: 'La section Statistiques vous montre votre progression dÃ©taillÃ©e : cartes rÃ©visÃ©es, nouvelles cartes, prÃ©cision et bien plus encore. Certaines statistiques sont verrouillÃ©es et peuvent Ãªtre dÃ©bloquÃ©es avec des crÃ©dits !',
           position: 'top'
         },
         {
-          title: 'Synchronisez vos données',
-          text: 'Cliquez sur 🔄 Sync pour créer un compte et synchroniser vos progrès sur le cloud. Vous pourrez ainsi continuer vos révisions sur plusieurs appareils ! Vos données restent toujours chiffrées et sécurisées.',
+          title: 'Synchronisez vos donnÃ©es',
+          text: 'Cliquez sur ðŸ”„ Sync pour crÃ©er un compte et synchroniser vos progrÃ¨s sur le cloud. Vous pourrez ainsi continuer vos rÃ©visions sur plusieurs appareils ! Vos donnÃ©es restent toujours chiffrÃ©es et sÃ©curisÃ©es.',
           position: 'center'
         },
         {
           title: 'Consultez votre profil',
-          text: 'Cliquez sur votre niveau pour voir vos statistiques, titres, et accéder aux options de personnalisation.',
+          text: 'Cliquez sur votre niveau pour voir vos statistiques, titres, et accÃ©der aux options de personnalisation.',
           target: '.level-summary',
           position: 'bottom'
         },
         {
           title: 'Personnalisez l\'interface',
-          text: 'Dans le profil, utilisez le bouton ⚙️ pour changer les couleurs, animations et polices. Débloquez plus d\'options en montant de niveau !',
+          text: 'Dans le profil, utilisez le bouton âš™ï¸ pour changer les couleurs, animations et polices. DÃ©bloquez plus d\'options en montant de niveau !',
           target: '.button.settings-button',
           position: 'center'
         },
         {
-          title: 'Quête de bienvenue',
-          text: 'Complétez la quête de bienvenue pour gagner des crédits et débloquer le motif 42 exclusif dès la fin de la partie 2 ! La quête vous guide à travers les fonctionnalités principales de Fab\'Anki. Elle apparaîtra sur la page d\'accueil.',
+          title: 'QuÃªte de bienvenue',
+          text: 'ComplÃ©tez la quÃªte de bienvenue pour gagner des crÃ©dits et dÃ©bloquer le motif 42 exclusif dÃ¨s la fin de la partie 2 ! La quÃªte vous guide Ã  travers les fonctionnalitÃ©s principales de Fab\'Anki. Elle apparaÃ®tra sur la page d\'accueil.',
           position: 'center'
         },
                 {
           title: 'Plus sur le projet',
-          text: 'Fab\'Anki est un projet open-source et collaboratif. Si vous voyez une erreur/bug ou souhaitez proposer une fonctionnalité, demandez moi en privé. Projet fait avec ia, je ne vais pas m\'en cacher :)',
+          text: 'Fab\'Anki est un projet open-source et collaboratif. Si vous voyez une erreur/bug ou souhaitez proposer une fonctionnalitÃ©, demandez moi en privÃ©. Projet fait avec ia, je ne vais pas m\'en cacher :)',
           position: 'bottom'
         },
         {
           title: 'C\'est parti !',
-          text: 'Vous êtes prêt à commencer ! Choisissez un deck et lancez-vous dans vos révisions, je vous guiderais tout au long du chemin. Bon courage !',
+          text: 'Vous Ãªtes prÃªt Ã  commencer ! Choisissez un deck et lancez-vous dans vos rÃ©visions, je vous guiderais tout au long du chemin. Bon courage !',
           target: 'none',
           position: 'center'
         }
@@ -18815,7 +19263,7 @@
         if(currentStep > 0){
           const prevBtn = document.createElement('button');
           prevBtn.className = 'secondary';
-          prevBtn.textContent = '← Précédent';
+          prevBtn.textContent = 'â† PrÃ©cÃ©dent';
           prevBtn.addEventListener('click', () => {
             currentStep--;
             renderStep();
@@ -18838,7 +19286,7 @@
         btnGroup.appendChild(skipBtn);
         
         const nextBtn = document.createElement('button');
-        nextBtn.textContent = currentStep === steps.length - 1 ? 'Terminer ✓' : 'Suivant →';
+        nextBtn.textContent = currentStep === steps.length - 1 ? 'Terminer âœ“' : 'Suivant â†’';
         nextBtn.addEventListener('click', () => {
           if(currentStep === steps.length - 1){
             localStorage.setItem('fabanki:onboarding_completed', 'true');
@@ -18964,7 +19412,7 @@
       const steps = [
         {
           title: 'Votre profil',
-          text: 'Ici vous pouvez voir toutes vos statistiques : cartes révisées, XP total, et jours consécutifs d\'étude.',
+          text: 'Ici vous pouvez voir toutes vos statistiques : cartes rÃ©visÃ©es, XP total, et jours consÃ©cutifs d\'Ã©tude.',
           position: 'center'
         },
         {
@@ -18974,12 +19422,12 @@
         },
         {
           title: 'Titres et objectifs',
-          text: 'Débloquez des titres prestigieux en accomplissant des objectifs spécifiques. Chaque titre a plusieurs niveaux !',
+          text: 'DÃ©bloquez des titres prestigieux en accomplissant des objectifs spÃ©cifiques. Chaque titre a plusieurs niveaux !',
           position: 'center'
         },
         {
           title: 'Personnalisation',
-          text: 'Cliquez sur ⚙️ pour personnaliser les couleurs, polices et animations. Plus vous montez de niveau, plus vous débloquez d\'options ! 42.',
+          text: 'Cliquez sur âš™ï¸ pour personnaliser les couleurs, polices et animations. Plus vous montez de niveau, plus vous dÃ©bloquez d\'options ! 42.',
           position: 'center'
         }
       ];
@@ -19002,12 +19450,12 @@
         },
         {
           title: 'Organisation',
-          text: 'Les decks sont organisés par matière : Maths, Physique, Anglais, etc. Cliquez sur un dossier pour voir son contenu.',
+          text: 'Les decks sont organisÃ©s par matiÃ¨re : Maths, Physique, Anglais, etc. Cliquez sur un dossier pour voir son contenu.',
           position: 'center'
         },
         {
           title: 'Chargement rapide',
-          text: 'Cliquez sur un deck pour le charger directement et commencer à réviser !',
+          text: 'Cliquez sur un deck pour le charger directement et commencer Ã  rÃ©viser !',
           position: 'center'
         }
       ];
@@ -19025,27 +19473,27 @@
       const steps = [
         {
           title: 'Vue d\'ensemble',
-          text: 'Cette page vous montre un aperçu complet de votre deck avant de commencer la révision.',
+          text: 'Cette page vous montre un aperÃ§u complet de votre deck avant de commencer la rÃ©vision.',
           position: 'center'
         },
         {
           title: 'Statistiques du deck',
-          text: 'Voyez combien de cartes vous avez maîtrisées, en apprentissage, ou à réviser. Le graphique montre votre progression.',
+          text: 'Voyez combien de cartes vous avez maÃ®trisÃ©es, en apprentissage, ou Ã  rÃ©viser. Le graphique montre votre progression.',
           position: 'center'
         },
         {
-          title: 'Déblockage des decks',
-          text: 'Certains decks sont verrouillés jusqu\'à ce que vous atteigniez un certain niveau ou suffisament de crédits. Gagnez de l\'XP et faites vos missions en révisant pour les débloquer !',
+          title: 'DÃ©blockage des decks',
+          text: 'Certains decks sont verrouillÃ©s jusqu\'Ã  ce que vous atteigniez un certain niveau ou suffisament de crÃ©dits. Gagnez de l\'XP et faites vos missions en rÃ©visant pour les dÃ©bloquer !',
           position: 'center'
         },
         {
-          title: 'Aperçu des cartes',
-          text: 'Toutes vos cartes sont affichées avec leur statut. Les nouvelles cartes sont en violet, celles à réviser en couleur.',
+          title: 'AperÃ§u des cartes',
+          text: 'Toutes vos cartes sont affichÃ©es avec leur statut. Les nouvelles cartes sont en violet, celles Ã  rÃ©viser en couleur.',
           position: 'center'
         },
         {
           title: 'Commencer',
-          text: 'Cliquez sur "Commencer" pour lancer votre session de révision !',
+          text: 'Cliquez sur "Commencer" pour lancer votre session de rÃ©vision !',
           position: 'center'
         }
       ];
@@ -19062,33 +19510,33 @@
       
       const steps = [
         {
-          title: 'Session de révision',
-          text: 'Vous êtes en mode révision ! Lisez la question et essayez de répondre avant de cliquer sur "Montrer la réponse".',
+          title: 'Session de rÃ©vision',
+          text: 'Vous Ãªtes en mode rÃ©vision ! Lisez la question et essayez de rÃ©pondre avant de cliquer sur "Montrer la rÃ©ponse".',
           position: 'center'
         },
         {
-          title: 'Répétition espacée',
-          text: 'Fab\'Anki utilise un algorithme intelligent (FSRS) pour déterminer quand vous devez réviser chaque carte. Plus vous répondez correctement, plus l\'intervalle augmente.',
+          title: 'RÃ©pÃ©tition espacÃ©e',
+          text: 'Fab\'Anki utilise un algorithme intelligent (FSRS) pour dÃ©terminer quand vous devez rÃ©viser chaque carte. Plus vous rÃ©pondez correctement, plus l\'intervalle augmente.',
           position: 'center'
         },
         {
-          title: 'Évaluez-vous honnêtement',
-          text: 'C\' la clé pour bien apprendre. Après avoir vu la réponse, choisissez : Raté (rouge), Difficile (orange), Bon (vert), ou Facile (bleu). Soyez honnête pour un apprentissage optimal, l\'xp c\'est bien sympa mais apprendre c\'est mieux !',
+          title: 'Ã‰valuez-vous honnÃªtement',
+          text: 'C\' la clÃ© pour bien apprendre. AprÃ¨s avoir vu la rÃ©ponse, choisissez : RatÃ© (rouge), Difficile (orange), Bon (vert), ou Facile (bleu). Soyez honnÃªte pour un apprentissage optimal, l\'xp c\'est bien sympa mais apprendre c\'est mieux !',
           position: 'center'
         },
         {
           title: 'Ce que signifient les boutons',
-          text: '🔴 Raté : Vous n\'avez pas su répondre, pleins de fautes.\n🟠 Difficile : Vous aviez une idée mais pas la bonne réponse complète ou il y a un ou deux trucs qui clochent.\n🔵 Bon : Vous avez répondu correctement avec un peu d\'effort.\n🟢 Facile : Vous avez répondu immédiatement et sans effort.',
+          text: 'ðŸ”´ RatÃ© : Vous n\'avez pas su rÃ©pondre, pleins de fautes.\nðŸŸ  Difficile : Vous aviez une idÃ©e mais pas la bonne rÃ©ponse complÃ¨te ou il y a un ou deux trucs qui clochent.\nðŸ”µ Bon : Vous avez rÃ©pondu correctement avec un peu d\'effort.\nðŸŸ¢ Facile : Vous avez rÃ©pondu immÃ©diatement et sans effort.',
           position: 'center'
         },
         {
           title: 'Raccourcis clavier',
-          text: 'Gagnez du temps sur ordi : Espace = Montrer réponse, 1/2/3/4 = Raté/Difficile/Bon/Facile. Vous pouvez aussi utiliser les flèches.',
+          text: 'Gagnez du temps sur ordi : Espace = Montrer rÃ©ponse, 1/2/3/4 = RatÃ©/Difficile/Bon/Facile. Vous pouvez aussi utiliser les flÃ¨ches.',
           position: 'center'
         },
         {
           title: 'Objectif',
-          text: 'Révisez régulièrement pour maximiser votre mémorisation. Chaque carte correcte vous rapporte des XP et fait progresser vos missions !',
+          text: 'RÃ©visez rÃ©guliÃ¨rement pour maximiser votre mÃ©morisation. Chaque carte correcte vous rapporte des XP et fait progresser vos missions !',
           position: 'center'
         }
       ];
@@ -19229,7 +19677,7 @@
         if(currentStep > 0){
           const prevBtn = document.createElement('button');
           prevBtn.className = 'secondary';
-          prevBtn.textContent = '← Précédent';
+          prevBtn.textContent = 'â† PrÃ©cÃ©dent';
           prevBtn.addEventListener('click', () => {
             currentStep--;
             renderStep();
@@ -19250,7 +19698,7 @@
         btnGroup.appendChild(skipBtn);
         
         const nextBtn = document.createElement('button');
-        nextBtn.textContent = currentStep === steps.length - 1 ? 'Compris ✓' : 'Suivant →';
+        nextBtn.textContent = currentStep === steps.length - 1 ? 'Compris âœ“' : 'Suivant â†’';
         nextBtn.addEventListener('click', () => {
           if(currentStep === steps.length - 1){
             localStorage.setItem(completionFlag, 'true');
@@ -19402,7 +19850,7 @@
     content.style.cssText = 'flex:1;display:flex;align-items:center;gap:12px;';
     
     const icon = document.createElement('span');
-    icon.textContent = '🎉';
+    icon.textContent = 'ðŸŽ‰';
     icon.style.cssText = 'font-size:1.5em;';
     
     const text = document.createElement('div');
@@ -19414,7 +19862,7 @@
     
     const message = document.createElement('div');
     message.style.cssText = 'font-size:0.9em;opacity:0.95;';
-    message.textContent = 'Cliquez sur "Mettre à jour" pour installer la mise à jour de l\'application.';
+    message.textContent = 'Cliquez sur "Mettre Ã  jour" pour installer la mise Ã  jour de l\'application.';
     
     text.appendChild(title);
     text.appendChild(message);
@@ -19425,7 +19873,7 @@
     buttons.style.cssText = 'display:flex;gap:8px;flex-shrink:0;';
     
     const updateBtn = document.createElement('button');
-    updateBtn.textContent = 'Mettre à jour';
+    updateBtn.textContent = 'Mettre Ã  jour';
     updateBtn.style.cssText = 'padding:10px 20px;border:none;border-radius:6px;background:white;color:#d97706;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);transition:transform 0.2s;';
     updateBtn.onmouseover = () => updateBtn.style.transform = 'scale(1.05)';
     updateBtn.onmouseout = () => updateBtn.style.transform = 'scale(1)';
@@ -19462,11 +19910,11 @@
     notification.style.cssText = 'position:fixed;top:80px;right:20px;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;padding:12px 20px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:10000;display:flex;align-items:center;gap:10px;animation:slideInRight 0.3s ease;';
     
     const icon = document.createElement('span');
-    icon.textContent = '✓';
+    icon.textContent = 'âœ“';
     icon.style.cssText = 'font-size:1.5em;font-weight:700;';
     
     const text = document.createElement('span');
-    text.textContent = `${count} action${count > 1 ? 's' : ''} synchronisée${count > 1 ? 's' : ''}`;
+    text.textContent = `${count} action${count > 1 ? 's' : ''} synchronisÃ©e${count > 1 ? 's' : ''}`;
     
     notification.appendChild(icon);
     notification.appendChild(text);
@@ -19525,11 +19973,11 @@
     modal.style.cssText = 'max-width:500px;width:90%;max-height:80vh;overflow-y:auto;';
     
     const title = document.createElement('h3');
-    title.textContent = '📱 Installer Fab\'Anki';
+    title.textContent = 'ðŸ“± Installer Fab\'Anki';
     title.style.cssText = 'margin-top:0;margin-bottom:16px;font-size:1.5rem;';
     
     const intro = document.createElement('p');
-    intro.textContent = 'Installez Fab\'Anki sur votre appareil pour y accéder comme une application native, même hors ligne !';
+    intro.textContent = 'Installez Fab\'Anki sur votre appareil pour y accÃ©der comme une application native, mÃªme hors ligne !';
     intro.style.cssText = 'margin-bottom:20px;color:#666;';
     
     // Instructions container
@@ -19538,31 +19986,31 @@
     
     // Chrome/Edge Android
     const androidSection = createSection(
-      '🤖 Android (Chrome/Edge)',
+      'ðŸ¤– Android (Chrome/Edge)',
       [
-        'Appuyez sur le menu (⋮) en haut à droite',
-        'Sélectionnez "Installer l\'application" ou "Ajouter à l\'écran d\'accueil"',
+        'Appuyez sur le menu (â‹®) en haut Ã  droite',
+        'SÃ©lectionnez "Installer l\'application" ou "Ajouter Ã  l\'Ã©cran d\'accueil"',
         'Confirmez l\'installation'
       ]
     );
     
     // Safari iOS
     const iosSection = createSection(
-      '🍎 iPhone/iPad (Safari)',
+      'ðŸŽ iPhone/iPad (Safari)',
       [
-        'Appuyez sur le bouton Partager (□↑) en bas de l\'écran',
-        'Faites défiler et appuyez sur "Sur l\'écran d\'accueil"',
-        'Appuyez sur "Ajouter" en haut à droite',
-        '⚠️ Note: L\'installation ne fonctionne que dans Safari, pas Chrome iOS'
+        'Appuyez sur le bouton Partager (â–¡â†‘) en bas de l\'Ã©cran',
+        'Faites dÃ©filer et appuyez sur "Sur l\'Ã©cran d\'accueil"',
+        'Appuyez sur "Ajouter" en haut Ã  droite',
+        'âš ï¸ Note: L\'installation ne fonctionne que dans Safari, pas Chrome iOS'
       ]
     );
     
     // Desktop Chrome/Edge
     const desktopSection = createSection(
-      '💻 Ordinateur (Chrome/Edge)',
+      'ðŸ’» Ordinateur (Chrome/Edge)',
       [
-        'Cliquez sur l\'icône d\'installation (⊕) dans la barre d\'adresse',
-        'Ou menu (⋮) → "Installer Fab\'Anki"',
+        'Cliquez sur l\'icÃ´ne d\'installation (âŠ•) dans la barre d\'adresse',
+        'Ou menu (â‹®) â†’ "Installer Fab\'Anki"',
         'Confirmez l\'installation'
       ]
     );
@@ -19573,11 +20021,11 @@
     
     const note = document.createElement('div');
     note.style.cssText = 'margin-top:20px;padding:12px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;font-size:0.9em;';
-    note.innerHTML = '<strong>💡 Astuce:</strong> Une fois installée, l\'application fonctionnera hors ligne et synchronisera automatiquement vos données quand vous serez en ligne.';
+    note.innerHTML = '<strong>ðŸ’¡ Astuce:</strong> Une fois installÃ©e, l\'application fonctionnera hors ligne et synchronisera automatiquement vos donnÃ©es quand vous serez en ligne.';
     
     const closeBtn = document.createElement('button');
     closeBtn.className = 'secondary';
-    closeBtn.textContent = '×';
+    closeBtn.textContent = 'Ã—';
     closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;';
     closeBtn.addEventListener('click', () => overlay.remove());
     
@@ -19678,18 +20126,18 @@
     let deckCreatorOpenedFromBrowser = false;
     
     const availableModes = [
-      { id: 'anki', name: 'Mode Anki', emoji: '🃏' },
-      { id: 'fillblank', name: 'Texte à trou', emoji: '✏️' },
-      { id: 'timer', name: 'Timer', emoji: '⏱️' },
-      { id: 'active', name: 'Mémoire active', emoji: '🧠' },
-      { id: 'step', name: 'Étape par étape', emoji: '👣' },
-      { id: 'reverse', name: 'Revers', emoji: '🔄' },
-      { id: 'random', name: 'Aléatoire', emoji: '🎲' },
-      { id: 'hold', name: 'Maintien', emoji: '⏸️' },
-      { id: 'multiple', name: 'Multiple', emoji: '🔢' },
-      { id: 'calcul', name: 'Calcul', emoji: '🔢' },
-      { id: 'associer', name: 'Associer', emoji: '🔗' },
-      { id: 'rush', name: 'Rush', emoji: '⚡' }
+      { id: 'anki', name: 'Mode Anki', emoji: 'ðŸƒ' },
+      { id: 'fillblank', name: 'Texte Ã  trou', emoji: 'âœï¸' },
+      { id: 'timer', name: 'Timer', emoji: 'â±ï¸' },
+      { id: 'active', name: 'MÃ©moire active', emoji: 'ðŸ§ ' },
+      { id: 'step', name: 'Ã‰tape par Ã©tape', emoji: 'ðŸ‘£' },
+      { id: 'reverse', name: 'Revers', emoji: 'ðŸ”„' },
+      { id: 'random', name: 'AlÃ©atoire', emoji: 'ðŸŽ²' },
+      { id: 'hold', name: 'Maintien', emoji: 'â¸ï¸' },
+      { id: 'multiple', name: 'Multiple', emoji: 'ðŸ”¢' },
+      { id: 'calcul', name: 'Calcul', emoji: 'ðŸ”¢' },
+      { id: 'associer', name: 'Associer', emoji: 'ðŸ”—' },
+      { id: 'rush', name: 'Rush', emoji: 'âš¡' }
     ];
     
     // Show create deck button only when in root (./)
@@ -19748,11 +20196,11 @@
         // Load draft if exists
         checkForDraft();
 
-        console.log('✅ Deck creator opened successfully');
+        console.log('âœ… Deck creator opened successfully');
       }catch(e){
         console.error('Error opening deck creator:', e);
         console.error('Stack:', e.stack);
-        alert('Erreur lors de l\'ouverture du créateur de deck:\n' + e.message);
+        alert('Erreur lors de l\'ouverture du crÃ©ateur de deck:\n' + e.message);
       }
     }
     
@@ -19969,12 +20417,12 @@
         
         const editBtn = document.createElement('button');
         editBtn.className = 'secondary';
-        editBtn.textContent = '✏️ Éditer';
+        editBtn.textContent = 'âœï¸ Ã‰diter';
         editBtn.addEventListener('click', () => editCard(index));
         
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'secondary';
-        deleteBtn.textContent = '🗑️';
+        deleteBtn.textContent = 'ðŸ—‘ï¸';
         deleteBtn.style.color = '#ff3b30';
         deleteBtn.addEventListener('click', () => {
           if(confirm('Supprimer cette carte ?')){
@@ -20023,7 +20471,7 @@
       if(currentEditingSchemaLocked){
         const info = document.createElement('div');
         info.style.cssText = 'padding:10px 12px;border-radius:8px;background:rgba(0,122,255,0.08);border:1px solid rgba(0,122,255,0.25);color:var(--fg);font-size:0.92em;';
-        info.textContent = 'Schéma verrouillé: les noms/types de champs sont définis sur la première carte.';
+        info.textContent = 'SchÃ©ma verrouillÃ©: les noms/types de champs sont dÃ©finis sur la premiÃ¨re carte.';
         container.appendChild(info);
       }
       
@@ -20035,7 +20483,7 @@
       const addFieldBtnEl = document.getElementById('addFieldBtn');
       if(addFieldBtnEl){
         addFieldBtnEl.disabled = currentEditingSchemaLocked;
-        addFieldBtnEl.title = currentEditingSchemaLocked ? 'Modifiez la première carte pour changer les champs.' : '';
+        addFieldBtnEl.title = currentEditingSchemaLocked ? 'Modifiez la premiÃ¨re carte pour changer les champs.' : '';
       }
     }
     
@@ -20061,7 +20509,7 @@
       
       const deleteFieldBtn = document.createElement('button');
       deleteFieldBtn.className = 'secondary';
-      deleteFieldBtn.textContent = '🗑️';
+      deleteFieldBtn.textContent = 'ðŸ—‘ï¸';
       deleteFieldBtn.style.color = '#ff3b30';
       deleteFieldBtn.disabled = !!schemaLocked;
       if(schemaLocked) deleteFieldBtn.style.opacity = '0.5';
@@ -20082,10 +20530,10 @@
       typeDiv.style.cssText = 'margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;';
       
       const types = [
-        { id: 'richtext', name: 'Texte riche', emoji: '📝' },
-        { id: 'katex', name: 'KaTeX', emoji: '∑' },
-        { id: 'code', name: 'Code', emoji: '💻' },
-        { id: 'tts', name: 'TTS', emoji: '🔊' }
+        { id: 'richtext', name: 'Texte riche', emoji: 'ðŸ“' },
+        { id: 'katex', name: 'KaTeX', emoji: 'âˆ‘' },
+        { id: 'code', name: 'Code', emoji: 'ðŸ’»' },
+        { id: 'tts', name: 'TTS', emoji: 'ðŸ”Š' }
       ];
       
       types.forEach(type => {
@@ -20141,11 +20589,11 @@
       const tools = [
         { cmd: 'bold', icon: 'B', title: 'Gras' },
         { cmd: 'italic', icon: 'I', title: 'Italique' },
-        { cmd: 'underline', icon: 'U', title: 'Souligné' },
-        { cmd: 'strikeThrough', icon: 'S', title: 'Barré' },
-        { cmd: 'insertUnorderedList', icon: '•', title: 'Liste' },
-        { cmd: 'insertOrderedList', icon: '1.', title: 'Liste numérotée' },
-        { cmd: 'removeFormat', icon: '✕', title: 'Effacer format' }
+        { cmd: 'underline', icon: 'U', title: 'SoulignÃ©' },
+        { cmd: 'strikeThrough', icon: 'S', title: 'BarrÃ©' },
+        { cmd: 'insertUnorderedList', icon: 'â€¢', title: 'Liste' },
+        { cmd: 'insertOrderedList', icon: '1.', title: 'Liste numÃ©rotÃ©e' },
+        { cmd: 'removeFormat', icon: 'âœ•', title: 'Effacer format' }
       ];
       
       tools.forEach(tool => {
@@ -20191,7 +20639,7 @@
       });
       
       const previewLabel = document.createElement('div');
-      previewLabel.textContent = 'Aperçu:';
+      previewLabel.textContent = 'AperÃ§u:';
       previewLabel.style.cssText = 'font-weight:600;margin-bottom:6px;';
       
       const preview = document.createElement('div');
@@ -20209,7 +20657,7 @@
             preview.style.color = '#ff3b30';
           }
         } else {
-          preview.textContent = 'Aperçu apparaîtra ici...';
+          preview.textContent = 'AperÃ§u apparaÃ®tra ici...';
           preview.style.color = '#999';
         }
       }
@@ -20261,16 +20709,16 @@
       langSelect.disabled = !!schemaLocked;
       
       const langs = [
-        { code: 'fr-FR', name: 'Français' },
+        { code: 'fr-FR', name: 'FranÃ§ais' },
         { code: 'en-US', name: 'English (US)' },
         { code: 'en-GB', name: 'English (UK)' },
-        { code: 'es-ES', name: 'Español' },
+        { code: 'es-ES', name: 'EspaÃ±ol' },
         { code: 'de-DE', name: 'Deutsch' },
         { code: 'it-IT', name: 'Italiano' },
-        { code: 'pt-PT', name: 'Português' },
-        { code: 'ru-RU', name: 'Русский' },
-        { code: 'ja-JP', name: '日本語' },
-        { code: 'zh-CN', name: '中文' }
+        { code: 'pt-PT', name: 'PortuguÃªs' },
+        { code: 'ru-RU', name: 'Ð ÑƒÑÑÐºÐ¸Ð¹' },
+        { code: 'ja-JP', name: 'æ—¥æœ¬èªž' },
+        { code: 'zh-CN', name: 'ä¸­æ–‡' }
       ];
       
       langs.forEach(lang => {
@@ -20288,7 +20736,7 @@
       });
       
       const textarea = document.createElement('textarea');
-      textarea.placeholder = 'Texte à lire...';
+      textarea.placeholder = 'Texte Ã  lire...';
       textarea.value = field.content || '';
       textarea.style.cssText = 'width:100%;min-height:100px;padding:12px;border:1px solid var(--border-color);border-radius:4px;margin-bottom:8px;';
       textarea.addEventListener('input', () => {
@@ -20298,14 +20746,14 @@
       
       const testBtn = document.createElement('button');
       testBtn.className = 'secondary';
-      testBtn.textContent = '🔊 Tester';
+      testBtn.textContent = 'ðŸ”Š Tester';
       testBtn.addEventListener('click', () => {
         if('speechSynthesis' in window && field.content){
           const utterance = new SpeechSynthesisUtterance(field.content);
           utterance.lang = field.language || 'fr-FR';
           speechSynthesis.speak(utterance);
         } else {
-          alert('La synthèse vocale n\'est pas disponible ou le texte est vide.');
+          alert('La synthÃ¨se vocale n\'est pas disponible ou le texte est vide.');
         }
       });
       
@@ -20322,7 +20770,7 @@
       addFieldBtn.addEventListener('click', () => {
         if(!currentEditingCard) return;
         if(currentEditingSchemaLocked){
-          alert('Les champs sont gérés sur la première carte uniquement.');
+          alert('Les champs sont gÃ©rÃ©s sur la premiÃ¨re carte uniquement.');
           return;
         }
         currentEditingCard.fields.push({
@@ -20522,9 +20970,9 @@
         if(content){
           content.select();
           document.execCommand('copy');
-          copyXMLBtn.textContent = '✓ Copié!';
+          copyXMLBtn.textContent = 'âœ“ CopiÃ©!';
           setTimeout(() => {
-            copyXMLBtn.textContent = '📋 Copier';
+            copyXMLBtn.textContent = 'ðŸ“‹ Copier';
           }, 2000);
         }
       });
@@ -20583,14 +21031,14 @@
         // Upload to Firebase
         try{
           if(!window.__fabanki_firestore){
-            alert('Firebase n\'est pas configuré. Le deck sera téléchargé localement.');
+            alert('Firebase n\'est pas configurÃ©. Le deck sera tÃ©lÃ©chargÃ© localement.');
             // Trigger download
             downloadXMLBtn.click();
             return;
           }
           
           publishBtn.disabled = true;
-          publishBtn.textContent = '⏳ Publication...';
+          publishBtn.textContent = 'â³ Publication...';
           
           let publishedId = null;
           try{
@@ -20618,9 +21066,9 @@
             publishedId = fallbackRef.id;
           }
           
-          console.log('✅ Deck submitted successfully with ID:', publishedId);
+          console.log('âœ… Deck submitted successfully with ID:', publishedId);
           
-          alert('✅ Deck publié avec succès!\n\nLe développeur sera notifié et examinera votre deck.\n\nID de soumission: ' + publishedId);
+          alert('âœ… Deck publiÃ© avec succÃ¨s!\n\nLe dÃ©veloppeur sera notifiÃ© et examinera votre deck.\n\nID de soumission: ' + publishedId);
           
           // Clear draft
           localStorage.removeItem('fabanki:deck_draft');
@@ -20647,11 +21095,11 @@
           }catch(queueErr){
             console.warn('Failed to queue deck submission locally:', queueErr);
           }
-          alert('❌ Erreur lors de la publication: ' + e.message + '\n\nLe deck sera téléchargé localement à la place.');
+          alert('âŒ Erreur lors de la publication: ' + e.message + '\n\nLe deck sera tÃ©lÃ©chargÃ© localement Ã  la place.');
           downloadXMLBtn.click();
         }finally{
           publishBtn.disabled = false;
-          publishBtn.textContent = '🚀 Publier le Deck';
+          publishBtn.textContent = 'ðŸš€ Publier le Deck';
         }
       });
     }
@@ -20687,7 +21135,7 @@
         // Show notification if draft exists
         if(age < 7 * 24 * 60 * 60 * 1000){ // 7 days
           setTimeout(() => {
-            if(confirm('Un brouillon de deck a été trouvé (sauvegardé le ' + savedAt.toLocaleString() + ').\n\nVoulez-vous le restaurer ?')){
+            if(confirm('Un brouillon de deck a Ã©tÃ© trouvÃ© (sauvegardÃ© le ' + savedAt.toLocaleString() + ').\n\nVoulez-vous le restaurer ?')){
               loadDraft();
             }
           }, 500);
@@ -20700,7 +21148,7 @@
     function loadDraft(){
       try{
         const draft = localStorage.getItem('fabanki:deck_draft');
-        if(!draft){ alert('Aucun brouillon trouvé.'); return; }
+        if(!draft){ alert('Aucun brouillon trouvÃ©.'); return; }
         
         const data = JSON.parse(draft);
         currentDeckData = {
@@ -20733,7 +21181,7 @@
         renderCards();
         updateCardCount();
         
-        alert('Brouillon restauré!');
+        alert('Brouillon restaurÃ©!');
       }catch(e){
         console.error('Failed to load draft:', e);
         alert('Erreur lors de la restauration du brouillon.');
@@ -20745,7 +21193,7 @@
     if(saveDraftBtn){
       saveDraftBtn.addEventListener('click', () => {
         saveDraft();
-        alert('Brouillon sauvegardé!');
+        alert('Brouillon sauvegardÃ©!');
       });
     }
     
@@ -20871,7 +21319,7 @@
           updateCardCount();
           saveDraft();
           
-          alert(`✅ XML importé avec succès!\n\n${currentDeckData.cards.length} carte(s) chargée(s).`);
+          alert(`âœ… XML importÃ© avec succÃ¨s!\n\n${currentDeckData.cards.length} carte(s) chargÃ©e(s).`);
           
           // Close import section
           importXMLSection.style.display = 'none';
@@ -20889,7 +21337,7 @@
     if(closeDeckCreator){
       closeDeckCreator.addEventListener('click', () => {
         if(currentDeckData.cards.length > 0){
-          if(confirm('Fermer l\'éditeur ?\n\nLe brouillon sera automatiquement sauvegardé.')){
+          if(confirm('Fermer l\'Ã©diteur ?\n\nLe brouillon sera automatiquement sauvegardÃ©.')){
             saveDraft();
             const overlay = document.getElementById('deckCreatorOverlay');
             if(overlay){
@@ -20940,7 +21388,7 @@
       const createDeckBtn = document.getElementById('createDeckBtn');
       if(createDeckBtn){
         createDeckBtn.addEventListener('click', openDeckCreator);
-        console.log('✅ Create deck button initialized');
+        console.log('âœ… Create deck button initialized');
       }
     }
     
@@ -20959,7 +21407,7 @@
       initializeButton();
     }
     
-    console.log('✅ Deck Creator System initialized');
+    console.log('âœ… Deck Creator System initialized');
   })();
 
 // Fab'Anki, open-source spaced repetition software made with Copilot.
