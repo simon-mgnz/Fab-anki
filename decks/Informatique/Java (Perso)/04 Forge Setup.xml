@@ -1,0 +1,172 @@
+<deck name="04 Forge Setup" tags='Informatique'><fields><rich-text name='Front' sides='11'></rich-text><code name='Back' sides='01' lang='java'></code></fields><cards>
+
+<card><code name='Back'>@Mod("monmod")
+public class MonMod {
+    public static final String MOD_ID = "monmod";
+
+    public MonMod() {
+        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+        ModItems.ITEMS.register(modBus);
+        ModBlocks.BLOCKS.register(modBus);
+        ModEffects.EFFECTS.register(modBus);
+        modBus.addListener(this::setup);
+    }
+
+    private void setup(FMLCommonSetupEvent event) {
+        // initialisation thread-safe :
+        event.enqueueWork(() -> { });
+    }
+}</code><rich-text name='Front'><p>Structure complète de la classe principale d'un mod Forge (@Mod)</p></rich-text></card>
+
+<card><code name='Back'>new ResourceLocation("monmod", "nom_objet")
+// → "monmod:nom_objet"
+// Depuis 1.21 / NeoForge : ResourceLocation.fromNamespaceAndPath("monmod","nom")</code><rich-text name='Front'><p>Créer un ResourceLocation (espace de noms : chemin)</p></rich-text></card>
+
+<card><code name='Back'>@Mod.EventBusSubscriber(modid = MOD_ID, bus = Bus.FORGE)
+public class ForgeEvents {
+    @SubscribeEvent
+    public static void onEvent(TypeEvenement event) { ... }
+}</code><rich-text name='Front'><p>S'abonner aux événements gameplay (Forge bus = world, combat, joueur…)</p></rich-text></card>
+
+<card><code name='Back'>@Mod.EventBusSubscriber(modid = MOD_ID, bus = Bus.MOD)
+public class ModEvents {
+    @SubscribeEvent
+    public static void onSetup(FMLCommonSetupEvent event) { ... }
+}</code><rich-text name='Front'><p>S'abonner aux événements de chargement (Mod bus = setup, enregistrement…)</p></rich-text></card>
+
+<card><code name='Back'>IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();</code><rich-text name='Front'><p>Récupérer le Mod Event Bus dans le constructeur @Mod</p></rich-text></card>
+
+<card><code name='Back'>DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+    () -> () -> ClientSetup.init(modBus));</code><rich-text name='Front'><p>Exécuter du code uniquement côté client au démarrage (DistExecutor)</p></rich-text></card>
+
+<card><code name='Back'>// Dans ModItems.java :
+public static final DeferredRegister&lt;Item&gt; ITEMS =
+    DeferredRegister.create(ForgeRegistries.ITEMS, MOD_ID);</code><rich-text name='Front'><p>Créer un DeferredRegister pour les items</p></rich-text></card>
+
+<card><code name='Back'>public static final RegistryObject&lt;Item&gt; RUBY =
+    ITEMS.register("ruby",
+        () -> new Item(new Item.Properties()));</code><rich-text name='Front'><p>Enregistrer un item simple dans un DeferredRegister</p></rich-text></card>
+
+<card><code name='Back'>RUBY.get()   // accès à l'objet (seulement après le chargement)</code><rich-text name='Front'><p>Accéder à l'objet d'un RegistryObject (ne jamais appeler avant la fin du chargement)</p></rich-text></card>
+
+<card><code name='Back'>ModItems.ITEMS.register(modBus);   // dans le constructeur @Mod</code><rich-text name='Front'><p>Attacher un DeferredRegister au Mod Event Bus</p></rich-text></card>
+
+<card><code name='Back'>new Item.Properties()
+    .stacksTo(1)                // non empilable
+    .rarity(Rarity.RARE)        // COMMON / UNCOMMON / RARE / EPIC
+    .fireResistant()            // résistant au feu
+    .durability(250)            // outil avec durabilité
+    .food(new FoodProperties.Builder().nutrition(4).saturationMod(0.8f).build())</code><rich-text name='Front'><p>Chaîner les propriétés d'un Item (Item.Properties)</p></rich-text></card>
+
+<card><code name='Back'>public class MonItem extends Item {
+    public MonItem() {
+        super(new Item.Properties().stacksTo(1));
+    }
+
+    @Override
+    public InteractionResultHolder&lt;ItemStack&gt; use(
+            Level level, Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        if (!level.isClientSide()) {
+            // logique serveur
+        }
+        return InteractionResultHolder.success(stack);
+    }
+}</code><rich-text name='Front'><p>Squelette d'une classe Item personnalisée (extends Item)</p></rich-text></card>
+
+<card><code name='Back'>// Dans ModBlocks.java :
+public static final DeferredRegister&lt;Block&gt; BLOCKS =
+    DeferredRegister.create(ForgeRegistries.BLOCKS, MOD_ID);
+
+public static final RegistryObject&lt;Block&gt; RUBY_BLOCK =
+    BLOCKS.register("ruby_block", () ->
+        new Block(BlockBehaviour.Properties.of()
+            .strength(3.0f, 6.0f)
+            .requiresCorrectToolForDrops()));</code><rich-text name='Front'><p>Enregistrer un Block avec DeferredRegister</p></rich-text></card>
+
+<card><code name='Back'>BlockBehaviour.Properties.of()
+    .strength(hardness, blastResistance) // dureté / résistance explosion
+    .requiresCorrectToolForDrops()       // exige le bon outil
+    .noOcclusion()                       // bloc non opaque (vitre, etc.)
+    .lightLevel(state -> 15)             // luminosité 0-15
+    .sound(SoundType.STONE)              // son du bloc
+    .noCollission()                      // pas de hitbox solide
+    .randomTicks()                       // activé par les ticks aléatoires</code><rich-text name='Front'><p>Principales options de BlockBehaviour.Properties</p></rich-text></card>
+
+<card><code name='Back'>// Dans ModItems.java, après l'enregistrement du bloc :
+public static final RegistryObject&lt;Item&gt; RUBY_BLOCK_ITEM =
+    ITEMS.register("ruby_block",
+        () -> new BlockItem(ModBlocks.RUBY_BLOCK.get(),
+                            new Item.Properties()));</code><rich-text name='Front'><p>Enregistrer le BlockItem correspondant à un bloc (nécessaire pour le tenir en main)</p></rich-text></card>
+
+<card><code name='Back'>public class MonBloc extends Block {
+    public MonBloc() {
+        super(BlockBehaviour.Properties.of().strength(2.0f));
+    }
+
+    @Override
+    public InteractionResult use(BlockState state, Level level,
+            BlockPos pos, Player player, InteractionHand hand,
+            BlockHitResult hit) {
+        if (!level.isClientSide()) { ... }
+        return InteractionResult.SUCCESS;
+    }
+}</code><rich-text name='Front'><p>Squelette d'un Block personnalisé avec interaction au clic droit</p></rich-text></card>
+
+<card><code name='Back'>// Dans ModEffects.java :
+public static final DeferredRegister&lt;MobEffect&gt; EFFECTS =
+    DeferredRegister.create(ForgeRegistries.MOB_EFFECTS, MOD_ID);
+
+public static final RegistryObject&lt;MobEffect&gt; MON_EFFET =
+    EFFECTS.register("mon_effet", MonEffet::new);</code><rich-text name='Front'><p>Enregistrer un MobEffect personnalisé</p></rich-text></card>
+
+<card><code name='Back'>// Dans ModSounds.java :
+public static final DeferredRegister&lt;SoundEvent&gt; SOUND_EVENTS =
+    DeferredRegister.create(ForgeRegistries.SOUND_EVENTS, MOD_ID);
+
+public static final RegistryObject&lt;SoundEvent&gt; MON_SON =
+    SOUND_EVENTS.register("mon_son",
+        () -> SoundEvent.createVariableRangeEvent(
+                  new ResourceLocation(MOD_ID, "mon_son")));</code><rich-text name='Front'><p>Enregistrer un SoundEvent personnalisé</p></rich-text></card>
+
+<card><code name='Back'>// Dans ModMenuTypes.java :
+public static final DeferredRegister&lt;MenuType&lt;?&gt;&gt; MENUS =
+    DeferredRegister.create(ForgeRegistries.MENU_TYPES, MOD_ID);
+
+public static final RegistryObject&lt;MenuType&lt;MonMenu&gt;&gt; MON_MENU =
+    MENUS.register("mon_menu",
+        () -> IForgeMenuType.create(
+                  (windowId, inv, data) -> new MonMenu(windowId, inv, data)));</code><rich-text name='Front'><p>Enregistrer un MenuType (GUI container) avec DeferredRegister</p></rich-text></card>
+
+<card><code name='Back'>// Dans ModEntityTypes.java :
+public static final DeferredRegister&lt;EntityType&lt;?&gt;&gt; ENTITY_TYPES =
+    DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, MOD_ID);
+
+public static final RegistryObject&lt;EntityType&lt;MonEntity&gt;&gt; MON_ENTITY =
+    ENTITY_TYPES.register("mon_entity",
+        () -> EntityType.Builder.&lt;MonEntity&gt;of(MonEntity::new, MobCategory.MONSTER)
+                .sized(0.6f, 1.95f)
+                .build("mon_entity"));</code><rich-text name='Front'><p>Enregistrer un EntityType personnalisé</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onFMLCommonSetup(FMLCommonSetupEvent event) {
+    event.enqueueWork(() -> {
+        // code thread-safe : enregistrement de caps, dispense, etc.
+    });
+}</code><rich-text name='Front'><p>FMLCommonSetupEvent : initialisation après l'enregistrement des objets</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onClientSetup(FMLClientSetupEvent event) {
+    event.enqueueWork(() -> {
+        // enregistrement renderer entité, blit shader, etc. (CLIENT uniquement)
+    });
+}</code><rich-text name='Front'><p>FMLClientSetupEvent : initialisation client uniquement (rendu, écran…)</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onRegisterCreativeTabs(BuildCreativeModeTabContentsEvent event) {
+    if (event.getTabKey() == CreativeModeTabs.INGREDIENTS) {
+        event.accept(ModItems.RUBY.get());
+    }
+}</code><rich-text name='Front'><p>Ajouter un item à un onglet créatif existant (Forge 1.20.1)</p></rich-text></card>
+
+</cards></deck>

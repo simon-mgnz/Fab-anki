@@ -1,0 +1,173 @@
+<deck name="01 Bases Java" tags='Informatique'><fields><rich-text name='Front' sides='11'></rich-text><code name='Back' sides='01' lang='java'></code></fields><cards>
+
+<card><code name='Back'>System.out.println(a);</code><rich-text name='Front'><p>Afficher a avec retour à la ligne</p></rich-text></card>
+
+<card><code name='Back'>System.out.print(a);</code><rich-text name='Front'><p>Afficher a sans retour à la ligne</p></rich-text></card>
+
+<card><code name='Back'>System.out.printf("%.2f%n", d);</code><rich-text name='Front'><p>Afficher un flottant formaté (printf)</p></rich-text></card>
+
+<card><code name='Back'>int x = 42;</code><rich-text name='Front'><p>Déclarer et initialiser un entier (32 bits)</p></rich-text></card>
+
+<card><code name='Back'>long l = 10_000_000_000L;</code><rich-text name='Front'><p>Déclarer un entier long (64 bits, suffixe L)</p></rich-text></card>
+
+<card><code name='Back'>double d = 3.14;</code><rich-text name='Front'><p>Déclarer un flottant double précision (64 bits)</p></rich-text></card>
+
+<card><code name='Back'>float f = 3.14f;</code><rich-text name='Front'><p>Déclarer un flottant simple précision (suffixe f obligatoire)</p></rich-text></card>
+
+<card><code name='Back'>boolean b = true;</code><rich-text name='Front'><p>Déclarer un booléen (true ou false)</p></rich-text></card>
+
+<card><code name='Back'>char c = 'A';</code><rich-text name='Front'><p>Déclarer un caractère (guillemets simples)</p></rich-text></card>
+
+<card><code name='Back'>String s = "bonjour";</code><rich-text name='Front'><p>Déclarer une chaîne de caractères</p></rich-text></card>
+
+<card><code name='Back'>var x = 42;      // int inféré
+var s = "hello"; // String inférée</code><rich-text name='Front'><p>Inférence de type locale (var, Java 10+)</p></rich-text></card>
+
+<card><code name='Back'>if (condition) {
+    ...
+} else if (condition2) {
+    ...
+} else {
+    ...
+}</code><rich-text name='Front'><p>Conditions if / else if / else</p></rich-text></card>
+
+<card><code name='Back'>switch (x) {
+    case 1: ...; break;
+    case 2: ...; break;
+    default: ...;
+}</code><rich-text name='Front'><p>Switch-case classique (branchement multiple)</p></rich-text></card>
+
+<card><code name='Back'>// Java 14+ – switch expression
+String result = switch (x) {
+    case 1 -> "un";
+    case 2 -> "deux";
+    default -> "autre";
+};</code><rich-text name='Front'><p>Switch expression avec flèche (Java 14+)</p></rich-text></card>
+
+<card><code name='Back'>for (int i = 0; i &lt; n; i++) {
+    ...
+}</code><rich-text name='Front'><p>Boucle for classique de 0 à n-1</p></rich-text></card>
+
+<card><code name='Back'>for (Type e : collection) {
+    ...
+}</code><rich-text name='Front'><p>Boucle for-each sur un tableau ou une collection</p></rich-text></card>
+
+<card><code name='Back'>while (condition) {
+    ...
+}</code><rich-text name='Front'><p>Boucle while</p></rich-text></card>
+
+<card><code name='Back'>do {
+    ...
+} while (condition);</code><rich-text name='Front'><p>Boucle do-while (s'exécute au moins une fois)</p></rich-text></card>
+
+<card><code name='Back'>break;</code><rich-text name='Front'><p>Sortir immédiatement de la boucle courante</p></rich-text></card>
+
+<card><code name='Back'>continue;</code><rich-text name='Front'><p>Passer directement à l'itération suivante</p></rich-text></card>
+
+<card><code name='Back'>int[] tab = new int[5];
+// ou initialisé directement :
+int[] tab = {1, 2, 3, 4, 5};</code><rich-text name='Front'><p>Déclarer un tableau d'entiers</p></rich-text></card>
+
+<card><code name='Back'>tab[i]</code><rich-text name='Front'><p>Accéder à l'élément d'index i d'un tableau</p></rich-text></card>
+
+<card><code name='Back'>tab.length</code><rich-text name='Front'><p>Nombre d'éléments d'un tableau (propriété, pas méthode)</p></rich-text></card>
+
+<card><code name='Back'>int[][] mat = new int[3][4];</code><rich-text name='Front'><p>Déclarer un tableau 2D (matrice 3 lignes × 4 colonnes)</p></rich-text></card>
+
+<card><code name='Back'>s.length()</code><rich-text name='Front'><p>Longueur d'une String</p></rich-text></card>
+
+<card><code name='Back'>s.charAt(i)</code><rich-text name='Front'><p>Caractère à la position i dans la String</p></rich-text></card>
+
+<card><code name='Back'>s.substring(i, j)</code><rich-text name='Front'><p>Sous-chaîne de s entre les indices i (inclus) et j (exclus)</p></rich-text></card>
+
+<card><code name='Back'>s.equals(t)
+s.equalsIgnoreCase(t)</code><rich-text name='Front'><p>Comparer le <strong>contenu</strong> de deux Strings (ne jamais utiliser ==)</p></rich-text></card>
+
+<card><code name='Back'>s + t</code><rich-text name='Front'><p>Concaténation de deux chaînes</p></rich-text></card>
+
+<card><code name='Back'>s.toUpperCase()
+s.toLowerCase()</code><rich-text name='Front'><p>Mettre une String en majuscules / minuscules</p></rich-text></card>
+
+<card><code name='Back'>s.contains(t)</code><rich-text name='Front'><p>Tester si la chaîne s contient la sous-chaîne t</p></rich-text></card>
+
+<card><code name='Back'>s.replace("ancien", "nouveau")</code><rich-text name='Front'><p>Remplacer toutes les occurrences d'une sous-chaîne</p></rich-text></card>
+
+<card><code name='Back'>s.trim()
+s.strip()  // Java 11, gère aussi l'Unicode</code><rich-text name='Front'><p>Supprimer les espaces en début et fin de chaîne</p></rich-text></card>
+
+<card><code name='Back'>s.startsWith("pre")
+s.endsWith("suf")</code><rich-text name='Front'><p>Tester si une String commence / finit par un préfixe/suffixe</p></rich-text></card>
+
+<card><code name='Back'>s.indexOf("mot")     // -1 si absent
+s.lastIndexOf("mot")</code><rich-text name='Front'><p>Trouver la position d'une sous-chaîne dans une String</p></rich-text></card>
+
+<card><code name='Back'>s.split(",")         // découper par séparateur
+s.join(", ", "a", "b") // joindre des chaînes</code><rich-text name='Front'><p>Découper ou joindre des chaînes</p></rich-text></card>
+
+<card><code name='Back'>Integer.parseInt(s)
+Double.parseDouble(s)</code><rich-text name='Front'><p>Convertir une String en int / double</p></rich-text></card>
+
+<card><code name='Back'>String.valueOf(x)
+Integer.toString(x)</code><rich-text name='Front'><p>Convertir un nombre en String</p></rich-text></card>
+
+<card><code name='Back'>condition ? valeurSiVrai : valeurSiFaux</code><rich-text name='Front'><p>Opérateur ternaire</p></rich-text></card>
+
+<card><code name='Back'>Math.pow(x, y)    // x^y
+Math.sqrt(x)      // racine carréeMath.abs(x)       // valeur absolue
+Math.max(a, b)    // maximum
+Math.min(a, b)    // minimum
+Math.floor(x)     // arrondi inférieur
+Math.ceil(x)      // arrondi supérieur
+Math.round(x)     // arrondi classique</code><rich-text name='Front'><p>Fonctions mathématiques courantes (Math.*)</p></rich-text></card>
+
+<card><code name='Back'>Math.random()  // double entre 0.0 (inclus) et 1.0 (exclus)
+// Entier aléatoire entre 0 et n-1 :
+int r = (int) (Math.random() * n);</code><rich-text name='Front'><p>Nombre aléatoire (Math.random)</p></rich-text></card>
+
+<card><code name='Back'>(TypeCible) valeur
+// ex: (int) 3.7  →  3
+// ex: (double) 5 →  5.0</code><rich-text name='Front'><p>Cast : conversion forcée d'un type primitif vers un autre</p></rich-text></card>
+
+<card><code name='Back'>// Commentaire sur une ligne
+/* Commentaire
+   sur plusieurs lignes */
+/** Javadoc : description de la méthode.
+ *  @param x paramètre
+ *  @return valeur de retour
+ */</code><rich-text name='Front'><p>Les trois types de commentaires Java</p></rich-text></card>
+
+<card><code name='Back'>TypeRetour nomMethode(Type param1, Type param2) {
+    ...
+    return valeur;
+}
+// Sans retour :
+void nomMethode(Type param) { ... }</code><rich-text name='Front'><p>Définir une méthode avec / sans valeur de retour</p></rich-text></card>
+
+<card><code name='Back'>void methode(int... valeurs) {
+    for (int v : valeurs) { ... }
+}</code><rich-text name='Front'><p>Méthode à nombre variable d'arguments (varargs)</p></rich-text></card>
+
+<card><code name='Back'>Scanner sc = new Scanner(System.in);
+String ligne = sc.nextLine();
+int n        = sc.nextInt();
+double d     = sc.nextDouble();</code><rich-text name='Front'><p>Lire une entrée utilisateur au clavier (Scanner)</p></rich-text></card>
+
+<card><code name='Back'>a += 1;  a -= 1;
+a *= 2;  a /= 2;
+a %= 3;</code><rich-text name='Front'><p>Opérateurs d'affectation combinée</p></rich-text></card>
+
+<card><code name='Back'>a++  // post-incrément (retourne puis incrémente)
+++a  // pré-incrément  (incrémente puis retourne)</code><rich-text name='Front'><p>Incrément / décrément (++ et --)</p></rich-text></card>
+
+<card><code name='Back'>==  !=
+&lt;   &gt;   &lt;=   &gt;=</code><rich-text name='Front'><p>Opérateurs de comparaison</p></rich-text></card>
+
+<card><code name='Back'>&amp;&amp;  // ET logique (court-circuit)
+||  // OU logique (court-circuit)
+!   // NON logique</code><rich-text name='Front'><p>Opérateurs logiques booléens</p></rich-text></card>
+
+<card><code name='Back'>x % y   // modulo : reste de la division entière
+5 % 3   // → 2
+x / y   // division entière si x et y sont int</code><rich-text name='Front'><p>Modulo et division entière</p></rich-text></card>
+
+</cards></deck>

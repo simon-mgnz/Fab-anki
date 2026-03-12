@@ -1,0 +1,217 @@
+<deck name="07 Forge Avance" tags='Informatique'><fields><rich-text name='Front' sides='11'></rich-text><code name='Back' sides='01' lang='java'></code></fields><cards>
+
+<!-- ===== ATTRIBUTES ===== -->
+
+<card><code name='Back'>new AttributeModifier(UUID, "nom", valeur, Operation.ADDITION)
+new AttributeModifier(UUID, "nom", valeur, Operation.MULTIPLY_BASE)
+new AttributeModifier(UUID, "nom", valeur, Operation.MULTIPLY_TOTAL)</code><rich-text name='Front'><p>Créer un AttributeModifier (3 opérations : flat / % sur base / % sur total)</p></rich-text></card>
+
+<card><code name='Back'>// Formule finale d'un attribut :
+// (base + SOMME_ADDITION)
+//   × (1 + SOMME_MULTIPLY_BASE)
+//   × (1 + MT_1) × (1 + MT_2) × ...</code><rich-text name='Front'><p>Formule de calcul d'un attribut avec plusieurs modificateurs</p></rich-text></card>
+
+<card><code name='Back'>private static final UUID DMG_UUID =
+    UUID.fromString("58e71cd2-e8be-4ee3-b8e0-0c5c3d3e4051");
+
+@Override
+public Multimap&lt;Attribute, AttributeModifier&gt; getAttributeModifiers(
+        EquipmentSlot slot, ItemStack stack) {
+    ImmutableMultimap.Builder&lt;Attribute, AttributeModifier&gt; b =
+        ImmutableMultimap.builder();
+    b.putAll(super.getAttributeModifiers(slot, stack));
+    if (slot == EquipmentSlot.MAINHAND)
+        b.put(Attributes.ATTACK_DAMAGE,
+              new AttributeModifier(DMG_UUID, "Bonus", 8.0, Operation.ADDITION));
+    return b.build();
+}</code><rich-text name='Front'><p>Override de getAttributeModifiers() pour ajouter un bonus à un item (UUID fixe !)</p></rich-text></card>
+
+<!-- ===== CUSTOM MOB EFFECT ===== -->
+
+<card><code name='Back'>public class MonEffet extends MobEffect {
+    public MonEffet() {
+        super(MobEffectCategory.BENEFICIAL, 0x00FF88); // catégorie, couleur ARGB
+    }
+
+    @Override
+    public void applyEffectTick(LivingEntity entity, int amplifier) {
+        entity.heal(1.0f); // soigner 0.5 PV toutes les 40 ticks
+    }
+
+    @Override
+    public boolean isDurationEffectTick(int duration, int amplifier) {
+        return duration % 40 == 0; // fréquence d'application
+    }
+}</code><rich-text name='Front'><p>Créer un MobEffect personnalisé (catégorie, couleur, fréquence, logique)</p></rich-text></card>
+
+<!-- ===== COMMANDS (BRIGADIER) ===== -->
+
+<card><code name='Back'>@SubscribeEvent
+public static void onRegisterCommands(RegisterCommandsEvent event) {
+    CommandDispatcher&lt;CommandSourceStack&gt; dispatcher = event.getDispatcher();
+    dispatcher.register(
+        Commands.literal("cmd")
+            .requires(src -&gt; src.hasPermission(2))
+            .then(Commands.argument("n", IntegerArgumentType.integer(1, 64))
+                .executes(ctx -&gt; {
+                    int n = IntegerArgumentType.getInteger(ctx, "n");
+                    // ... logique ...
+                    return 1; // 1 = succès
+                }))
+    );
+}</code><rich-text name='Front'><p>Enregistrer une commande Brigadier (argument entier + niveau de permission)</p></rich-text></card>
+
+<card><code name='Back'>ctx.getSource().sendSuccess(
+    () -&gt; Component.literal("OK"), false); // false = ne pas log dans le tchat admin
+ctx.getSource().sendFailure(
+    Component.literal("Erreur !"));</code><rich-text name='Front'><p>Envoyer un message succès / erreur depuis une commande Brigadier</p></rich-text></card>
+
+<card><code name='Back'>// Types d'arguments courants :
+IntegerArgumentType.integer(min, max)
+FloatArgumentType.floatArg()
+StringArgumentType.word()           // un seul mot
+StringArgumentType.greedyString()   // toute la suite de la commande
+EntityArgument.entity()             // une entité ciblée
+BlockPosArgument.blockPos()         // une position de bloc</code><rich-text name='Front'><p>Types d'arguments Brigadier les plus courants</p></rich-text></card>
+
+<!-- ===== CLIENT : VISUALS ===== -->
+
+<card><code name='Back'>@SubscribeEvent
+public static void onFov(ComputeFovModifierEvent event) {
+    if (event.getPlayer().hasEffect(ModEffects.MON_EFFET.get()))
+        event.setNewFovModifier(event.getNewFovModifier() * 0.85f);
+}</code><rich-text name='Front'><p>Modifier le FOV du joueur en fonction d'un effet (ComputeFovModifierEvent, client)</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onCamera(ViewportEvent.ComputeCameraAngles event) {
+    event.setRoll(15f);   // incliner l'écran (en degrés)
+    // event.setYaw(...) / event.setPitch(...) aussi disponibles
+}</code><rich-text name='Front'><p>Modifier l'orientation de la caméra par code (ViewportEvent.ComputeCameraAngles)</p></rich-text></card>
+
+<!-- ===== HUD / OVERLAY ===== -->
+
+<card><code name='Back'>@SubscribeEvent
+public static void onOverlayPre(RenderGuiOverlayEvent.Pre event) {
+    if (event.getOverlay() == VanillaGuiOverlay.HOTBAR.type()) {
+        event.setCanceled(true); // supprimer le HUD vanilla
+        // dessiner le sien à la place avec GuiGraphics event.getGuiGraphics()
+    }
+}</code><rich-text name='Front'><p>Remplacer ou annuler le rendu d'un élément HUD vanilla (RenderGuiOverlayEvent.Pre)</p></rich-text></card>
+
+<card><code name='Back'>// Dans RegisterGuiOverlaysEvent (Mod bus) :
+@SubscribeEvent
+public static void onRegisterOverlays(RegisterGuiOverlaysEvent event) {
+    event.registerAboveAll("mon_hud", MON_OVERLAY);
+    // MON_OVERLAY implémente IGuiOverlay :
+    // (gui, graphics, partialTick, w, h) -> { graphics.drawString(...) }
+}</code><rich-text name='Front'><p>Enregistrer un overlay HUD personnalisé au-dessus de tous les autres</p></rich-text></card>
+
+<card><code name='Back'>// Dessiner dans un overlay ou un Screen :
+GuiGraphics g = ...;
+g.drawString(font, "Texte", x, y, 0xFFFFFF, false);
+g.blit(texture, x, y, u, v, w, h);       // sprite depuis une texture
+g.fill(x1, y1, x2, y2, 0x80000000);      // rectangle semi-transparent
+g.renderItem(stack, x, y);               // rendu de l'icône d'un item</code><rich-text name='Front'><p>Dessiner du texte, une texture ou un item avec GuiGraphics</p></rich-text></card>
+
+<!-- ===== GUI / SCREEN ===== -->
+
+<card><code name='Back'>// Côté serveur :
+NetworkHooks.openScreen(
+    (ServerPlayer) player,
+    monMenuProvider,                // MenuProvider
+    buf -&gt; buf.writeBlockPos(pos)   // données supplémentaires → client
+);
+// MenuProvider :
+// Component getDisplayName() + AbstractContainerMenu createMenu(id, inv, player)</code><rich-text name='Front'><p>Ouvrir un GUI (AbstractContainerMenu) pour un joueur côté serveur</p></rich-text></card>
+
+<card><code name='Back'>public class MonMenu extends AbstractContainerMenu {
+    public MonMenu(int windowId, Inventory playerInv) {
+        super(ModMenuTypes.MON_MENU.get(), windowId);
+        // ajouter les slots du joueur (3×9 + barre d'action) :
+        for (int row = 0; row &lt; 3; row++)
+            for (int col = 0; col &lt; 9; col++)
+                this.addSlot(new Slot(playerInv, col + row*9+9, 8+col*18, 84+row*18));
+        for (int col = 0; col &lt; 9; col++)
+            this.addSlot(new Slot(playerInv, col, 8+col*18, 142));
+    }
+
+    @Override public boolean stillValid(Player p) { return true; }
+}</code><rich-text name='Front'><p>Structure de base d'un AbstractContainerMenu avec les slots joueur</p></rich-text></card>
+
+<card><code name='Back'>// Slot qui n'accepte qu'un type d'item :
+this.addSlot(new Slot(containerData, 0, 56, 35) {
+    @Override public boolean mayPlace(ItemStack stack) {
+        return stack.is(ModItems.RUBY.get());
+    }
+    @Override public int getMaxStackSize() { return 1; }
+});</code><rich-text name='Front'><p>Slot de container filtré (mayPlace + taille maximum)</p></rich-text></card>
+
+<card><code name='Back'>public class MonScreen extends AbstractContainerScreen&lt;MonMenu&gt; {
+    private static final ResourceLocation TEXTURE =
+        new ResourceLocation("monmod", "textures/gui/mon_gui.png");
+
+    public MonScreen(MonMenu menu, Inventory inv, Component title) {
+        super(menu, inv, title);
+        this.imageWidth = 176; this.imageHeight = 166;
+    }
+
+    @Override
+    protected void renderBg(GuiGraphics g, float partial, int mx, int my) {
+        g.blit(TEXTURE, leftPos, topPos, 0, 0, imageWidth, imageHeight);
+    }
+}</code><rich-text name='Front'><p>Structure d'un AbstractContainerScreen (affichage du GUI côté client)</p></rich-text></card>
+
+<!-- ===== KEY BINDINGS ===== -->
+
+<card><code name='Back'>// Déclarer (dans la classe client ou ModEvents) :
+public static KeyMapping TOUCHE =
+    new KeyMapping("key.monmod.nom",
+                   GLFW.GLFW_KEY_G,
+                   "key.categories.monmod");
+
+// Enregistrer (Mod bus, RegisterKeyMappingsEvent) :
+@SubscribeEvent
+public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
+    event.register(TOUCHE);
+}</code><rich-text name='Front'><p>Déclarer et enregistrer un raccourci clavier personnalisé (KeyMapping)</p></rich-text></card>
+
+<card><code name='Back'>// Dans ClientTickEvent :
+@SubscribeEvent
+public static void onClientTick(TickEvent.ClientTickEvent event) {
+    if (event.phase == TickEvent.Phase.END) {
+        while (MonKeys.TOUCHE.consumeClick()) {
+            // envoyer un paquet au serveur ou déclencher l'action locale
+        }
+    }
+}</code><rich-text name='Front'><p>Consommer les pressions d'une touche dans le tick client (consumeClick)</p></rich-text></card>
+
+<!-- ===== CLIENT INSTANCE ===== -->
+
+<card><code name='Back'>// Uniquement côté CLIENT (ne jamais appeler côté serveur)
+Minecraft mc = Minecraft.getInstance();
+LocalPlayer player = mc.player;     // joueur local
+ClientLevel level  = mc.level;      // monde local
+mc.font;                            // police de caractères
+mc.getTextureManager();             // gestionnaire de textures</code><rich-text name='Front'><p>Accéder à l'instance Minecraft côté client (Minecraft.getInstance)</p></rich-text></card>
+
+<card><code name='Back'>// Ouvrir un Screen depuis le client :
+Minecraft.getInstance().setScreen(new MonInfoScreen(...));
+// Fermer un Screen :
+Minecraft.getInstance().setScreen(null);</code><rich-text name='Front'><p>Ouvrir ou fermer un Screen côté client (setScreen)</p></rich-text></card>
+
+<!-- ===== DATA PROVIDERS ===== -->
+
+<card><code name='Back'>@SubscribeEvent
+public static void onGatherData(GatherDataEvent event) {
+    DataGenerator gen = event.getGenerator();
+    PackOutput out = gen.getPackOutput();
+    ExistingFileHelper efh = event.getExistingFileHelper();
+
+    // Ajouter un provider :
+    gen.addProvider(event.includeServer(),
+        new MonLootTableProvider(out));
+    gen.addProvider(event.includeClient(),
+        new MonItemModelProvider(out, efh));
+}</code><rich-text name='Front'><p>Enregistrer des Data Providers pour la génération de JSON (GatherDataEvent)</p></rich-text></card>
+
+</cards></deck>
