@@ -1,0 +1,128 @@
+<deck name="02 POO" tags='Informatique'><fields><rich-text name='Front' sides='11'></rich-text><code name='Back' sides='01' lang='java'></code></fields><cards>
+
+<card><code name='Back'>public class MaClasse {
+    private int x;
+    // constructeur, méthodes...
+}</code><rich-text name='Front'><p>Définir une classe (structure de base)</p></rich-text></card>
+
+<card><code name='Back'>public MaClasse(int x) {
+    this.x = x;
+}</code><rich-text name='Front'><p>Définir un constructeur</p></rich-text></card>
+
+<card><code name='Back'>// Plusieurs constructeurs (surcharge)
+public MaClasse()        { this(0); }
+public MaClasse(int x)   { this.x = x; }</code><rich-text name='Front'><p>Surcharge de constructeurs (this() redirige vers un autre constructeur)</p></rich-text></card>
+
+<card><code name='Back'>MaClasse obj = new MaClasse(5);</code><rich-text name='Front'><p>Instancier un objet (mot-clé new)</p></rich-text></card>
+
+<card><code name='Back'>this</code><rich-text name='Front'><p>Référence à l'instance courante de la classe</p></rich-text></card>
+
+<card><code name='Back'>public class Fils extends Parent {
+    public Fils(int x) {
+        super(x); // appel du constructeur parent
+    }
+}</code><rich-text name='Front'><p>Héritage : Fils hérite de Parent (super() en 1ère ligne)</p></rich-text></card>
+
+<card><code name='Back'>@Override
+public void methode() {
+    super.methode(); // appel de la version parent
+    // puis code supplémentaire
+}</code><rich-text name='Front'><p>Redéfinir (override) une méthode héritée</p></rich-text></card>
+
+<card><code name='Back'>public abstract class A {
+    public abstract void methode();       // doit être implémentée
+    public void methodeConcrète() { ... } // optionnellement redéfinissable
+}</code><rich-text name='Front'><p>Classe abstraite : non instanciable, peut mélanger abstrait et concret</p></rich-text></card>
+
+<card><code name='Back'>public interface MonInterface {
+    void methodeAbstraite();
+    default void methodeDefaut() { ... }  // implémentation optionnelle
+    static void methodeStatique() { ... } // accessible via MonInterface.methodeStatique()
+}</code><rich-text name='Front'><p>Définir une interface (méthode abstraite, default, static)</p></rich-text></card>
+
+<card><code name='Back'>public class C extends Parent implements Interface1, Interface2 {
+    @Override public void methode() { ... }
+}</code><rich-text name='Front'><p>Implémenter une ou plusieurs interfaces (et hériter d'une classe)</p></rich-text></card>
+
+<card><code name='Back'>if (obj instanceof MaClasse c) {
+    // c est directement castée et disponible (Java 16+)
+}</code><rich-text name='Front'><p>Tester le type d'un objet et le caster (pattern matching instanceof)</p></rich-text></card>
+
+<card><code name='Back'>static int compteur = 0;</code><rich-text name='Front'><p>Champ statique : partagé par toutes les instances; accédé via NomClasse.compteur</p></rich-text></card>
+
+<card><code name='Back'>static final double PI = 3.14159;</code><rich-text name='Front'><p>Constante : static final, convention tout-MAJUSCULES</p></rich-text></card>
+
+<card><code name='Back'>static void methodeStatique() { ... }
+// Appel : NomClasse.methodeStatique();</code><rich-text name='Front'><p>Méthode statique : appartient à la classe, pas à une instance</p></rich-text></card>
+
+<card><code name='Back'>private int x;
+public int getX()        { return x; }
+public void setX(int x)  { this.x = x; }</code><rich-text name='Front'><p>Encapsulation : champ privé avec getter et setter</p></rich-text></card>
+
+<card><code name='Back'>// Différents niveaux de visibilité :
+public    // accessible partout
+protected // accessible dans le package et sous-classes
+(rien)    // package-private : accessible dans le package
+private   // accessible uniquement dans la classe</code><rich-text name='Front'><p>Les 4 niveaux de visibilité en Java</p></rich-text></card>
+
+<card><code name='Back'>public enum Couleur {
+    ROUGE, VERT, BLEU
+}
+// Utilisation :
+Couleur c = Couleur.ROUGE;
+switch (c) { case ROUGE -> ... }</code><rich-text name='Front'><p>Déclarer et utiliser un enum simple</p></rich-text></card>
+
+<card><code name='Back'>public enum Tier {
+    WOOD(1, 59), IRON(2, 250), DIAMOND(3, 1561);
+
+    final int level;
+    final int durability;
+    Tier(int level, int durability) {
+        this.level = level;
+        this.durability = durability;
+    }
+}</code><rich-text name='Front'><p>Enum avec champs et constructeur privé</p></rich-text></card>
+
+<card><code name='Back'>Couleur.values()          // tableau de toutes les valeurs
+Couleur.valueOf("ROUGE")  // enum depuis une String</code><rich-text name='Front'><p>Méthodes utilitaires des enums (values, valueOf)</p></rich-text></card>
+
+<card><code name='Back'>@Override
+public String toString() {
+    return "MaClasse{x=" + x + "}";
+}
+
+@Override
+public boolean equals(Object o) {
+    if (!(o instanceof MaClasse c)) return false;
+    return x == c.x;
+}
+
+@Override
+public int hashCode() { return Integer.hashCode(x); }</code><rich-text name='Front'><p>Redéfinir toString(), equals() et hashCode()</p></rich-text></card>
+
+<card><code name='Back'>public final class MaClasse { ... }</code><rich-text name='Front'><p>Classe finale : ne peut pas être étendue par héritage</p></rich-text></card>
+
+<card><code name='Back'>// Classe interne anonyme (implémentation ponctuelle)
+Runnable r = new Runnable() {
+    @Override public void run() { System.out.println("ok"); }
+};
+// Équivalent lambda :
+Runnable r = () -> System.out.println("ok");</code><rich-text name='Front'><p>Classe anonyme (et son équivalent lambda)</p></rich-text></card>
+
+<card><code name='Back'>public record Point(int x, int y) { }
+// Génère : constructeur, getters x()/y(), equals, hashCode, toString</code><rich-text name='Front'><p>Record : classe de données immuable (Java 16+)</p></rich-text></card>
+
+<card><code name='Back'>// Classe générique
+public class Boite&lt;T&gt; {
+    private T contenu;
+    public Boite(T contenu) { this.contenu = contenu; }
+    public T get() { return contenu; }
+}
+Boite&lt;String&gt; b = new Boite&lt;&gt;("hello");</code><rich-text name='Front'><p>Classe générique (paramètre de type T)</p></rich-text></card>
+
+<card><code name='Back'>// Méthode générique
+public &lt;T extends Comparable&lt;T&gt;&gt; T max(T a, T b) {
+    return a.compareTo(b) &gt;= 0 ? a : b;
+}</code><rich-text name='Front'><p>Méthode générique avec borne supérieure (T extends ...)</p></rich-text></card>
+
+</cards></deck>

@@ -1,0 +1,285 @@
+<deck name="05 Forge API" tags='Informatique'><fields><rich-text name='Front' sides='11'></rich-text><code name='Back' sides='01' lang='java'></code></fields><cards>
+
+<!-- ===== ITEM METHODS ===== -->
+
+<card><code name='Back'>@Override
+public InteractionResultHolder&lt;ItemStack&gt; use(
+        Level level, Player player, InteractionHand hand) {
+    ItemStack stack = player.getItemInHand(hand);
+    if (!level.isClientSide()) {
+        // logique serveur uniquement
+    }
+    player.getCooldowns().addCooldown(this, 20); // cooldown 1 s
+    return InteractionResultHolder.success(stack);
+}</code><rich-text name='Front'><p>Override de use() : clic droit dans l'air avec l'item</p></rich-text></card>
+
+<card><code name='Back'>@Override
+public InteractionResult useOn(UseOnContext ctx) {
+    Level level = ctx.getLevel();
+    BlockPos pos = ctx.getClickedPos();
+    Player player = ctx.getPlayer();
+    Direction face = ctx.getClickedFace();
+    if (!level.isClientSide()) {
+        // logique serveur
+    }
+    return InteractionResult.SUCCESS;
+}</code><rich-text name='Front'><p>Override de useOn() : clic droit sur un bloc avec l'item</p></rich-text></card>
+
+<card><code name='Back'>@Override
+public void inventoryTick(ItemStack stack, Level level,
+                          Entity entity, int slot, boolean selected) {
+    if (!level.isClientSide() &amp;&amp; entity instanceof Player player) {
+        // appelé chaque tick pour chaque item dans l'inventaire du joueur
+    }
+}</code><rich-text name='Front'><p>Override de inventoryTick() : logique par tick pour un item en inventaire</p></rich-text></card>
+
+<card><code name='Back'>@Override
+public boolean hurtEnemy(ItemStack stack, LivingEntity target,
+                          LivingEntity attacker) {
+    // endommager l'item d'une durabilité
+    stack.hurtAndBreak(1, attacker,
+        e -> e.broadcastBreakEvent(EquipmentSlot.MAINHAND));
+    return true;
+}</code><rich-text name='Front'><p>Override de hurtEnemy() : logique quand l'item frappe un ennemi</p></rich-text></card>
+
+<card><code name='Back'>@Override
+public ItemStack finishUsingItem(ItemStack stack, Level level, LivingEntity entity) {
+    // appelé à la fin de l'usage continu (food, bow, etc.)
+    if (entity instanceof Player player &amp;&amp; !player.getAbilities().instabuild)
+        stack.shrink(1);
+    return stack;
+}</code><rich-text name='Front'><p>Override de finishUsingItem() : fin d'un usage continu (nourriture, etc.)</p></rich-text></card>
+
+<card><code name='Back'>InteractionResultHolder.success(stack)  // action réussie + animation de bras
+InteractionResultHolder.consume(stack)  // consommé (édible / chargeable)
+InteractionResultHolder.pass(stack)     // ne pas intercepter (laisser passer)
+InteractionResultHolder.fail(stack)     // échec (afficher si besoin)</code><rich-text name='Front'><p>Les 4 résultats de InteractionResultHolder (méthode use())</p></rich-text></card>
+
+<card><code name='Back'>InteractionResult.SUCCESS   // succès + animation de bras
+InteractionResult.CONSUME   // succès sans animation
+InteractionResult.PASS      // ne pas traiter
+InteractionResult.FAIL      // échec (son d'échec)</code><rich-text name='Front'><p>Les 4 résultats de InteractionResult (méthode useOn() / interact())</p></rich-text></card>
+
+<!-- ===== ITEM SUBTYPES ===== -->
+
+<card><code name='Back'>public class MonEpee extends SwordItem {
+    public MonEpee() {
+        super(Tiers.IRON,   // tier (WOOD / STONE / IRON / GOLD / DIAMOND / NETHERITE)
+              6,            // dégâts bonus (base 1 + tier + bonus)
+              -2.4f,        // bonus de vitesse d'attaque (valeur négative)
+              new Item.Properties());
+    }
+}</code><rich-text name='Front'><p>Créer un SwordItem personnalisé (sous-classe)</p></rich-text></card>
+
+<card><code name='Back'>public class MonPiolet extends PickaxeItem {
+    public MonPiolet() {
+        super(Tiers.DIAMOND, 1, -2.8f, new Item.Properties());
+    }
+}
+// DiggerItem disponible pour les formes non-standard :
+// super(tier, attackDmg, attackSpeed, minableTag, new Item.Properties())</code><rich-text name='Front'><p>Créer un PickaxeItem (ou DiggerItem) personnalisé</p></rich-text></card>
+
+<card><code name='Back'>public class MonCasque extends ArmorItem {
+    public MonCasque() {
+        super(ArmorMaterials.DIAMOND,
+              ArmorItem.Type.HELMET,        // HELMET / CHESTPLATE / LEGGINGS / BOOTS
+              new Item.Properties());
+    }
+}
+// Autres matériaux : LEATHER, CHAINMAIL, IRON, GOLD, DIAMOND, NETHERITE</code><rich-text name='Front'><p>Créer un ArmorItem personnalisé (casque, plastron, jambières, bottes)</p></rich-text></card>
+
+<card><code name='Back'>// Tier custom : implémenter Tier (ou utiliser le enum Tiers)
+// Tiers standard :
+Tiers.WOOD, Tiers.STONE, Tiers.IRON,
+Tiers.GOLD, Tiers.DIAMOND, Tiers.NETHERITE
+
+// Tier custom dans un enum :
+public enum ModTiers implements Tier {
+    RUBY(3, 1500, 8.0f, 3.0f, 20, Ingredient.of(ModItems.RUBY.get()));
+    // harvestLevel, uses, speed, attackDmgBonus, enchantmentValue, repairIngredient
+    ...
+}</code><rich-text name='Front'><p>Tiers d'outils (Tiers enum + Tier interface pour un tier custom)</p></rich-text></card>
+
+<!-- ===== NBT / TAG ===== -->
+
+<card><code name='Back'>// Écrire (crée le tag s'il n'existe pas)
+stack.getOrCreateTag().putBoolean("actif", true);
+stack.getOrCreateTag().putInt("kills", 10);
+stack.getOrCreateTag().putString("owner", "Steve");
+
+// Lire
+boolean actif = stack.hasTag() &amp;&amp; stack.getTag().getBoolean("actif");
+int kills     = stack.hasTag() ? stack.getTag().getInt("kills") : 0;</code><rich-text name='Front'><p>Lire et écrire des données NBT dans un ItemStack (Forge 1.20.1)</p></rich-text></card>
+
+<card><code name='Back'>// Sur une BlockEntity :
+@Override
+public void saveAdditional(CompoundTag tag) {
+    tag.putInt("energie", energie);
+}
+@Override
+public void load(CompoundTag tag) {
+    super.load(tag);
+    energie = tag.getInt("energie");
+}</code><rich-text name='Front'><p>Sauvegarder et charger des données NBT dans une BlockEntity</p></rich-text></card>
+
+<!-- ===== BLOCK ENTITY ===== -->
+
+<card><code name='Back'>public class MaBlockEntity extends BlockEntity {
+    public MaBlockEntity(BlockPos pos, BlockState state) {
+        super(ModBlockEntities.MA_BE.get(), pos, state);
+    }
+
+    // tick statique enregistré dans le bloc :
+    public static &lt;T extends BlockEntity&gt; void tick(
+            Level level, BlockPos pos, BlockState state, T be) {
+        if (!level.isClientSide()) { ... }
+    }
+}</code><rich-text name='Front'><p>Structure d'une BlockEntity avec tick statique</p></rich-text></card>
+
+<!-- ===== BLOCKPOS + LEVEL ===== -->
+
+<card><code name='Back'>pos.above()            // y+1
+pos.below()            // y-1
+pos.north()  pos.south()
+pos.east()   pos.west()
+pos.offset(dx, dy, dz)
+pos.relative(direction, n)</code><rich-text name='Front'><p>Opérations courantes sur BlockPos (déplacements cardinaux)</p></rich-text></card>
+
+<card><code name='Back'>BlockState state = level.getBlockState(pos);
+state.is(Blocks.STONE)                     // est ce bloc exact ?
+state.is(BlockTags.LOGS)                   // est dans ce tag ?
+state.getValue(BlockStateProperties.POWERED) // propriété d'état
+state.getBlock()                           // l'objet Block</code><rich-text name='Front'><p>Lire l'état d'un bloc dans le monde (getBlockState)</p></rich-text></card>
+
+<card><code name='Back'>// flags : 0=rien 1=voisins 2=client 3=(1|2) — utiliser 3 en général
+level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+level.setBlock(pos, ModBlocks.RUBY_BLOCK.get().defaultBlockState(), 3);
+level.destroyBlock(pos, true);  // true = drop les items</code><rich-text name='Front'><p>Placer ou casser un bloc par code (setBlock / destroyBlock)</p></rich-text></card>
+
+<card><code name='Back'>level.isEmptyBlock(pos)   // pas de bloc solide
+level.canSeeSky(pos)       // exposition au ciel
+level.isRainingAt(pos)     // il pleut à cette position
+level.getBrightness(LightLayer.SKY, pos)  // luminosité</code><rich-text name='Front'><p>Consulter l'environnement autour d'un bloc (level utilitaires)</p></rich-text></card>
+
+<!-- ===== ENTITIES ===== -->
+
+<card><code name='Back'>List&lt;LivingEntity&gt; entities = level.getEntitiesOfClass(
+    LivingEntity.class,
+    new AABB(pos).inflate(5.0)   // boîte centrée sur pos, rayon 5
+);
+// ou à partir du joueur :
+new AABB(player.blockPosition()).inflate(radius)</code><rich-text name='Front'><p>Obtenir toutes les entités dans une zone (AABB — boîte de collision)</p></rich-text></card>
+
+<card><code name='Back'>// 1.20.1 — damageSources() sur le Level
+entity.hurt(level.damageSources().playerAttack(player), 8.0f);
+entity.hurt(level.damageSources().magic(), 4.0f);
+entity.hurt(level.damageSources().explosion(null, null), 10.0f);
+entity.hurt(level.damageSources().fall(), 6.0f);</code><rich-text name='Front'><p>Infliger des dégâts à une entité avec une source de dégâts (entity.hurt)</p></rich-text></card>
+
+<card><code name='Back'>entity.getHealth()         // PV actuels
+entity.getMaxHealth()      // PV maximum
+entity.setHealth(20.0f);   // définir les PV
+entity.heal(5.0f);         // soigner (ajoute des PV)</code><rich-text name='Front'><p>Lire et modifier les points de vie d'une entité</p></rich-text></card>
+
+<card><code name='Back'>entity.teleportTo(x, y, z);
+// Téléportation avec particules de fumée :
+((ServerLevel)level).sendParticles(ParticleTypes.POOF, x, y, z, 10, 0.3, 0.5, 0.3, 0);</code><rich-text name='Front'><p>Téléporter une entité à des coordonnées</p></rich-text></card>
+
+<card><code name='Back'>entity.addEffect(new MobEffectInstance(
+    MobEffects.SPEED,   // ou ModEffects.MON_EFFET.get()
+    600,                // durée en ticks (30 s)
+    1,                  // amplificateur (0 = niveau I, 1 = niveau II, …)
+    false, true, true));
+
+entity.hasEffect(MobEffects.SPEED)
+entity.removeEffect(MobEffects.SPEED)</code><rich-text name='Front'><p>Appliquer, tester et retirer un MobEffect sur une entité</p></rich-text></card>
+
+<card><code name='Back'>entity.setGlowingTag(true);       // surligner (glow)
+entity.setInvulnerable(true);     // immunité aux dégâts
+entity.setNoGravity(true);        // pas de gravité
+entity.setSilent(true);           // aucun son
+entity.setCustomName(Component.literal("Nom"));</code><rich-text name='Front'><p>Propriétés communes des entités (glow, invulnérabilité, nom…)</p></rich-text></card>
+
+<!-- ===== PLAYER ===== -->
+
+<card><code name='Back'>player.getMainHandItem()               // item main principale
+player.getOffhandItem()                // item main secondaire
+player.getItemBySlot(EquipmentSlot.HEAD)   // casque équipé
+player.getItemInHand(hand)             // main courante (contexte use())</code><rich-text name='Front'><p>Accéder aux items en main et à l'équipement d'un joueur</p></rich-text></card>
+
+<card><code name='Back'>// Donner un item (l'ajoute dans l'inventaire) :
+if (!player.getInventory().add(new ItemStack(ModItems.RUBY.get(), 5))) {
+    player.drop(new ItemStack(ModItems.RUBY.get(), 5), false); // drop si plein
+}
+// Supprimer un item :
+player.getInventory().removeItem(stack);</code><rich-text name='Front'><p>Donner ou retirer un item à un joueur par code</p></rich-text></card>
+
+<card><code name='Back'>player.displayClientMessage(
+    Component.literal("Message !"),
+    true   // true = barre d'action (action bar), false = tchat
+);</code><rich-text name='Front'><p>Afficher un message à un joueur (barre d'action ou tchat)</p></rich-text></card>
+
+<card><code name='Back'>player.getName().getString()          // nom brut (String)
+player.getDisplayName().getString()  // nom affiché
+player.getUUID()                     // UUID unique du joueur
+player.getAbilities().instabuild     // mode créatif ?
+player.getAbilities().flying         // en train de voler ?</code><rich-text name='Front'><p>Infos du joueur : nom, UUID, capacités</p></rich-text></card>
+
+<card><code name='Back'>player.getFoodData().getFoodLevel()      // niveau de faim (0–20)
+player.getFoodData().setSaturation(5f); // saturation
+player.experienceLevel              // niveau d'XP
+player.giveExperiencePoints(100);   // donner de l'XP</code><rich-text name='Front'><p>Faim, saturation et XP d'un joueur</p></rich-text></card>
+
+<!-- ===== SOUND / PARTICLES ===== -->
+
+<card><code name='Back'>level.playSound(
+    null,                              // joueur à exclure (null = tout le monde)
+    player.blockPosition(),            // position
+    SoundEvents.ENDER_PEARL_THROW,     // son vanilla (ou ModSounds.X.get())
+    SoundSource.PLAYERS,               // catégorie (PLAYERS / BLOCKS / MOBS…)
+    1.0f,                              // volume
+    1.0f + (float)(Math.random()*0.2)  // pitch (variation aléatoire)
+);</code><rich-text name='Front'><p>Jouer un son en jeu (level.playSound)</p></rich-text></card>
+
+<card><code name='Back'>level.addParticle(
+    ParticleTypes.FLAME,   // type de particule
+    x, y, z,               // position d'apparition
+    0, 0.2, 0              // vitesse dx, dy, dz
+);
+// Côté serveur, utiliser sendParticles() sur ServerLevel :</card>
+// ((ServerLevel)level).sendParticles(ParticleTypes.FLAME, x,y,z, count, ox,oy,oz, speed);</code><rich-text name='Front'><p>Spawner des particules (client : addParticle, serveur : sendParticles)</p></rich-text></card>
+
+<!-- ===== VELOCITY ===== -->
+
+<card><code name='Back'>Vec3 vel = player.getDeltaMovement();
+player.setDeltaMovement(vel.x, vel.y + 1.5, vel.z); // saut propulsé
+player.hurtMarked = true; // forcer la synchro client</code><rich-text name='Front'><p>Lire et modifier le vecteur vitesse d'un joueur (deltaMovement)</p></rich-text></card>
+
+<!-- ===== ITEM PREDICATES ===== -->
+
+<card><code name='Back'>stack.is(Items.DIAMOND)                    // item exact
+stack.is(ItemTags.SWORDS)                  // tag d'item
+stack.is(ModItems.RUBY.get())              // item de mod
+stack.isEmpty()                            // stack vide
+stack.getCount()                           // quantité
+
+block.is(Blocks.STONE)                     // bloc exact
+block.is(BlockTags.MINEABLE_WITH_PICKAXE)  // tag de bloc</code><rich-text name='Front'><p>Tester le type d'un ItemStack ou Block (is() + tags)</p></rich-text></card>
+
+<card><code name='Back'>stack.shrink(1);    // consommer 1 unité
+stack.grow(1);     // ajouter 1 unité
+stack.getCount()   // quantité actuelle
+stack.copy()       // copie indépendante du stack</code><rich-text name='Front'><p>Modifier la quantité d'un ItemStack (shrink, grow, count, copy)</p></rich-text></card>
+
+<card><code name='Back'>player.getCooldowns().addCooldown(this, 40);            // 2 s de cooldown
+player.getCooldowns().isOnCooldown(this)               // en cooldown ?
+player.getCooldowns().getCooldownPercent(this, 0)      // 0.0 → 1.0</code><rich-text name='Front'><p>Gérer le cooldown d'un item pour un joueur</p></rich-text></card>
+
+<!-- ===== COMPONENT TEXT ===== -->
+
+<card><code name='Back'>Component.literal("Texte brut")
+Component.translatable("msg.monmod.cle")  // clé de traduction
+Component.literal("Rouge").withStyle(ChatFormatting.RED)
+Component.literal("Gras").withStyle(s -> s.withBold(true))</code><rich-text name='Front'><p>Créer un texte Component (literal, translatable, avec style)</p></rich-text></card>
+
+</cards></deck>

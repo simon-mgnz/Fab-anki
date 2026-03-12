@@ -1,0 +1,163 @@
+<deck name="06 Forge Evenements" tags='Informatique'><fields><rich-text name='Front' sides='11'></rich-text><code name='Back' sides='01' lang='java'></code></fields><cards>
+
+<!-- ===== INFRASTRUCTURE ===== -->
+
+<card><code name='Back'>if (!level.isClientSide()) {
+    // code exécuté uniquement côté serveur
+}
+// Depuis 1.20.1 : level.isClientSide  (champ public, pas méthode)</code><rich-text name='Front'><p>Vérifier que le code s'exécute côté serveur (isClientSide)</p></rich-text></card>
+
+<card><code name='Back'>event.setCanceled(true);</code><rich-text name='Front'><p>Annuler un événement Forge cancelable (empêche l'action par défaut)</p></rich-text></card>
+
+<!-- ===== PLAYER EVENTS ===== -->
+
+<card><code name='Back'>@SubscribeEvent
+public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
+    if (event.phase == TickEvent.Phase.END
+            &amp;&amp; !event.player.level().isClientSide()) {
+        Player player = event.player;
+        // appelé chaque tick côté serveur pour chaque joueur
+    }
+}</code><rich-text name='Front'><p>Exécuter du code à chaque tick pour un joueur (PlayerTickEvent)</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
+    Player player = event.getEntity();
+    // joueur connecté
+}
+
+@SubscribeEvent
+public static void onPlayerLeave(PlayerEvent.PlayerLoggedOutEvent event) { ... }</code><rich-text name='Front'><p>Réagir à la connexion / déconnexion d'un joueur</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
+    Player player = event.getEntity();
+    boolean endReturn = event.isEndConquered(); // retour depuis l'End ?
+}</code><rich-text name='Front'><p>Réagir à la réapparition (respawn) d'un joueur</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
+    Player player = event.getEntity();
+    ItemStack stack = event.getItemStack();
+    InteractionHand hand = event.getHand();
+    // event.setCanceled(true) pour empêcher le use()
+}</code><rich-text name='Front'><p>Intercepter le clic droit avec un item (PlayerInteractEvent.RightClickItem)</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+    BlockPos pos = event.getPos();
+    Player player = event.getEntity();
+    // event.setUseBlock(Event.Result.DENY)   → empêche l'interaction avec le bloc
+    // event.setUseItem(Event.Result.DENY)    → empêche l'utilisation de l'item
+}</code><rich-text name='Front'><p>Intercepter le clic droit sur un bloc (PlayerInteractEvent.RightClickBlock)</p></rich-text></card>
+
+<!-- ===== COMBAT / DAMAGE ===== -->
+
+<card><code name='Back'>@SubscribeEvent
+public static void onHurt(LivingHurtEvent event) {
+    float damage = event.getAmount();
+    DamageSource source = event.getSource();
+    LivingEntity victim = event.getEntity();
+
+    event.setAmount(damage * 0.5f); // réduire les dégâts de 50 %
+    // event.setCanceled(true);      // annuler complètement
+}</code><rich-text name='Front'><p>Modifier les dégâts reçus par une entité (LivingHurtEvent)</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onDeath(LivingDeathEvent event) {
+    LivingEntity victim = event.getEntity();
+    DamageSource source  = event.getSource();
+    if (source.getEntity() instanceof Player killer) {
+        // un joueur a tué victim
+    }
+    // event.setCanceled(true); → empêcher la mort (remettre 1 PV)
+}</code><rich-text name='Front'><p>Réagir à la mort d'une entité (LivingDeathEvent)</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onAttack(LivingAttackEvent event) {
+    // déclenché avant LivingHurtEvent — avant les réductions d'armure
+    LivingEntity target = event.getEntity();
+    float rawDamage = event.getAmount();
+}</code><rich-text name='Front'><p>Intercepter une attaque avant réduction d'armure (LivingAttackEvent)</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onDrops(LivingDropsEvent event) {
+    if (event.getEntity() instanceof Zombie) {
+        Level level = event.getEntity().level();
+        double x = event.getEntity().getX();
+        double y = event.getEntity().getY();
+        double z = event.getEntity().getZ();
+        event.getDrops().add(
+            new ItemEntity(level, x, y, z,
+                new ItemStack(ModItems.RUBY.get())));
+    }
+}</code><rich-text name='Front'><p>Ajouter / modifier les drops d'une entité à sa mort (LivingDropsEvent)</p></rich-text></card>
+
+<!-- ===== BLOCK EVENTS ===== -->
+
+<card><code name='Back'>@SubscribeEvent
+public static void onBreak(BlockEvent.BreakEvent event) {
+    BlockPos pos    = event.getPos();
+    BlockState state = event.getState();
+    Player player   = event.getPlayer();
+    // event.setCanceled(true); → empêcher la casse
+}</code><rich-text name='Front'><p>Intercepter la casse d'un bloc par un joueur (BlockEvent.BreakEvent)</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onPlace(BlockEvent.EntityPlaceEvent event) {
+    BlockPos pos        = event.getPos();
+    BlockState placed   = event.getPlacedBlock();
+    Entity entity       = event.getEntity(); // joueur ou piston
+    // event.setCanceled(true); → empêcher la pose
+}</code><rich-text name='Front'><p>Intercepter la pose d'un bloc (BlockEvent.EntityPlaceEvent)</p></rich-text></card>
+
+<!-- ===== WORLD EVENTS ===== -->
+
+<card><code name='Back'>@SubscribeEvent
+public static void onJoinLevel(EntityJoinLevelEvent event) {
+    if (event.getEntity() instanceof Zombie zombie) {
+        // un zombie apparaît dans le monde
+    }
+    // event.setCanceled(true); → empêcher l'apparition
+}</code><rich-text name='Front'><p>Réagir à l'apparition d'une entité dans le monde (EntityJoinLevelEvent)</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onExplosion(ExplosionEvent.Detonate event) {
+    List&lt;BlockPos&gt; affectedBlocks = event.getAffectedBlocks();
+    affectedBlocks.removeIf(pos -&gt;
+        event.getLevel().getBlockState(pos).is(Blocks.OBSIDIAN));
+}</code><rich-text name='Front'><p>Modifier les blocs détruits par une explosion (ExplosionEvent.Detonate)</p></rich-text></card>
+
+<!-- ===== ITEM EVENTS ===== -->
+
+<card><code name='Back'>@SubscribeEvent
+public static void onItemCrafted(PlayerEvent.ItemCraftedEvent event) {
+    ItemStack result = event.getCrafting();
+    Player player = event.getEntity();
+}</code><rich-text name='Front'><p>Réagir quand un joueur craft un item (PlayerEvent.ItemCraftedEvent)</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onItemPickup(EntityItemPickupEvent event) {
+    ItemEntity itemEntity = event.getItem();
+    Player player = event.getEntity();
+    // event.setCanceled(true); → empêcher le ramassage
+}</code><rich-text name='Front'><p>Intercepter le ramassage d'un item au sol (EntityItemPickupEvent)</p></rich-text></card>
+
+<!-- ===== LIVING EVENTS ===== -->
+
+<card><code name='Back'>@SubscribeEvent
+public static void onLivingTick(LivingEvent.LivingTickEvent event) {
+    if (event.getEntity() instanceof Zombie zombie
+            &amp;&amp; !zombie.level().isClientSide()) {
+        // appelé chaque tick pour chaque entité LivingEntity
+    }
+}</code><rich-text name='Front'><p>Exécuter du code à chaque tick pour une LivingEntity (LivingTickEvent)</p></rich-text></card>
+
+<card><code name='Back'>@SubscribeEvent
+public static void onItemFinish(LivingEntityUseItemEvent.Finish event) {
+    LivingEntity user = event.getEntity();
+    ItemStack stack   = event.getItem();
+    // déclenché quand le chargement se termine (arc, crossbow, etc.)
+}</code><rich-text name='Front'><p>Réagir à la fin d'un usage continu d'item (LivingEntityUseItemEvent.Finish)</p></rich-text></card>
+
+</cards></deck>

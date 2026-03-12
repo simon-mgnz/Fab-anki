@@ -1,0 +1,130 @@
+<deck name="08 Portage" tags='Informatique'><fields><rich-text name='Front' sides='11'></rich-text><code name='Back' sides='01' lang='java'></code></fields><cards>
+
+<!-- ===== FORGE 1.12.2 → 1.16.5 ===== -->
+
+<card><code name='Back'>// Forge 1.12.2 → 1.16.5 : changements majeurs
+// @Mod(modid=...) → @Mod("monmod")
+// proxy SidedProxy → DistExecutor
+// ItemStack(item, count, meta) → ItemStack(item, count)  (pas de meta)
+// net.minecraft.item.Item.ToolMaterial → Tiers
+// net.minecraft.block.material.Material → BlockBehaviour.Properties</code><rich-text name='Front'><p>Principaux changements Forge 1.12.2 → 1.16.5</p></rich-text></card>
+
+<!-- ===== FORGE 1.16.5 → 1.18.2 ===== -->
+
+<card><code name='Back'>// Forge 1.16.5 → 1.18.2 : renommages Mojang
+// World          →  Level
+// ServerWorld    →  ServerLevel
+// TileEntity     →  BlockEntity
+// PlayerEntity   →  Player
+// MatrixStack    →  PoseStack
+// CompoundNBT    →  CompoundTag
+// ItemStack.getTag()     →  ItemStack.getTag()  (inchangé)
+// World.isRemote         →  Level.isClientSide</code><rich-text name='Front'><p>Principaux renommages Forge 1.16.5 → 1.18.2</p></rich-text></card>
+
+<!-- ===== FORGE 1.18.2 → 1.19.2 ===== -->
+
+<card><code name='Back'>// Forge 1.18.2 → 1.19.2
+// player.sendMessage(Component, UUID)  →  player.sendSystemMessage(Component)
+// ITextComponent                       →  Component
+// StringTextComponent                  →  Component.literal(...)
+// TranslationTextComponent             →  Component.translatable(...)
+// ChatFormatting  →  inchangé</code><rich-text name='Front'><p>Principaux changements Forge 1.18.2 → 1.19.2 (API Component)</p></rich-text></card>
+
+<card><code name='Back'>// 1.19.2+ : créer des textes Component
+player.sendSystemMessage(Component.literal("Bonjour !"));
+Component.translatable("msg.monmod.cle")
+Component.literal("Rouge").withStyle(ChatFormatting.RED)</code><rich-text name='Front'><p>Envoyer un message et créer un Component texte (API 1.19.2+)</p></rich-text></card>
+
+<!-- ===== FORGE 1.19.2 → 1.20.1 ===== -->
+
+<card><code name='Back'>// Forge 1.19.2 → 1.20.1 : renommages majeurs
+// PoseStack remplacé par GuiGraphics dans Screen.render() et tous les rendus GUI
+// entity.level     →  entity.level()   (méthode, plus champ public)
+// CreativeModeTab.builder() + BuildCreativeModeTabContentsEvent pour onglets créatifs</code><rich-text name='Front'><p>Principaux changements Forge 1.19.2 → 1.20.1</p></rich-text></card>
+
+<card><code name='Back'>// 1.20.1 : signature de render() dans un Screen
+@Override
+public void render(GuiGraphics g, int mouseX, int mouseY, float delta) {
+    this.renderBackground(g);
+    super.render(g, mouseX, mouseY, delta);
+    g.drawString(font, "Titre", 28, 6, 0x404040, false);
+}</code><rich-text name='Front'><p>Signature de render() dans un Screen Forge 1.20.1 (GuiGraphics remplace PoseStack)</p></rich-text></card>
+
+<!-- ===== NEOFORGE 1.21.1 ===== -->
+
+<card><code name='Back'>// Forge 1.20.1 → NeoForge 1.21.1 : renommer tous les imports
+// net.minecraftforge.*    →  net.neoforged.neoforge.*
+// net.minecraftforge.fml.* →  net.neoforged.fml.*
+// Bus.FORGE  →  Bus.GAME
+// mods.toml  →  neoforge.mods.toml</code><rich-text name='Front'><p>Principaux changements de packages lors du portage vers NeoForge 1.21.1</p></rich-text></card>
+
+<card><code name='Back'>// NeoForge 1.21.1 : IEventBus injecté automatiquement
+@Mod("monmod")
+public class MonMod {
+    public MonMod(IEventBus modBus) {  // injecté par NeoForge
+        ModItems.ITEMS.register(modBus);
+        ModBlocks.BLOCKS.register(modBus);
+    }
+}
+// Plus besoin de FMLJavaModLoadingContext.get().getModEventBus()</code><rich-text name='Front'><p>IEventBus injecté dans le constructeur @Mod (NeoForge 1.21.1+)</p></rich-text></card>
+
+<card><code name='Back'>// NeoForge 1.21.1+ : Data Components remplacent le NBT pour les items
+// Lire :
+boolean actif = stack.getOrDefault(ModComponents.MAGNET.get(), false);
+// Écrire :
+stack.set(ModComponents.MAGNET.get(), true);
+// Mettre à jour (1.21.8+) :
+stack.update(ModComponents.KILLS.get(), 0, n -&gt; n + 1);</code><rich-text name='Front'><p>Lire, écrire et mettre à jour un Data Component (NeoForge 1.21+ — remplace NBT items)</p></rich-text></card>
+
+<!-- ===== NEOFORGE 1.21.8 ===== -->
+
+<card><code name='Back'>// NeoForge 1.21.8 : DeferredRegister.Items helper
+public static final DeferredRegister.Items ITEMS =
+    DeferredRegister.createItems(MOD_ID); // inchangé côté API
+// Enregistrement identique à 1.21.1</code><rich-text name='Front'><p>NeoForge 1.21.8 : helper DeferredRegister.Items (simplification d'import)</p></rich-text></card>
+
+<!-- ===== FABRIC ===== -->
+
+<card><code name='Back'>// Fabric : point d'entrée principal
+public class MonMod implements ModInitializer {
+    @Override
+    public void onInitialize() {
+        ModItems.register();
+        ModBlocks.register();
+        ModEvents.register();
+    }
+}
+// Déclaré dans fabric.mod.json sous "entrypoints" → "main"</code><rich-text name='Front'><p>Point d'entrée d'un mod Fabric (implémente ModInitializer)</p></rich-text></card>
+
+<card><code name='Back'>// Fabric : pas de DeferredRegister
+Registry.register(
+    Registries.ITEM,
+    new Identifier("monmod", "rubis"),
+    new Item(new Item.Settings().maxCount(64)));
+
+Registry.register(
+    Registries.BLOCK,
+    new Identifier("monmod", "ruby_block"),
+    new Block(AbstractBlock.Settings.of().strength(3.0f)));</code><rich-text name='Front'><p>Enregistrer un Item et un Block avec l'API Fabric (pas de DeferredRegister)</p></rich-text></card>
+
+<card><code name='Back'>// Fabric : s'abonner à un événement (callback, pas d'annotation)
+PlayerBlockBreakEvents.BEFORE.register(
+    (world, player, pos, state, be) -&gt; {
+        return true; // retourner false pour annuler
+    }
+);
+
+ServerTickEvents.END_SERVER_TICK.register(server -&gt; {
+    // chaque tick serveur
+});</code><rich-text name='Front'><p>S'abonner à des événements Fabric (callbacks, pas d'annotations)</p></rich-text></card>
+
+<card><code name='Back'>// Fabric : enregistrement côté client
+public class MonModClient implements ClientModInitializer {
+    @Override
+    public void onInitializeClient() {
+        // enregistrement renderer entité, écrans, etc.
+    }
+}
+// Déclaré dans fabric.mod.json sous "entrypoints" → "client"</code><rich-text name='Front'><p>Point d'entrée client Fabric (ClientModInitializer)</p></rich-text></card>
+
+</cards></deck>

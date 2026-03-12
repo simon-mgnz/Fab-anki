@@ -1,0 +1,146 @@
+<deck name="03 Intermediaire" tags='Informatique'><fields><rich-text name='Front' sides='11'></rich-text><code name='Back' sides='01' lang='java'></code></fields><cards>
+
+<card><code name='Back'>List&lt;String&gt; list = new ArrayList&lt;&gt;();</code><rich-text name='Front'><p>Créer une ArrayList de Strings</p></rich-text></card>
+
+<card><code name='Back'>list.add(element);
+list.add(0, element); // insérer à un index</code><rich-text name='Front'><p>Ajouter un élément à une liste (à la fin ou à un index)</p></rich-text></card>
+
+<card><code name='Back'>list.get(i)
+list.set(i, element)  // remplacer</code><rich-text name='Front'><p>Accéder et modifier un élément d'une liste par index</p></rich-text></card>
+
+<card><code name='Back'>list.size()
+list.isEmpty()</code><rich-text name='Front'><p>Taille / tester si une liste est vide</p></rich-text></card>
+
+<card><code name='Back'>list.remove(i);      // par index (int)
+list.remove(obj);    // par objet (Object)</code><rich-text name='Front'><p>Supprimer un élément d'une liste par index ou par valeur</p></rich-text></card>
+
+<card><code name='Back'>list.contains(obj)
+list.indexOf(obj)   // -1 si absent</code><rich-text name='Front'><p>Tester la présence / trouver l'index d'un objet dans une liste</p></rich-text></card>
+
+<card><code name='Back'>List&lt;String&gt; sub = list.subList(from, to); // vue (de from inclus à to exclus)
+List&lt;String&gt; copy = new ArrayList&lt;&gt;(list);  // copie indépendante</code><rich-text name='Front'><p>Sous-liste et copie d'une liste</p></rich-text></card>
+
+<card><code name='Back'>Collections.sort(list);
+Collections.shuffle(list);
+Collections.reverse(list);</code><rich-text name='Front'><p>Opérations utilitaires sur les listes (Collections.*)</p></rich-text></card>
+
+<card><code name='Back'>Map&lt;String, Integer&gt; map = new HashMap&lt;&gt;();</code><rich-text name='Front'><p>Créer une HashMap (association clé → valeur, non ordonnée)</p></rich-text></card>
+
+<card><code name='Back'>map.put(clé, valeur);
+map.putIfAbsent(clé, valeur);   // n'écrase pas
+map.getOrDefault(clé, defaut);  // valeur par défaut si absente</code><rich-text name='Front'><p>Insérer / lire dans une Map (put, putIfAbsent, getOrDefault)</p></rich-text></card>
+
+<card><code name='Back'>map.get(clé)
+map.containsKey(clé)
+map.remove(clé)</code><rich-text name='Front'><p>Accéder, tester la présence et supprimer une entrée Map</p></rich-text></card>
+
+<card><code name='Back'>map.keySet()    // Set des clés
+map.values()    // Collection des valeurs
+map.entrySet()  // Set des paires Map.Entry&lt;K,V&gt;</code><rich-text name='Front'><p>Vues d'une Map (clés, valeurs, paires)</p></rich-text></card>
+
+<card><code name='Back'>for (Map.Entry&lt;K, V&gt; e : map.entrySet()) {
+    K k = e.getKey();
+    V v = e.getValue();
+}
+// ou avec lambda :
+map.forEach((k, v) -> System.out.println(k + "=" + v));</code><rich-text name='Front'><p>Parcourir toutes les entrées d'une Map</p></rich-text></card>
+
+<card><code name='Back'>Set&lt;String&gt; set = new HashSet&lt;&gt;();
+// Ensemble ordonné (trié) :
+Set&lt;String&gt; sorted = new TreeSet&lt;&gt;();</code><rich-text name='Front'><p>Créer un HashSet (sans doublons, non ordonné) ou TreeSet (trié)</p></rich-text></card>
+
+<card><code name='Back'>Deque&lt;Integer&gt; stack = new ArrayDeque&lt;&gt;();
+stack.push(1);   // empiler
+stack.pop();     // dépiler
+stack.peek();    // consulter sans dépiler</code><rich-text name='Front'><p>Pile (stack) avec ArrayDeque</p></rich-text></card>
+
+<card><code name='Back'>Queue&lt;Integer&gt; queue = new LinkedList&lt;&gt;();
+queue.offer(1);  // enfiler
+queue.poll();    // défiler (null si vide)
+queue.peek();    // consulter sans défiler</code><rich-text name='Front'><p>File (queue) avec LinkedList</p></rich-text></card>
+
+<card><code name='Back'>try {
+    ...
+} catch (IOException e) {
+    e.getMessage(); // message d'erreur
+    e.printStackTrace();
+} catch (NullPointerException e) {
+    ...
+} finally {
+    // toujours exécuté (fermeture de ressources)
+}</code><rich-text name='Front'><p>Bloc try-catch-finally (plusieurs catch possibles, finally toujours exécuté)</p></rich-text></card>
+
+<card><code name='Back'>// Try-with-resources (fermeture automatique)
+try (BufferedReader br = new BufferedReader(new FileReader("f.txt"))) {
+    String line = br.readLine();
+}</code><rich-text name='Front'><p>Try-with-resources : fermeture automatique des ressources AutoCloseable</p></rich-text></card>
+
+<card><code name='Back'>throw new RuntimeException("message d'erreur");
+throw new IllegalArgumentException("valeur invalide : " + x);</code><rich-text name='Front'><p>Lancer une exception</p></rich-text></card>
+
+<card><code name='Back'>public class MonException extends RuntimeException {
+    public MonException(String msg)            { super(msg); }
+    public MonException(String msg, Throwable cause) { super(msg, cause); }
+}</code><rich-text name='Front'><p>Définir une exception personnalisée (unchecked)</p></rich-text></card>
+
+<card><code name='Back'>// Checked exception : doit être déclarée ou attrapée
+public void methode() throws IOException { ... }
+
+// Unchecked (extends RuntimeException) : pas de déclaration requise</code><rich-text name='Front'><p>Checked vs Unchecked exception (throws vs RuntimeException)</p></rich-text></card>
+
+<card><code name='Back'>(paramètre) -> expression
+(a, b) -> a + b
+() -> System.out.println("ok")</code><rich-text name='Front'><p>Expression lambda (fonction anonyme, implémente une interface fonctionnelle)</p></rich-text></card>
+
+<card><code name='Back'>(x) -> {
+    int r = x * 2;
+    return r;
+}</code><rich-text name='Front'><p>Lambda multi-ligne avec return explicite</p></rich-text></card>
+
+<card><code name='Back'>// Interfaces fonctionnelles courantes :
+Runnable  r   = () -> ...;                  // pas d'arg, pas de retour
+Supplier&lt;T&gt; s = () -> valeur;               // pas d'arg, retourne T
+Consumer&lt;T&gt; c = x -> ...;                   // prend T, pas de retour
+Function&lt;T,R&gt; f = x -> transformé;         // prend T, retourne R
+Predicate&lt;T&gt; p = x -> x &gt; 0;              // prend T, retourne boolean</code><rich-text name='Front'><p>Interfaces fonctionnelles standard (java.util.function)</p></rich-text></card>
+
+<card><code name='Back'>list.stream()
+    .filter(x -> x &gt; 0)
+    .map(x -> x * 2)
+    .sorted()
+    .distinct()
+    .limit(10)
+    .collect(Collectors.toList())</code><rich-text name='Front'><p>Pipeline de stream : filter, map, sorted, distinct, limit, collect</p></rich-text></card>
+
+<card><code name='Back'>list.stream().forEach(e -> System.out.println(e));
+list.stream().count();
+list.stream().findFirst();  // Optional&lt;T&gt;
+list.stream().anyMatch(x -> x &gt; 0);
+list.stream().allMatch(x -> x &gt; 0);</code><rich-text name='Front'><p>Opérations terminales d'un stream (forEach, count, findFirst, anyMatch…)</p></rich-text></card>
+
+<card><code name='Back'>list.stream()
+    .mapToInt(Integer::intValue)
+    .sum();   // aussi : min(), max(), average()</code><rich-text name='Front'><p>Stream de primitifs (mapToInt / mapToDouble) et réductions sum/min/max/average</p></rich-text></card>
+
+<card><code name='Back'>list.sort((a, b) -> a.compareTo(b));
+list.sort(Comparator.naturalOrder());
+list.sort(Comparator.comparing(Obj::getNom)
+          .thenComparingInt(Obj::getAge));
+list.sort(Comparator.reverseOrder());</code><rich-text name='Front'><p>Trier une liste avec Comparator (naturalOrder, comparing, reversed)</p></rich-text></card>
+
+<card><code name='Back'>NomClasse::methodeInstance  // ex: String::toUpperCase
+NomClasse::methodeStatique  // ex: Integer::parseInt
+objet::methode              // ex: list::add
+NomClasse::new              // référence au constructeur</code><rich-text name='Front'><p>Référence à une méthode (method reference, les 4 formes)</p></rich-text></card>
+
+<card><code name='Back'>Optional&lt;String&gt; opt = Optional.of("valeur");
+Optional&lt;String&gt; vide = Optional.empty();
+
+opt.isPresent()
+opt.get()
+opt.orElse("défaut")
+opt.orElseGet(() -> calcul())
+opt.map(String::toUpperCase)
+opt.ifPresent(v -> System.out.println(v))</code><rich-text name='Front'><p>Optional : conteneur pouvant être vide (évite NullPointerException)</p></rich-text></card>
+
+</cards></deck>

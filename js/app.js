@@ -867,18 +867,43 @@
   }
   function getManifestEntryForPath(url){
     const rel = normalizeDeckPath(url);
-    let entry = manifestMeta[rel] || null;
-    
-    // If not found, try to match by searching the path
-    if(!entry && Object.keys(manifestMeta).length > 0){
-      for(const key of Object.keys(manifestMeta)){
-        if(key.includes(rel) || rel.includes(key)){
+    // Prevent accidental matches when querying root/empty paths
+    if(!rel) return null;
+
+    // Fast path: direct lookup (supports entries with or without trailing slash)
+    const relNoSlash = rel.replace(/\/$/, '');
+    const relWithSlash = relNoSlash ? relNoSlash + '/' : rel;
+    let entry = manifestMeta[rel] || manifestMeta[relNoSlash] || manifestMeta[relWithSlash] || null;
+    if(entry) return entry;
+
+    // Fallback: try matching by path segments to handle folder entries robustly.
+    const relParts = relNoSlash.split('/').filter(Boolean);
+
+    for(const key of Object.keys(manifestMeta)){
+      if(!key) continue;
+
+      const keyNorm = normalizeDeckPath(key);
+      const keyNoSlash = keyNorm.replace(/\/$/, '');
+      const keyParts = keyNoSlash.split('/').filter(Boolean);
+
+      // Exact match by normalized segments
+      if(relParts.length === keyParts.length && relParts.every((seg, idx) => seg === keyParts[idx])){
+        entry = manifestMeta[key];
+        break;
+      }
+
+      // If key denotes a folder (either ends with '/' in the manifest or has no file extension),
+      // match when the requested path is inside that folder.
+      const keyIsFolder = keyNorm.endsWith('/') || (keyParts.length > 0 && !keyParts[keyParts.length-1].includes('.'));
+      if(keyIsFolder && relParts.length > keyParts.length){
+        const relPrefix = relParts.slice(0, keyParts.length);
+        if(relPrefix.every((seg, idx) => seg === keyParts[idx])){
           entry = manifestMeta[key];
           break;
         }
       }
     }
-    
+
     return entry;
   }
   function isDeckUnlocked(path){
@@ -920,6 +945,41 @@
       console.warn('evaluateDeckLock error:', e);
       return { locked:false };
     }
+  }
+
+  function normalizeFolderPath(path){
+    const p = normalizeDeckPath(path);
+    return p.endsWith('/') ? p : p + '/';
+  }
+
+  function isFolderUnlocked(folderPath){
+    return localStorage.getItem('fabanki:folder_unlocked:' + normalizeFolderPath(folderPath)) === '1';
+  }
+
+  function setFolderUnlocked(folderPath){
+    localStorage.setItem('fabanki:folder_unlocked:' + normalizeFolderPath(folderPath), '1');
+  }
+
+  function evaluateFolderLock(folderPath){
+    const entry = getManifestEntryForPath(folderPath);
+    if(!entry) return { locked:false };
+    const password = String(entry.password || entry.lock || entry.pass || '');
+    if(!password) return { locked:false };
+    const unlocked = isFolderUnlocked(folderPath);
+    return { locked: !unlocked, unlocked, password, folderPath: normalizeFolderPath(folderPath) };
+  }
+
+  function getLockForPath(path){
+    const norm = normalizeDeckPath(path);
+    const parts = norm.split('/');
+    let accum = '';
+    for(let i=0;i<parts.length-1;i++){
+      if(!parts[i]) continue;
+      accum += (accum ? '' : '') + parts[i] + '/';
+      const lock = evaluateFolderLock(accum);
+      if(lock.locked) return lock;
+    }
+    return { locked:false };
   }
 
   // === FSRS storage key helpers ===
@@ -8876,6 +8936,20 @@
         if(shouldRenderCurrentBack){
           renderBack(c);
           console.log('renderBack completed');
+          // For multi-deck mode, process KaTeX in the back field (findand render LaTeX delimiters)
+          if(multiDeckMode && typeof renderMathInElement !== 'undefined' && backEl){
+            try{
+              renderMathInElement(backEl, {
+                delimiters: [
+                  {left: '$$', right: '$$', display: true},
+                  {left: '$', right: '$', display: false},
+                  {left: '\\[', right: '\\]', display: true},
+                  {left: '\\(', right: '\\)', display: false}
+                ],
+                throwOnError: false
+              });
+            }catch(e){ console.warn('KaTeX renderMathInElement error:', e); }
+          }
         }
         
         // For Active Memory mode, stop the timer
@@ -8990,7 +9064,15 @@
         } else {
           // desktop: show only back
           if(frontEl){ frontEl.style.display = 'none'; }
-          if(backEl){ backEl.style.display = 'block'; backEl.style.flex = '1 1 auto'; }
+          if(backEl){
+            backEl.style.display = 'block';
+            backEl.style.flex = '1 1 auto';
+            backEl.style.visibility = 'visible';
+            backEl.style.pointerEvents = 'auto';
+            backEl.classList.remove('back-preloaded');
+            backEl.classList.add('back-visible');
+            backEl.setAttribute('aria-hidden', 'false');
+          }
         }
         if(respBtn) respBtn.style.display = 'inline-flex';
         if(showBtn) showBtn.style.display = 'none';
@@ -10237,8 +10319,37 @@
         }
 
         function renderPath(path){
+          const prefix = path;
           deckList.innerHTML = '';
           deckList.style.visibility = 'visible';
+
+          // If this folder is password-locked, show an unlock prompt and do not render its contents
+          const folderLock = evaluateFolderLock(prefix);
+          if(folderLock.locked){
+            const row = document.createElement('div'); row.className='deck-entry';
+            const nm = document.createElement('div');
+            nm.textContent = (decodeURIComponent((prefix||'').replace(/\+/g,'')).replace(/\/$/, '') || 'Dossier verrouillé');
+            nm.style.opacity = '0.55'; nm.style.color = '#888'; nm.title = 'Dossier verrouillé';
+            const act = document.createElement('div');
+            const b = document.createElement('button'); b.className='secondary';
+            b.textContent = '🔒 Verrouillé';
+            b.addEventListener('click', ()=>{
+              const attempt = prompt('Mot de passe requis pour ouvrir ce dossier :');
+              if(attempt === null) return;
+              if(attempt === folderLock.password){
+                setFolderUnlocked(prefix);
+                renderPath(prefix);
+                currentFolderPath = prefix;
+              } else {
+                alert('Mot de passe incorrect');
+              }
+            });
+            act.appendChild(b);
+            row.appendChild(nm);
+            row.appendChild(act);
+            deckList.appendChild(row);
+            return;
+          }
           
           // Show/hide create deck button based on path
           const createBtn = document.getElementById('createDeckBtn');
@@ -10247,7 +10358,6 @@
           }
           
           const entries = window.deckBrowserEntries || overlay._manifestEntries || [];
-          const prefix = path;
           const files = new Set();
           const folders = new Set();
           for(const p of entries){
@@ -10275,13 +10385,35 @@
             
             // Calculate folder due count with badge
             const folderPath = prefix + folder;
+            const folderLock = evaluateFolderLock(folderPath);
+            if(folderLock.locked){
+              row.style.opacity = '0.55';
+              nm.style.color = '#888';
+              nm.title = 'Dossier verrouillé';
+            }
             const badge = document.createElement('span');
             badge.className = 'due-badge';
             badge.innerHTML = `<div class="due-num"></div><div class="due-label">Ã  faire</div>`;
-            
+
             const act = document.createElement('div');
-            const b = document.createElement('button'); b.className='secondary'; b.textContent='Ouvrir';
-            b.addEventListener('click', ()=>{ renderPath(prefix+folder); currentFolderPath = prefix+folder; });
+            const b = document.createElement('button'); b.className='secondary';
+            if(folderLock.locked){
+              b.textContent = '🔒 Verrouillé';
+              b.addEventListener('click', ()=>{
+                const attempt = prompt('Mot de passe requis pour ouvrir ce dossier :');
+                if(attempt === null) return;
+                if(attempt === folderLock.password){
+                  setFolderUnlocked(folderPath);
+                  renderPath(folderPath);
+                  currentFolderPath = folderPath;
+                } else {
+                  alert('Mot de passe incorrect');
+                }
+              });
+            } else {
+              b.textContent='Ouvrir';
+              b.addEventListener('click', ()=>{ renderPath(folderPath); currentFolderPath = folderPath; });
+            }
             act.appendChild(badge);
             act.appendChild(b); 
             row.appendChild(nm); 
@@ -10397,8 +10529,23 @@
               const btn = document.createElement('button'); btn.className='secondary';
               try{
                 const relPath = normalizeDeckPath(base+e);
+                const folderLock = getLockForPath(relPath);
                 const lockState = evaluateDeckLock(relPath);
-                if(lockState.locked){
+                if(folderLock.locked){
+                  btn.textContent = '🔒 Dossier verrouillé';
+                  btn.disabled = true;
+                  btn.title = 'Déverrouillez le dossier pour accéder au deck';
+                  btn.addEventListener('click', ()=>{
+                    const attempt = prompt('Mot de passe requis pour ouvrir le dossier parent :');
+                    if(attempt === null) return;
+                    if(attempt === folderLock.password){
+                      setFolderUnlocked(folderLock.folderPath);
+                      renderList(list, base);
+                    } else {
+                      alert('Mot de passe incorrect');
+                    }
+                  });
+                } else if(lockState.locked){
                   if(lockState.lockedByLevel){
                     btn.textContent = `ðŸ”’ Niveau ${lockState.levelReq}`;
                     btn.disabled = true;
@@ -10452,7 +10599,25 @@
             row.appendChild(name); row.appendChild(actions); deckList.appendChild(row);
           }
         }
-      }catch(err){ deckMsg.textContent = 'Impossible d\'accÃ©der Ã  ./decks/ â€” invoquez via un serveur HTTP (non supportÃ© en file://)'; }
+      }catch(err){
+        const isFileProtocol = window.location.protocol === 'file:';
+        const errMsg = (err && err.message) ? err.message : String(err);
+        deckMsg.innerHTML = `Impossible d\'accéder à ./decks/ — ${fixMojibakeText(errMsg)}`;
+
+        // Offer a local XML load button when file:// or when fetch failed
+        if(isFileProtocol || errMsg.toLowerCase().includes('failed to fetch')){
+          deckMsg.innerHTML += '<br><br><button id="deckBrowserLocalLoad" class="secondary" style="margin-top:8px;">Charger un fichier XML local</button>';
+          setTimeout(()=>{
+            const btn = document.getElementById('deckBrowserLocalLoad');
+            const loadBtn = document.getElementById('loadBtn');
+            if(btn && loadBtn){
+              btn.addEventListener('click', ()=>{ loadBtn.click(); });
+            }
+          }, 0);
+        }
+
+        console.warn('Deck browser load error:', err);
+      }
     }
     if(browseBtn) browseBtn.addEventListener('click', openDeckBrowser);
     // Expose openDeckBrowser and renderPath globally for retour button
@@ -14342,7 +14507,10 @@
         window.userState = toSave;
         localStorage.setItem('fabanki:user_state', JSON.stringify(toSave));
         localStorage.setItem('fabanki:mode', toSave.mode || 'local');
-        if(toSave.userId) localStorage.setItem('fabanki:user_id', toSave.userId);
+        if(toSave.userId){
+          localStorage.setItem('fabanki:user_id', toSave.userId);
+          localStorage.setItem('userId', toSave.userId);
+        }
 
         // Cloud push (optional)
         if((toSave.mode === 'synced') && window.__fabanki_firestore){
@@ -14657,6 +14825,7 @@
         // Use Firebase auth UID as the primary leaderboard userId to prevent duplicates
         try{
           localStorage.setItem('userId', uid);
+          localStorage.setItem('fabanki:user_id', uid);
           localStorage.setItem('fabanki:classement_auth_uid', uid);
           console.log('[loginAndSync] Set userId to Firebase UID:', uid);
         }catch(e){}
@@ -16745,8 +16914,8 @@
         }
         
         let p = localStorage.getItem('pseudo');
-        let uid = localStorage.getItem('userId');
-        if(!uid){ uid = generateUserId(); localStorage.setItem('userId', uid); }
+        let uid = localStorage.getItem('fabanki:user_id') || localStorage.getItem('userId');
+        if(!uid){ uid = generateUserId(); localStorage.setItem('fabanki:user_id', uid); localStorage.setItem('userId', uid); }
         if(!p){ showPseudoModal(); return false; }
         return true;
       }catch(e){ return false }
@@ -16769,11 +16938,11 @@
         btn.addEventListener('click', ()=>{
           const v = (inp.value || '').trim(); if(!v) return inp.focus();
           localStorage.setItem('pseudo', v);
-          if(!localStorage.getItem('userId')) localStorage.setItem('userId', generateUserId());
-          try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
-          try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
-          ov.remove();
-          
+            if(!localStorage.getItem('fabanki:user_id')){
+              const uid = generateUserId();
+              localStorage.setItem('fabanki:user_id', uid);
+              localStorage.setItem('userId', uid);
+            }
           // Complete welcome quest onboarding step
           try{
             if(typeof completeWelcomeQuestMission === 'function'){
@@ -17163,12 +17332,13 @@
         if(!db) return false;
         
         // Use Firebase auth UID if logged in, otherwise use/generate a persistent ID
-        let userId = localStorage.getItem('userId');
+        let userId = localStorage.getItem('fabanki:user_id') || localStorage.getItem('userId');
         try{
           const auth = firebase?.auth?.();
           const currentUser = auth?.currentUser;
           if(currentUser && currentUser.uid){
             userId = currentUser.uid;
+            localStorage.setItem('fabanki:user_id', userId);
             localStorage.setItem('userId', userId);
             console.log('[syncClassement] Using Firebase auth UID:', userId);
           }
@@ -17177,6 +17347,7 @@
         // Fallback: generate and SAVE a new userId if none exists
         if(!userId){
           userId = generateUserId();
+          localStorage.setItem('fabanki:user_id', userId);
           localStorage.setItem('userId', userId);
           console.log('[syncClassement] Generated new userId:', userId);
         }
