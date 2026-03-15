@@ -6,7 +6,7 @@
   <title>Fab'Anki — Flashcards sans compte</title>
   <meta name="description" content="Application d'apprentissage par répétition espacée avec plusieurs modes de révision">
   <meta name="theme-color" content="#0066ff">
-  <link rel="icon" href="/Fab'Anki/fabankilogo.png">
+  <link id="appFavicon" rel="icon" href="./fabankilogoblack.png">
   <!-- PWA Manifest -->
   <link rel="manifest" href="/app-manifest.json">
   <!-- iOS PWA Support -->
@@ -14,7 +14,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Fab Anki">
-  <link rel="apple-touch-icon" href="/Fab'Anki/fabankilogo.png">
+  <link id="appleTouchIcon" rel="apple-touch-icon" href="./fabankiapp.png">
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
   <!-- Firebase (compat) -->
@@ -29,7 +29,7 @@
 <body>
   <div id="bootSplash" class="boot-splash" aria-hidden="false">
     <div class="boot-splash__card">
-      <img src="/Fab'Anki/fabankilogo.png" alt="Fab'Anki" class="boot-splash__logo">
+      <img id="bootSplashLogo" src="./fabankiapp.png" alt="Fab'Anki" class="boot-splash__logo">
       <div class="boot-splash__title">Fab'Anki</div>
       <div class="boot-splash__subtitle">Initialisation en cours...</div>
       <div class="boot-splash__bar"><i></i></div>
@@ -37,7 +37,7 @@
   </div>
   <div class="app" id="app" data-theme="light">
     <header>
-      <h1 id="appTitle" style="display:flex;align-items:center;gap:10px;"><img src="/Fab'Anki/fabankilogo.png" style="width:32px;height:32px;" alt="Logo">Fab'Anki — Flashcards (sans compte)</h1>
+      <h1 id="appTitle" style="display:flex;align-items:center;gap:10px;"><img id="topBarLogo" src="./fabankilogoblack.png" style="width:32px;height:32px;" alt="Logo">Fab'Anki — Flashcards (sans compte)</h1>
       <div class="controls">
         <!-- Hidden file picker used as a fallback when running the page from file:// -->
         <input id="filePicker" type="file" accept=".xml,application/xml" style="display:none" />

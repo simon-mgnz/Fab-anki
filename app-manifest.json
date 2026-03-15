@@ -10,13 +10,13 @@
   "theme_color": "#0066ff",
   "icons": [
     {
-      "src": "/fabankilogo.png",
+      "src": "/fabankiapp.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/fabankilogo.png",
+      "src": "/fabankiapp.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
