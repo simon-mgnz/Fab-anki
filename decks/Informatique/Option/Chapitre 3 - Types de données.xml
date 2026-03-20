@@ -1,0 +1,73 @@
+<deck name="Chapitre 3 - Types de données"><fields><rich-text name='Front' sides='11'></rich-text><rich-text name='Back' sides='01'></rich-text><code name='Code' sides='01' lang='xml'></code></fields><cards><card><rich-text name='Front'><p>Faire une exception (au programme)</p></rich-text><rich-text name='Back'><p>Dans un filtrage, on utilise failwit, cela lève une exception de type Failure avec la chaine de caractères spécifiée.</p>
+<p><br/></p>
+<p>let rec f n = match n with</p>
+<p><br/> | 0 -&gt; 0</p>
+<p><br/> | n when n &gt; 0 -&gt; n * f (n-1)</p>
+<p><br/> | _ -&gt; failwith "Entier négatif";;</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>Type construit</p></rich-text><rich-text name='Back'><p>Type qui comprend un constructeur avec une valeur (facultative) associée. Si le constructeur n'as pas d'argument, le type est dit "Constant".</p>
+<p>Nom du type : Commence par une minuscule</p>
+<p>Nom du constructeur : Commence par une<br/><strong>majuscule</strong></p>
+<p><br/></p>
+<p>type point = Coordonees of float * float;;</p>
+<p>let p = Coordonees (1.56, 2.34) in<br/></p>
+<p>let est_sous_premiere_bissectrice p = match p with</p>
+<p>| Coordonnees (x, y) -&gt; x &gt; y;;</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>Type somme</p></rich-text><rich-text name='Back'><p>Type qu'on défnit en énumérant tous les constructeurs possible (avec ou sans argument).</p>
+<p><br/></p>
+<p>type point_cardinal = Est | Nord | Ouest | Sud;;</p>
+<p>et après</p>
+<p>let direction = Nord;;</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>Type option</p></rich-text><rich-text name='Back'><p>Permet de rendre optionnel un type standard, exemple ;</p>
+<p><br/></p>
+<p>let rec factorielle n = match n with</p>
+<p><br/>| 0 -&gt; Some(1)</p>
+<p><br/>| n when n &lt; 0 -&gt; None</p>
+<p><br/>| _ -&gt; match factorielle (n-1) with</p>
+<p><br/> <br/>| None -&gt; None</p>
+<p><br/> <br/>| Some (a) -&gt; Some (n*a)</p></rich-text><code name='Code'>type 'a option = None | Some of 'a</code></card><card><rich-text name='Front'><p>Structure de données statique / dynamique</p></rich-text><rich-text name='Back'><p>Statique : Espace mémoire alloué fixe</p>
+<p>Dynamique : Sinon</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>Type enregistrement</p></rich-text><rich-text name='Back'><p>Produit cartésien avec composantes nommées, dont les types peuvent être différents.</p>
+<p>Par défaut immuable</p>
+<p><br/></p>
+<p>Ex:</p>
+<p>type note_ponderee = { note: int, coeff: float};;</p>
+<p>let n = {note = 15; coeff = 1.5};; (OCaml reconnaît un type note_ponderee)</p>
+<p>n.note;; (On accède aux valeurs de la clé avec un ".")</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>Dictionnaire</p></rich-text><rich-text name='Back'><p>Structure de données dynamique mutable qui stocke des couples (clé, valeur).</p>
+<p>Les opérations :</p>
+<ul>
+<li>Le constructeur crée un dico vide</li>
+<li>Tester s'il est vide</li>
+<li>Insérer un couple (clé, valeur)</li>
+<li>Chercher ou modifier ou supprimer, si elle existe, une valeur à une clé donnée</li>
+</ul>
+<p>Exemple : Annuaire téléphonique, vrai dictionnaire</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>Pile</p></rich-text><rich-text name='Back'><p>Structure de données linéaire dynamique et immuable qui fait du LIFO (Last In First Out).</p>
+<p>La dernière instruction entrée et la première pouvant sortir.</p>
+<p>Opération :</p>
+<ul>
+<li>Le constructeur peut créer une pile vide</li>
+<li>Tester si la pile est vide</li>
+<li>Empiler une valeur au sommet</li>
+<li>Dépiler une valeur du sommet et la renvoyer</li>
+</ul>
+<p>Exemple :</p>
+<p>Historique de modification/ navigation</p>
+<p>Appel récursif d'une fonction.</p>
+<p>Notation polonaise inversée</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>Type abréviation</p></rich-text><rich-text name='Back'><p>Un alias de type existant.</p>
+<p>Ici un alias de float : temperature</p>
+<p>Une fonction qui attend un type temperature acceptera aussi les floats et inversement.</p></rich-text><code name='Code'>type temperature = float;;
+let t : temperature = 37.8;;</code></card><card><rich-text name='Front'><p>Notation polonaise inversé</p></rich-text><rich-text name='Back'><p>Les priorités opératoires sont remplacées par un pile d'opérandes et d'opérations :</p>
+<p>(2 x (3 + 5) - 9 x 2 + 6)/3 devient :</p>
+<p>2 3 5 + x 9 2 x - 6 + 3 /</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>Structure mutable / immuable</p></rich-text><rich-text name='Back'><p>Mutable : Si le contenu de la structure est modifiable</p>
+<p>Immuable sinon</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>Structure de données (définition)</p></rich-text><rich-text name='Back'><p><strong>Définition d'un d'ensemble organisé d'objets et des opérations qui lui sont associées.</strong> On peut distinguer les types abstraits qui sont une définition théorique d'une structure de donnée, des opérations. On peut aussi distinguer l'implémentation dans le langage.</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>3 x 4 + 2 - 1 en polonaise inversée</p></rich-text><rich-text name='Back'><p>3 4 x 2 + 1 -</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>Structure persistante / impérative</p></rich-text><rich-text name='Back'><p>Persistance : Immuable et statique</p>
+<p>Impérative sinon</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>File</p></rich-text><rich-text name='Back'><p>Structure de données linéaire dynamique et immuable qui fonctionne en FIFO (First in First Out). Le premier entré sera le premier à sortir.</p>
+<p>Les opérations :</p>
+<ul>
+<li>Le constructeur crée la file vide</li>
+<li>Il teste si elle est vide</li>
+<li>"Enfiler" Ajouter une valeur à l'entrée</li>
+<li>"Défilier", retirer la valeur à la sortie et la renvoyer</li>
+</ul>
+<p>Exemple :</p>
+<p>File d'attente dans la vraie vie.</p>
+<p>Requête pour une base de données.</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>Vrai ou faux ? Peut il y avoir du polymorphisme pour les arguments des fonctions dans le type enregistrement.</p></rich-text><rich-text name='Back'><p>Vrai mais il faut les écrire directement, exemple :</p>
+<p>type 'à couple = {x:'a;y:'a};; (On a donc deux champs de même type)</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>Type enregistrement mutable</p></rich-text><rich-text name='Back'><p>On rajoute mutable à la clé qu'on veut :</p>
+<p><br/></p>
+<p>type note_ponderee = {mutable note : int; coeff:float};;</p>
+<p>let n = {note = 15; coeff = 1.5};;</p>
+<p>n.note &lt;- 16;; (On modifie alors les valeurs avec une flèche)</p></rich-text><code name='Code'></code></card></cards></deck>

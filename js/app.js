@@ -1489,8 +1489,12 @@
   let multiDeckMode = false;
   let multiDeckURLs = [];
   let multiDeckCards = []; // array of {card, deckURL, deckName}
-  let cardFieldDefsMap = new Map(); // Map of cardId -> fieldDefs for multi-deck
+  let cardFieldDefsMap = new Map(); // Map of deckKey::cardId -> fieldDefs for multi-deck
   let onlyNowMode = false; // when true, sessions show only due-now cards
+
+  function getMultiDeckCardMapKey(deckKeyValue, cardIdValue){
+    return String(deckKeyValue || '') + '::' + String(cardIdValue || '');
+  }
   
   async function loadMultipleDeckCards(deckURLs, options = {}){
     try{
@@ -1537,10 +1541,17 @@
           if(fieldsContainer){
             const defs = Array.from(fieldsContainer.children || []);
             console.log('Loading field definitions for', deckName, '- found', defs.length, 'definitions');
-            for(const f of defs){
+            for(let i = 0; i < defs.length; i++){
+              const f = defs[i];
               const type = (f.localName || f.tagName || '').toLowerCase();
               const name = f.getAttribute('name') || type;
-              const sides = interpretSides(f.getAttribute('sides') || '11');
+              const sidesAttr = f.getAttribute('sides') || (f.textContent || '');
+              let sides = interpretSides(sidesAttr);
+              // Keep parity with parseXMLDeck: when no sides metadata exists,
+              // first field is front-only, others back-only.
+              if(!sidesAttr || !String(sidesAttr).trim()){
+                sides = i === 0 ? {front:true,back:false,always:false} : {front:false,back:true,always:false};
+              }
               console.log('  Field def:', {name, type, sides});
               tempDeck.fieldDefs.push({name, type, sides});
             }
@@ -1555,6 +1566,7 @@
             try{
               const id = node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idx++));
               const fields = {};
+              const usedElements = new Set();
               
               // Map card content to field definitions
               const _fieldOrder = []; // preserve field order for multi-deck rendering
@@ -1564,17 +1576,26 @@
                   let fieldEl = null;
                   // Try multiple strategies to find the field element:
                   // 1) Direct child with matching name attribute
-                  fieldEl = Array.from(node.children).find(ch => (ch.getAttribute && ch.getAttribute('name') === def.name));
+                  fieldEl = Array.from(node.children).find(ch => (ch.getAttribute && ch.getAttribute('name') === def.name && !usedElements.has(ch)));
                   // 2) Direct child with matching type
-                  if(!fieldEl) fieldEl = Array.from(node.children).find(ch => ((ch.localName || ch.tagName || '').toLowerCase() === def.type));
+                  if(!fieldEl) fieldEl = Array.from(node.children).find(ch => ((ch.localName || ch.tagName || '').toLowerCase() === def.type && !usedElements.has(ch)));
                   // 3) Descendant with matching name attribute
-                  if(!fieldEl) fieldEl = node.querySelector(`[name="${def.name}"]`);
+                  if(!fieldEl){
+                    const byName = node.querySelectorAll(`[name="${def.name}"]`);
+                    fieldEl = Array.from(byName).find(el => !usedElements.has(el)) || null;
+                  }
                   // 4) Descendant with matching type  
-                  if(!fieldEl) fieldEl = node.querySelector(def.type);
+                  if(!fieldEl){
+                    const byType = node.querySelectorAll(def.type);
+                    fieldEl = Array.from(byType).find(el => !usedElements.has(el)) || null;
+                  }
                   // 5) Any first child element if nothing else works
-                  if(!fieldEl && node.children && node.children.length > 0) fieldEl = node.children[0];
+                  if(!fieldEl && node.children && node.children.length > 0){
+                    fieldEl = Array.from(node.children).find(ch => !usedElements.has(ch)) || null;
+                  }
                   
                   if(fieldEl){
+                    usedElements.add(fieldEl);
                     fields[def.name] = {
                       html: fieldEl.innerHTML,
                       type: def.type,
@@ -1615,7 +1636,7 @@
                 }
               }
               // Always create the card with _fieldOrder, even if empty
-              tempDeck.cards.push({id, fields, _fieldOrder: _fieldOrder.length > 0 ? _fieldOrder : Object.keys(fields)});
+              tempDeck.cards.push({id, fields, __deckKey: deckKey, _fieldOrder: _fieldOrder.length > 0 ? _fieldOrder : Object.keys(fields)});
             }catch(e){ continue }
           }
           
@@ -1644,7 +1665,7 @@
             // Card is new if: no state exists OR no last review but reps is 0/undefined
             const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
             // Store field definitions in map so renderBack can access them
-            cardFieldDefsMap.set(c.id, tempDeck.fieldDefs);
+            cardFieldDefsMap.set(getMultiDeckCardMapKey(deckKey, c.id), tempDeck.fieldDefs);
             // Add all cards to allCards - filtering will happen later
             allCards.push({card: c, deckURL: url, deckName, deckKey, deckPath, isNew});
           }
@@ -1697,7 +1718,8 @@
       
       console.log('Multi-deck loaded:', multiDeckCards.length, 'cards');
       multiDeckCards.slice(0,3).forEach(c => {
-        console.log('  Card:', c.card.id, 'from:', c.deckName, 'has fieldDefs in map:', cardFieldDefsMap.has(c.card.id));
+        const mapKey = getMultiDeckCardMapKey(c.deckKey, c.card.id);
+        console.log('  Card:', c.card.id, 'from:', c.deckName, 'has fieldDefs in map:', cardFieldDefsMap.has(mapKey));
       });
       
       // Set up pseudo-deck for display
@@ -3274,6 +3296,23 @@
     if(!sides || !isReversed) return sides;
     return { front: !!sides.back, back: !!sides.front, always: false };
   }
+  function fieldHasVisibleContent(f){
+    try{
+      if(!f) return false;
+      const raw = decodeHTMLEntities(String(f.html || ''));
+      if(!raw.trim()) return false;
+      // Non-textual rich content still counts as visible.
+      if(/<(img|svg|math|table|audio|video|iframe|canvas|object|embed)\b/i.test(raw)) return true;
+      const text = raw
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;|\u00A0/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      return text.length > 0;
+    }catch(e){
+      return !!(f && f.html && String(f.html).trim());
+    }
+  }
   function getOrderedFieldNames(card, defs){
     if(defs && defs.length){
       const names = defs.map(d => d.name).filter(name => card.fields && card.fields[name]);
@@ -3306,14 +3345,14 @@
         if(card.fields && card._fieldOrder && card._fieldOrder.length > 0){
           for(const fieldName of card._fieldOrder){
             const f = card.fields[fieldName];
-            if(!f || !f.html || f.html.trim().length === 0) continue;
+            if(!fieldHasVisibleContent(f)) continue;
             const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: true, back: true}};
             stepNodes.push(buildFieldElement(def, f));
           }
         } else if(card.fields){
           for(const fieldName in card.fields){
             const f = card.fields[fieldName];
-            if(!f || !f.html || f.html.trim().length === 0) continue;
+            if(!fieldHasVisibleContent(f)) continue;
             const def = {name: fieldName, type: f.type || 'rich-text', sides: {front: true, back: true}};
             stepNodes.push(buildFieldElement(def, f));
           }
@@ -3326,7 +3365,7 @@
             console.log(`  Field "${def.name}" not found in card, skipping`);
             continue;
           }
-          if(!f.html || f.html.trim().length === 0) {
+          if(!fieldHasVisibleContent(f)) {
             continue;
           }
           console.log(`Step Field "${def.name}"`);
@@ -3348,7 +3387,7 @@
       for(let i = 1; i < orderedNames.length; i++){
         const fieldName = orderedNames[i];
         const f = card.fields && card.fields[fieldName];
-        if(!f || !f.html || f.html.trim().length === 0) continue;
+        if(!fieldHasVisibleContent(f)) continue;
         const def = (defs || []).find(d => d.name === fieldName) || {name: fieldName, type: f.type || 'rich-text'};
         const node = buildFieldElement(def, f);
         frontEl.appendChild(node);
@@ -3422,7 +3461,7 @@
         }
         
         // Skip empty fields
-        if(!f.html || f.html.trim().length === 0) {
+        if(!fieldHasVisibleContent(f)) {
           continue;
         }
         
@@ -3461,6 +3500,18 @@
       console.log('renderFront: Done');
     }
 
+    // Fallback: if strict side/content logic produced an empty front, show first visible field.
+    if(!frontEl.hasChildNodes()){
+      const orderedNames = getOrderedFieldNames(card, defs);
+      for(const fieldName of orderedNames){
+        const f = card.fields && card.fields[fieldName];
+        if(!fieldHasVisibleContent(f)) continue;
+        const def = (defs || []).find(d => d.name === fieldName) || {name: fieldName, type: f.type || 'rich-text'};
+        frontEl.appendChild(buildFieldElement(def, f));
+        break;
+      }
+    }
+
     alwaysEl.textContent = '';
     try{ applyCardScroll(frontEl); }catch(e){}
   }
@@ -3475,7 +3526,9 @@
     // In multi-deck mode, get field defs from the map using card.id
     let defs = [];
     if(multiDeckMode && card && card.id){
-      defs = cardFieldDefsMap.get(card.id) || [];
+      const deckKeyFromCard = card.__deckKey || '';
+      const mapKey = getMultiDeckCardMapKey(deckKeyFromCard, card.id);
+      defs = cardFieldDefsMap.get(mapKey) || cardFieldDefsMap.get(card.id) || [];
     }
     if(!defs || defs.length === 0){
       defs = deck.fieldDefs || [];
@@ -3490,14 +3543,14 @@
       if(orderedNames.length > 0){
         const fieldName = orderedNames[0];
         const f = card.fields && card.fields[fieldName];
-        if(f && f.html && f.html.trim().length > 0){
+        if(fieldHasVisibleContent(f)){
           const def = (defs || []).find(d => d.name === fieldName) || {name: fieldName, type: f.type || 'rich-text'};
           const node = buildFieldElement(def, f);
           backEl.appendChild(node);
           anyContent = true;
         }
       }
-      if(!anyContent){ backEl.innerHTML = '<em>Contenu masquÃ© cÃ´tÃ© rÃ©ponse</em>'; }
+      if(!anyContent){ backEl.innerHTML = '<em>Contenu masqué côté réponse</em>'; }
       try{ applyCardScroll(backEl); }catch(e){}
       return;
     }
@@ -3610,7 +3663,7 @@
           }
           
           // Skip empty fields
-          if(!f.html || f.html.trim().length === 0) {
+          if(!fieldHasVisibleContent(f)) {
             continue;
           }
           
@@ -14254,8 +14307,68 @@
         const daily = JSON.parse(localStorage.getItem('fabanki:daily_missions') || '[]');
         const weekly = JSON.parse(localStorage.getItem('fabanki:weekly_missions') || '[]');
         const missions_date = localStorage.getItem('fabanki:missions_date') || null;
-        return { daily, weekly, missions_date };
+        const daily_selected = JSON.parse(localStorage.getItem('fabanki:daily_selected_missions') || 'null');
+        const weekly_selected = JSON.parse(localStorage.getItem('fabanki:weekly_selected_missions') || 'null');
+        return { daily, weekly, missions_date, daily_selected, weekly_selected };
       }catch(e){ return { daily:[], weekly:[], missions_date:null } }
+    }
+
+    function mergeQuestMissionList(localList, remoteList){
+      try{
+        const byId = new Map();
+        for(const m of (remoteList || [])){
+          if(!m || !m.id) continue;
+          byId.set(String(m.id), { ...m });
+        }
+        for(const m of (localList || [])){
+          if(!m || !m.id) continue;
+          const id = String(m.id);
+          const prev = byId.get(id) || { id };
+          const merged = {
+            ...prev,
+            ...m,
+            id,
+            progress: Math.max(Number(prev.progress || 0), Number(m.progress || 0)),
+            completed: !!(prev.completed || m.completed),
+            rewards_given: !!(prev.rewards_given || m.rewards_given),
+            welcome_counted: !!(prev.welcome_counted || m.welcome_counted)
+          };
+          byId.set(id, merged);
+        }
+        return Array.from(byId.values());
+      }catch(e){
+        return Array.isArray(remoteList) ? remoteList : (Array.isArray(localList) ? localList : []);
+      }
+    }
+
+    function mergeQuestState(localState, remoteState){
+      if(!localState && !remoteState) return { daily: [], weekly: [], missions_date: null };
+      if(!localState) return remoteState;
+      if(!remoteState) return localState;
+
+      const remoteMissionDate = new Date(remoteState?.missions_date || 0).getTime();
+      const localMissionDate = new Date(localState?.missions_date || 0).getTime();
+      const preferRemote = remoteMissionDate >= localMissionDate;
+      const base = preferRemote ? (remoteState || {}) : (localState || {});
+      const alt = preferRemote ? (localState || {}) : (remoteState || {});
+
+      const dailyMerged = mergeQuestMissionList(localState?.daily || [], remoteState?.daily || []);
+      const weeklyMerged = mergeQuestMissionList(localState?.weekly || [], remoteState?.weekly || []);
+
+      const selectedDaily = Array.isArray(base?.daily_selected) && base.daily_selected.length > 0
+        ? base.daily_selected
+        : (Array.isArray(alt?.daily_selected) ? alt.daily_selected : null);
+      const selectedWeekly = Array.isArray(base?.weekly_selected) && base.weekly_selected.length > 0
+        ? base.weekly_selected
+        : (Array.isArray(alt?.weekly_selected) ? alt.weekly_selected : null);
+
+      return {
+        daily: dailyMerged,
+        weekly: weeklyMerged,
+        missions_date: (base?.missions_date || alt?.missions_date || null),
+        daily_selected: selectedDaily,
+        weekly_selected: selectedWeekly
+      };
     }
 
     function collectWelcomeQuestState(){
@@ -14332,6 +14445,8 @@
           localStorage.setItem('fabanki:daily_missions', JSON.stringify(state.quests.daily||[]));
           localStorage.setItem('fabanki:weekly_missions', JSON.stringify(state.quests.weekly||[]));
           if(state.quests.missions_date) localStorage.setItem('fabanki:missions_date', state.quests.missions_date);
+          if(Array.isArray(state.quests.daily_selected)) localStorage.setItem('fabanki:daily_selected_missions', JSON.stringify(state.quests.daily_selected));
+          if(Array.isArray(state.quests.weekly_selected)) localStorage.setItem('fabanki:weekly_selected_missions', JSON.stringify(state.quests.weekly_selected));
         }
         // Welcome quest
         if(state.welcomeQuest){
@@ -14540,12 +14655,10 @@
       const mergedInventory = { ...(remoteSt.inventory || {}), ...(localSt.inventory || {}) };
       const mergedWelcomeQuest = mergeWelcomeQuestState(localSt.welcomeQuest, remoteSt.welcomeQuest);
       const mergedPostWelcomeQuest = mergePostWelcomeQuestState(localSt.postWelcomeQuest, remoteSt.postWelcomeQuest);
+      const mergedQuests = mergeQuestState(localSt.quests, remoteSt.quests);
       const remoteDailyDate = new Date(remoteSt.dailyProgress?.dailyReviewedDate || 0).getTime();
       const localDailyDate = new Date(localSt.dailyProgress?.dailyReviewedDate || 0).getTime();
       const mergedDailyProgress = remoteDailyDate >= localDailyDate ? (remoteSt.dailyProgress || {}) : (localSt.dailyProgress || {});
-      const remoteMissionDate = new Date(remoteSt.quests?.missions_date || 0).getTime();
-      const localMissionDate = new Date(localSt.quests?.missions_date || 0).getTime();
-      const preferRemoteQuests = remoteMissionDate >= localMissionDate;
       return {
         ...remoteSt,
         mode: 'synced',
@@ -14555,7 +14668,7 @@
         welcomeQuest: mergedWelcomeQuest,
         postWelcomeQuest: mergedPostWelcomeQuest,
         dailyProgress: mergedDailyProgress,
-        quests: preferRemoteQuests ? (remoteSt.quests || localSt.quests || {}) : (localSt.quests || remoteSt.quests || {}),
+        quests: mergedQuests,
         xp: Math.max(Number(remoteSt.xp || 0), Number(localSt.xp || 0)),
         streakCurrent: Math.max(Number(remoteSt.streakCurrent || 0), Number(localSt.streakCurrent || 0)),
         streakMax: Math.max(Number(remoteSt.streakMax || 0), Number(localSt.streakMax || 0)),
@@ -14968,6 +15081,7 @@
                 lastUpdated: lastUpdated,
                 xp: Number(toSave.xp || 0),
                 credits: Number(toSave.credits || 0),
+                quests: mergeQuestState(collectQuestState(), toSave.quests || null)
               };
               
               // === SAFETY GATE 1.5: NEVER upload xp=0 in synced mode ===
@@ -15236,6 +15350,15 @@
               const remoteCredits = Number(remoteSt.credits || 0);
               if(remoteCredits > localCredits){
                 localStorage.setItem('fabanki:credits', String(remoteCredits));
+              }
+              try{
+                const localQuestsNow = collectQuestState();
+                const mergedQuestsNow = mergeQuestState(localQuestsNow, remoteSt.quests || null);
+                applyStateToLocalStorage({ quests: mergedQuestsNow });
+                const localStateWithQuests = { ...(localState || {}), quests: mergedQuestsNow };
+                localStorage.setItem('fabanki:user_state', JSON.stringify(localStateWithQuests));
+              }catch(e){
+                syncLog('autoSync: quest merge pull failed', e);
               }
               // Cache cloud XP
               __lastKnownCloudXp = remoteXp;
