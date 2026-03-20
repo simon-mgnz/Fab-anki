@@ -4,6 +4,37 @@
   // ============================================
   // PWA & OFFLINE SUPPORT
   // ============================================
+
+  function isIgnorableSwNetworkUpdateError(input){
+    try{
+      const msg = String(
+        input?.message ||
+        input?.reason?.message ||
+        input?.reason ||
+        input ||
+        ''
+      ).toLowerCase();
+      return (
+        msg.includes('failed to update a serviceworker') ||
+        msg.includes('unknown error occurred when fetching the script') ||
+        (msg.includes('service-worker.js') && (msg.includes('failed to update') || msg.includes('network'))) ||
+        msg.includes('the network is offline') ||
+        msg.includes('networkerror')
+      );
+    }catch(e){ return false; }
+  }
+
+  // Install a very-early guard to suppress known benign SW update rejections when offline.
+  // This runs before the generic global error UI handlers later in the file.
+  window.addEventListener('unhandledrejection', (event) => {
+    try{
+      if(isIgnorableSwNetworkUpdateError(event)){
+        if(event && typeof event.preventDefault === 'function') event.preventDefault();
+        if(event && typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+        console.info('[PWA] Early ignored SW update rejection (offline/unreachable script).');
+      }
+    }catch(e){}
+  }, true);
   
   // Service Worker Registration
   if('serviceWorker' in navigator){
@@ -11,13 +42,30 @@
       navigator.serviceWorker.register('/service-worker.js')
         .then((registration) => {
           console.log('[PWA] Service Worker registered:', registration.scope);
+
+          const safeUpdateRegistration = () => {
+            try{
+              return registration.update().catch((err) => {
+                if(isIgnorableSwNetworkUpdateError(err) || !navigator.onLine){
+                  console.info('[PWA] Service Worker update skipped (offline/unreachable):', err?.message || err);
+                  return;
+                }
+                console.warn('[PWA] Service Worker update failed:', err);
+              });
+            }catch(err){
+              if(!(isIgnorableSwNetworkUpdateError(err) || !navigator.onLine)){
+                console.warn('[PWA] Service Worker update threw synchronously:', err);
+              }
+              return Promise.resolve();
+            }
+          };
           
           // Check for updates immediately on page load
-          registration.update();
+          safeUpdateRegistration();
           
           // Check for updates every 5 minutes
           setInterval(() => {
-            registration.update();
+            safeUpdateRegistration();
           }, 5 * 60 * 1000);
           
           // Handle updates
@@ -4469,6 +4517,12 @@
     window.addEventListener('unhandledrejection', (event) => {
       try{
         const reason = event && event.reason ? String(event.reason) : 'Promesse rejetee';
+        const isIgnorableSwRejection = isIgnorableSwNetworkUpdateError(event || reason);
+        if(isIgnorableSwRejection){
+          try{ if(event && typeof event.preventDefault === 'function') event.preventDefault(); }catch(e){}
+          console.info('[PWA] Ignored unhandled Service Worker update rejection:', reason);
+          return;
+        }
         showGlobal('Erreur Promise', 'Une operation a echoue.', reason);
       }catch(e){}
     });
