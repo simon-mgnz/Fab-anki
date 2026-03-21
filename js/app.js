@@ -1622,20 +1622,30 @@
                 // Use field definitions order - find matching elements for each definition
                 for(const def of tempDeck.fieldDefs){
                   let fieldEl = null;
+                  const defName = String(def.name || '');
                   // Try multiple strategies to find the field element:
                   // 1) Direct child with matching name attribute
                   fieldEl = Array.from(node.children).find(ch => (ch.getAttribute && ch.getAttribute('name') === def.name && !usedElements.has(ch)));
-                  // 2) Direct child with matching type
-                  if(!fieldEl) fieldEl = Array.from(node.children).find(ch => ((ch.localName || ch.tagName || '').toLowerCase() === def.type && !usedElements.has(ch)));
+                  // 2) Direct child with matching type, but never steal a differently named field
+                  if(!fieldEl) fieldEl = Array.from(node.children).find(ch => {
+                    const typeMatch = ((ch.localName || ch.tagName || '').toLowerCase() === def.type);
+                    if(!typeMatch || usedElements.has(ch)) return false;
+                    const chName = ch.getAttribute ? String(ch.getAttribute('name') || '') : '';
+                    return !chName || chName === defName;
+                  });
                   // 3) Descendant with matching name attribute
                   if(!fieldEl){
                     const byName = node.querySelectorAll(`[name="${def.name}"]`);
                     fieldEl = Array.from(byName).find(el => !usedElements.has(el)) || null;
                   }
-                  // 4) Descendant with matching type  
+                  // 4) Descendant with matching type (same rule: do not take differently named fields)
                   if(!fieldEl){
                     const byType = node.querySelectorAll(def.type);
-                    fieldEl = Array.from(byType).find(el => !usedElements.has(el)) || null;
+                    fieldEl = Array.from(byType).find(el => {
+                      if(usedElements.has(el)) return false;
+                      const elName = el.getAttribute ? String(el.getAttribute('name') || '') : '';
+                      return !elName || elName === defName;
+                    }) || null;
                   }
                   // 5) Any first child element if nothing else works
                   if(!fieldEl && node.children && node.children.length > 0){
@@ -3802,9 +3812,14 @@
     } else if(isPlainText){
       // Render explicit <text> fields as plain text (do not attempt KaTeX)
       const p = document.createElement('p'); p.textContent = decodedHtml || ''; wrapper.appendChild(p);
-    } else if(isTexType && !containsBlockTags){
-      // Safe to render with KaTeX (no block HTML inside)
-      const texSrc = decodedHtml.trim();
+    } else if(isTexType){
+      // Render TeX robustly even when export wraps content in <p>/<div> tags.
+      let texSrc = decodedHtml.trim();
+      if(containsBlockTags){
+        const tmp = document.createElement('div');
+        tmp.innerHTML = decodedHtml;
+        texSrc = (tmp.textContent || tmp.innerText || '').trim();
+      }
       const span = document.createElement('div');
       span.style.cssText = 'display:flex;justify-content:center;align-items:center;min-height:60px;flex-wrap:wrap;word-break:break-word;overflow-wrap:break-word;max-width:100%;padding:8px;overflow-x:auto;';
       try{
@@ -3816,8 +3831,8 @@
           // Force KaTeX elements to be responsive
           const katexHtml = span.querySelector('.katex');
           if(katexHtml) katexHtml.style.maxWidth = '100%';
-        } else { span.textContent = texSrc }
-      }catch(e){ span.textContent = texSrc }
+        } else { span.textContent = texSrc || decodedHtml }
+      }catch(e){ span.textContent = texSrc || decodedHtml }
       wrapper.appendChild(span);
     } else {
       // Render as HTML (rich-text) â€” decode entities first
@@ -14396,18 +14411,32 @@
     }
 
     function mergeQuestState(localState, remoteState){
+      const sanitize = (st) => {
+        if(!st || typeof st !== 'object') return { daily: [], weekly: [], missions_date: null };
+        return {
+          daily: Array.isArray(st.daily) ? st.daily : [],
+          weekly: Array.isArray(st.weekly) ? st.weekly : [],
+          missions_date: st.missions_date || null,
+          daily_selected: Array.isArray(st.daily_selected) ? st.daily_selected : null,
+          weekly_selected: Array.isArray(st.weekly_selected) ? st.weekly_selected : null
+        };
+      };
+
+      const localSafe = sanitize(localState);
+      const remoteSafe = sanitize(remoteState);
+
       if(!localState && !remoteState) return { daily: [], weekly: [], missions_date: null };
-      if(!localState) return remoteState;
-      if(!remoteState) return localState;
+      if(!localState) return remoteSafe;
+      if(!remoteState) return localSafe;
 
-      const remoteMissionDate = new Date(remoteState?.missions_date || 0).getTime();
-      const localMissionDate = new Date(localState?.missions_date || 0).getTime();
+      const remoteMissionDate = new Date(remoteSafe?.missions_date || 0).getTime();
+      const localMissionDate = new Date(localSafe?.missions_date || 0).getTime();
       const preferRemote = remoteMissionDate >= localMissionDate;
-      const base = preferRemote ? (remoteState || {}) : (localState || {});
-      const alt = preferRemote ? (localState || {}) : (remoteState || {});
+      const base = preferRemote ? remoteSafe : localSafe;
+      const alt = preferRemote ? localSafe : remoteSafe;
 
-      const dailyMerged = mergeQuestMissionList(localState?.daily || [], remoteState?.daily || []);
-      const weeklyMerged = mergeQuestMissionList(localState?.weekly || [], remoteState?.weekly || []);
+      const dailyMerged = mergeQuestMissionList(localSafe?.daily || [], remoteSafe?.daily || []);
+      const weeklyMerged = mergeQuestMissionList(localSafe?.weekly || [], remoteSafe?.weekly || []);
 
       const selectedDaily = Array.isArray(base?.daily_selected) && base.daily_selected.length > 0
         ? base.daily_selected
@@ -15203,8 +15232,21 @@
                 const cloudStateSizeKB = (cloudStateJson.length / 1024).toFixed(2);
                 console.log('[saveState] Uploading to cloud: xp=' + cloudState.xp + ', credits=' + cloudState.credits + ', size=' + cloudStateSizeKB + ' KB');
                 syncLog('Uploading cloud state', { xp: cloudState.xp, credits: cloudState.credits, sizeKB: cloudStateSizeKB });
-                
-                await window.__fabanki_firestore.collection('users').doc(uid).set(cloudState, { merge: true });
+
+                try{
+                  await window.__fabanki_firestore.collection('users').doc(uid).set(cloudState, { merge: true });
+                }catch(writeErr){
+                  // Keep core sync alive even if optional quests payload is rejected by rules/shape.
+                  const fallbackCloudState = {
+                    userId: uid,
+                    mode: 'synced',
+                    lastUpdated: lastUpdated,
+                    xp: Number(cloudState.xp || 0),
+                    credits: Number(cloudState.credits || 0)
+                  };
+                  console.warn('[saveState] Full cloud write failed, retrying minimal payload (without quests):', writeErr);
+                  await window.__fabanki_firestore.collection('users').doc(uid).set(fallbackCloudState, { merge: true });
+                }
                 __lastCloudPushSignature = cloudSig;
                 __lastCloudPushAt = Date.now();
                 console.log('[saveState] Cloud upload successful');
