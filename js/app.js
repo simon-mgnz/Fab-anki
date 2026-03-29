@@ -110,6 +110,31 @@
   
   // IndexedDB for offline queue
   let offlineDB = null;
+
+  // === SYNC BLOCKED WARNING BANNER ===
+  function showSyncBlockedBanner() {
+    if (document.getElementById('syncBlockedBanner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'syncBlockedBanner';
+    banner.style = 'background:#ffecb3;color:#a00;padding:10px 16px;font-weight:bold;text-align:center;position:fixed;top:0;left:0;right:0;z-index:9999;box-shadow:0 2px 8px #0002;';
+    banner.innerHTML = '⚠️ Synchronisation bloquée : l\'application n\'a pas pu terminer la restauration du cloud.<br>Vos progrès ne sont enregistrés que localement.<br>' +
+      '<button id="forceSyncBtn" style="margin-top:8px;padding:4px 12px;font-weight:bold;">Forcer la synchronisation</button>';
+    document.body.appendChild(banner);
+    document.body.style.paddingTop = '60px';
+    document.getElementById('forceSyncBtn').onclick = function() {
+      window.__cloudRestoreCompleted = true;
+      hideSyncBlockedBanner();
+      alert('Synchronisation cloud réactivée. Vos prochaines actions seront synchronisées.');
+    };
+  }
+  function hideSyncBlockedBanner() {
+    const banner = document.getElementById('syncBlockedBanner');
+    if (banner) banner.remove();
+    document.body.style.paddingTop = '';
+  }
+  // Expose for debugging
+  window.__fabanki_showSyncBlockedBanner = showSyncBlockedBanner;
+  window.__fabanki_hideSyncBlockedBanner = hideSyncBlockedBanner;
   
   function initOfflineDB(){
     return new Promise((resolve, reject) => {
@@ -252,11 +277,28 @@
     updateOnlineStatus(true);
     syncOfflineQueue();
   });
-  
+
   window.addEventListener('offline', () => {
     console.log('[PWA] Gone offline');
     updateOnlineStatus(false);
   });
+
+  // === SYNC BLOCKED BANNER CHECK ===
+  setTimeout(function() {
+    try {
+      if (typeof window.__cloudRestoreCompleted !== 'undefined' && window.__cloudRestoreCompleted === false) {
+        showSyncBlockedBanner();
+      }
+    } catch(e) {}
+  }, 3500);
+  // Hide banner if sync becomes unblocked
+  setInterval(function() {
+    try {
+      if (typeof window.__cloudRestoreCompleted !== 'undefined' && window.__cloudRestoreCompleted === true) {
+        hideSyncBlockedBanner();
+      }
+    } catch(e) {}
+  }, 2000);
   
   // Initialize offline DB on load
   initOfflineDB().catch(console.error);

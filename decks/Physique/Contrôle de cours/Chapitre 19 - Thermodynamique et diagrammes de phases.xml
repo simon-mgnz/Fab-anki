@@ -1,0 +1,144 @@
+<deck name="Chapitre 19 - Thermodynamique et diagrammes de phases" tags='Physique::Contrôle de cours'><fields><rich-text name='Front' sides='11'></rich-text><tex name='TeX' sides='11'></tex><rich-text name='Back' sides='01'></rich-text><tex name='Formula' sides='01'></tex><rich-text name='Texte enrichi' sides='01'></rich-text><tex name='TeX2' sides='01'></tex><rich-text name='Texte enrichi2' sides='01'></rich-text><tex name='TeX5' sides='01'></tex><rich-text name='Texte enrichi3' sides='01'></rich-text><tex name='TeX3' sides='01'></tex><rich-text name='Texte enrichi4' sides='01'></rich-text><tex name='TeX4' sides='01'></tex></fields><cards><card><rich-text name='Front'><p>Citer deux paramètres d'état macroscopiques intensifs.</p></rich-text><rich-text name='Back'><p><strong>Définition :</strong></p>
+<p>Un paramètre intensif est une grandeur <span style="text-decoration: underline;">qui ne dépend pas de la quantité de matière du système.</span></p>
+<p><br/></p></rich-text><tex name='Formula'></tex><rich-text name='Texte enrichi'><p><strong>Exemples de paramètres intensifs :</strong></p><p><br/></p><p><strong>1. Température T</strong> (en K ou °C)</p><p> - Ne dépend pas de la masse du système</p><p> - Même température pour 1 L ou 10 L d'eau à l'équilibre thermique</p><p><br/></p><p><strong>2. Pression P</strong> (en Pa)</p><p> - Ne dépend pas de la quantité de gaz</p><p> - Caractérise l'état local du système</p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Autres exemples :</strong></p><p>• Masse volumique ρ (kg·m⁻³)</p><p>• Volume massique v (m³·kg⁻¹)</p><p>• Capacité thermique massique c (J·kg⁻¹·K⁻¹)</p><p>• Concentration molaire (mol·L⁻¹)</p></rich-text></card><card><rich-text name='Front'><p>Citer deux paramètres d'état macroscopiques extensifs.</p></rich-text><rich-text name='Back'><p><strong>Définition :</strong></p>
+<p>Un paramètre extensif est une <span style="text-decoration: underline;">grandeur proportionnelle à la quantité de matière</span> du système.</p>
+<p><br/></p></rich-text><tex name='Formula'></tex><rich-text name='Texte enrichi'><p><strong>Exemples de paramètres extensifs :</strong></p>
+<p><br/></p>
+<p><strong>Volume V</strong> (en m³)</p>
+<p><br/></p>
+<p><strong>Masse m (kg)</strong></p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Autres exemples :</strong></p>
+<p>• Nombre de moles n (mol)</p>
+<p>• Entropie S (J·K⁻¹)</p>
+<p>• Enthalpie H (J)</p>
+<p>• Capacité thermique C (J·K⁻¹)</p>
+<p>• Énergie interne U (en J)</p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'></rich-text></card><card><rich-text name='Front'><p>Comment s'écrit la variation d'énergie interne de n moles de gaz parfait monoatomique passant de T₁ à T₂ ? Même question pour un gaz parfait diatomique à température « normale ».</p></rich-text><rich-text name='Back'><p><strong>Gaz parfait monoatomique :</strong></p>
+<p>Pour un gaz parfait, l'énergie interne<span style="text-decoration: underline;"> ne dépend que de la température</span> (loi de Joule).</p>
+<p>Pour un gaz monoatomique :</p>
+<p><br/></p></rich-text><tex name='Formula'>\boxed{\Delta U = nC_{V,m}\Delta T = \frac{3}{2}nR(T_2 - T_1)}</tex><rich-text name='Texte enrichi'><p>Avec :</p><p>• n : nombre de moles</p><p>• R : constante des gaz parfaits (R = 8,314 J·mol⁻¹·K⁻¹)</p><p>• CV,m = (3/2)R : capacité thermique molaire à volume constant</p><p><br/></p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Gaz parfait diatomique (température normale) :</strong></p><p>À température « normale » (ni trop basse ni trop haute), les modes de vibration ne sont pas excités.</p><p><br/></p></rich-text><tex name='TeX5'>\boxed{\Delta U = nC_{V,m}\Delta T = \frac{5}{2}nR(T_2 - T_1)}</tex><rich-text name='Texte enrichi3'><p>Avec :</p><p>• CV,m = (5/2)R : capacité thermique molaire à volume constant</p><p>• Valable pour N₂, O₂, H₂, etc. à température ambiante</p></rich-text></card><card><rich-text name='Front'><p>Masse m d'eau liquide amenée de Ti à Tf : exprimer la variation d'énergie interne.</p><p>On note cV sa capacité thermique massique à volume constant, supposée indépendante de T.</p></rich-text><rich-text name='Back'><p><strong>Expression de la variation d'énergie interne :</strong></p><p>Pour un liquide ou un solide incompressible, la capacité thermique à volume constant cV est pratiquement égale à la capacité thermique à pression constante cP.</p><p><br/></p></rich-text><tex name='Formula'>\boxed{\Delta U = mc_V(T_f - T_i)}</tex><rich-text name='Texte enrichi'><p><strong>Notations :</strong></p><p>• m : masse d'eau (en kg)</p><p>• cV : capacité thermique massique à volume constant (en J·kg⁻¹·K⁻¹)</p><p>• Ti : température initiale (en K ou °C)</p><p>• Tf : température finale (en K ou °C)</p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Remarque importante :</strong></p><p>Pour l'eau liquide :</p><p>• cV ≈ cP ≈ c = 4 180 J·kg⁻¹·K⁻¹</p><p>• Les phases condensées (liquides et solides) sont peu compressibles</p><p><br/></p></rich-text><tex name='TeX5'>\Delta U \approx mc\Delta T</tex><rich-text name='Texte enrichi3'></rich-text><tex name='TeX3'></tex></card><card><rich-text name='Front'><p>Énergie interne U de n moles d'un corps pur monophasé : écrire la différentielle dU(T,V), puis définir la capacité thermique à volume constant.</p></rich-text><rich-text name='Back'><p>
+    <strong>Différentielle de U(T,V) :</strong>
+  </p>
+  <p>L'énergie interne U est une fonction d'état qui dépend de T et V.</p>
+  <p>
+  <br/>
+</p></rich-text><tex name='Formula'>\boxed{dU = \left(\frac{\partial U}{\partial T}\right)_V dT + \left(\frac{\partial U}{\partial V}\right)_T dV}</tex><rich-text name='Texte enrichi'><p>
+  <strong>Notations :</strong>
+</p>
+<p>• (∂U/∂T)V : dérivée partielle de U par rapport à T à volume constant</p>
+<p>• (∂U/∂V)T : dérivée partielle de U par rapport à V à température constante</p>
+<p>
+<br/>
+</p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p>
+  <strong>Définition de la capacité thermique à volume constant :</strong>
+</p>
+<p>La capacité thermique à volume constant CV est définie par :</p>
+<p>
+<br/>
+</p></rich-text><tex name='TeX5'>\boxed{C_V = \left(\frac{\partial U}{\partial T}\right)_V}</tex><rich-text name='Texte enrichi3'><p>
+  <strong>Interprétation :</strong>
+</p>
+<p>• CV représente la variation d'énergie interne par unité de variation de température à volume constant</p>
+<p>• Unité : J·K⁻¹ (capacité thermique extensive)</p>
+<p>• Pour n moles : CV = nCV,m où CV,m est la capacité thermique molaire</p></rich-text><tex name='TeX3'></tex><rich-text name='Texte enrichi4'><p>
+  <strong>Cas particulier - Gaz parfait :</strong>
+</p>
+<p>Pour un gaz parfait, U ne dépend que de T (loi de Joule) :</p>
+<p>(∂U/∂V)T = 0</p>
+<p>Donc :</p>
+<p>
+<br/>
+</p></rich-text><tex name='TeX4'>dU = C_V dT</tex></card><card><rich-text name='Front'><p>Quelle condition permet, lors d'un chauffage à pression constante d'un solide, d'obtenir directement de la vapeur (sans obtenir de liquide) ?</p></rich-text><rich-text name='Back'><p><strong>Condition de sublimation :</strong></p><p>Pour obtenir directement de la vapeur à partir d'un solide sans passer par l'état liquide, il faut que la pression soit <strong>inférieure à la pression du point triple</strong>.</p><p><br/></p></rich-text><tex name='Formula'>\boxed{P \lt P_{\text{triple}}}</tex><rich-text name='Texte enrichi'><p><strong>Explication :</strong></p><p>En dessous de la pression du point triple, la courbe de fusion n'existe pas. Seules les phases solide et vapeur peuvent coexister.</p><p><br/></p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Sur le diagramme P(T) :</strong></p><p>Si on trace une isobare (ligne horizontale) P = cste &lt; Ptriple :</p><p>• Le chauffage part du domaine solide</p><p>• Traverse directement la courbe de sublimation</p><p>• Arrive dans le domaine vapeur</p><p>• Sans jamais passer par le domaine liquide</p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p><strong>Exemple - Eau :</strong></p>
+<p>• Point triple : Ptriple = 611 Pa ≈ 6 mbar</p>
+<p>• Si P &lt; 611 Pa : la glace sublime directement</p>
+<p>• Application : lyophilisation (séchage sous vide)</p>
+<p><br/></p>
+<p><strong>Exemple - CO₂ (glace carbonique) :</strong></p>
+<p>• Point triple : Ptriple = 5,2 bar</p>
+<p>• À pression atmosphérique (1 bar &lt; 5,2 bar) : sublimation directe</p>
+<p>• La glace carbonique ne fond jamais à pression atmosphérique</p></rich-text></card><card><rich-text name='Front'><p>Tracer l'allure du diagramme P(v) pour un corps pur (équilibre liquide-gaz, au moins deux isothermes). Placer les domaines et identifier les courbes de rosée et d'ébullition.</p></rich-text><rich-text name='Back'><p><strong>Diagramme P(v) - Diagramme de Clapeyron :</strong></p>
+<p>v : volume massique (m³·kg⁻¹)</p>
+<p>Cf cours...</p>
+<p><br/></p></rich-text><tex name='Formula'></tex><rich-text name='Texte enrichi'><p><strong>Domaines :</strong></p><p><br/></p><p><strong>1. Liquide pur</strong> (à gauche)</p><p> - Petit volume massique vL</p><p> - Incompressible (courbe quasi-verticale)</p><p><br/></p><p><strong>2. Mélange liquide-vapeur</strong> (au centre)</p><p> - Palier horizontal (pression constante à T donnée)</p><p> - Coexistence des deux phases</p><p><br/></p><p><strong>3. Vapeur pure</strong> (à droite)</p><p> - Grand volume massique vV</p><p> - Compressible (hyperbole pour un gaz parfait)</p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Courbe de rosée :</strong></p><p>• Frontière droite du domaine diphasé</p><p>• Sépare vapeur pure et mélange liquide-vapeur</p><p>• Point où la première goutte de liquide apparaît lors d'une compression isotherme</p><p>• v = vV (volume massique de la vapeur saturante)</p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p><strong>Courbe d'ébullition :</strong></p><p>• Frontière gauche du domaine diphasé</p><p>• Sépare liquide pur et mélange liquide-vapeur</p><p>• Point où la première bulle de vapeur apparaît lors d'un chauffage isobare</p><p>• v = vL (volume massique du liquide saturant)</p></rich-text><tex name='TeX3'></tex><rich-text name='Texte enrichi4'><p><strong>Isothermes :</strong></p>
+<p>• T &lt; TC : isotherme avec palier horizontal (transition de phase)</p>
+<p>• T = TC : isotherme critique (point d'inflexion horizontal)</p>
+<p>• T &gt; TC : isotherme continue sans palier (pas de transition)</p></rich-text></card><card><rich-text name='Front'><p>Démontrer l'expression du volume massique v d'un système diphasé liquide/vapeur en fonction de vL, vV et de la fraction massique xV de vapeur.</p></rich-text><rich-text name='Back'><p>
+    <strong>Démonstration :</strong>
+  </p>
+  <p>Système diphasé de masse totale m, contenant :</p>
+  <p>• Masse de liquide : mL</p>
+  <p>• Masse de vapeur : mV</p>
+  <p>
+  <br/>
+</p></rich-text><tex name='Formula'>m = m_L + m_V</tex><rich-text name='Texte enrichi'><p>1. Définition de la fraction massique de vapeur :</p>
+  <p>
+  <br/>
+</p></rich-text><tex name='TeX2'>x_V = \frac{m_V}{m} \quad \text{donc} \quad m_V = x_V m</tex><rich-text name='Texte enrichi2'><p>2. Fraction massique de liquide :</p>
+  <p>
+  <br/>
+</p></rich-text><tex name='TeX5'>m_L = m - m_V = m(1 - x_V)</tex><rich-text name='Texte enrichi3'><p>3. Volume total du système :</p>
+  <p>
+  <br/>
+</p></rich-text><tex name='TeX3'>V = V_L + V_V = m_L v_L + m_V v_V</tex><rich-text name='Texte enrichi4'><p>4. Substitution :</p>
+  <p>
+  <br/>
+</p>
+<p>5. Volume massique du système :</p>
+<p>
+<br/>
+</p>
+<p>
+<strong>Résultat :</strong>
+</p>
+<p>
+<br/>
+</p></rich-text><tex name='TeX4'>V = m(1-x_V)v_L + mx_Vv_V = m[v_L + x_V(v_V - v_L)] \\ \\ v = \frac{V}{m} = v_L + x_V(v_V - v_L) \\ \\ \boxed{v = (1-x_V)v_L + x_Vv_V}</tex></card><card><rich-text name='Front'><p>Donner sans justification l'expression du volume massique v d'un système diphasé liquide/vapeur en fonction de vL, vV et de la fraction massique xV de vapeur.</p></rich-text><rich-text name='Back'><p><strong>Expression du volume massique :</strong></p><p>Pour un système diphasé liquide-vapeur :</p><p><br/></p></rich-text><tex name='Formula'>\boxed{v = (1-x_V)v_L + x_Vv_V}</tex><rich-text name='Texte enrichi'><p>ou de manière équivalente :</p><p><br/></p></rich-text><tex name='TeX2'>\boxed{v = v_L + x_V(v_V - v_L)}</tex><rich-text name='Texte enrichi2'><p><strong>Notations :</strong></p><p>• v : volume massique du mélange diphasé (m³·kg⁻¹)</p><p>• vL : volume massique du liquide saturant (m³·kg⁻¹)</p><p>• vV : volume massique de la vapeur saturante (m³·kg⁻¹)</p><p>• xV : fraction massique de vapeur (sans unité, 0 ≤ xV ≤ 1)</p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p><strong>Cas limites :</strong></p>
+<p><br/></p>
+<p>• xV = 0 (liquide pur) : v = vL</p>
+<p>• xV = 1 (vapeur pure) : v = vV</p>
+<p>• 0 &lt; xV &lt; 1 (mélange diphasé) : vL &lt; v &lt; vV</p></rich-text><tex name='TeX3'></tex><rich-text name='Texte enrichi4'><p><strong>Remarque - Théorème des moments :</strong></p><p>Cette expression est une moyenne pondérée par les masses.</p><p>Graphiquement, sur le diagramme P(v), le point représentatif du mélange se trouve sur le palier de liquéfaction entre les points L (liquide) et V (vapeur).</p></rich-text></card><card><rich-text name='Front'><p>Tracer l'allure du diagramme de phases P = f(T) pour un corps pur. Placer les domaines des trois états possibles et nommer les points particuliers.</p></rich-text><rich-text name='Back'><p>
+    <strong>Diagramme de phases P(T) :</strong>
+  </p>
+  <p>
+  <br/>
+</p></rich-text><tex name='Formula'>\begin{array}{c} P \\ \uparrow \\ | \\ | \quad \text{SOLIDE} \\ | \qquad \diagup \\ | \quad \diagup \quad | \quad \text{LIQUIDE} \\ |\diagup \quad \quad | \\ T \qquad \qquad \text{VAPEUR} \\ \longrightarrow \end{array}</tex><rich-text name='Texte enrichi'><p>
+  <strong>Les trois courbes :</strong>
+</p>
+<p>
+<br/>
+</p>
+<p>
+<strong>1. Courbe de fusion</strong> (séparation solide/liquide)</p>
+<p>   - Pente généralement positive</p>
+<p>   - Exception : eau (pente négative)</p>
+<p>
+<br/>
+</p>
+<p>
+<strong>2. Courbe de vaporisation</strong> (séparation liquide/vapeur)</p>
+<p>   - Se termine au point critique C</p>
+<p>
+<br/>
+</p>
+<p>
+<strong>3. Courbe de sublimation</strong> (séparation solide/vapeur)</p>
+<p>   - À basse température et pression</p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p>
+  <strong>Points particuliers :</strong>
+</p>
+<p>
+<br/>
+</p>
+<p>
+<strong>Point triple T :</strong>
+</p>
+<p>• Intersection des trois courbes</p>
+<p>• Coexistence des trois phases (solide, liquide, vapeur)</p>
+<p>• Température et pression uniques pour un corps pur donné</p>
+<p>• Exemple eau : T = 273,16 K, P = 611 Pa</p>
+<p>
+<br/>
+</p>
+<p>
+<strong>Point critique C :</strong>
+</p>
+<p>• Extrémité de la courbe de vaporisation</p>
+<p>• Au-delà : pas de distinction liquide/gaz (fluide supercritique)</p>
+<p>• Exemple eau : TC = 647 K, PC = 221 bar</p></rich-text></card></cards></deck>
