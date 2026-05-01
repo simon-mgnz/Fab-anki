@@ -32,11 +32,11 @@
 
 *{box-sizing:border-box}
 
-html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:var(--font-size)}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:var(--font-size);overscroll-behavior:none}
 
 .app{max-width:900px;margin:18px auto;padding:18px}
 
-header{display:flex;gap:8px;align-items:center;justify-content:space-between}
+header{display:flex;gap:8px;align-items:center;justify-content:space-between;padding-top:env(safe-area-inset-top,0px)}
 
 h1{font-size:1rem;margin:0}
 
@@ -285,7 +285,7 @@ h1{font-size:1rem;margin:0}
 .hold-back--revealed .hold-blur-box{opacity:0;pointer-events:none;transition:opacity 0.12s ease}
 [data-theme='dark'] .hold-blur-box{background:rgba(17,19,25,0.65);border-color:rgba(255,255,255,0.12);color:#e6eef8}
 
-button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer;-webkit-user-select:none;user-select:none}
 
 button.secondary{background:transparent;color:var(--fg);border:1px solid rgba(0,0,0,0.06)}
 
@@ -555,7 +555,10 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
 
 .modal h3{margin:6px 0}
 
-.deck-list{max-height:60vh;overflow:auto;padding:6px}
+.deck-list{max-height:60vh;overflow:auto;padding:6px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+
+/* iOS momentum scrolling + contain scroll in modals */
+.modal-overlay,.modal{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 
 .deck-entry{padding:8px;border-radius:8px;display:flex;justify-content:space-between;align-items:center}
 
