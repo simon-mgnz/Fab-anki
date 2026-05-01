@@ -218,69 +218,51 @@
     }
   }
   
-  // Sync offline queue when online
+  // Sync offline queue when online.
+  // Note: Firestore SDK handles offline persistence natively.
+  // This function clears any stale IndexedDB entries and is kept for legacy call sites.
   async function syncOfflineQueue(){
-    if(!navigator.onLine){
-      console.log('[Offline] Cannot sync - still offline');
-      return;
-    }
-    
+    if(!navigator.onLine) return;
     try{
       const actions = await getQueuedActions();
-      
-      if(actions.length === 0){
-        console.log('[Offline] No actions to sync');
-        updateOfflineIndicator();
-        return;
-      }
-      
-      console.log(`[Offline] Syncing ${actions.length} queued actions...`);
-      
-      for(const action of actions){
-        try{
-          // Retry the original request
-          const options = {
-            method: action.method || 'GET',
-            headers: action.headers || {}
-          };
-          
-          if(action.body){
-            options.body = action.body;
-          }
-          
-          const response = await fetch(action.url, options);
-          
-          if(response.ok){
-            await removeQueuedAction(action.id);
-            console.log('[Offline] Synced action:', action.url);
-          }else{
-            console.warn('[Offline] Failed to sync action:', action.url, response.status);
-          }
-        }catch(error){
-          console.error('[Offline] Sync error for action:', action.url, error);
-        }
-      }
-      
+      for(const action of actions){ await removeQueuedAction(action.id); }
       updateOfflineIndicator();
-      console.log('[Offline] Sync complete');
-      
-      // Show success notification
-      showSyncNotification(actions.length);
-    }catch(error){
-      console.error('[Offline] Sync queue failed:', error);
-    }
+      console.log('[Offline] syncOfflineQueue: cleared ' + actions.length + ' stale entries');
+    }catch(e){ console.warn('[Offline] syncOfflineQueue error:', e); }
   }
-  
+
   // Online/Offline event listeners
   window.addEventListener('online', () => {
     console.log('[PWA] Back online');
     updateOnlineStatus(true);
     syncOfflineQueue();
+    // Trigger Firestore sync on reconnect (SDK does not auto-push pending writes via autoSync)
+    setTimeout(() => {
+      try{
+        if(window.__cloudRestoreCompleted === true && localStorage.getItem('fabanki:mode') === 'synced'){
+          if(typeof autoSync === 'function') autoSync().catch(e => console.warn('[PWA] autoSync on reconnect failed:', e));
+        }
+      }catch(e){}
+    }, 800);
   });
 
   window.addEventListener('offline', () => {
     console.log('[PWA] Gone offline');
     updateOnlineStatus(false);
+  });
+
+  // Pull fresh cloud state when the user returns to this tab (cross-device sync)
+  let __lastVisibilitySyncAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState !== 'visible') return;
+    const now = Date.now();
+    if(now - __lastVisibilitySyncAt < 60000) return; // max once per 60 seconds
+    __lastVisibilitySyncAt = now;
+    if(localStorage.getItem('fabanki:mode') !== 'synced') return;
+    if(!navigator.onLine) return;
+    if(typeof window.restoreFromCloud === 'function'){
+      window.restoreFromCloud().catch(e => console.warn('[visibilitychange] restoreFromCloud failed:', e));
+    }
   });
 
   // === SYNC BLOCKED BANNER CHECK ===
@@ -9636,21 +9618,48 @@
   };
   console.log('ðŸ’¡ Admin: Tapez showModificationRequests() pour ouvrir le panneau d\'administration.');
 
+  function hapticTap(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms || 10); }catch(e){} }
+
   const againBtn = $('#again');
-  if(againBtn) againBtn.addEventListener('click', ()=>{ answerCurrent(0) });
-  
+  if(againBtn) againBtn.addEventListener('click', ()=>{ hapticTap(12); answerCurrent(0) });
+
   const hardBtn = $('#hard');
-  if(hardBtn) hardBtn.addEventListener('click', ()=>{ answerCurrent(3) });
-  
+  if(hardBtn) hardBtn.addEventListener('click', ()=>{ hapticTap(8); answerCurrent(3) });
+
   const goodBtn = $('#good');
-  if(goodBtn) goodBtn.addEventListener('click', ()=>{ answerCurrent(4) });
-  
+  if(goodBtn) goodBtn.addEventListener('click', ()=>{ hapticTap(8); answerCurrent(4) });
+
   const easyBtn = $('#easy');
-  if(easyBtn) easyBtn.addEventListener('click', ()=>{ answerCurrent(5) });
-  
+  if(easyBtn) easyBtn.addEventListener('click', ()=>{ hapticTap(6); answerCurrent(5) });
+
   // Pass current card: mark as 'Never' (far future) and remove from session
   const passerBtn = $('#passer');
   if(passerBtn) passerBtn.addEventListener('click', ()=>{ passCurrent() });
+
+  // Swipe-up on cardArea to show answer (mobile gesture)
+  try{
+    let _swipeStartY = 0, _swipeStartX = 0, _swiping = false;
+    const _cardAreaEl = document.getElementById('cardArea');
+    if(_cardAreaEl){
+      _cardAreaEl.addEventListener('touchstart', (ev) => {
+        if(ev.touches.length !== 1) return;
+        _swipeStartY = ev.touches[0].clientY;
+        _swipeStartX = ev.touches[0].clientX;
+        _swiping = true;
+      }, { passive: true });
+      _cardAreaEl.addEventListener('touchend', (ev) => {
+        if(!_swiping) return;
+        _swiping = false;
+        const dy = _swipeStartY - (ev.changedTouches[0]?.clientY ?? _swipeStartY);
+        const dx = Math.abs(_swipeStartX - (ev.changedTouches[0]?.clientX ?? _swipeStartX));
+        // Upward swipe of at least 60px, more vertical than horizontal
+        if(dy > 60 && dy > dx * 1.5){
+          const showAnsBtn = document.getElementById('showAnswer');
+          if(showAnsBtn && showAnsBtn.style.display !== 'none') showAnsBtn.click();
+        }
+      }, { passive: true });
+    }
+  }catch(e){ /* ignore */ }
   
   // Edit/Request modification button
   const requestModBtn = document.getElementById('requestModBtn');
@@ -10339,6 +10348,9 @@
 
         const topBarLogo = document.getElementById('topBarLogo');
         if(topBarLogo) topBarLogo.setAttribute('src', assets.topBarLogo);
+
+        const themeMeta = document.querySelector('meta[name="theme-color"]');
+        if(themeMeta) themeMeta.setAttribute('content', theme === 'dark' ? '#0f1115' : '#0066ff');
       }catch(e){
         console.warn('applyBrandingForTheme error', e);
       }
@@ -10991,10 +11003,17 @@
     }
     if(browseBtn) browseBtn.addEventListener('click', openDeckBrowser);
     // Expose openDeckBrowser and renderPath globally for retour button
-    try{ 
+    try{
       window.openDeckBrowser = openDeckBrowser;
       // Expose renderPath from within the closure after it's defined
       window.deckBrowserRenderPath = null; // Will be set after openDeckBrowser is called
+    }catch(e){}
+    // Handle PWA shortcut ?action= param (from app-manifest.json shortcuts)
+    try{
+      const actionParam = new URLSearchParams(location.search).get('action');
+      if(actionParam === 'browse'){
+        setTimeout(() => { if(typeof openDeckBrowser === 'function') openDeckBrowser(); }, 600);
+      }
     }catch(e){}
     // show tooltip first-time to indicate where to change deck
     function showDeckTooltipOnce(){
@@ -15209,10 +15228,10 @@
                 quests: mergeQuestState(collectQuestState(), toSave.quests || null)
               };
               
-              // === SAFETY GATE 1.5: NEVER upload xp=0 in synced mode ===
-              // If xp is 0, the leaderboard likely has real data that would be lost
-              if(cloudState.xp <= 0){
-                console.warn('[saveState] HARD BLOCK: Refusing to upload xp=0 to cloud. This would destroy account data. Fix XP locally first.');
+              // === SAFETY GATE 1.5: Block xp=0 upload ONLY when cloud already has real data ===
+              // New users with 0 XP must still be able to sync their initial state.
+              if(cloudState.xp <= 0 && __lastKnownCloudXp !== null && __lastKnownCloudXp > 0){
+                console.warn('[saveState] HARD BLOCK: Refusing to upload xp=0 — cloud has xp=' + __lastKnownCloudXp + '. Fix XP locally first.');
                 return;
               }
 
@@ -15670,11 +15689,10 @@
           });
           shouldRestore = true;
           mergedState = mergeUserStates(localState || defaultUserState(), remoteSt, uid);
-          // For deck due consistency across devices, Firestore deck cards are authoritative here.
-          mergedState.decks = remoteDecks;
+          // Merge per-card timestamps so the most recently reviewed card wins on each device.
+          mergedState.decks = mergeDeckStates(localDecks, remoteDecks);
           mergedState.lastUpdated = Math.max(remoteLastUpdated, localLastUpdated);
-          // Hard convergence: remove stale local card keys from prior key formats/devices.
-          clearDeckCardsBeforeApply = true;
+          clearDeckCardsBeforeApply = false;
         } else {
           console.log('[restoreFromCloud] Local state is newer than Firestore, keeping local for now:', {
             remoteLastUpdated,
@@ -15689,11 +15707,9 @@
           const authoritativeDecks = remoteSt?.decks || {};
           const authoritativeDeckCount = Object.keys(authoritativeDecks).length;
           if(authoritativeDeckCount > 0){
-            // Safety-first policy: never replace local deck cards wholesale on restore.
-            // At this point restore has already selected Firestore as latest source.
-            // Keep authoritative cloud decks and clear stale local card keys for consistency.
-            mergedState.decks = authoritativeDecks;
-            clearDeckCardsBeforeApply = true;
+            // Merge per-card timestamps: most recently reviewed card wins across devices.
+            mergedState.decks = mergeDeckStates(localDecks, authoritativeDecks);
+            clearDeckCardsBeforeApply = false;
             const authoritativeCardCount = Object.values(authoritativeDecks).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
             console.log('[restoreFromCloud] Applying authoritative cloud decks for consistency:', {
               decks: authoritativeDeckCount,
@@ -15762,6 +15778,8 @@
         setSyncStatus('', false);
       }
     }
+    // Expose for cross-closure access (visibilitychange listener, etc.)
+    window.restoreFromCloud = restoreFromCloud;
 
     // === ONE-TIME RECOVERY: Restore XP from leaderboard if cloud user doc was corrupted ===
     async function recoverFromLeaderboard(){
