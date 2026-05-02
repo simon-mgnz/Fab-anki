@@ -5,6 +5,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#0066ff",
@@ -24,5 +25,21 @@
   ],
   "categories": ["education", "productivity"],
   "lang": "fr-FR",
-  "dir": "ltr"
+  "dir": "ltr",
+  "shortcuts": [
+    {
+      "name": "Réviser maintenant",
+      "short_name": "Réviser",
+      "description": "Lancer une session de révision",
+      "url": "/?action=review",
+      "icons": [{ "src": "/fabankiapp.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Parcourir les decks",
+      "short_name": "Decks",
+      "description": "Ouvrir le navigateur de decks",
+      "url": "/?action=browse",
+      "icons": [{ "src": "/fabankiapp.png", "sizes": "96x96" }]
+    }
+  ]
 }
