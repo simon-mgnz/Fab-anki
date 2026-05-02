@@ -223,6 +223,9 @@
       </div>
     </div>
 
+    <!-- Statistics page -->
+    <section id="statsPage"></section>
+
     <!-- Histogram / study breakdown -->
     <section id="stats" style="max-width:900px;margin:18px auto;padding:0 18px">
       <div class="card">
@@ -288,6 +291,33 @@
       </div>
     </div>
   </div>
+
+  <!-- Bottom navigation bar -->
+  <nav id="bottomNav" aria-label="Navigation principale">
+    <button class="bn-tab" id="bnHome" data-tab="home" aria-label="Accueil">
+      <span class="bn-icon">⌂</span>
+      <span class="bn-label">Accueil</span>
+    </button>
+    <button class="bn-tab" id="bnStats" data-tab="stats" aria-label="Statistiques">
+      <span class="bn-icon">◈</span>
+      <span class="bn-label">Stats</span>
+    </button>
+    <button class="bn-tab bn-tab--primary" id="bnReview" data-tab="review" aria-label="Réviser">
+      <span class="bn-icon-wrap">
+        <span class="bn-icon">▶</span>
+      </span>
+      <span class="bn-badge" id="bnReviewBadge" style="display:none">0</span>
+      <span class="bn-label">Réviser</span>
+    </button>
+    <button class="bn-tab" id="bnDecks" data-tab="decks" aria-label="Decks">
+      <span class="bn-icon">⊞</span>
+      <span class="bn-label">Decks</span>
+    </button>
+    <button class="bn-tab" id="bnProfile" data-tab="profile" aria-label="Profil">
+      <span class="bn-icon">◉</span>
+      <span class="bn-label">Profil</span>
+    </button>
+  </nav>
 
   <!-- KaTeX auto-render -->
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>

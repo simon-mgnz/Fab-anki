@@ -608,6 +608,7 @@
       if(marketBtn) marketBtn.style.display = isReview ? 'none' : '';
       if(questsBtn) questsBtn.style.display = isReview ? 'none' : '';
       if(statsBtn) statsBtn.style.display = isReview ? '' : 'none';
+      document.body.classList.toggle('in-review', !!isReview);
       try{ updateReviewMobileHeader(); }catch(e){}
     }catch(e){}
   }
@@ -9806,6 +9807,21 @@
     }catch(e){ console.warn('pass error', e); }
   }
 
+  function recordDailyReview(){
+    const today = new Date().toISOString().slice(0,10);
+    let hist = {};
+    try{ hist = JSON.parse(localStorage.getItem('fabanki:daily_history')||'{}'); }catch(e){}
+    hist[today] = (hist[today]||0) + 1;
+    const keys = Object.keys(hist).sort();
+    if(keys.length > 90){ for(let i=0;i<keys.length-90;i++) delete hist[keys[i]]; }
+    localStorage.setItem('fabanki:daily_history', JSON.stringify(hist));
+    const maxDay = Number(localStorage.getItem('fabanki:max_daily_reviewed')||0);
+    if(hist[today] > maxDay){
+      localStorage.setItem('fabanki:max_daily_reviewed', hist[today]);
+      localStorage.setItem('fabanki:max_daily_reviewed_date', today);
+    }
+  }
+
   function answerCurrent(q, options = {}){
     const cardData = multiDeckMode ? dueCards[currentIndex] : null;
     const c = cardData ? cardData.card : dueCards[currentIndex];
@@ -9989,10 +10005,13 @@
         try{ adjustMpsiScores(2); }catch(e){}
       } else if(q === 5){
         incLocal('fabanki:good_total',1);
+        incLocal('fabanki:easy_total',1);
         try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
         try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
         try{ adjustMpsiScores(3); }catch(e){}
       }
+      // Record daily review history for stats page
+      try{ recordDailyReview(); }catch(e){}
       // Noether: consecutive reviews without using "Passer"
       try{
         const consecNoPass = incLocal('fabanki:consec_no_pass',1);
@@ -15780,6 +15799,8 @@
     }
     // Expose for cross-closure access (visibilitychange listener, etc.)
     window.restoreFromCloud = restoreFromCloud;
+    window.__fabanki_computeTitles = computeTitles;
+    window.__fabanki_getProfileStats = getProfileStats;
 
     // === ONE-TIME RECOVERY: Restore XP from leaderboard if cloud user doc was corrupted ===
     async function recoverFromLeaderboard(){
@@ -22942,5 +22963,332 @@
     
     console.log('âœ… Deck Creator System initialized');
   })();
+
+// ===== STATS PAGE =====
+(function(){
+  function offsetDate(isoDate, deltaDays){
+    const d = new Date(isoDate);
+    d.setDate(d.getDate() + deltaDays);
+    return d.toISOString().slice(0,10);
+  }
+
+  function fmtTime(sec){
+    if(sec < 60) return sec + 's';
+    if(sec < 3600) return Math.floor(sec/60) + 'min';
+    return Math.floor(sec/3600) + 'h ' + Math.floor((sec%3600)/60) + 'min';
+  }
+
+  function fmtDate(iso){
+    if(!iso) return '—';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
+  }
+
+  function buildBarChart(hist, days){
+    const today = new Date().toISOString().slice(0,10);
+    const cols = [];
+    let max = 1;
+    for(let i=days-1;i>=0;i--){
+      const d = offsetDate(today, -i);
+      const v = hist[d]||0;
+      if(v>max) max=v;
+      cols.push({d, v, isToday: i===0});
+    }
+    return cols.map(col=>{
+      const h = Math.round((col.v/max)*52);
+      const dayNames = ['D','L','M','M','J','V','S'];
+      const dow = new Date(col.d+'T00:00:00').getDay();
+      return `<div class="sp-bar-col">
+        <div class="sp-bar-fill${col.isToday?' sp-bar-today':''}" style="height:${h}px" title="${col.v}"></div>
+        <span class="sp-bar-day">${col.isToday?'auj':dayNames[dow]}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function buildHeatmap(hist){
+    const today = new Date().toISOString().slice(0,10);
+    const totalDays = 112; // 16 weeks
+    let vals = [];
+    for(let i=totalDays-1;i>=0;i--){
+      const d = offsetDate(today, -i);
+      vals.push({d, v: hist[d]||0});
+    }
+    // Find max for levels
+    const max = Math.max(1, ...vals.map(x=>x.v));
+    // Build 7-row columns (each column = one week, 7 days)
+    const cols = [];
+    for(let w=0;w<16;w++){
+      const cells = vals.slice(w*7, w*7+7).map(({d,v})=>{
+        const lv = v===0?0:v<=Math.ceil(max*0.25)?1:v<=Math.ceil(max*0.5)?2:v<=Math.ceil(max*0.75)?3:4;
+        return `<div class="sp-heatmap-cell" data-level="${lv}" title="${d}: ${v}"></div>`;
+      });
+      cols.push(`<div class="sp-heatmap-col">${cells.join('')}</div>`);
+    }
+    return cols.join('');
+  }
+
+  function buildTitreCard(t){
+    const maxTiers = {Gauss:10,Fourier:10,Euler:10,Newton:5,Maxwell:5,Noether:5,Hadamard:5,Knuth:5,Curie:5,Turing:5,Hippocrate:5,Conway:5};
+    const max = maxTiers[t.nom] || 10;
+    const pct = max > 0 ? Math.round((t.tier/max)*100) : 0;
+    const tierLabel = t.tier > 0 ? 'Tier ' + t.tier + '/' + max : 'Non débloqué';
+    return `<div class="sp-titre-item">
+      <div class="sp-titre-name">${t.nom}</div>
+      <div class="sp-titre-tier">${tierLabel}</div>
+      <div class="sp-titre-bar"><div class="sp-titre-bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }
+
+  window.renderStatsPage = function(){
+    const el = document.getElementById('statsPage');
+    if(!el) return;
+
+    const today = new Date().toISOString().slice(0,10);
+    const fail = Number(localStorage.getItem('fabanki:fail_total')||0);
+    const hard = Number(localStorage.getItem('fabanki:difficult_total')||0);
+    const good = Number(localStorage.getItem('fabanki:good_total')||0);
+    const easy = Number(localStorage.getItem('fabanki:easy_total')||0);
+    const total = fail + hard + good;
+    const dailyGoal = Number(localStorage.getItem('fabanki:daily_goal')||0);
+    let hist = {};
+    try{ hist = JSON.parse(localStorage.getItem('fabanki:daily_history')||'{}'); }catch(e){}
+    const todayCount = hist[today]||0;
+    const last7Keys = Object.keys(hist).filter(d=>d>=offsetDate(today,-6));
+    const avg7 = Math.round(last7Keys.reduce((s,d)=>s+(hist[d]||0),0)/7);
+    const last30Keys = Object.keys(hist).filter(d=>d>=offsetDate(today,-29));
+    const avg30 = Math.round(last30Keys.reduce((s,d)=>s+(hist[d]||0),0)/30);
+    const streak = Number(localStorage.getItem('fabanki:streak_current')||0);
+    const streakMax = Number(localStorage.getItem('fabanki:streak_max')||0);
+    const bestDay = Number(localStorage.getItem('fabanki:max_daily_reviewed')||0);
+    const bestDayDate = localStorage.getItem('fabanki:max_daily_reviewed_date')||'';
+    const timeSec = Number(localStorage.getItem('fabanki:time_spent_total_sec')||0);
+    const avgTimeSec = total > 0 ? Math.round(timeSec / total) : 0;
+    const successRate = total > 0 ? Math.round((good/total)*100) : 0;
+    // Active days (days with at least 1 review in last 30 days)
+    const activeDays = last30Keys.filter(d=>(hist[d]||0)>0).length;
+    // Goal days (days where goal was met, in last 30 days — approximate using dailyGoal)
+    const goalDays = dailyGoal > 0 ? last30Keys.filter(d=>(hist[d]||0)>=dailyGoal).length : 0;
+    // Deck/card counts
+    let deckCount = 0; let cardCount = 0;
+    try{
+      for(const k of Object.keys(localStorage)){
+        if(k.startsWith('fabanki:') && k.includes(':card:')) cardCount++;
+      }
+      // Count unique deck prefixes
+      const deckKeys = new Set();
+      for(const k of Object.keys(localStorage)){
+        const m = k.match(/^fabanki:([^:]+):card:/);
+        if(m) deckKeys.add(m[1]);
+      }
+      deckCount = deckKeys.size;
+    }catch(e){}
+    // FSRS stability avg
+    let fsrsStab = 0; let fsrsCount = 0;
+    try{
+      for(const k of Object.keys(localStorage)){
+        if(!k.includes(':card:')) continue;
+        const st = JSON.parse(localStorage.getItem(k)||'{}');
+        if(st && st.stability > 0){ fsrsStab += st.stability; fsrsCount++; }
+      }
+    }catch(e){}
+    const avgStability = fsrsCount > 0 ? (fsrsStab/fsrsCount).toFixed(1) : '—';
+    // Mastery %
+    const mastered = Number(localStorage.getItem('fabanki:mastered_total')||0);
+    const masteryPct = cardCount > 0 ? Math.round((mastered/cardCount)*100) : 0;
+    // Histogram data from DOM
+    const cNew = Number(document.getElementById('count-new')?.textContent||0);
+    const cNow = Number(document.getElementById('count-now')?.textContent||0);
+    const c12h = Number(document.getElementById('count-12h')?.textContent||0);
+    const cTomorrow = Number(document.getElementById('count-tomorrow')?.textContent||0);
+    const cWeek = Number(document.getElementById('count-week')?.textContent||0);
+    const cLong = Number(document.getElementById('count-long')?.textContent||0);
+    const histMax = Math.max(1,cNew,cNow,c12h,cTomorrow,cWeek,cLong);
+    function histBar(v,color){
+      const h = Math.round((v/histMax)*48);
+      return `<div class="sp-hist-col">
+        <span class="sp-hist-count">${v}</span>
+        <div class="sp-hist-fill" style="height:${h}px;background:${color}"></div>
+        </div>`;
+    }
+    // Titles
+    let titreHtml = '';
+    try{
+      const _getPS = window.__fabanki_getProfileStats;
+      const _compT = window.__fabanki_computeTitles;
+      if(typeof _getPS === 'function' && typeof _compT === 'function'){
+        const ps = _getPS();
+        const { titres } = _compT(ps);
+        titreHtml = titres.map(buildTitreCard).join('');
+      }
+    }catch(e){}
+    // Quality bar widths
+    const qualMax = Math.max(1, fail, hard, good-easy, easy);
+    function qualBar(v,color){ return `<div class="sp-qual-bar-fill" style="width:${Math.round((v/qualMax)*100)}%;background:${color}"></div>`; }
+
+    el.innerHTML = `<div class="sp-wrap">
+      <div class="sp-header">
+        <span class="sp-header-title">Statistiques</span>
+        <button class="sp-sync-btn" id="spSyncBtn">↺ Sync</button>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Progression du jour</span>
+        <div class="sp-card">
+          <div class="sp-grid-4">
+            <div class="sp-stat-cell"><span class="sp-stat-val">${todayCount}</span><span class="sp-stat-label">Aujourd'hui</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${dailyGoal||'—'}</span><span class="sp-stat-label">Objectif</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${avg7}</span><span class="sp-stat-label">Moy/j (7j)</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${avg30}</span><span class="sp-stat-label">Moy/j (30j)</span></div>
+          </div>
+          <div class="sp-bars">${buildBarChart(hist,7)}</div>
+        </div>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Élan d'étude</span>
+        <div class="sp-card">
+          <div class="sp-grid-4">
+            <div class="sp-stat-cell"><span class="sp-stat-val">${streak}</span><span class="sp-stat-label">Série actuelle</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${goalDays}</span><span class="sp-stat-label">Jours objectif (30j)</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${activeDays}</span><span class="sp-stat-label">Jours actifs (30j)</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${bestDay}</span><span class="sp-stat-label">Meilleur jour${bestDayDate?'<br><small style="font-size:0.6rem;color:var(--muted)">'+fmtDate(bestDayDate)+'</small>':''}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Bibliothèque</span>
+        <div class="sp-card">
+          <div class="sp-grid-4">
+            <div class="sp-stat-cell"><span class="sp-stat-val">${deckCount}</span><span class="sp-stat-label">Decks</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${cardCount}</span><span class="sp-stat-label">Cartes</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${avgStability}</span><span class="sp-stat-label">Stabilité FSRS</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${masteryPct}%</span><span class="sp-stat-label">Maîtrisées</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Qualité des réponses</span>
+        <div class="sp-card">
+          <div class="sp-grid-4" style="margin-bottom:14px">
+            <div class="sp-stat-cell"><span class="sp-stat-val">${total}</span><span class="sp-stat-label">Total</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${fmtTime(timeSec)}</span><span class="sp-stat-label">Temps total</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${successRate}%</span><span class="sp-stat-label">Taux succès</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${fmtTime(avgTimeSec)}</span><span class="sp-stat-label">Moy/carte</span></div>
+          </div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Raté</span><div class="sp-qual-bar">${qualBar(fail,'#d9534f')}</div><span class="sp-qual-count">${fail}</span></div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Difficile</span><div class="sp-qual-bar">${qualBar(hard,'#e89b27')}</div><span class="sp-qual-count">${hard}</span></div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Bon</span><div class="sp-qual-bar">${qualBar(good-easy,'#28a745')}</div><span class="sp-qual-count">${good-easy}</span></div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Facile</span><div class="sp-qual-bar">${qualBar(easy,'#0066ff')}</div><span class="sp-qual-count">${easy}</span></div>
+        </div>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Répartition des échéances</span>
+        <div class="sp-card">
+          <div class="sp-hist-bars">
+            ${histBar(cNew,'#d6b8ff')}
+            ${histBar(cNow,'#d9534f')}
+            ${histBar(c12h,'#ff9b9b')}
+            ${histBar(cTomorrow,'#ffd966')}
+            ${histBar(cWeek,'#6f8cff')}
+            ${histBar(cLong,'#28a745')}
+          </div>
+          <div style="display:flex;gap:5px;margin-top:5px">
+            ${['Nouveau','Maintenant','<12h','Demain','<1 sem','Long'].map((l,i)=>`<div style="flex:1;text-align:center;font-size:0.58rem;color:var(--muted)">${l}</div>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Calendrier (16 semaines)</span>
+        <div class="sp-card">
+          <div class="sp-heatmap">${buildHeatmap(hist)}</div>
+        </div>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Titres & Tiers</span>
+        <div class="sp-card">
+          <div class="sp-titre-grid">${titreHtml||'<span style="color:var(--muted);font-size:0.85rem">Aucun titre disponible</span>'}</div>
+        </div>
+      </div>
+    </div>`;
+
+    document.getElementById('spSyncBtn')?.addEventListener('click',()=>{
+      const syncBtn = document.getElementById('syncBtn');
+      if(syncBtn) syncBtn.click();
+    });
+  };
+})();
+
+// ===== BOTTOM NAVIGATION =====
+(function initBottomNav(){
+  const tabs = document.querySelectorAll('.bn-tab');
+  if(!tabs.length) return;
+
+  let currentTab = 'home';
+
+  function setActiveTab(tabId){
+    currentTab = tabId;
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+    const mainEl = document.querySelector('main');
+    const statsSection = document.getElementById('stats');
+    const statsPage = document.getElementById('statsPage');
+    const footerEl = document.querySelector('footer');
+    if(tabId === 'stats'){
+      if(mainEl) mainEl.style.display = 'none';
+      if(statsSection) statsSection.style.display = 'none';
+      if(footerEl) footerEl.style.display = 'none';
+      if(statsPage){ statsPage.classList.add('sp-active'); if(typeof window.renderStatsPage === 'function') window.renderStatsPage(); }
+    } else {
+      if(mainEl) mainEl.style.display = '';
+      if(statsSection) statsSection.style.display = '';
+      if(footerEl) footerEl.style.display = '';
+      if(statsPage) statsPage.classList.remove('sp-active');
+    }
+  }
+
+  document.getElementById('bnHome')?.addEventListener('click',()=>setActiveTab('home'));
+  document.getElementById('bnStats')?.addEventListener('click',()=>setActiveTab('stats'));
+  document.getElementById('bnReview')?.addEventListener('click',()=>{
+    // Trigger review if not already in review — click the first due card review button
+    const showBtn = document.getElementById('showAnswer');
+    if(showBtn && showBtn.style.display !== 'none') showBtn.click();
+    setActiveTab('review');
+  });
+  document.getElementById('bnDecks')?.addEventListener('click',()=>{
+    const browseBtn = document.getElementById('browseDecks');
+    if(browseBtn) browseBtn.click();
+    setActiveTab('home');
+  });
+  document.getElementById('bnProfile')?.addEventListener('click',()=>{
+    const profileBtn = document.getElementById('profileBtn');
+    if(profileBtn) profileBtn.click();
+    setActiveTab('home');
+  });
+
+  // Badge: observe dueCount
+  function updateReviewBadge(){
+    const badge = document.getElementById('bnReviewBadge');
+    if(!badge) return;
+    const dueEl = document.getElementById('dueCount');
+    const n = Number(dueEl?.textContent||0);
+    badge.style.display = n > 0 ? 'flex' : 'none';
+    badge.textContent = n > 99 ? '99+' : String(n);
+  }
+  const dueEl = document.getElementById('dueCount');
+  if(dueEl) new MutationObserver(updateReviewBadge).observe(dueEl, {childList:true, characterData:true, subtree:true});
+  updateReviewBadge();
+
+  // Set home as default active
+  setActiveTab('home');
+
+  window.__setBottomNavVisible = function(v){
+    const nav = document.getElementById('bottomNav');
+    if(nav) nav.style.display = v ? '' : 'none';
+  };
+})();
 
 // Fab'Anki, open-source spaced repetition software made with Copilot.
