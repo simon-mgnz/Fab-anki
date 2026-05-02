@@ -218,69 +218,51 @@
     }
   }
   
-  // Sync offline queue when online
+  // Sync offline queue when online.
+  // Note: Firestore SDK handles offline persistence natively.
+  // This function clears any stale IndexedDB entries and is kept for legacy call sites.
   async function syncOfflineQueue(){
-    if(!navigator.onLine){
-      console.log('[Offline] Cannot sync - still offline');
-      return;
-    }
-    
+    if(!navigator.onLine) return;
     try{
       const actions = await getQueuedActions();
-      
-      if(actions.length === 0){
-        console.log('[Offline] No actions to sync');
-        updateOfflineIndicator();
-        return;
-      }
-      
-      console.log(`[Offline] Syncing ${actions.length} queued actions...`);
-      
-      for(const action of actions){
-        try{
-          // Retry the original request
-          const options = {
-            method: action.method || 'GET',
-            headers: action.headers || {}
-          };
-          
-          if(action.body){
-            options.body = action.body;
-          }
-          
-          const response = await fetch(action.url, options);
-          
-          if(response.ok){
-            await removeQueuedAction(action.id);
-            console.log('[Offline] Synced action:', action.url);
-          }else{
-            console.warn('[Offline] Failed to sync action:', action.url, response.status);
-          }
-        }catch(error){
-          console.error('[Offline] Sync error for action:', action.url, error);
-        }
-      }
-      
+      for(const action of actions){ await removeQueuedAction(action.id); }
       updateOfflineIndicator();
-      console.log('[Offline] Sync complete');
-      
-      // Show success notification
-      showSyncNotification(actions.length);
-    }catch(error){
-      console.error('[Offline] Sync queue failed:', error);
-    }
+      console.log('[Offline] syncOfflineQueue: cleared ' + actions.length + ' stale entries');
+    }catch(e){ console.warn('[Offline] syncOfflineQueue error:', e); }
   }
-  
+
   // Online/Offline event listeners
   window.addEventListener('online', () => {
     console.log('[PWA] Back online');
     updateOnlineStatus(true);
     syncOfflineQueue();
+    // Trigger Firestore sync on reconnect (SDK does not auto-push pending writes via autoSync)
+    setTimeout(() => {
+      try{
+        if(window.__cloudRestoreCompleted === true && localStorage.getItem('fabanki:mode') === 'synced'){
+          if(typeof autoSync === 'function') autoSync().catch(e => console.warn('[PWA] autoSync on reconnect failed:', e));
+        }
+      }catch(e){}
+    }, 800);
   });
 
   window.addEventListener('offline', () => {
     console.log('[PWA] Gone offline');
     updateOnlineStatus(false);
+  });
+
+  // Pull fresh cloud state when the user returns to this tab (cross-device sync)
+  let __lastVisibilitySyncAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState !== 'visible') return;
+    const now = Date.now();
+    if(now - __lastVisibilitySyncAt < 60000) return; // max once per 60 seconds
+    __lastVisibilitySyncAt = now;
+    if(localStorage.getItem('fabanki:mode') !== 'synced') return;
+    if(!navigator.onLine) return;
+    if(typeof window.restoreFromCloud === 'function'){
+      window.restoreFromCloud().catch(e => console.warn('[visibilitychange] restoreFromCloud failed:', e));
+    }
   });
 
   // === SYNC BLOCKED BANNER CHECK ===
@@ -626,6 +608,7 @@
       if(marketBtn) marketBtn.style.display = isReview ? 'none' : '';
       if(questsBtn) questsBtn.style.display = isReview ? 'none' : '';
       if(statsBtn) statsBtn.style.display = isReview ? '' : 'none';
+      document.body.classList.toggle('in-review', !!isReview);
       try{ updateReviewMobileHeader(); }catch(e){}
     }catch(e){}
   }
@@ -9636,21 +9619,48 @@
   };
   console.log('ðŸ’¡ Admin: Tapez showModificationRequests() pour ouvrir le panneau d\'administration.');
 
+  function hapticTap(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms || 10); }catch(e){} }
+
   const againBtn = $('#again');
-  if(againBtn) againBtn.addEventListener('click', ()=>{ answerCurrent(0) });
-  
+  if(againBtn) againBtn.addEventListener('click', ()=>{ hapticTap(12); answerCurrent(0) });
+
   const hardBtn = $('#hard');
-  if(hardBtn) hardBtn.addEventListener('click', ()=>{ answerCurrent(3) });
-  
+  if(hardBtn) hardBtn.addEventListener('click', ()=>{ hapticTap(8); answerCurrent(3) });
+
   const goodBtn = $('#good');
-  if(goodBtn) goodBtn.addEventListener('click', ()=>{ answerCurrent(4) });
-  
+  if(goodBtn) goodBtn.addEventListener('click', ()=>{ hapticTap(8); answerCurrent(4) });
+
   const easyBtn = $('#easy');
-  if(easyBtn) easyBtn.addEventListener('click', ()=>{ answerCurrent(5) });
-  
+  if(easyBtn) easyBtn.addEventListener('click', ()=>{ hapticTap(6); answerCurrent(5) });
+
   // Pass current card: mark as 'Never' (far future) and remove from session
   const passerBtn = $('#passer');
   if(passerBtn) passerBtn.addEventListener('click', ()=>{ passCurrent() });
+
+  // Swipe-up on cardArea to show answer (mobile gesture)
+  try{
+    let _swipeStartY = 0, _swipeStartX = 0, _swiping = false;
+    const _cardAreaEl = document.getElementById('cardArea');
+    if(_cardAreaEl){
+      _cardAreaEl.addEventListener('touchstart', (ev) => {
+        if(ev.touches.length !== 1) return;
+        _swipeStartY = ev.touches[0].clientY;
+        _swipeStartX = ev.touches[0].clientX;
+        _swiping = true;
+      }, { passive: true });
+      _cardAreaEl.addEventListener('touchend', (ev) => {
+        if(!_swiping) return;
+        _swiping = false;
+        const dy = _swipeStartY - (ev.changedTouches[0]?.clientY ?? _swipeStartY);
+        const dx = Math.abs(_swipeStartX - (ev.changedTouches[0]?.clientX ?? _swipeStartX));
+        // Upward swipe of at least 60px, more vertical than horizontal
+        if(dy > 60 && dy > dx * 1.5){
+          const showAnsBtn = document.getElementById('showAnswer');
+          if(showAnsBtn && showAnsBtn.style.display !== 'none') showAnsBtn.click();
+        }
+      }, { passive: true });
+    }
+  }catch(e){ /* ignore */ }
   
   // Edit/Request modification button
   const requestModBtn = document.getElementById('requestModBtn');
@@ -9795,6 +9805,21 @@
         storageKey = origStorageKey;
       }
     }catch(e){ console.warn('pass error', e); }
+  }
+
+  function recordDailyReview(){
+    const today = new Date().toISOString().slice(0,10);
+    let hist = {};
+    try{ hist = JSON.parse(localStorage.getItem('fabanki:daily_history')||'{}'); }catch(e){}
+    hist[today] = (hist[today]||0) + 1;
+    const keys = Object.keys(hist).sort();
+    if(keys.length > 90){ for(let i=0;i<keys.length-90;i++) delete hist[keys[i]]; }
+    localStorage.setItem('fabanki:daily_history', JSON.stringify(hist));
+    const maxDay = Number(localStorage.getItem('fabanki:max_daily_reviewed')||0);
+    if(hist[today] > maxDay){
+      localStorage.setItem('fabanki:max_daily_reviewed', hist[today]);
+      localStorage.setItem('fabanki:max_daily_reviewed_date', today);
+    }
   }
 
   function answerCurrent(q, options = {}){
@@ -9980,10 +10005,13 @@
         try{ adjustMpsiScores(2); }catch(e){}
       } else if(q === 5){
         incLocal('fabanki:good_total',1);
+        incLocal('fabanki:easy_total',1);
         try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
         try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
         try{ adjustMpsiScores(3); }catch(e){}
       }
+      // Record daily review history for stats page
+      try{ recordDailyReview(); }catch(e){}
       // Noether: consecutive reviews without using "Passer"
       try{
         const consecNoPass = incLocal('fabanki:consec_no_pass',1);
@@ -10339,6 +10367,9 @@
 
         const topBarLogo = document.getElementById('topBarLogo');
         if(topBarLogo) topBarLogo.setAttribute('src', assets.topBarLogo);
+
+        const themeMeta = document.querySelector('meta[name="theme-color"]');
+        if(themeMeta) themeMeta.setAttribute('content', theme === 'dark' ? '#0f1115' : '#0066ff');
       }catch(e){
         console.warn('applyBrandingForTheme error', e);
       }
@@ -10991,10 +11022,17 @@
     }
     if(browseBtn) browseBtn.addEventListener('click', openDeckBrowser);
     // Expose openDeckBrowser and renderPath globally for retour button
-    try{ 
+    try{
       window.openDeckBrowser = openDeckBrowser;
       // Expose renderPath from within the closure after it's defined
       window.deckBrowserRenderPath = null; // Will be set after openDeckBrowser is called
+    }catch(e){}
+    // Handle PWA shortcut ?action= param (from app-manifest.json shortcuts)
+    try{
+      const actionParam = new URLSearchParams(location.search).get('action');
+      if(actionParam === 'browse'){
+        setTimeout(() => { if(typeof openDeckBrowser === 'function') openDeckBrowser(); }, 600);
+      }
     }catch(e){}
     // show tooltip first-time to indicate where to change deck
     function showDeckTooltipOnce(){
@@ -15209,10 +15247,10 @@
                 quests: mergeQuestState(collectQuestState(), toSave.quests || null)
               };
               
-              // === SAFETY GATE 1.5: NEVER upload xp=0 in synced mode ===
-              // If xp is 0, the leaderboard likely has real data that would be lost
-              if(cloudState.xp <= 0){
-                console.warn('[saveState] HARD BLOCK: Refusing to upload xp=0 to cloud. This would destroy account data. Fix XP locally first.');
+              // === SAFETY GATE 1.5: Block xp=0 upload ONLY when cloud already has real data ===
+              // New users with 0 XP must still be able to sync their initial state.
+              if(cloudState.xp <= 0 && __lastKnownCloudXp !== null && __lastKnownCloudXp > 0){
+                console.warn('[saveState] HARD BLOCK: Refusing to upload xp=0 — cloud has xp=' + __lastKnownCloudXp + '. Fix XP locally first.');
                 return;
               }
 
@@ -15670,11 +15708,10 @@
           });
           shouldRestore = true;
           mergedState = mergeUserStates(localState || defaultUserState(), remoteSt, uid);
-          // For deck due consistency across devices, Firestore deck cards are authoritative here.
-          mergedState.decks = remoteDecks;
+          // Merge per-card timestamps so the most recently reviewed card wins on each device.
+          mergedState.decks = mergeDeckStates(localDecks, remoteDecks);
           mergedState.lastUpdated = Math.max(remoteLastUpdated, localLastUpdated);
-          // Hard convergence: remove stale local card keys from prior key formats/devices.
-          clearDeckCardsBeforeApply = true;
+          clearDeckCardsBeforeApply = false;
         } else {
           console.log('[restoreFromCloud] Local state is newer than Firestore, keeping local for now:', {
             remoteLastUpdated,
@@ -15689,11 +15726,9 @@
           const authoritativeDecks = remoteSt?.decks || {};
           const authoritativeDeckCount = Object.keys(authoritativeDecks).length;
           if(authoritativeDeckCount > 0){
-            // Safety-first policy: never replace local deck cards wholesale on restore.
-            // At this point restore has already selected Firestore as latest source.
-            // Keep authoritative cloud decks and clear stale local card keys for consistency.
-            mergedState.decks = authoritativeDecks;
-            clearDeckCardsBeforeApply = true;
+            // Merge per-card timestamps: most recently reviewed card wins across devices.
+            mergedState.decks = mergeDeckStates(localDecks, authoritativeDecks);
+            clearDeckCardsBeforeApply = false;
             const authoritativeCardCount = Object.values(authoritativeDecks).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
             console.log('[restoreFromCloud] Applying authoritative cloud decks for consistency:', {
               decks: authoritativeDeckCount,
@@ -15762,6 +15797,10 @@
         setSyncStatus('', false);
       }
     }
+    // Expose for cross-closure access (visibilitychange listener, etc.)
+    window.restoreFromCloud = restoreFromCloud;
+    window.__fabanki_computeTitles = computeTitles;
+    window.__fabanki_getProfileStats = getProfileStats;
 
     // === ONE-TIME RECOVERY: Restore XP from leaderboard if cloud user doc was corrupted ===
     async function recoverFromLeaderboard(){
@@ -22924,5 +22963,332 @@
     
     console.log('âœ… Deck Creator System initialized');
   })();
+
+// ===== STATS PAGE =====
+(function(){
+  function offsetDate(isoDate, deltaDays){
+    const d = new Date(isoDate);
+    d.setDate(d.getDate() + deltaDays);
+    return d.toISOString().slice(0,10);
+  }
+
+  function fmtTime(sec){
+    if(sec < 60) return sec + 's';
+    if(sec < 3600) return Math.floor(sec/60) + 'min';
+    return Math.floor(sec/3600) + 'h ' + Math.floor((sec%3600)/60) + 'min';
+  }
+
+  function fmtDate(iso){
+    if(!iso) return '—';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
+  }
+
+  function buildBarChart(hist, days){
+    const today = new Date().toISOString().slice(0,10);
+    const cols = [];
+    let max = 1;
+    for(let i=days-1;i>=0;i--){
+      const d = offsetDate(today, -i);
+      const v = hist[d]||0;
+      if(v>max) max=v;
+      cols.push({d, v, isToday: i===0});
+    }
+    return cols.map(col=>{
+      const h = Math.round((col.v/max)*52);
+      const dayNames = ['D','L','M','M','J','V','S'];
+      const dow = new Date(col.d+'T00:00:00').getDay();
+      return `<div class="sp-bar-col">
+        <div class="sp-bar-fill${col.isToday?' sp-bar-today':''}" style="height:${h}px" title="${col.v}"></div>
+        <span class="sp-bar-day">${col.isToday?'auj':dayNames[dow]}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function buildHeatmap(hist){
+    const today = new Date().toISOString().slice(0,10);
+    const totalDays = 112; // 16 weeks
+    let vals = [];
+    for(let i=totalDays-1;i>=0;i--){
+      const d = offsetDate(today, -i);
+      vals.push({d, v: hist[d]||0});
+    }
+    // Find max for levels
+    const max = Math.max(1, ...vals.map(x=>x.v));
+    // Build 7-row columns (each column = one week, 7 days)
+    const cols = [];
+    for(let w=0;w<16;w++){
+      const cells = vals.slice(w*7, w*7+7).map(({d,v})=>{
+        const lv = v===0?0:v<=Math.ceil(max*0.25)?1:v<=Math.ceil(max*0.5)?2:v<=Math.ceil(max*0.75)?3:4;
+        return `<div class="sp-heatmap-cell" data-level="${lv}" title="${d}: ${v}"></div>`;
+      });
+      cols.push(`<div class="sp-heatmap-col">${cells.join('')}</div>`);
+    }
+    return cols.join('');
+  }
+
+  function buildTitreCard(t){
+    const maxTiers = {Gauss:10,Fourier:10,Euler:10,Newton:5,Maxwell:5,Noether:5,Hadamard:5,Knuth:5,Curie:5,Turing:5,Hippocrate:5,Conway:5};
+    const max = maxTiers[t.nom] || 10;
+    const pct = max > 0 ? Math.round((t.tier/max)*100) : 0;
+    const tierLabel = t.tier > 0 ? 'Tier ' + t.tier + '/' + max : 'Non débloqué';
+    return `<div class="sp-titre-item">
+      <div class="sp-titre-name">${t.nom}</div>
+      <div class="sp-titre-tier">${tierLabel}</div>
+      <div class="sp-titre-bar"><div class="sp-titre-bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }
+
+  window.renderStatsPage = function(){
+    const el = document.getElementById('statsPage');
+    if(!el) return;
+
+    const today = new Date().toISOString().slice(0,10);
+    const fail = Number(localStorage.getItem('fabanki:fail_total')||0);
+    const hard = Number(localStorage.getItem('fabanki:difficult_total')||0);
+    const good = Number(localStorage.getItem('fabanki:good_total')||0);
+    const easy = Number(localStorage.getItem('fabanki:easy_total')||0);
+    const total = fail + hard + good;
+    const dailyGoal = Number(localStorage.getItem('fabanki:daily_goal')||0);
+    let hist = {};
+    try{ hist = JSON.parse(localStorage.getItem('fabanki:daily_history')||'{}'); }catch(e){}
+    const todayCount = hist[today]||0;
+    const last7Keys = Object.keys(hist).filter(d=>d>=offsetDate(today,-6));
+    const avg7 = Math.round(last7Keys.reduce((s,d)=>s+(hist[d]||0),0)/7);
+    const last30Keys = Object.keys(hist).filter(d=>d>=offsetDate(today,-29));
+    const avg30 = Math.round(last30Keys.reduce((s,d)=>s+(hist[d]||0),0)/30);
+    const streak = Number(localStorage.getItem('fabanki:streak_current')||0);
+    const streakMax = Number(localStorage.getItem('fabanki:streak_max')||0);
+    const bestDay = Number(localStorage.getItem('fabanki:max_daily_reviewed')||0);
+    const bestDayDate = localStorage.getItem('fabanki:max_daily_reviewed_date')||'';
+    const timeSec = Number(localStorage.getItem('fabanki:time_spent_total_sec')||0);
+    const avgTimeSec = total > 0 ? Math.round(timeSec / total) : 0;
+    const successRate = total > 0 ? Math.round((good/total)*100) : 0;
+    // Active days (days with at least 1 review in last 30 days)
+    const activeDays = last30Keys.filter(d=>(hist[d]||0)>0).length;
+    // Goal days (days where goal was met, in last 30 days — approximate using dailyGoal)
+    const goalDays = dailyGoal > 0 ? last30Keys.filter(d=>(hist[d]||0)>=dailyGoal).length : 0;
+    // Deck/card counts
+    let deckCount = 0; let cardCount = 0;
+    try{
+      for(const k of Object.keys(localStorage)){
+        if(k.startsWith('fabanki:') && k.includes(':card:')) cardCount++;
+      }
+      // Count unique deck prefixes
+      const deckKeys = new Set();
+      for(const k of Object.keys(localStorage)){
+        const m = k.match(/^fabanki:([^:]+):card:/);
+        if(m) deckKeys.add(m[1]);
+      }
+      deckCount = deckKeys.size;
+    }catch(e){}
+    // FSRS stability avg
+    let fsrsStab = 0; let fsrsCount = 0;
+    try{
+      for(const k of Object.keys(localStorage)){
+        if(!k.includes(':card:')) continue;
+        const st = JSON.parse(localStorage.getItem(k)||'{}');
+        if(st && st.stability > 0){ fsrsStab += st.stability; fsrsCount++; }
+      }
+    }catch(e){}
+    const avgStability = fsrsCount > 0 ? (fsrsStab/fsrsCount).toFixed(1) : '—';
+    // Mastery %
+    const mastered = Number(localStorage.getItem('fabanki:mastered_total')||0);
+    const masteryPct = cardCount > 0 ? Math.round((mastered/cardCount)*100) : 0;
+    // Histogram data from DOM
+    const cNew = Number(document.getElementById('count-new')?.textContent||0);
+    const cNow = Number(document.getElementById('count-now')?.textContent||0);
+    const c12h = Number(document.getElementById('count-12h')?.textContent||0);
+    const cTomorrow = Number(document.getElementById('count-tomorrow')?.textContent||0);
+    const cWeek = Number(document.getElementById('count-week')?.textContent||0);
+    const cLong = Number(document.getElementById('count-long')?.textContent||0);
+    const histMax = Math.max(1,cNew,cNow,c12h,cTomorrow,cWeek,cLong);
+    function histBar(v,color){
+      const h = Math.round((v/histMax)*48);
+      return `<div class="sp-hist-col">
+        <span class="sp-hist-count">${v}</span>
+        <div class="sp-hist-fill" style="height:${h}px;background:${color}"></div>
+        </div>`;
+    }
+    // Titles
+    let titreHtml = '';
+    try{
+      const _getPS = window.__fabanki_getProfileStats;
+      const _compT = window.__fabanki_computeTitles;
+      if(typeof _getPS === 'function' && typeof _compT === 'function'){
+        const ps = _getPS();
+        const { titres } = _compT(ps);
+        titreHtml = titres.map(buildTitreCard).join('');
+      }
+    }catch(e){}
+    // Quality bar widths
+    const qualMax = Math.max(1, fail, hard, good-easy, easy);
+    function qualBar(v,color){ return `<div class="sp-qual-bar-fill" style="width:${Math.round((v/qualMax)*100)}%;background:${color}"></div>`; }
+
+    el.innerHTML = `<div class="sp-wrap">
+      <div class="sp-header">
+        <span class="sp-header-title">Statistiques</span>
+        <button class="sp-sync-btn" id="spSyncBtn">↺ Sync</button>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Progression du jour</span>
+        <div class="sp-card">
+          <div class="sp-grid-4">
+            <div class="sp-stat-cell"><span class="sp-stat-val">${todayCount}</span><span class="sp-stat-label">Aujourd'hui</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${dailyGoal||'—'}</span><span class="sp-stat-label">Objectif</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${avg7}</span><span class="sp-stat-label">Moy/j (7j)</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${avg30}</span><span class="sp-stat-label">Moy/j (30j)</span></div>
+          </div>
+          <div class="sp-bars">${buildBarChart(hist,7)}</div>
+        </div>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Élan d'étude</span>
+        <div class="sp-card">
+          <div class="sp-grid-4">
+            <div class="sp-stat-cell"><span class="sp-stat-val">${streak}</span><span class="sp-stat-label">Série actuelle</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${goalDays}</span><span class="sp-stat-label">Jours objectif (30j)</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${activeDays}</span><span class="sp-stat-label">Jours actifs (30j)</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${bestDay}</span><span class="sp-stat-label">Meilleur jour${bestDayDate?'<br><small style="font-size:0.6rem;color:var(--muted)">'+fmtDate(bestDayDate)+'</small>':''}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Bibliothèque</span>
+        <div class="sp-card">
+          <div class="sp-grid-4">
+            <div class="sp-stat-cell"><span class="sp-stat-val">${deckCount}</span><span class="sp-stat-label">Decks</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${cardCount}</span><span class="sp-stat-label">Cartes</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${avgStability}</span><span class="sp-stat-label">Stabilité FSRS</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${masteryPct}%</span><span class="sp-stat-label">Maîtrisées</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Qualité des réponses</span>
+        <div class="sp-card">
+          <div class="sp-grid-4" style="margin-bottom:14px">
+            <div class="sp-stat-cell"><span class="sp-stat-val">${total}</span><span class="sp-stat-label">Total</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${fmtTime(timeSec)}</span><span class="sp-stat-label">Temps total</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${successRate}%</span><span class="sp-stat-label">Taux succès</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${fmtTime(avgTimeSec)}</span><span class="sp-stat-label">Moy/carte</span></div>
+          </div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Raté</span><div class="sp-qual-bar">${qualBar(fail,'#d9534f')}</div><span class="sp-qual-count">${fail}</span></div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Difficile</span><div class="sp-qual-bar">${qualBar(hard,'#e89b27')}</div><span class="sp-qual-count">${hard}</span></div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Bon</span><div class="sp-qual-bar">${qualBar(good-easy,'#28a745')}</div><span class="sp-qual-count">${good-easy}</span></div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Facile</span><div class="sp-qual-bar">${qualBar(easy,'#0066ff')}</div><span class="sp-qual-count">${easy}</span></div>
+        </div>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Répartition des échéances</span>
+        <div class="sp-card">
+          <div class="sp-hist-bars">
+            ${histBar(cNew,'#d6b8ff')}
+            ${histBar(cNow,'#d9534f')}
+            ${histBar(c12h,'#ff9b9b')}
+            ${histBar(cTomorrow,'#ffd966')}
+            ${histBar(cWeek,'#6f8cff')}
+            ${histBar(cLong,'#28a745')}
+          </div>
+          <div style="display:flex;gap:5px;margin-top:5px">
+            ${['Nouveau','Maintenant','<12h','Demain','<1 sem','Long'].map((l,i)=>`<div style="flex:1;text-align:center;font-size:0.58rem;color:var(--muted)">${l}</div>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Calendrier (16 semaines)</span>
+        <div class="sp-card">
+          <div class="sp-heatmap">${buildHeatmap(hist)}</div>
+        </div>
+      </div>
+
+      <div class="sp-section">
+        <span class="sp-section-title">Titres & Tiers</span>
+        <div class="sp-card">
+          <div class="sp-titre-grid">${titreHtml||'<span style="color:var(--muted);font-size:0.85rem">Aucun titre disponible</span>'}</div>
+        </div>
+      </div>
+    </div>`;
+
+    document.getElementById('spSyncBtn')?.addEventListener('click',()=>{
+      const syncBtn = document.getElementById('syncBtn');
+      if(syncBtn) syncBtn.click();
+    });
+  };
+})();
+
+// ===== BOTTOM NAVIGATION =====
+(function initBottomNav(){
+  const tabs = document.querySelectorAll('.bn-tab');
+  if(!tabs.length) return;
+
+  let currentTab = 'home';
+
+  function setActiveTab(tabId){
+    currentTab = tabId;
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+    const mainEl = document.querySelector('main');
+    const statsSection = document.getElementById('stats');
+    const statsPage = document.getElementById('statsPage');
+    const footerEl = document.querySelector('footer');
+    if(tabId === 'stats'){
+      if(mainEl) mainEl.style.display = 'none';
+      if(statsSection) statsSection.style.display = 'none';
+      if(footerEl) footerEl.style.display = 'none';
+      if(statsPage){ statsPage.classList.add('sp-active'); if(typeof window.renderStatsPage === 'function') window.renderStatsPage(); }
+    } else {
+      if(mainEl) mainEl.style.display = '';
+      if(statsSection) statsSection.style.display = '';
+      if(footerEl) footerEl.style.display = '';
+      if(statsPage) statsPage.classList.remove('sp-active');
+    }
+  }
+
+  document.getElementById('bnHome')?.addEventListener('click',()=>setActiveTab('home'));
+  document.getElementById('bnStats')?.addEventListener('click',()=>setActiveTab('stats'));
+  document.getElementById('bnReview')?.addEventListener('click',()=>{
+    // Trigger review if not already in review — click the first due card review button
+    const showBtn = document.getElementById('showAnswer');
+    if(showBtn && showBtn.style.display !== 'none') showBtn.click();
+    setActiveTab('review');
+  });
+  document.getElementById('bnDecks')?.addEventListener('click',()=>{
+    const browseBtn = document.getElementById('browseDecks');
+    if(browseBtn) browseBtn.click();
+    setActiveTab('home');
+  });
+  document.getElementById('bnProfile')?.addEventListener('click',()=>{
+    const profileBtn = document.getElementById('profileBtn');
+    if(profileBtn) profileBtn.click();
+    setActiveTab('home');
+  });
+
+  // Badge: observe dueCount
+  function updateReviewBadge(){
+    const badge = document.getElementById('bnReviewBadge');
+    if(!badge) return;
+    const dueEl = document.getElementById('dueCount');
+    const n = Number(dueEl?.textContent||0);
+    badge.style.display = n > 0 ? 'flex' : 'none';
+    badge.textContent = n > 99 ? '99+' : String(n);
+  }
+  const dueEl = document.getElementById('dueCount');
+  if(dueEl) new MutationObserver(updateReviewBadge).observe(dueEl, {childList:true, characterData:true, subtree:true});
+  updateReviewBadge();
+
+  // Set home as default active
+  setActiveTab('home');
+
+  window.__setBottomNavVisible = function(v){
+    const nav = document.getElementById('bottomNav');
+    if(nav) nav.style.display = v ? '' : 'none';
+  };
+})();
 
 // Fab'Anki, open-source spaced repetition software made with Copilot.
