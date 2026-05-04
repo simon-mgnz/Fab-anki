@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Fab'Anki — Flashcards sans compte</title>
   <meta name="description" content="Application d'apprentissage par répétition espacée avec plusieurs modes de révision">
-  <meta name="theme-color" content="#0066ff">
+  <meta name="theme-color" content="#9b59d0">
   <link id="appFavicon" rel="icon" href="./fabankilogoblack.png">
   <!-- PWA Manifest -->
   <link rel="manifest" href="/app-manifest.json">
@@ -52,6 +52,9 @@
         <button class="sn-item" id="snDecks" data-tab="decks">
           <span class="sn-icon">⊞</span><span class="sn-label">Decks</span>
         </button>
+        <button class="sn-item" id="snSessions" data-tab="sessions">
+          <span class="sn-icon">⬡</span><span class="sn-label">Sessions</span>
+        </button>
         <button class="sn-item" id="snStats" data-tab="stats">
           <span class="sn-icon">◈</span><span class="sn-label">Statistiques</span>
         </button>
@@ -60,11 +63,17 @@
         </button>
       </div>
       <div class="sn-bottom">
+        <button class="sn-item" id="snReglages" data-tab="reglages">
+          <span class="sn-icon">⚙</span><span class="sn-label">Réglages</span>
+        </button>
         <button class="sn-item" id="snProfile" data-tab="profile">
           <span class="sn-icon">◉</span><span class="sn-label">Profil</span>
         </button>
         <button class="sn-item" id="snSync" data-tab="sync">
           <span class="sn-icon">↺</span><span class="sn-label">Synchroniser</span>
+        </button>
+        <button class="sn-item" id="snCollapseBtn" aria-label="Réduire/Agrandir la barre latérale" style="margin-top:4px;border-top:1px solid rgba(155,89,208,0.1);padding-top:10px">
+          <i class="sn-collapse-icon" style="font-size:0.9rem">◀</i><span class="sn-label" style="font-size:0.8rem;color:var(--muted)">Réduire</span>
         </button>
       </div>
     </nav>
@@ -124,6 +133,7 @@
                 <button id="requestModBtn" class="secondary" style="position:absolute;bottom:48px;right:8px;min-width:48px;min-height:48px;padding:3px;font-size:1.4em;border-radius:6px;display:flex;align-items:center;justify-content:center;z-index:10;box-shadow:0 2px 4px rgba(0,0,0,0.1);aspect-ratio: 1 / 1;" title="Demander une modification de cette carte">✏️</button>
                 <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
                 <div id="progressInfo" class="muted small" style="text-align:center;margin-top:6px">Révisées : 0 / 0</div>
+                <div id="gradeCounters" class="grade-counters" style="display:none"></div>
               </div>
             </div>
           </div>
@@ -258,6 +268,10 @@
 
     <!-- Statistics page -->
     <section id="statsPage"></section>
+    <!-- Sessions personnalisées page -->
+    <section id="sessionsPage"></section>
+    <!-- Réglages page -->
+    <section id="reglagesPage"></section>
 
     <!-- Histogram / study breakdown -->
     <section id="stats" style="max-width:900px;margin:18px auto;padding:0 18px">
