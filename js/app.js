@@ -10380,7 +10380,7 @@
         if(topBarLogo) topBarLogo.setAttribute('src', assets.topBarLogo);
 
         const themeMeta = document.querySelector('meta[name="theme-color"]');
-        if(themeMeta) themeMeta.setAttribute('content', theme === 'dark' ? '#0f1115' : '#0066ff');
+        if(themeMeta) themeMeta.setAttribute('content', theme === 'dark' ? '#16141a' : '#9b59d0');
       }catch(e){
         console.warn('applyBrandingForTheme error', e);
       }
@@ -12013,8 +12013,8 @@
         
         const container = document.createElement('div');
         container.id = 'marketContainer';
-        const _sideW = (window.innerWidth >= 1024 && document.getElementById('sideNav')) ? '220px' : '0px';
-        container.style.cssText = `position:fixed;top:0;left:${_sideW};right:0;bottom:0;background:var(--bg);overflow-y:auto;z-index:1000;padding:20px;box-sizing:border-box;`;
+        const _sideW = (typeof window.__getSideNavWidth === 'function') ? window.__getSideNavWidth() : ((window.innerWidth >= 1024 && document.getElementById('sideNav')) ? 220 : 0);
+        container.style.cssText = `position:fixed;top:0;left:${_sideW}px;right:0;bottom:0;background:var(--bg);overflow-y:auto;z-index:1000;padding:20px;box-sizing:border-box;`;
         
         // Header with back button
         const header = document.createElement('div');
@@ -23217,7 +23217,7 @@
           <div class="sp-qual-row"><span class="sp-qual-label">Raté</span><div class="sp-qual-bar">${qualBar(fail,'#d9534f')}</div><span class="sp-qual-count">${fail}</span></div>
           <div class="sp-qual-row"><span class="sp-qual-label">Difficile</span><div class="sp-qual-bar">${qualBar(hard,'#e89b27')}</div><span class="sp-qual-count">${hard}</span></div>
           <div class="sp-qual-row"><span class="sp-qual-label">Bon</span><div class="sp-qual-bar">${qualBar(good-easy,'#28a745')}</div><span class="sp-qual-count">${good-easy}</span></div>
-          <div class="sp-qual-row"><span class="sp-qual-label">Facile</span><div class="sp-qual-bar">${qualBar(easy,'#0066ff')}</div><span class="sp-qual-count">${easy}</span></div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Facile</span><div class="sp-qual-bar">${qualBar(easy,'#9b59d0')}</div><span class="sp-qual-count">${easy}</span></div>
         </div>
       </div>
 
@@ -23369,6 +23369,29 @@
     if(nav) nav.style.display = v ? '' : 'none';
   };
   window.__setNavActivePage = setActivePage;
+
+  // ── Sidebar collapse toggle ──
+  (function(){
+    const sideNav = document.getElementById('sideNav');
+    const collapseBtn = document.getElementById('snCollapseBtn');
+    if(!sideNav || !collapseBtn) return;
+    function applySideNavCollapse(collapsed){
+      sideNav.classList.toggle('sn-collapsed', collapsed);
+      document.body.classList.toggle('sn-collapsed', collapsed);
+    }
+    // Restore saved preference
+    applySideNavCollapse(localStorage.getItem('fabanki:sidebar:collapsed') === '1');
+    collapseBtn.addEventListener('click', () => {
+      const nowCollapsed = !sideNav.classList.contains('sn-collapsed');
+      applySideNavCollapse(nowCollapsed);
+      localStorage.setItem('fabanki:sidebar:collapsed', nowCollapsed ? '1' : '0');
+    });
+    // Update market/profile overlays left offset when collapsed
+    window.__getSideNavWidth = function(){
+      if(window.innerWidth < 1024) return 0;
+      return sideNav.classList.contains('sn-collapsed') ? 64 : 220;
+    };
+  })();
 })();
 
 // Fab'Anki, open-source spaced repetition software made with Copilot.
