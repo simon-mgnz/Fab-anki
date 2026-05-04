@@ -11405,13 +11405,38 @@
         const clean = fixMojibakeText;
         const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay page-overlay'; ov.style.display='flex'; ov.style.zIndex='1200';
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
-        const m = document.createElement('div'); m.className='modal'; m.style.cssText='padding:24px 20px;overflow-y:auto;';
-        const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.marginTop='0'; h.style.marginBottom='16px'; h.style.fontSize='1.5rem'; m.appendChild(h);
-        
+        const m = document.createElement('div'); m.className='modal'; m.style.cssText='padding:24px 20px;overflow-y:auto;background:var(--bg);';
+        const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.marginTop='0'; h.style.marginBottom='16px'; h.style.fontSize='1.5rem'; h.style.color='var(--fg)'; m.appendChild(h);
+
         // Pseudo display (from localStorage) - Improved styling
         const userPseudo = localStorage.getItem('pseudo') || '';
+
+        // Avatar section
+        try{
+          const avatarSection = document.createElement('div');
+          avatarSection.className = 'profile-avatar-section';
+          avatarSection.style.cssText = 'background:linear-gradient(135deg,rgba(155,89,208,0.15),rgba(155,89,208,0.05));padding:16px 20px;border-bottom:1px solid rgba(155,89,208,0.12);display:flex;align-items:center;gap:14px;margin:-24px -20px 16px;border-radius:12px 12px 0 0;';
+          const avatarCircle = document.createElement('div');
+          avatarCircle.className = 'profile-avatar-circle';
+          const _pseudo = localStorage.getItem('pseudo') || '?';
+          avatarCircle.style.cssText = 'width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#c084fc);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;flex-shrink:0;text-transform:uppercase;';
+          avatarCircle.textContent = _pseudo.charAt(0) || '?';
+          const avatarInfo = document.createElement('div');
+          avatarInfo.style.cssText = 'flex:1;';
+          const avatarName = document.createElement('div');
+          avatarName.style.cssText = 'font-size:1.1rem;font-weight:700;color:var(--fg);';
+          avatarName.textContent = _pseudo;
+          const avatarTitle = document.createElement('div');
+          avatarTitle.style.cssText = 'font-size:0.8rem;color:var(--accent);font-weight:600;margin-top:2px;';
+          avatarTitle.textContent = localStorage.getItem('fabanki:selected_title') || '';
+          avatarInfo.appendChild(avatarName);
+          avatarInfo.appendChild(avatarTitle);
+          avatarSection.appendChild(avatarCircle);
+          avatarSection.appendChild(avatarInfo);
+          m.insertBefore(avatarSection, m.firstChild);
+        }catch(e){ console.warn('avatar section error', e); }
         const pseudoBox = document.createElement('div');
-        pseudoBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px;';
+        pseudoBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.08);border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px;';
         
         const p0 = document.createElement('div'); 
         p0.id='profilePseudo'; 
@@ -11457,7 +11482,7 @@
         
         // Stats box with dark theme
         const statsBox = document.createElement('div');
-        statsBox.style.cssText = 'padding:16px;background:linear-gradient(135deg, #2d1b4e 0%, #3d2060 100%);color:white;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+        statsBox.style.cssText = 'padding:16px;background:linear-gradient(135deg,#2d1b4e 0%,#3d2060 100%);color:white;border-radius:10px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.2);border:1px solid rgba(155,89,208,0.2);';
         
         const p1 = document.createElement('div'); p1.className='profile-total'; p1.style.marginBottom='8px'; p1.innerHTML = clean(`<strong>\uD83D\uDCDA ${t('totalReviewed')}:</strong> ${stats.totalReviewed}`); statsBox.appendChild(p1);
         const p2 = document.createElement('div'); p2.className='profile-today'; p2.style.marginBottom='8px'; p2.innerHTML = clean(`<strong>\uD83D\uDCC5 ${t('todayReviewedFull')}:</strong> ${stats.todayReviewed}`); statsBox.appendChild(p2);
@@ -11470,7 +11495,7 @@
         // Language selector section
         try{
           const langSelectorBox = document.createElement('div');
-          langSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin:12px 0;';
+          langSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.08);border-radius:8px;margin:12px 0;';
           const langLabel = document.createElement('div');
           langLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:var(--fg);';
           langLabel.textContent = clean(`\uD83C\uDF10 ${t('languageSelector')}`);
@@ -11513,7 +11538,7 @@
 
         // Title selector section
         const titleSelectorBox = document.createElement('div');
-        titleSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin:12px 0;';
+        titleSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.08);border-radius:8px;margin:12px 0;';
         const titleSelectorLabel = document.createElement('div');
         titleSelectorLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:var(--fg);';
         titleSelectorLabel.textContent = clean(`\uD83C\uDFF7 ${t('selectTitle')}`);
@@ -11597,7 +11622,7 @@
 
         // Theme toggle (moved from top bar)
         const themeBox = document.createElement('div');
-        themeBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+        themeBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.08);border-radius:8px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;';
         const themeLabel = document.createElement('div');
         themeLabel.style.cssText = 'font-weight:700;color:var(--fg);';
         themeLabel.textContent = clean(`\uD83C\uDF19 ${t('darkMode')}`);
@@ -12069,10 +12094,20 @@
         header.appendChild(title);
         
         const backBtn = document.createElement('button');
-        backBtn.textContent = 'â† Retour';
+        backBtn.textContent = '← Retour';
         backBtn.className = 'secondary';
         backBtn.addEventListener('click', ()=>{ container.remove(); });
-        header.appendChild(backBtn);
+
+        // Wallet display + back button grouped
+        const walletDiv = document.createElement('div');
+        walletDiv.style.cssText = 'display:flex;gap:8px;align-items:center;';
+        const creditsDisplay = document.createElement('div');
+        creditsDisplay.style.cssText = 'display:flex;align-items:center;gap:6px;background:var(--card);border-radius:10px;padding:7px 12px;border:1px solid rgba(0,0,0,0.08);';
+        const _creditCount = (typeof getCredits === 'function') ? getCredits() : Number(localStorage.getItem('fabanki:credits')||0);
+        creditsDisplay.innerHTML = '<span style='font-size:14px'>' + String.fromCodePoint(0x1F4B0) + '</span><span style='font-size:12px;font-weight:700;color:#c9a227;font-family:inherit'>' + _creditCount.toLocaleString() + ' crédits</span>';
+        walletDiv.appendChild(creditsDisplay);
+        walletDiv.appendChild(backBtn);
+        header.appendChild(walletDiv);
         container.appendChild(header);
         
         // Main content wrapper
@@ -12240,9 +12275,9 @@
         const textModeCard = document.createElement('div');
         // Responsive layout: horizontal on desktop, vertical on mobile
         const isMobile = window.innerWidth <= 768;
-        const cardLayout = isMobile 
-          ? 'background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(102, 126, 234, 0.3);display:flex;flex-direction:column;gap:16px;color:#FFFFFF;'
-          : 'background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(102, 126, 234, 0.3);display:flex;align-items:center;gap:24px;color:#FFFFFF;';
+        const cardLayout = isMobile
+          ? 'background:linear-gradient(135deg, var(--accent) 0%, #c084fc 100%);border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(155,89,208,0.3);display:flex;flex-direction:column;gap:16px;color:#FFFFFF;'
+          : 'background:linear-gradient(135deg, var(--accent) 0%, #c084fc 100%);border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(155,89,208,0.3);display:flex;align-items:center;gap:24px;color:#FFFFFF;';
         textModeCard.style.cssText = cardLayout;
         
         // Icon/emojis section
@@ -12296,8 +12331,8 @@
         
         const modeBtn = document.createElement('button');
         modeBtn.style.cssText = isMobile
-          ? 'width:100%;background:#FFFFFF;color:#667eea;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
-          : 'width:100%;background:#FFFFFF;color:#667eea;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
+          ? 'width:100%;background:#FFFFFF;color:var(--accent);border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95em;transition:all 0.3s;'
+          : 'width:100%;background:#FFFFFF;color:var(--accent);border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:1em;transition:all 0.3s;';
         modeBtn.textContent = isTextModeUnlocked ? 'âœ“ DÃ©verrouillÃ©' : 'DÃ©bloquer';
         modeBtn.disabled = !!isTextModeUnlocked;
         
@@ -19530,7 +19565,7 @@
           }catch(e){}
           const lvlStats = computeLevelAndProgress(getXpTotal());
           const levelCard = document.createElement('div'); levelCard.className = 'card level-summary'; levelCard.style.marginBottom = '12px'; levelCard.style.padding = '16px';
-          const lvlBox = document.createElement('div'); lvlBox.style.display='flex'; lvlBox.style.alignItems='center'; lvlBox.style.gap='12px'; lvlBox.style.padding='12px'; lvlBox.style.borderRadius='10px'; lvlBox.style.backgroundColor='rgba(155, 89, 208, 0.08)'; lvlBox.style.flex='1';
+          const lvlBox = document.createElement('div'); lvlBox.style.cssText='display:grid;grid-template-columns:auto 1fr;align-items:center;gap:14px;padding:14px;border-radius:12px;background:rgba(155,89,208,0.08);border:1px solid rgba(155,89,208,0.12);flex:1;';
           const circ = 2 * Math.PI * 28;
           const offset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct))/100));
           const color = getLevelColor(lvlStats.level);
@@ -19727,9 +19762,11 @@
         try{ const totalDue = rows.reduce((s,x)=> s + (x.cnt||0), 0); title.innerHTML = `Decks disponibles <span style="color:#d9534f;margin-left:8px">(${totalDue} Ã  faire)</span>`; }catch(e){}
         
         for(const r of topRows){
-          const row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center'; row.style.gap='8px';
+          const row = document.createElement('div'); row.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;transition:background 0.12s;cursor:default;';
+          row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
+          row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
           const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='12px';
-          const nm = document.createElement('div'); nm.textContent = r.name; nm.style.fontWeight = '600';
+          const nm = document.createElement('div'); nm.textContent = r.name; nm.style.fontWeight = '600'; nm.style.color = 'var(--fg)';
           left.appendChild(nm);
           const act = document.createElement('div'); act.style.display='flex'; act.style.alignItems='center'; act.style.gap='8px';
           const badge = document.createElement('span'); badge.className='due-badge'; badge.innerHTML = `<div class="due-num">${r.cnt>0? r.cnt : ''}</div><div class="due-label" style="display:${r.cnt>0?'block':'none'}">Ã  faire</div>`;
