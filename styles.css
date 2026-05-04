@@ -2422,4 +2422,8 @@ body.in-review #bottomNav{display:none}
   #sessionsPage .rg-wrap,
   #reglagesPage .rg-wrap{max-width:none;padding:0 20px}
 }
+
+/* Deck browser entry hover */
+.deck-entry{border-radius:10px;padding:10px 12px;transition:background 0.15s}
+.deck-entry:hover{background:rgba(155,89,208,0.06)}
 }
