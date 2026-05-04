@@ -2054,3 +2054,160 @@ body.in-review #bottomNav{display:none}
 [data-theme='dark'] .sp-card{box-shadow:0 2px 8px rgba(0,0,0,0.3)}
 [data-theme='dark'] .sp-sync-btn{border-color:rgba(255,255,255,0.12)}
 [data-theme='dark'] .sp-qual-bar{background:rgba(255,255,255,0.1)}
+
+/* ===== DESKTOP SIDEBAR ===== */
+#appShell{display:contents} /* mobile: transparent wrapper */
+
+@media(min-width:1024px){
+  #appShell{
+    display:flex;
+    height:100vh;
+    overflow:hidden
+  }
+  #sideNav{
+    width:220px;
+    flex-shrink:0;
+    background:var(--card);
+    border-right:1px solid rgba(0,0,0,0.08);
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    position:sticky;
+    top:0;
+    overflow-y:auto;
+    padding-top:calc(16px + env(safe-area-inset-top,0px));
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    z-index:50
+  }
+  [data-theme='dark'] #sideNav{border-right-color:rgba(255,255,255,0.06)}
+  .app{
+    flex:1;
+    min-width:0;
+    height:100vh;
+    overflow-y:auto;
+    padding-bottom:24px !important
+  }
+  /* Hide bottom nav on desktop */
+  #bottomNav{display:none !important}
+  /* App no longer needs bottom padding for bottom nav */
+  .app{padding-bottom:24px !important}
+  /* Stats page 2-column desktop layout */
+  .sp-desktop-cols{
+    display:grid;
+    grid-template-columns:1fr 340px;
+    gap:16px;
+    align-items:start
+  }
+  .sp-wrap{max-width:none;padding:0 20px}
+}
+
+/* Sidebar styles (always defined, hidden on mobile) */
+#sideNav{display:none}
+@media(min-width:1024px){ #sideNav{display:flex} }
+
+.sn-logo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 16px 20px;
+  font-weight:700;
+  font-size:1rem
+}
+.sn-logo-text{font-weight:700;font-size:1rem}
+.sn-items{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  padding:0 8px
+}
+.sn-bottom{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px))
+}
+.sn-item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  background:transparent;
+  border:none;
+  color:var(--fg);
+  padding:9px 12px;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:0.875rem;
+  font-weight:500;
+  text-align:left;
+  position:relative;
+  -webkit-tap-highlight-color:transparent;
+  transition:background 0.15s
+}
+.sn-item:hover{background:rgba(0,0,0,0.05)}
+[data-theme='dark'] .sn-item:hover{background:rgba(255,255,255,0.06)}
+.sn-item.active{
+  background:rgba(0,102,255,0.1);
+  color:var(--accent)
+}
+[data-theme='dark'] .sn-item.active{background:rgba(102,160,255,0.15)}
+.sn-icon{font-size:1.1rem;width:22px;text-align:center;flex-shrink:0}
+.sn-label{flex:1}
+.sn-badge{
+  background:#0066ff;
+  color:white;
+  border-radius:999px;
+  font-size:0.65rem;
+  font-weight:700;
+  min-width:20px;
+  height:20px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 5px
+}
+.sn-item--review.active .sn-badge,
+.sn-item--review .sn-badge{background:#0066ff}
+
+/* ===== FULL-PAGE OVERLAYS (deck browser, profile, market) ===== */
+#deckBrowserOverlay{
+  background:var(--bg) !important;
+  align-items:stretch !important;
+  padding:0 !important
+}
+#deckBrowserOverlay .modal{
+  max-width:none !important;
+  width:100% !important;
+  height:100% !important;
+  max-height:100vh !important;
+  border-radius:0 !important;
+  margin:0 !important;
+  box-shadow:none !important;
+  flex:1;
+  overflow-y:auto
+}
+/* On desktop: deck browser sits next to the sidebar */
+@media(min-width:1024px){
+  #deckBrowserOverlay{ left:220px !important }
+}
+/* Profile and market: full-page overlay style */
+.page-overlay{
+  background:var(--bg) !important;
+  align-items:stretch !important;
+  padding:0 !important
+}
+.page-overlay .modal{
+  max-width:none !important;
+  width:100% !important;
+  height:100% !important;
+  max-height:100vh !important;
+  border-radius:0 !important;
+  margin:0 !important;
+  box-shadow:none !important;
+  flex:1;
+  overflow-y:auto
+}
+@media(min-width:1024px){
+  .page-overlay{ left:220px !important }
+}

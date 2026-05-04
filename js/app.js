@@ -3417,9 +3417,12 @@
     while(frontEl.firstChild) frontEl.removeChild(frontEl.firstChild);
     while(alwaysEl.firstChild) alwaysEl.removeChild(alwaysEl.firstChild);
     
-    console.log('renderFront: Cleared DOM, starting fresh');
-
-    const defs = deck.fieldDefs || [];
+    let defs = deck.fieldDefs || [];
+    if(multiDeckMode && card && card.__deckKey){
+      const _mapKey = getMultiDeckCardMapKey(card.__deckKey, card.id);
+      const _perDefs = cardFieldDefsMap.get(_mapKey);
+      if(_perDefs && _perDefs.length > 0) defs = _perDefs;
+    }
     let anyAlways = false;
 
     if(reviewMode === 'step'){
@@ -3441,20 +3444,16 @@
           }
         }
       } else {
-        console.log('renderFront: Processing field definitions. Card fields:', Object.keys(card.fields), 'Defs:', defs.map(d => d.name));
         for(const def of defs){
           const f = card.fields && card.fields[def.name];
           if(!f) {
-            console.log(`  Field "${def.name}" not found in card, skipping`);
             continue;
           }
           if(!fieldHasVisibleContent(f)) {
             continue;
           }
-          console.log(`Step Field "${def.name}"`);
           stepNodes.push(buildFieldElement(def, f));
         }
-        console.log('renderFront: Done');
       }
 
       window.__stepModeState = { nodes: stepNodes, index: 0, cardId: card.id || null };
@@ -5170,13 +5169,15 @@
     const fsrsDisabled = isFsrsDisabledForDeck();
     const cardArea = document.getElementById('cardArea');
     if(cardArea) cardArea.classList.toggle('fsrs-disabled-card', !!fsrsDisabled);
-    if(fsrsDisabled && c && !multiDeckMode){
+    if(fsrsDisabled && c){
       try{
-        const key = storageKey('card:'+c.id);
-        const st = JSON.parse(localStorage.getItem(key) || '{}');
+        const _sk = (multiDeckMode && cardData)
+          ? `fabanki:${cardData.deckKey}:card:${c.id}`
+          : storageKey('card:'+c.id);
+        const st = JSON.parse(localStorage.getItem(_sk) || '{}');
         st.shownCount = (st.shownCount || 0) + 1;
         st.lastShown = (new Date()).toISOString();
-        localStorage.setItem(key, JSON.stringify(st));
+        localStorage.setItem(_sk, JSON.stringify(st));
       }catch(e){}
     }
     const sa = $('#showAnswer'); if(sa) sa.style.display = (reviewMode === 'fillblank' || reviewMode === 'step' || reviewMode === 'hold') ? 'none' : 'inline-block';
@@ -7827,7 +7828,12 @@
   function getFrontNodesForCard(card){
     const nodes = [];
     if(!card) return nodes;
-    const defs = deck.fieldDefs || [];
+    let defs = deck.fieldDefs || [];
+    if(multiDeckMode && card && card.__deckKey){
+      const _mapKey = getMultiDeckCardMapKey(card.__deckKey, card.id);
+      const _perDefs = cardFieldDefsMap.get(_mapKey);
+      if(_perDefs && _perDefs.length > 0) defs = _perDefs;
+    }
     if(defs.length === 0){
       const order = card._fieldOrder || Object.keys(card.fields || {});
       if(order.length > 0){
@@ -7862,7 +7868,12 @@
   function getBackNodesForCard(card){
     const nodes = [];
     if(!card) return nodes;
-    const defs = deck.fieldDefs || [];
+    let defs = deck.fieldDefs || [];
+    if(multiDeckMode && card && card.__deckKey){
+      const _mapKey = getMultiDeckCardMapKey(card.__deckKey, card.id);
+      const _perDefs = cardFieldDefsMap.get(_mapKey);
+      if(_perDefs && _perDefs.length > 0) defs = _perDefs;
+    }
     if(defs.length === 0){
       const order = card._fieldOrder || Object.keys(card.fields || {});
       for(let i = 1; i < order.length; i++){
@@ -11348,9 +11359,9 @@
         
         const stats = getProfileStats();
         const clean = fixMojibakeText;
-        const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='1200';
+        const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay page-overlay'; ov.style.display='flex'; ov.style.zIndex='1200';
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
-        const m = document.createElement('div'); m.className='modal'; m.style.cssText='maxWidth:420px;width:90%;max-height:90vh;overflow-y:auto;';
+        const m = document.createElement('div'); m.className='modal'; m.style.cssText='padding:24px 20px;overflow-y:auto;';
         const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.marginTop='0'; h.style.marginBottom='16px'; h.style.fontSize='1.5rem'; m.appendChild(h);
         
         // Pseudo display (from localStorage) - Improved styling
@@ -12002,7 +12013,8 @@
         
         const container = document.createElement('div');
         container.id = 'marketContainer';
-        container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);overflow-y:auto;z-index:1000;padding:20px;box-sizing:border-box;';
+        const _sideW = (window.innerWidth >= 1024 && document.getElementById('sideNav')) ? '220px' : '0px';
+        container.style.cssText = `position:fixed;top:0;left:${_sideW};right:0;bottom:0;background:var(--bg);overflow-y:auto;z-index:1000;padding:20px;box-sizing:border-box;`;
         
         // Header with back button
         const header = document.createElement('div');
@@ -15801,6 +15813,31 @@
     window.restoreFromCloud = restoreFromCloud;
     window.__fabanki_computeTitles = computeTitles;
     window.__fabanki_getProfileStats = getProfileStats;
+    // Expose "Réviser maintenant" logic for bottom nav / sidebar
+    window.__fabanki_startNowReview = async function(limitCount){
+      try{
+        updateStatus('Recherche des cartes à réviser maintenant...');
+        let entries = [];
+        try{ entries = await fetchDirectory('./decks/'); }catch(e){ entries = []; }
+        const allFiles = (Array.isArray(entries) ? entries : []).filter(e=> typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
+        const decksWithDueCards = [];
+        let totalDueCount = 0;
+        updateStatus('Analyse des decks...');
+        for(const f of allFiles){
+          const url = './decks/' + f;
+          const cnt = await countDueNowForDeck(url);
+          if(cnt > 0){ decksWithDueCards.push(url); totalDueCount += cnt; }
+        }
+        if(decksWithDueCards.length > 0){
+          updateStatus(`Chargement de ${totalDueCount} cartes...`);
+          await removeWelcome();
+          await loadMultipleDeckCards(decksWithDueCards, { onlyNow: true, limitCount: (Number.isFinite(limitCount) ? limitCount : null) });
+          if(typeof showNextCard === 'function') showNextCard();
+        } else {
+          updateStatus('Aucune carte à réviser maintenant');
+        }
+      }catch(e){ console.warn('startNowReview error', e); }
+    };
 
     // === ONE-TIME RECOVERY: Restore XP from leaderboard if cloud user doc was corrupted ===
     async function recoverFromLeaderboard(){
@@ -23223,72 +23260,115 @@
   };
 })();
 
-// ===== BOTTOM NAVIGATION =====
-(function initBottomNav(){
-  const tabs = document.querySelectorAll('.bn-tab');
-  if(!tabs.length) return;
+// ===== UNIFIED NAVIGATION (bottom bar + sidebar) =====
+(function initNav(){
+  let currentPage = 'home';
 
-  let currentTab = 'home';
+  function hideWelcomePage(){
+    const w = document.getElementById('welcomeDecks');
+    if(w) w.style.display = 'none';
+  }
 
-  function setActiveTab(tabId){
-    currentTab = tabId;
-    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+  function showWelcomePage(){
+    const w = document.getElementById('welcomeDecks');
+    if(w) w.style.display = '';
+  }
+
+  function setActivePage(pageId){
+    currentPage = pageId;
+    // Update bottom nav active state
+    document.querySelectorAll('.bn-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === pageId));
+    // Update sidebar active state
+    document.querySelectorAll('.sn-item').forEach(t => t.classList.toggle('active', t.dataset.tab === pageId));
+
     const mainEl = document.querySelector('main');
     const statsSection = document.getElementById('stats');
     const statsPage = document.getElementById('statsPage');
     const footerEl = document.querySelector('footer');
-    if(tabId === 'stats'){
+
+    if(pageId === 'stats'){
+      hideWelcomePage();
       if(mainEl) mainEl.style.display = 'none';
       if(statsSection) statsSection.style.display = 'none';
       if(footerEl) footerEl.style.display = 'none';
       if(statsPage){ statsPage.classList.add('sp-active'); if(typeof window.renderStatsPage === 'function') window.renderStatsPage(); }
     } else {
+      if(statsPage) statsPage.classList.remove('sp-active');
       if(mainEl) mainEl.style.display = '';
       if(statsSection) statsSection.style.display = '';
       if(footerEl) footerEl.style.display = '';
-      if(statsPage) statsPage.classList.remove('sp-active');
+      if(pageId === 'home') showWelcomePage();
     }
   }
 
-  document.getElementById('bnHome')?.addEventListener('click',()=>setActiveTab('home'));
-  document.getElementById('bnStats')?.addEventListener('click',()=>setActiveTab('stats'));
-  document.getElementById('bnReview')?.addEventListener('click',()=>{
-    // Trigger review if not already in review — click the first due card review button
-    const showBtn = document.getElementById('showAnswer');
-    if(showBtn && showBtn.style.display !== 'none') showBtn.click();
-    setActiveTab('review');
+  async function triggerNowReview(){
+    if(typeof window.__fabanki_startNowReview === 'function'){
+      setActivePage('home');
+      await window.__fabanki_startNowReview();
+    }
+  }
+
+  // ── Bottom nav ──
+  document.getElementById('bnHome')?.addEventListener('click', () => setActivePage('home'));
+  document.getElementById('bnStats')?.addEventListener('click', () => setActivePage('stats'));
+  document.getElementById('bnReview')?.addEventListener('click', () => triggerNowReview());
+  document.getElementById('bnDecks')?.addEventListener('click', () => {
+    hideWelcomePage();
+    const btn = document.getElementById('browseDecks');
+    if(btn) btn.click();
   });
-  document.getElementById('bnDecks')?.addEventListener('click',()=>{
-    const browseBtn = document.getElementById('browseDecks');
-    if(browseBtn) browseBtn.click();
-    setActiveTab('home');
-  });
-  document.getElementById('bnProfile')?.addEventListener('click',()=>{
-    const profileBtn = document.getElementById('profileBtn');
-    if(profileBtn) profileBtn.click();
-    setActiveTab('home');
+  document.getElementById('bnProfile')?.addEventListener('click', () => {
+    hideWelcomePage();
+    const btn = document.getElementById('profileBtn');
+    if(btn) btn.click();
   });
 
-  // Badge: observe dueCount
-  function updateReviewBadge(){
-    const badge = document.getElementById('bnReviewBadge');
-    if(!badge) return;
-    const dueEl = document.getElementById('dueCount');
-    const n = Number(dueEl?.textContent||0);
-    badge.style.display = n > 0 ? 'flex' : 'none';
-    badge.textContent = n > 99 ? '99+' : String(n);
+  // ── Sidebar ──
+  document.getElementById('snHome')?.addEventListener('click', () => setActivePage('home'));
+  document.getElementById('snStats')?.addEventListener('click', () => setActivePage('stats'));
+  document.getElementById('snReview')?.addEventListener('click', () => triggerNowReview());
+  document.getElementById('snDecks')?.addEventListener('click', () => {
+    hideWelcomePage();
+    const btn = document.getElementById('browseDecks');
+    if(btn) btn.click();
+  });
+  document.getElementById('snMarket')?.addEventListener('click', () => {
+    hideWelcomePage();
+    const btn = document.getElementById('marketBtn');
+    if(btn) btn.click();
+  });
+  document.getElementById('snProfile')?.addEventListener('click', () => {
+    hideWelcomePage();
+    const btn = document.getElementById('profileBtn');
+    if(btn) btn.click();
+  });
+  document.getElementById('snSync')?.addEventListener('click', () => {
+    const btn = document.getElementById('syncBtn');
+    if(btn) btn.click();
+  });
+
+  // ── Badges: observe dueCount ──
+  function updateBadges(){
+    const n = Number(document.getElementById('dueCount')?.textContent || 0);
+    const label = n > 99 ? '99+' : String(n);
+    const show = n > 0;
+    const bnBadge = document.getElementById('bnReviewBadge');
+    const snBadge = document.getElementById('snReviewBadge');
+    if(bnBadge){ bnBadge.style.display = show ? 'flex' : 'none'; bnBadge.textContent = label; }
+    if(snBadge){ snBadge.style.display = show ? 'flex' : 'none'; snBadge.textContent = label; }
   }
   const dueEl = document.getElementById('dueCount');
-  if(dueEl) new MutationObserver(updateReviewBadge).observe(dueEl, {childList:true, characterData:true, subtree:true});
-  updateReviewBadge();
+  if(dueEl) new MutationObserver(updateBadges).observe(dueEl, {childList:true, characterData:true, subtree:true});
+  updateBadges();
 
-  // Set home as default active
-  setActiveTab('home');
+  setActivePage('home');
 
+  // Show/hide nav during review
   window.__setBottomNavVisible = function(v){
     const nav = document.getElementById('bottomNav');
     if(nav) nav.style.display = v ? '' : 'none';
   };
+  window.__setNavActivePage = setActivePage;
 })();
 
 // Fab'Anki, open-source spaced repetition software made with Copilot.
