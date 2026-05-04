@@ -35,7 +35,40 @@
       <div class="boot-splash__bar"><i></i></div>
     </div>
   </div>
-  <div class="app" id="app" data-theme="light">
+  <div id="appShell">
+    <nav id="sideNav" aria-label="Navigation">
+      <div class="sn-logo">
+        <img id="sideNavLogo" src="./fabankilogoblack.png" alt="Logo" style="width:28px;height:28px;">
+        <span class="sn-logo-text">Fab'Anki</span>
+      </div>
+      <div class="sn-items">
+        <button class="sn-item active" id="snHome" data-tab="home">
+          <span class="sn-icon">⌂</span><span class="sn-label">Accueil</span>
+        </button>
+        <button class="sn-item sn-item--review" id="snReview" data-tab="review">
+          <span class="sn-icon">▶</span><span class="sn-label">Réviser</span>
+          <span class="sn-badge" id="snReviewBadge" style="display:none">0</span>
+        </button>
+        <button class="sn-item" id="snDecks" data-tab="decks">
+          <span class="sn-icon">⊞</span><span class="sn-label">Decks</span>
+        </button>
+        <button class="sn-item" id="snStats" data-tab="stats">
+          <span class="sn-icon">◈</span><span class="sn-label">Statistiques</span>
+        </button>
+        <button class="sn-item" id="snMarket" data-tab="market">
+          <span class="sn-icon">🛍</span><span class="sn-label">Marché</span>
+        </button>
+      </div>
+      <div class="sn-bottom">
+        <button class="sn-item" id="snProfile" data-tab="profile">
+          <span class="sn-icon">◉</span><span class="sn-label">Profil</span>
+        </button>
+        <button class="sn-item" id="snSync" data-tab="sync">
+          <span class="sn-icon">↺</span><span class="sn-label">Synchroniser</span>
+        </button>
+      </div>
+    </nav>
+    <div class="app" id="app" data-theme="light">
     <header>
       <h1 id="appTitle" style="display:flex;align-items:center;gap:10px;"><img id="topBarLogo" src="./fabankilogoblack.png" style="width:32px;height:32px;" alt="Logo">Fab'Anki — Flashcards (sans compte)</h1>
       <div class="controls">
@@ -291,6 +324,7 @@
       </div>
     </div>
   </div>
+  </div><!-- #appShell -->
 
   <!-- Bottom navigation bar -->
   <nav id="bottomNav" aria-label="Navigation principale">
