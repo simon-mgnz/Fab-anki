@@ -11415,7 +11415,7 @@
         
         const p0 = document.createElement('div'); 
         p0.id='profilePseudo'; 
-        p0.style.cssText = 'flex:1;font-weight:600;font-size:0.95em;color:#333;';
+        p0.style.cssText = 'flex:1;font-weight:600;font-size:0.95em;color:var(--fg);';
         p0.textContent = `${t('pseudo')}: ${userPseudo}`;
         
         // modifier button
@@ -11429,7 +11429,7 @@
             const input = document.createElement('input'); 
             input.type='text'; 
             input.value = cur; 
-            input.style.cssText = 'flex:1;padding:6px 10px;border:2px solid #2563eb;border-radius:6px;font-size:0.9em;';
+            input.style.cssText = 'flex:1;padding:6px 10px;border:2px solid var(--accent);border-radius:6px;font-size:0.9em;background:var(--bg);color:var(--fg);';
             const save = document.createElement('button'); 
             save.className='secondary'; 
             save.textContent=t('save'); 
@@ -11457,7 +11457,7 @@
         
         // Stats box with dark theme
         const statsBox = document.createElement('div');
-        statsBox.style.cssText = 'padding:16px;background:linear-gradient(135deg, #1e293b 0%, #334155 100%);color:white;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+        statsBox.style.cssText = 'padding:16px;background:linear-gradient(135deg, #2d1b4e 0%, #3d2060 100%);color:white;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
         
         const p1 = document.createElement('div'); p1.className='profile-total'; p1.style.marginBottom='8px'; p1.innerHTML = clean(`<strong>\uD83D\uDCDA ${t('totalReviewed')}:</strong> ${stats.totalReviewed}`); statsBox.appendChild(p1);
         const p2 = document.createElement('div'); p2.className='profile-today'; p2.style.marginBottom='8px'; p2.innerHTML = clean(`<strong>\uD83D\uDCC5 ${t('todayReviewedFull')}:</strong> ${stats.todayReviewed}`); statsBox.appendChild(p2);
@@ -11472,7 +11472,7 @@
           const langSelectorBox = document.createElement('div');
           langSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin:12px 0;';
           const langLabel = document.createElement('div');
-          langLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:#333;';
+          langLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:var(--fg);';
           langLabel.textContent = clean(`\uD83C\uDF10 ${t('languageSelector')}`);
           langSelectorBox.appendChild(langLabel);
           
@@ -11489,16 +11489,16 @@
             const btn = document.createElement('button');
             btn.className = 'secondary';
             const isSelected = currentLang === lang.code;
-            btn.style.cssText = `flex:1;min-width:100px;padding:8px 12px;border-radius:6px;border:2px solid ${isSelected ? '#2563eb' : '#e5e7eb'};background:${isSelected ? '#eff6ff' : '#fff'};color:${isSelected ? '#2563eb' : '#666'};font-weight:${isSelected ? '600' : '500'};cursor:pointer;transition:all 0.2s;`;
+            btn.style.cssText = `flex:1;min-width:100px;padding:8px 12px;border-radius:6px;border:2px solid ${isSelected ? 'var(--accent)' : 'rgba(0,0,0,0.1)'};background:${isSelected ? 'rgba(155,89,208,0.1)' : 'var(--card)'};color:${isSelected ? 'var(--accent)' : 'var(--muted)'};font-weight:${isSelected ? '600' : '500'};cursor:pointer;transition:all 0.2s;`;
             btn.textContent = lang.label;
             btn.addEventListener('click', () => {
               localStorage.setItem('fabanki:lang', lang.code);
               // Update button styles
               for(const b of langButtonsContainer.querySelectorAll('button')){
                 const sel = b === btn;
-                b.style.borderColor = sel ? '#2563eb' : '#e5e7eb';
-                b.style.background = sel ? '#eff6ff' : '#fff';
-                b.style.color = sel ? '#2563eb' : '#666';
+                b.style.borderColor = sel ? 'var(--accent)' : 'rgba(0,0,0,0.1)';
+                b.style.background = sel ? 'rgba(155,89,208,0.1)' : 'var(--card)';
+                b.style.color = sel ? 'var(--accent)' : 'var(--muted)';
                 b.style.fontWeight = sel ? '600' : '500';
               }
               try{ if(typeof updateUILanguage === 'function') updateUILanguage(lang.code); }catch(e){}
@@ -11515,7 +11515,7 @@
         const titleSelectorBox = document.createElement('div');
         titleSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin:12px 0;';
         const titleSelectorLabel = document.createElement('div');
-        titleSelectorLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:#333;';
+        titleSelectorLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:var(--fg);';
         titleSelectorLabel.textContent = clean(`\uD83C\uDFF7 ${t('selectTitle')}`);
         titleSelectorBox.appendChild(titleSelectorLabel);
         
@@ -11539,7 +11539,7 @@
         
         if(unlockedTitles.length > 0){
           const select = document.createElement('select');
-          select.style.cssText = 'width:100%;padding:8px;border-radius:6px;border:1px solid #ccc;margin-bottom:8px;';
+          select.style.cssText = 'width:100%;padding:8px;border-radius:6px;border:1px solid rgba(155,89,208,0.3);margin-bottom:8px;background:var(--bg);color:var(--fg);';
           
           // Add option for no title
           const noneOption = document.createElement('option');
@@ -11583,12 +11583,12 @@
           
           // Display current selection
           const currentDisplay = document.createElement('div');
-          currentDisplay.style.cssText = 'font-size:0.9em;color:#666;';
+          currentDisplay.style.cssText = 'font-size:0.9em;color:var(--muted);';
           currentDisplay.textContent = currentTitle ? `Actuel: ${currentTitle}` : 'Actuel: aucun';
           titleSelectorBox.appendChild(currentDisplay);
         } else {
           const noTitlesMsg = document.createElement('div');
-          noTitlesMsg.style.cssText = 'font-size:0.9em;color:#999;';
+          noTitlesMsg.style.cssText = 'font-size:0.9em;color:var(--muted);';
           noTitlesMsg.textContent = t('noTitlesUnlocked');
           titleSelectorBox.appendChild(noTitlesMsg);
         }
@@ -11599,7 +11599,7 @@
         const themeBox = document.createElement('div');
         themeBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border-radius:8px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;';
         const themeLabel = document.createElement('div');
-        themeLabel.style.cssText = 'font-weight:700;color:#333;';
+        themeLabel.style.cssText = 'font-weight:700;color:var(--fg);';
         themeLabel.textContent = clean(`\uD83C\uDF19 ${t('darkMode')}`);
         themeBox.appendChild(themeLabel);
 
@@ -11615,8 +11615,8 @@
 
         const applyThemeToggleUI = (isDark) => {
           themeToggle.setAttribute('aria-checked', isDark ? 'true' : 'false');
-          themeToggle.style.background = isDark ? '#111827' : '#e5e7eb';
-          themeToggle.style.borderColor = isDark ? '#111827' : '#d1d5db';
+          themeToggle.style.background = isDark ? 'var(--accent)' : '#e5e7eb';
+          themeToggle.style.borderColor = isDark ? 'var(--accent)' : '#d1d5db';
           themeThumb.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
         };
         applyThemeToggleUI((document.documentElement.getAttribute('data-theme') || 'light') === 'dark');
@@ -12131,15 +12131,15 @@
         
         const prevBtn = document.createElement('button');
         prevBtn.innerHTML = 'â†';
-        prevBtn.style.cssText = 'padding:8px 16px;border-radius:8px;background:#667eea;color:white;border:none;font-size:1.2em;cursor:pointer;font-weight:700;transition:all 0.3s;';
-        prevBtn.addEventListener('mouseover', ()=>{ prevBtn.style.background = '#5568d3'; });
-        prevBtn.addEventListener('mouseout', ()=>{ prevBtn.style.background = '#667eea'; });
+        prevBtn.style.cssText = 'padding:8px 16px;border-radius:8px;background:var(--accent);color:white;border:none;font-size:1.2em;cursor:pointer;font-weight:700;transition:all 0.3s;';
+        prevBtn.addEventListener('mouseover', ()=>{ prevBtn.style.background = 'rgba(155,89,208,0.8)'; });
+        prevBtn.addEventListener('mouseout', ()=>{ prevBtn.style.background = 'var(--accent)'; });
         
         const nextBtn = document.createElement('button');
         nextBtn.innerHTML = 'â†’';
-        nextBtn.style.cssText = 'padding:8px 16px;border-radius:8px;background:#667eea;color:white;border:none;font-size:1.2em;cursor:pointer;font-weight:700;transition:all 0.3s;';
-        nextBtn.addEventListener('mouseover', ()=>{ nextBtn.style.background = '#5568d3'; });
-        nextBtn.addEventListener('mouseout', ()=>{ nextBtn.style.background = '#667eea'; });
+        nextBtn.style.cssText = 'padding:8px 16px;border-radius:8px;background:var(--accent);color:white;border:none;font-size:1.2em;cursor:pointer;font-weight:700;transition:all 0.3s;';
+        nextBtn.addEventListener('mouseover', ()=>{ nextBtn.style.background = 'rgba(155,89,208,0.8)'; });
+        nextBtn.addEventListener('mouseout', ()=>{ nextBtn.style.background = 'var(--accent)'; });
         
         carouselNavBtns.appendChild(prevBtn);
         carouselNavBtns.appendChild(nextBtn);
@@ -12150,7 +12150,7 @@
         const progressBar = document.createElement('div');
         progressBar.style.cssText = 'height:4px;background:#e0e0e0;border-radius:2px;margin-bottom:16px;overflow:hidden;';
         const progressFill = document.createElement('div');
-        progressFill.style.cssText = 'height:100%;background:linear-gradient(90deg, #667eea 0%, #764ba2 100%);width:0%;transition:width 0.1s linear;';
+        progressFill.style.cssText = 'height:100%;background:linear-gradient(90deg, var(--accent) 0%, #c084fc 100%);width:0%;transition:width 0.1s linear;';
         progressBar.appendChild(progressFill);
         carouselContainer.appendChild(progressBar);
         
@@ -19530,7 +19530,7 @@
           }catch(e){}
           const lvlStats = computeLevelAndProgress(getXpTotal());
           const levelCard = document.createElement('div'); levelCard.className = 'card level-summary'; levelCard.style.marginBottom = '12px'; levelCard.style.padding = '16px';
-          const lvlBox = document.createElement('div'); lvlBox.style.display='flex'; lvlBox.style.alignItems='center'; lvlBox.style.gap='12px'; lvlBox.style.padding='12px'; lvlBox.style.borderRadius='10px'; lvlBox.style.backgroundColor='rgba(66, 133, 244, 0.08)'; lvlBox.style.flex='1';
+          const lvlBox = document.createElement('div'); lvlBox.style.display='flex'; lvlBox.style.alignItems='center'; lvlBox.style.gap='12px'; lvlBox.style.padding='12px'; lvlBox.style.borderRadius='10px'; lvlBox.style.backgroundColor='rgba(155, 89, 208, 0.08)'; lvlBox.style.flex='1';
           const circ = 2 * Math.PI * 28;
           const offset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct))/100));
           const color = getLevelColor(lvlStats.level);
@@ -19567,19 +19567,19 @@
           // Add daily goal progress bar
           const dailyGoal = getDailyGoal();
           const todayReviewed = getTodayReviewedCount();
-          const dailyGoalBox = document.createElement('div'); dailyGoalBox.className = 'daily-goal-box'; dailyGoalBox.style.cssText = 'padding:12px;background:#f8fafc;border-radius:10px;flex:1;';
-          const goalLabel = document.createElement('div'); goalLabel.style.cssText = 'font-size:0.8em;color:#64748b;font-weight:600;margin-bottom:6px;'; goalLabel.textContent = `Objectif: ${todayReviewed} / ${dailyGoal || '---'} cartes`;
+          const dailyGoalBox = document.createElement('div'); dailyGoalBox.className = 'daily-goal-box'; dailyGoalBox.style.cssText = 'padding:12px;background:var(--card);border-radius:10px;flex:1;border:1px solid rgba(155,89,208,0.1);';
+          const goalLabel = document.createElement('div'); goalLabel.style.cssText = 'font-size:0.8em;color:var(--muted);font-weight:600;margin-bottom:6px;'; goalLabel.textContent = `Objectif: ${todayReviewed} / ${dailyGoal || '---'} cartes`;
           dailyGoalBox.appendChild(goalLabel);
           if(dailyGoal > 0){
-            const barContainer = document.createElement('div'); barContainer.style.cssText = 'width:100%;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;';
+            const barContainer = document.createElement('div'); barContainer.style.cssText = 'width:100%;height:8px;background:rgba(0,0,0,0.08);border-radius:4px;overflow:hidden;';
             barContainer.className = 'goal-bar-container';
-            const barFill = document.createElement('div'); barFill.style.cssText = `width:${Math.min(100, (todayReviewed/dailyGoal)*100)}%;height:100%;background:linear-gradient(90deg, #10b981, #059669);transition:width 0.3s;`;
+            const barFill = document.createElement('div'); barFill.style.cssText = `width:${Math.min(100, (todayReviewed/dailyGoal)*100)}%;height:100%;background:linear-gradient(90deg,var(--accent),#c084fc);transition:width 0.3s;`;
             barContainer.appendChild(barFill);
             dailyGoalBox.appendChild(barContainer);
-            const pctText = document.createElement('div'); pctText.className = 'goal-pct-text'; pctText.style.cssText = 'font-size:0.75em;color:#94a3b8;margin-top:4px;text-align:right;'; pctText.textContent = `${Math.round((todayReviewed/dailyGoal)*100)}%`;
+            const pctText = document.createElement('div'); pctText.className = 'goal-pct-text'; pctText.style.cssText = 'font-size:0.75em;color:var(--muted);margin-top:4px;text-align:right;'; pctText.textContent = `${Math.round((todayReviewed/dailyGoal)*100)}%`;
             dailyGoalBox.appendChild(pctText);
           } else {
-            const noGoalText = document.createElement('div'); noGoalText.className = 'goal-no-goal-text'; noGoalText.style.cssText = 'font-size:0.8em;color:#94a3b8;text-align:center;'; noGoalText.textContent = 'Cliquez sur ðŸŽ¯ pour dÃ©finir un objectif';
+            const noGoalText = document.createElement('div'); noGoalText.className = 'goal-no-goal-text'; noGoalText.style.cssText = 'font-size:0.8em;color:var(--muted);text-align:center;'; noGoalText.textContent = 'Cliquez sur ðŸŽ¯ pour dÃ©finir un objectif';
             dailyGoalBox.appendChild(noGoalText);
           }
           levelContent.appendChild(dailyGoalBox);
@@ -19808,9 +19808,9 @@
               deckRow.style.alignItems = 'center';
               deckRow.style.gap = '8px';
               deckRow.style.padding = '12px';
-              deckRow.style.background = 'rgba(59, 130, 246, 0.04)';
+              deckRow.style.background = 'rgba(155, 89, 208, 0.04)';
               deckRow.style.borderRadius = '8px';
-              deckRow.style.border = '1px solid rgba(59, 130, 246, 0.1)';
+              deckRow.style.border = '1px solid rgba(155, 89, 208, 0.1)';
               
               const deckLeft = document.createElement('div');
               deckLeft.style.display = 'flex';
