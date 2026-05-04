@@ -2426,4 +2426,13 @@ body.in-review #bottomNav{display:none}
 /* Deck browser entry hover */
 .deck-entry{border-radius:10px;padding:10px 12px;transition:background 0.15s}
 .deck-entry:hover{background:rgba(155,89,208,0.06)}
-}
+
+/* ===== PROFILE MODAL REDESIGN ===== */
+#profileOverlay .modal { background: var(--bg); }
+.profile-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 12px; }
+.profile-stat-cell { background: var(--card); border-radius: 10px; padding: 12px 14px; border: 1px solid rgba(0,0,0,0.06); display: flex; flex-direction: column; gap: 3px; }
+[data-theme='dark'] .profile-stat-cell { border-color: rgba(255,255,255,0.06); }
+.profile-stat-val { font-size: 1.3rem; font-weight: 800; color: var(--fg); line-height: 1; }
+.profile-stat-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.profile-avatar-section { background: linear-gradient(135deg, rgba(155,89,208,0.12), rgba(155,89,208,0.04)); padding: 20px; border-bottom: 1px solid rgba(155,89,208,0.12); display: flex; align-items: center; gap: 14px; }
+.profile-avatar-circle { width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #c084fc); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: #fff; flex-shrink: 0; text-transform: uppercase; }

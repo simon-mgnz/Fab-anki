@@ -4869,41 +4869,41 @@
           </div>
 
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
-            <div id="recap-stat-reviewed" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+            <div id="recap-stat-reviewed" class="recap-stat-box" style="background:rgba(155,89,208,0.08);border-radius:10px;padding:12px;cursor:pointer;">
               <div style="color:#64748b;font-size:0.8em;">Cartes rÃ©visÃ©es</div>
               <div style="font-weight:700;font-size:1.1em;color:#111;">${totalReviewed}</div>
             </div>
-            <div id="recap-stat-time" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+            <div id="recap-stat-time" class="recap-stat-box" style="background:rgba(155,89,208,0.08);border-radius:10px;padding:12px;cursor:pointer;">
               <div style="color:#64748b;font-size:0.8em;">Temps total</div>
               <div style="font-weight:700;font-size:1.1em;color:#111;">${formatTime(totalTimeSec)}</div>
             </div>
-            <div id="recap-stat-avgtime" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+            <div id="recap-stat-avgtime" class="recap-stat-box" style="background:rgba(155,89,208,0.08);border-radius:10px;padding:12px;cursor:pointer;">
               <div style="color:#64748b;font-size:0.8em;">Temps moyen / carte</div>
               <div style="font-weight:700;font-size:1.1em;color:#111;">${formatTime(avgTimeSec)}</div>
             </div>
-            <div id="recap-stat-precision" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+            <div id="recap-stat-precision" class="recap-stat-box" style="background:rgba(155,89,208,0.08);border-radius:10px;padding:12px;cursor:pointer;">
               <div style="color:#64748b;font-size:0.8em;">PrÃ©cision</div>
               <div style="font-weight:700;font-size:1.1em;color:#111;">${precision}%</div>
             </div>
-            <div id="recap-stat-note" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+            <div id="recap-stat-note" class="recap-stat-box" style="background:rgba(155,89,208,0.08);border-radius:10px;padding:12px;cursor:pointer;">
               <div style="color:#64748b;font-size:0.8em;">Note</div>
               <div style="font-weight:700;font-size:1.1em;color:#111;">${note20.toFixed(1)}/20</div>
             </div>
-            <div id="recap-stat-delta" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+            <div id="recap-stat-delta" class="recap-stat-box" style="background:rgba(155,89,208,0.08);border-radius:10px;padding:12px;cursor:pointer;">
               <div style="color:#64748b;font-size:0.8em;">Î” Note</div>
               <div style="font-weight:700;font-size:1.1em;color:#111;">${noteDeltaText}</div>
             </div>
-            <div id="recap-stat-duration" class="recap-stat-box" style="background:rgba(66, 133, 244, 0.08);border-radius:10px;padding:12px;cursor:pointer;">
+            <div id="recap-stat-duration" class="recap-stat-box" style="background:rgba(155,89,208,0.08);border-radius:10px;padding:12px;cursor:pointer;">
               <div style="color:#64748b;font-size:0.8em;">DurÃ©e mÃ©moire</div>
               <div style="font-weight:700;font-size:1.1em;color:#111;">${memAvg ? `${memAvg.toFixed(1)} j` : 'N/A'}</div>
             </div>
-            <div id="recap-stat-credits" class="recap-stat-box" style="background:linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 100%);border-radius:10px;padding:12px;cursor:pointer;border:1px solid rgba(59, 130, 246, 0.2);">
-              <div style="color:#64748b;font-size:0.8em;">CrÃ©dits gagnÃ©s</div>
-              <div style="font-weight:700;font-size:1.3em;color:#2563eb;">${sessionCreditsGrantedAmount}â„‚</div>
+            <div id="recap-stat-credits" class="recap-stat-box" style="background:linear-gradient(135deg, rgba(155,89,208,0.15) 0%, rgba(155,89,208,0.08) 100%);border-radius:10px;padding:12px;cursor:pointer;border:1px solid rgba(155,89,208,0.2);">
+              <div style="color:var(--muted);font-size:0.8em;">CrÃ©dits gagnÃ©s</div>
+              <div style="font-weight:700;font-size:1.3em;color:var(--accent);">${sessionCreditsGrantedAmount}â„‚</div>
             </div>
           </div>
 
-          <div id="recap-distribution" style="background:rgba(66, 133, 244, 0.08);border-radius:12px;padding:12px;cursor:pointer;">
+          <div id="recap-distribution" style="background:rgba(155,89,208,0.08);border-radius:12px;padding:12px;cursor:pointer;">
             <div style="font-weight:600;margin-bottom:8px;color:#111;">RÃ©partition des rÃ©ponses</div>
             <div style="display:flex;gap:8px;align-items:flex-end;">
               <div style="flex:1;text-align:center;">
@@ -10961,6 +10961,9 @@
           deckList.innerHTML = '';
           for(const e of (list.slice ? list : list)){
             const row = document.createElement('div'); row.className='deck-entry';
+            row.style.cssText = 'padding:2px 0;';
+            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)';row.style.borderRadius='8px'; });
+            row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
             const decoded = (()=>{ try{ return decodeURIComponent(e.replace(/\+/g,' ')) }catch(x){ return e } })();
             const name = document.createElement('div'); name.textContent = decoded.replace(/\.xml$/i,'');
             const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
@@ -11814,8 +11817,8 @@
           if(themeToggle && themeThumb){
             const isDark = (document.documentElement.getAttribute('data-theme') || 'light') === 'dark';
             themeToggle.setAttribute('aria-checked', isDark ? 'true' : 'false');
-            themeToggle.style.background = isDark ? '#111827' : '#e5e7eb';
-            themeToggle.style.borderColor = isDark ? '#111827' : '#d1d5db';
+            themeToggle.style.background = isDark ? 'var(--accent)' : '#e5e7eb';
+            themeToggle.style.borderColor = isDark ? 'var(--accent)' : '#d1d5db';
             themeThumb.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
           }
         }catch(e){}
@@ -12735,7 +12738,7 @@
             btn.style.cursor = 'not-allowed';
           } else {
             btn.textContent = `Acheter ${item.credit} â„‚`;
-            btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            btn.style.background = 'linear-gradient(135deg, var(--accent) 0%, #c084fc 100%)';
             btn.style.color = 'white';
             btn.addEventListener('click', () => {
               if(currentCredits < item.credit){
@@ -13633,7 +13636,7 @@
 
     function showWelcomeQuestToast(message, duration = 3000){
       const toast = document.createElement('div');
-      toast.style.cssText = `position:fixed;top:80px;left:50%;transform:translateX(-50%);background:#667eea;color:white;padding:14px 24px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:10001;font-weight:600;animation:slideDown 0.3s ease-out;`;
+      toast.style.cssText = `position:fixed;top:80px;left:50%;transform:translateX(-50%);background:var(--accent);color:white;padding:14px 24px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:10001;font-weight:600;animation:slideDown 0.3s ease-out;`;
       toast.textContent = message;
       document.body.appendChild(toast);
       setTimeout(() => {
@@ -13792,7 +13795,7 @@
         missionDiv.appendChild(leftSide);
         
         const reward = document.createElement('div');
-        reward.style.cssText = 'color:#667eea;font-weight:600;font-size:0.85em;';
+        reward.style.cssText = 'color:var(--accent);font-weight:600;font-size:0.85em;';
         reward.textContent = mission.reward;
         missionDiv.appendChild(reward);
         
@@ -14974,7 +14977,7 @@
             box.style.padding = '12px';
             box.style.borderRadius = '10px';
             box.style.border = '1px solid rgba(0,0,0,0.08)';
-            box.style.background = 'rgba(66, 133, 244, 0.05)';
+            box.style.background = 'rgba(155,89,208,0.05)';
             const t = document.createElement('div');
             t.style.fontWeight = '700';
             t.textContent = title;
@@ -20140,7 +20143,7 @@
             for(const statBox of statBoxes){
               const box = document.createElement('div');
               box.style.cssText = `
-                background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background:linear-gradient(135deg, var(--accent) 0%, #c084fc 100%);
                 color:white;
                 padding:16px;
                 border-radius:12px;
@@ -20322,8 +20325,8 @@
                   
                   // Draw background gradient
                   const bgGradient = ctx.createLinearGradient(0, padding, 0, height - padding);
-                  bgGradient.addColorStop(0, 'rgba(102, 126, 234, 0.3)');
-                  bgGradient.addColorStop(1, 'rgba(102, 126, 234, 0)');
+                  bgGradient.addColorStop(0, 'rgba(155, 89, 208, 0.3)');
+                  bgGradient.addColorStop(1, 'rgba(155, 89, 208, 0)');
                   
                   // Draw grid lines
                   ctx.strokeStyle = 'rgba(200, 200, 200, 0.2)';
@@ -20349,7 +20352,7 @@
                   ctx.fill();
                   
                   // Draw line chart
-                  ctx.strokeStyle = '#667eea';
+                  ctx.strokeStyle = '#9b59d0';
                   ctx.lineWidth = 3;
                   ctx.lineJoin = 'round';
                   ctx.lineCap = 'round';
@@ -20359,9 +20362,9 @@
                     ctx.lineTo(points[i].x, points[i].y);
                   }
                   ctx.stroke();
-                  
+
                   // Draw data points
-                  ctx.fillStyle = '#667eea';
+                  ctx.fillStyle = '#9b59d0';
                   for(const p of points){
                     ctx.beginPath();
                     ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
