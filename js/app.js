@@ -297,6 +297,7 @@
   let sessionTotal = 0;
   let reviewedCount = 0;
   let sessionData = []; // Track per-card data for recap: {cardId, grade, timeSpent}
+  window.__fabanki_sessionGrades = {r:0,d:0,b:0,f:0};
   let isReviewing = false;
   let sessionCreditsGranted = false;
   let sessionCreditsGrantedAmount = 0; // Track actual credits granted this session
@@ -1812,6 +1813,7 @@
       sessionTotal = dueCards.length;
       reviewedCount = 0;
       sessionData = [];
+      window.__fabanki_sessionGrades = {r:0,d:0,b:0,f:0};
       isReviewing = true;
       sessionCreditsGranted = false;
       sessionCreditsGrantedAmount = 0;
@@ -3927,6 +3929,7 @@
     // Reset session state BEFORE calling getDueCards (which checks reviewedCount)
     reviewedCount = 0;
     sessionData = [];
+    window.__fabanki_sessionGrades = {r:0,d:0,b:0,f:0};
     
     dueCards = getDueCards();
     
@@ -4294,6 +4297,23 @@
     const done = reviewedCount || 0;
     if(infoEl) infoEl.textContent = `RÃ©visÃ©es : ${done} / ${total}`;
     if(pb){ const pct = total>0? Math.round((done/total)*100): 0; pb.style.width = pct + '%'; }
+  }
+
+  function updateGradeCounters(){
+    try{
+      const el = document.getElementById('gradeCounters');
+      if(!el) return;
+      const g = window.__fabanki_sessionGrades;
+      if(!g){ el.style.display='none'; return; }
+      const tot = g.r + g.d + g.b + g.f;
+      if(!tot){ el.style.display='none'; return; }
+      el.style.display = 'flex';
+      el.innerHTML =
+        `<span class="gc-item gc-r" title="RatÃ©">R&nbsp;<b>${g.r}</b></span>` +
+        `<span class="gc-item gc-d" title="Difficile">D&nbsp;<b>${g.d}</b></span>` +
+        `<span class="gc-item gc-b" title="Bon">B&nbsp;<b>${g.b}</b></span>` +
+        `<span class="gc-item gc-f" title="Facile">F&nbsp;<b>${g.f}</b></span>`;
+    }catch(e){}
   }
 
   function scheduleCard(cardId, quality){
@@ -10023,6 +10043,15 @@
       }
       // Record daily review history for stats page
       try{ recordDailyReview(); }catch(e){}
+      // Update session grade counters
+      try{
+        if(!window.__fabanki_sessionGrades) window.__fabanki_sessionGrades={r:0,d:0,b:0,f:0};
+        if(q<3) window.__fabanki_sessionGrades.r++;
+        else if(q===3) window.__fabanki_sessionGrades.d++;
+        else if(q===4) window.__fabanki_sessionGrades.b++;
+        else if(q===5) window.__fabanki_sessionGrades.f++;
+        updateGradeCounters();
+      }catch(e){}
       // Noether: consecutive reviews without using "Passer"
       try{
         const consecNoPass = incLocal('fabanki:consec_no_pass',1);
@@ -11006,6 +11035,21 @@
               }
               actions.appendChild(dueBadge2); actions.appendChild(btn);
                 (async ()=>{ try{ const n = await countDueNowForDeck(base+e); if(typeof n === 'number' && n>=0){ dueBadge2.querySelector('.due-num').textContent = n>0? n : ''; dueBadge2.querySelector('.due-label').style.display = n>0? 'block' : 'none'; }else{ dueBadge2.querySelector('.due-num').textContent=''; dueBadge2.querySelector('.due-label').style.display='none'; } }catch(err){} })();
+                // Mastery pill: count reviewed cards from localStorage (no network)
+                (async ()=>{ try{
+                  const dk = (typeof getDeckKeyFromUrl==='function')?getDeckKeyFromUrl(base+e):null;
+                  if(!dk) return;
+                  const pfx='fabanki:'+dk+':card:';
+                  let reviewed=0;
+                  for(let _i=0;_i<localStorage.length;_i++){ const _k=localStorage.key(_i); if(_k&&_k.startsWith(pfx)) reviewed++; }
+                  if(reviewed>0){
+                    const pill=document.createElement('span');
+                    pill.className='deck-mastery-pill';
+                    pill.title=reviewed+' cartes révisées';
+                    pill.textContent='✓ '+reviewed;
+                    name.appendChild(pill);
+                  }
+                }catch(_e){} })();
             }
             else { const btn = document.createElement('button'); btn.className='secondary'; btn.textContent='Ouvrir'; btn.addEventListener('click', async ()=>{ deckMsg.textContent = 'Exploration de '+base+e+' ...'; try{ const sub = await fetchDirectory(base+e); renderList(sub, base+e); }catch(err){ deckMsg.textContent = 'Impossible d\'explorer le dossier: '+err.message } }); actions.appendChild(btn); }
             row.appendChild(name); row.appendChild(actions); deckList.appendChild(row);
@@ -23260,6 +23304,294 @@
   };
 })();
 
+// ===== SESSIONS PAGE =====
+(function(){
+  function relativeTime(ts){
+    const d=Date.now()-ts;
+    if(d<60000) return 'à l\'instant';
+    if(d<3600000) return 'il y a '+Math.floor(d/60000)+'min';
+    if(d<86400000) return 'il y a '+Math.floor(d/3600000)+'h';
+    return 'il y a '+Math.floor(d/86400000)+'j';
+  }
+  function getSessions(){ try{ return JSON.parse(localStorage.getItem('fabanki:sessions')||'[]'); }catch(e){ return []; } }
+  function saveSessions(arr){ localStorage.setItem('fabanki:sessions',JSON.stringify(arr)); }
+
+  async function launchSessionDecks(decks, cardLimit, onlyNow){
+    if(typeof window.__setNavActivePage==='function') window.__setNavActivePage('home');
+    const fullPaths = decks.map(d => d.startsWith('./')?d:'./decks/'+d);
+    if(fullPaths.length>0 && typeof window.loadMultipleDeckCards==='function'){
+      if(typeof window.removeWelcome==='function') await window.removeWelcome();
+      await window.loadMultipleDeckCards(fullPaths,{onlyNow:onlyNow!==false,limitCount:cardLimit||null});
+      if(typeof window.showNextCard==='function') window.showNextCard();
+    } else if(typeof window.__fabanki_startNowReview==='function'){
+      await window.__fabanki_startNowReview(cardLimit);
+    }
+  }
+
+  async function showSessionWizard(){
+    let allDecks=[];
+    try{
+      if(typeof window.fetchDirectory==='function'){
+        const entries=await window.fetchDirectory('./decks/');
+        allDecks=(entries||[]).filter(e=>e.endsWith('.xml'));
+      }
+    }catch(e){}
+
+    const overlay=document.createElement('div');
+    overlay.id='sessionWizardOverlay';
+    const sideW=(typeof window.__getSideNavWidth==='function')?window.__getSideNavWidth():0;
+    overlay.style.cssText=`position:fixed;inset:0;left:${sideW}px;background:var(--bg);z-index:2000;overflow-y:auto;display:flex;flex-direction:column`;
+    document.body.appendChild(overlay);
+
+    let step=1, sessionName='', cardLimit=30, onlyNow=true;
+    const selectedDecks=new Set();
+
+    function render(){
+      overlay.innerHTML='';
+      const wrap=document.createElement('div');
+      wrap.className='rg-wrap';
+      wrap.style.paddingTop='16px';
+      wrap.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;position:sticky;top:0;background:var(--bg);padding:12px 0;z-index:10">
+        <button class="secondary" id="wizClose" style="min-width:auto;padding:6px 12px">✕</button>
+        <div style="flex:1;text-align:center">
+          <div style="font-weight:700;font-size:1rem">Nouvelle session</div>
+          <div style="font-size:0.7rem;color:var(--muted)">Étape ${step}/3</div>
+        </div>
+        <div style="width:42px"></div>
+      </div>`;
+
+      const body=document.createElement('div');
+      body.className='rg-wrap';
+
+      if(step===1){
+        body.innerHTML=`<div class="sp-section">
+          <span class="sp-section-title">Nom de la session</span>
+          <div class="sp-card">
+            <input type="text" id="wizName" value="${sessionName}" placeholder="ex: Maths quotidien"
+              style="width:100%;background:transparent;border:none;font-size:1.1rem;font-weight:600;color:var(--fg);outline:none;padding:6px 0">
+          </div>
+        </div>
+        <div style="padding:8px 0 24px"><button class="primary" id="wizNext" style="width:100%">Choisir les decks →</button></div>`;
+      } else if(step===2){
+        const items=allDecks.length>0
+          ?allDecks.map(d=>`<label class="sess-deck-item"><input type="checkbox" value="${d}" ${selectedDecks.has(d)?'checked':''}><span>${d.replace(/\.xml$/i,'')}</span></label>`).join('')
+          :`<div style="color:var(--muted);font-size:0.85rem;padding:12px 0">Aucun deck trouvé dans ./decks/</div>`;
+        body.innerHTML=`<div class="sp-section">
+          <span class="sp-section-title">Sélectionner les decks (${selectedDecks.size} sélectionné${selectedDecks.size>1?'s':''})</span>
+          <div class="sp-card">
+            <div class="sess-deck-list">${items}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;padding:8px 0 24px">
+          <button class="secondary" id="wizPrev" style="flex:1">← Retour</button>
+          <button class="primary" id="wizNext" style="flex:2">Configurer →</button>
+        </div>`;
+      } else if(step===3){
+        body.innerHTML=`<div class="sp-section">
+          <span class="sp-section-title">Configuration</span>
+          <div class="sp-card">
+            <div class="rg-row">
+              <div><div class="rg-row-label">Limite de cartes</div><div class="rg-row-sub">Max par session (0 = illimité)</div></div>
+              <input type="number" id="wizLimit" min="0" max="500" value="${cardLimit}" class="rg-input">
+            </div>
+            <div class="rg-row">
+              <div><div class="rg-row-label">Cartes dues maintenant seulement</div><div class="rg-row-sub">Ignorer les cartes non encore dues</div></div>
+              <label class="rg-toggle"><input type="checkbox" id="wizOnlyNow" ${onlyNow?'checked':''}><span class="rg-toggle-slider"></span></label>
+            </div>
+          </div>
+        </div>
+        <div class="sp-section">
+          <span class="sp-section-title">Récapitulatif</span>
+          <div class="sp-card">
+            <div class="rg-row"><span style="color:var(--muted)">Nom</span><span style="font-weight:600">${sessionName||'—'}</span></div>
+            <div class="rg-row"><span style="color:var(--muted)">Decks</span><span>${selectedDecks.size} sélectionné(s)</span></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;padding:8px 0 24px">
+          <button class="secondary" id="wizPrev" style="flex:1">← Retour</button>
+          <button class="secondary" id="wizSave" style="flex:2">💾 Enregistrer</button>
+          <button class="primary" id="wizLaunch" style="flex:2">▶ Lancer</button>
+        </div>`;
+      }
+
+      overlay.appendChild(wrap);
+      overlay.appendChild(body);
+
+      overlay.querySelector('#wizClose')?.addEventListener('click',()=>{ overlay.remove(); window.renderSessionsPage?.(); });
+      overlay.querySelector('#wizPrev')?.addEventListener('click',()=>{ step--; render(); });
+      if(step===2){
+        overlay.querySelectorAll('.sess-deck-item input').forEach(cb=>{
+          cb.addEventListener('change',()=>{ if(cb.checked) selectedDecks.add(cb.value); else selectedDecks.delete(cb.value); overlay.querySelector('.sp-section-title').textContent=`Sélectionner les decks (${selectedDecks.size} sélectionné${selectedDecks.size>1?'s':''})`; });
+        });
+      }
+      overlay.querySelector('#wizNext')?.addEventListener('click',()=>{
+        if(step===1) sessionName=overlay.querySelector('#wizName')?.value?.trim()||'Session';
+        step++; render();
+      });
+      overlay.querySelector('#wizSave')?.addEventListener('click',()=>{
+        const lim=Number(overlay.querySelector('#wizLimit')?.value)||0;
+        const only=overlay.querySelector('#wizOnlyNow')?.checked??true;
+        const arr=getSessions();
+        arr.push({name:sessionName,decks:[...selectedDecks],config:{cardLimit:lim,onlyNow:only},createdAt:Date.now()});
+        saveSessions(arr);
+        overlay.remove();
+        window.renderSessionsPage?.();
+      });
+      overlay.querySelector('#wizLaunch')?.addEventListener('click',async()=>{
+        const lim=Number(overlay.querySelector('#wizLimit')?.value)||0;
+        const only=overlay.querySelector('#wizOnlyNow')?.checked??true;
+        const arr=getSessions();
+        arr.push({name:sessionName,decks:[...selectedDecks],config:{cardLimit:lim,onlyNow:only},createdAt:Date.now()});
+        saveSessions(arr);
+        overlay.remove();
+        await launchSessionDecks([...selectedDecks],lim||null,only);
+      });
+    }
+    render();
+  }
+
+  window.renderSessionsPage=function(){
+    const el=document.getElementById('sessionsPage');
+    if(!el) return;
+    const sessions=getSessions();
+    el.innerHTML=`<div class="rg-wrap">
+      <div class="sp-header" style="position:sticky;top:0;z-index:10;background:var(--bg)">
+        <span class="sp-header-title">Sessions perso.</span>
+        <button class="primary" id="newSessionBtn" style="margin-left:auto;font-size:0.83rem;padding:7px 14px">+ Nouvelle</button>
+      </div>
+      ${sessions.length===0?`<div class="sess-empty">
+        <div class="sess-empty-icon">📚</div>
+        <div class="sess-empty-title">Aucune session personnalisée</div>
+        <div class="sess-empty-sub">Créez des sessions sur mesure : decks choisis, limite de cartes, mode d'étude.</div>
+        <button class="primary" id="newSessionBtn2" style="margin-top:8px">Créer ma première session</button>
+      </div>`:``}
+      <div class="sess-list">
+        ${sessions.map((s,i)=>`<div class="sess-card">
+          <div class="sess-card-main">
+            <div class="sess-card-name">${s.name||'Session '+(i+1)}</div>
+            <div class="sess-card-meta">${s.decks?s.decks.length+' deck(s)':''}${s.config?.cardLimit?' · '+s.config.cardLimit+' cartes max':''}${s.lastUsed?' · '+relativeTime(s.lastUsed):''}</div>
+          </div>
+          <div class="sess-card-actions">
+            <button class="secondary sess-delete-btn" data-idx="${i}" style="min-width:auto;padding:6px 10px;color:#d9534f" title="Supprimer">✕</button>
+            <button class="primary sess-launch-btn" data-idx="${i}" style="padding:8px 14px;font-size:0.85rem">▶ Lancer</button>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+    el.querySelectorAll('[id^="newSessionBtn"]').forEach(b=>b.addEventListener('click',()=>showSessionWizard()));
+    el.querySelectorAll('.sess-launch-btn').forEach(b=>{
+      b.addEventListener('click',async()=>{
+        const i=Number(b.dataset.idx),arr=getSessions(),s=arr[i];
+        if(!s) return;
+        s.lastUsed=Date.now(); saveSessions(arr);
+        await launchSessionDecks(s.decks||[],s.config?.cardLimit||null,s.config?.onlyNow);
+      });
+    });
+    el.querySelectorAll('.sess-delete-btn').forEach(b=>{
+      b.addEventListener('click',()=>{
+        const i=Number(b.dataset.idx),arr=getSessions();
+        if(!confirm('Supprimer cette session ?')) return;
+        arr.splice(i,1); saveSessions(arr); window.renderSessionsPage();
+      });
+    });
+  };
+})();
+
+// ===== RÉGLAGES PAGE =====
+(function(){
+  window.renderReglagesPage=function(){
+    const el=document.getElementById('reglagesPage');
+    if(!el) return;
+    const theme=localStorage.getItem('fabanki:theme')||'light';
+    const dailyGoal=localStorage.getItem('fabanki:daily_goal')||'20';
+    const ret=localStorage.getItem('fabanki:target_retention')||'0.85';
+    const fsz=Number(localStorage.getItem('fabanki:font_size'))||16;
+    const haptic=localStorage.getItem('fabanki:haptic')!=='0';
+    el.innerHTML=`<div class="rg-wrap">
+      <div class="sp-header" style="position:sticky;top:0;z-index:10;background:var(--bg)">
+        <span class="sp-header-title">Réglages</span>
+      </div>
+      <div class="sp-section"><span class="sp-section-title">Apparence</span>
+        <div class="sp-card">
+          <div class="rg-row">
+            <span class="rg-row-label">Thème</span>
+            <div class="rg-seg">
+              <button class="rg-seg-btn ${theme==='light'?'active':''}" data-rg-theme="light">☀ Clair</button>
+              <button class="rg-seg-btn ${theme==='dark'?'active':''}" data-rg-theme="dark">☾ Sombre</button>
+            </div>
+          </div>
+          <div class="rg-row">
+            <span class="rg-row-label">Taille du texte</span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="range" min="12" max="20" step="1" value="${fsz}" id="rg-font-size" class="rg-range">
+              <span id="rg-font-size-val" style="font-size:0.8rem;color:var(--muted);min-width:34px">${fsz}px</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sp-section"><span class="sp-section-title">Étude</span>
+        <div class="sp-card">
+          <div class="rg-row">
+            <div><div class="rg-row-label">Objectif quotidien</div><div class="rg-row-sub">Cartes à réviser chaque jour</div></div>
+            <input type="number" min="1" max="500" value="${dailyGoal}" id="rg-daily-goal" class="rg-input">
+          </div>
+          <div class="rg-row">
+            <div><div class="rg-row-label">Rétention cible FSRS</div><div class="rg-row-sub">0.70 (moins de révisions) · 0.99 (parfait)</div></div>
+            <input type="number" min="0.70" max="0.99" step="0.01" value="${ret}" id="rg-retention" class="rg-input">
+          </div>
+          <div class="rg-row">
+            <div><div class="rg-row-label">Retour haptique</div><div class="rg-row-sub">Vibration légère sur les boutons de notation</div></div>
+            <label class="rg-toggle"><input type="checkbox" id="rg-haptic" ${haptic?'checked':''}><span class="rg-toggle-slider"></span></label>
+          </div>
+        </div>
+      </div>
+      <div class="sp-section"><span class="sp-section-title">Données</span>
+        <div class="sp-card">
+          <div class="rg-row">
+            <div><div class="rg-row-label">Exporter mes données</div><div class="rg-row-sub">Télécharger toutes les données Fab'Anki (JSON)</div></div>
+            <button class="secondary" id="rg-export-btn">Exporter</button>
+          </div>
+          <div class="rg-row">
+            <div><div class="rg-row-label" style="color:#d9534f">Réinitialiser les stats</div><div class="rg-row-sub">Efface les compteurs de révision (irréversible)</div></div>
+            <button class="secondary" style="color:#d9534f;border-color:rgba(217,83,79,0.4)" id="rg-reset-stats-btn">Reset</button>
+          </div>
+        </div>
+      </div>
+      <div class="sp-section"><span class="sp-section-title">À propos</span>
+        <div class="sp-card">
+          <div class="rg-row"><span class="rg-row-label">Fab'Anki</span><span style="font-size:0.8rem;color:var(--muted)">2026 · Swiess Corporation</span></div>
+          <div class="rg-row"><span class="rg-row-label">Algorithme</span><span style="font-size:0.8rem;color:var(--muted)">FSRS v4</span></div>
+        </div>
+      </div>
+    </div>`;
+    el.querySelectorAll('[data-rg-theme]').forEach(b=>b.addEventListener('click',()=>{
+      const t=b.dataset.rgTheme;
+      if(typeof window.setThemeMode==='function') window.setThemeMode(t);
+      else{ const a=document.getElementById('app'); if(a) a.setAttribute('data-theme',t); document.documentElement.setAttribute('data-theme',t); localStorage.setItem('fabanki:theme',t); }
+      window.renderReglagesPage();
+    }));
+    const fsInput=el.querySelector('#rg-font-size');
+    const fsVal=el.querySelector('#rg-font-size-val');
+    fsInput?.addEventListener('input',()=>{ const v=fsInput.value; if(fsVal) fsVal.textContent=v+'px'; document.documentElement.style.fontSize=v+'px'; localStorage.setItem('fabanki:font_size',v); });
+    el.querySelector('#rg-daily-goal')?.addEventListener('change',e=>localStorage.setItem('fabanki:daily_goal',e.target.value));
+    el.querySelector('#rg-retention')?.addEventListener('change',e=>localStorage.setItem('fabanki:target_retention',e.target.value));
+    el.querySelector('#rg-haptic')?.addEventListener('change',e=>localStorage.setItem('fabanki:haptic',e.target.checked?'1':'0'));
+    el.querySelector('#rg-export-btn')?.addEventListener('click',()=>{
+      const data={};
+      for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('fabanki:')) data[k]=localStorage.getItem(k); }
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download='fabanki-export-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    });
+    el.querySelector('#rg-reset-stats-btn')?.addEventListener('click',()=>{
+      if(!confirm('Réinitialiser toutes les statistiques ? Cette action est irréversible.')) return;
+      ['fabanki:fail_total','fabanki:difficult_total','fabanki:good_total','fabanki:easy_total','fabanki:daily_history','fabanki:time_spent_total_sec','fabanki:max_daily_reviewed','fabanki:max_daily_reviewed_date'].forEach(k=>localStorage.removeItem(k));
+      alert('Statistiques réinitialisées.');
+    });
+  };
+})();
+
 // ===== UNIFIED NAVIGATION (bottom bar + sidebar) =====
 (function initNav(){
   let currentPage = 'home';
@@ -23276,15 +23608,20 @@
 
   function setActivePage(pageId){
     currentPage = pageId;
-    // Update bottom nav active state
     document.querySelectorAll('.bn-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === pageId));
-    // Update sidebar active state
     document.querySelectorAll('.sn-item').forEach(t => t.classList.toggle('active', t.dataset.tab === pageId));
 
     const mainEl = document.querySelector('main');
     const statsSection = document.getElementById('stats');
     const statsPage = document.getElementById('statsPage');
+    const sessionsPage = document.getElementById('sessionsPage');
+    const reglagesPage = document.getElementById('reglagesPage');
     const footerEl = document.querySelector('footer');
+
+    // Hide all custom pages first
+    if(statsPage) statsPage.classList.remove('sp-active');
+    if(sessionsPage) sessionsPage.classList.remove('sp-active');
+    if(reglagesPage) reglagesPage.classList.remove('rg-active');
 
     if(pageId === 'stats'){
       hideWelcomePage();
@@ -23292,8 +23629,19 @@
       if(statsSection) statsSection.style.display = 'none';
       if(footerEl) footerEl.style.display = 'none';
       if(statsPage){ statsPage.classList.add('sp-active'); if(typeof window.renderStatsPage === 'function') window.renderStatsPage(); }
+    } else if(pageId === 'sessions'){
+      hideWelcomePage();
+      if(mainEl) mainEl.style.display = 'none';
+      if(statsSection) statsSection.style.display = 'none';
+      if(footerEl) footerEl.style.display = 'none';
+      if(sessionsPage){ sessionsPage.classList.add('sp-active'); if(typeof window.renderSessionsPage === 'function') window.renderSessionsPage(); }
+    } else if(pageId === 'reglages'){
+      hideWelcomePage();
+      if(mainEl) mainEl.style.display = 'none';
+      if(statsSection) statsSection.style.display = 'none';
+      if(footerEl) footerEl.style.display = 'none';
+      if(reglagesPage){ reglagesPage.classList.add('rg-active'); if(typeof window.renderReglagesPage === 'function') window.renderReglagesPage(); }
     } else {
-      if(statsPage) statsPage.classList.remove('sp-active');
       if(mainEl) mainEl.style.display = '';
       if(statsSection) statsSection.style.display = '';
       if(footerEl) footerEl.style.display = '';
@@ -23326,6 +23674,8 @@
   // ── Sidebar ──
   document.getElementById('snHome')?.addEventListener('click', () => setActivePage('home'));
   document.getElementById('snStats')?.addEventListener('click', () => setActivePage('stats'));
+  document.getElementById('snSessions')?.addEventListener('click', () => setActivePage('sessions'));
+  document.getElementById('snReglages')?.addEventListener('click', () => setActivePage('reglages'));
   document.getElementById('snReview')?.addEventListener('click', () => triggerNowReview());
   document.getElementById('snDecks')?.addEventListener('click', () => {
     hideWelcomePage();
