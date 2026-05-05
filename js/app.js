@@ -11428,149 +11428,137 @@
         const clean = fixMojibakeText;
         const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay page-overlay'; ov.style.display='flex'; ov.style.zIndex='1200';
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
-        const m = document.createElement('div'); m.className='modal'; m.style.cssText='padding:0;overflow-y:auto;min-width:min(560px,96vw);background:var(--bg);';
+        const m = document.createElement('div'); m.className='modal'; m.style.cssText='padding:0;overflow-y:auto;min-width:min(640px,96vw);max-height:90vh;background:var(--bg);border-radius:16px;';
         const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.display='none'; m.appendChild(h);
 
-        // Pseudo display (from localStorage) - Improved styling
+        // Pseudo display (from localStorage)
         const userPseudo = localStorage.getItem('pseudo') || '';
 
-        // Avatar section
-        try{
-          const avatarSection = document.createElement('div');
-          avatarSection.className = 'profile-avatar-section';
-          avatarSection.style.cssText = 'background:linear-gradient(135deg,rgba(155,89,208,0.15),rgba(155,89,208,0.05));padding:16px 20px;border-bottom:1px solid rgba(155,89,208,0.12);display:flex;align-items:center;gap:14px;border-radius:12px 12px 0 0;';
-          const avatarCircle = document.createElement('div');
-          avatarCircle.className = 'profile-avatar-circle';
-          const _pseudo = localStorage.getItem('pseudo') || '?';
-          avatarCircle.style.cssText = 'width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#c084fc);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;flex-shrink:0;text-transform:uppercase;';
-          avatarCircle.textContent = _pseudo.charAt(0) || '?';
-          const avatarInfo = document.createElement('div');
-          avatarInfo.style.cssText = 'flex:1;';
-          const avatarName = document.createElement('div');
-          avatarName.style.cssText = 'font-size:1.1rem;font-weight:700;color:var(--fg);';
-          avatarName.textContent = _pseudo;
-          const avatarTitle = document.createElement('div');
-          avatarTitle.style.cssText = 'font-size:0.8rem;color:var(--accent);font-weight:600;margin-top:2px;';
-          avatarTitle.textContent = localStorage.getItem('fabanki:selected_title') || '';
-          avatarInfo.appendChild(avatarName);
-          avatarInfo.appendChild(avatarTitle);
-          avatarSection.appendChild(avatarCircle);
-          avatarSection.appendChild(avatarInfo);
-          m.insertBefore(avatarSection, m.firstChild);
-        }catch(e){ console.warn('avatar section error', e); }
-        const pseudoBox = document.createElement('div');
-        pseudoBox.style.cssText = 'padding:12px 16px;background:rgba(0,0,0,0.05);border-bottom:1px solid rgba(0,0,0,0.08);display:flex;align-items:center;gap:8px;';
-        
-        const p0 = document.createElement('div'); 
-        p0.id='profilePseudo'; 
-        p0.style.cssText = 'flex:1;font-weight:600;font-size:0.95em;color:var(--fg);';
-        p0.textContent = `${t('pseudo')}: ${userPseudo}`;
-        
-        // modifier button
-        const editBtn = document.createElement('button'); 
-        editBtn.className='secondary'; 
-        editBtn.style.cssText = 'padding:6px 12px;font-size:0.85em;';
+        // \u2500\u2500 Avatar header \u2500\u2500
+        const avatarSection = document.createElement('div');
+        avatarSection.className = 'profile-avatar-section';
+        avatarSection.style.cssText = 'background:linear-gradient(135deg,rgba(155,89,208,0.15),rgba(155,89,208,0.05));padding:24px 20px 18px;border-bottom:1px solid rgba(155,89,208,0.12);display:flex;align-items:center;gap:16px;position:relative;border-radius:16px 16px 0 0;';
+
+        const avatarCircle = document.createElement('div');
+        avatarCircle.className = 'profile-avatar-circle';
+        avatarCircle.style.cssText = 'width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#c084fc);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#fff;flex-shrink:0;text-transform:uppercase;';
+        avatarCircle.textContent = (userPseudo.charAt(0) || '?');
+
+        const avatarInfo = document.createElement('div');
+        avatarInfo.style.cssText = 'flex:1;min-width:0;';
+
+        const pseudoRow = document.createElement('div');
+        pseudoRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:4px;';
+        const p0 = document.createElement('div');
+        p0.id = 'profilePseudo';
+        p0.style.cssText = 'flex:1;font-weight:700;font-size:1.05rem;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+        p0.textContent = `${userPseudo}`;
+        const editBtn = document.createElement('button');
+        editBtn.className = 'secondary';
+        editBtn.style.cssText = 'padding:4px 10px;font-size:0.8em;border-radius:6px;flex-shrink:0;';
         editBtn.textContent = t('editPseudo');
         editBtn.addEventListener('click', ()=>{
           try{
             const cur = localStorage.getItem('pseudo') || '';
-            const input = document.createElement('input'); 
-            input.type='text'; 
-            input.value = cur; 
+            const input = document.createElement('input');
+            input.type='text';
+            input.value = cur;
             input.style.cssText = 'flex:1;padding:6px 10px;border:2px solid var(--accent);border-radius:6px;font-size:0.9em;background:var(--bg);color:var(--fg);';
-            const save = document.createElement('button'); 
-            save.className='secondary'; 
-            save.textContent=t('save'); 
+            const save = document.createElement('button');
+            save.className='secondary';
+            save.textContent=t('save');
             save.style.cssText='padding:6px 12px;background:#10b981;color:white;border:none;font-size:0.85em;';
-            const cancel = document.createElement('button'); 
-            cancel.className='secondary'; 
-            cancel.textContent=t('cancel'); 
+            const cancel = document.createElement('button');
+            cancel.className='secondary';
+            cancel.textContent=t('cancel');
             cancel.style.cssText='padding:6px 12px;font-size:0.85em;';
             p0.textContent = '';
             p0.style.display = 'flex';
             p0.style.alignItems = 'center';
             p0.style.gap = '6px';
-            p0.appendChild(input); 
-            p0.appendChild(save); 
+            p0.appendChild(input);
+            p0.appendChild(save);
             p0.appendChild(cancel);
             save.addEventListener('click', ()=>{ const v = (input.value||'').trim(); if(!v) return input.focus(); localStorage.setItem('pseudo', v); if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){} });
-            cancel.addEventListener('click', ()=>{ p0.style.display = ''; p0.textContent = `${t('pseudo')}: ${localStorage.getItem('pseudo') || ''}`; });
+            cancel.addEventListener('click', ()=>{ p0.style.display = ''; p0.textContent = `${localStorage.getItem('pseudo') || ''}`; });
             input.focus();
           }catch(e){ console.warn('edit pseudo', e) }
         });
-        
-        pseudoBox.appendChild(p0); 
-        pseudoBox.appendChild(editBtn); 
-        m.appendChild(pseudoBox);
+        pseudoRow.appendChild(p0); pseudoRow.appendChild(editBtn);
 
-        // Stats grid (visible)
+        const avatarTitleEl = document.createElement('div');
+        avatarTitleEl.style.cssText = 'font-size:0.82rem;color:var(--accent);font-weight:600;';
+        avatarTitleEl.textContent = localStorage.getItem('fabanki:selected_title') || '';
+
+        avatarInfo.appendChild(pseudoRow); avatarInfo.appendChild(avatarTitleEl);
+
+        const closeX = document.createElement('button');
+        closeX.style.cssText = 'position:absolute;top:14px;right:14px;background:rgba(0,0,0,0.07);border:none;border-radius:50%;width:30px;height:30px;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);line-height:1;';
+        closeX.textContent = '\u00D7';
+        closeX.addEventListener('click', ()=>{ ov.remove(); try{ if(typeof window.__setNavActivePage==='function') window.__setNavActivePage('home'); }catch(e){} });
+
+        avatarSection.appendChild(avatarCircle); avatarSection.appendChild(avatarInfo); avatarSection.appendChild(closeX);
+        m.appendChild(avatarSection);
+
+        // \u2500\u2500 Stats grid \u2500\u2500
         const statsGrid = document.createElement('div');
-        statsGrid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px;';
+        statsGrid.style.cssText = 'padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;';
         const statItems = [
-          { label:'R\u00E9visions', value: String(stats.totalReviewed) },
-          { label:"Aujourd'hui", value: String(stats.todayReviewed) },
-          { label:'XP total', value: String(stats.xpTotal) },
-          { label:'S\u00E9rie', value: Number(localStorage.getItem('fabanki:streak_current')||0)+' j' },
-          { label:'Score MPSI', value: String(getLocalNum('fabanki:score_mpsi_mois')) },
-          { label:'Cr\u00E9dits', value: String((typeof getCredits==='function')?getCredits():Number(localStorage.getItem('fabanki:credits')||0)) },
+          { label:'R\u00E9visions', value:String(stats.totalReviewed), cls:'profile-total' },
+          { label:"Aujourd'hui", value:String(stats.todayReviewed), cls:'profile-today' },
+          { label:'XP total', value:String(stats.xpTotal), cls:'profile-xp' },
+          { label:'S\u00E9rie', value:Number(localStorage.getItem('fabanki:streak_current')||0)+' j', cls:'profile-streak' },
+          { label:'Score MPSI', value:String(getLocalNum('fabanki:score_mpsi_mois')), cls:'profile-mpsi' },
+          { label:'Cr\u00E9dits', value:String((typeof getCredits==='function')?getCredits():Number(localStorage.getItem('fabanki:credits')||0)), cls:'credit-count-cell' },
         ];
         statItems.forEach(s => {
           const cell = document.createElement('div');
           cell.style.cssText = 'background:var(--card);border-radius:10px;padding:12px 10px;border:1px solid rgba(0,0,0,0.07);display:flex;flex-direction:column;gap:3px;';
-          const val = document.createElement('div'); val.className = 'profile-stat-val'; val.style.cssText = 'font-size:1.2rem;font-weight:800;color:var(--fg);line-height:1;'; val.textContent = s.value;
-          const lbl = document.createElement('div'); lbl.style.cssText = 'font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;'; lbl.textContent = s.label;
-          cell.appendChild(val); cell.appendChild(lbl);
-          statsGrid.appendChild(cell);
+          const val = document.createElement('div'); val.style.cssText = 'font-size:1.2rem;font-weight:800;color:var(--fg);line-height:1;'; val.textContent = s.value; val.className = s.cls;
+          const lbl = document.createElement('div'); lbl.style.cssText = 'font-size:0.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:3px;'; lbl.textContent = s.label;
+          cell.appendChild(val); cell.appendChild(lbl); statsGrid.appendChild(cell);
         });
         m.appendChild(statsGrid);
 
-        // Stats box with dark theme (hidden, kept for updateProfilePopupIfOpen)
+        // Hidden legacy statsBox (for updateProfilePopupIfOpen compatibility)
         const statsBox = document.createElement('div');
-        statsBox.style.cssText = 'display:none;padding:16px;background:linear-gradient(135deg,#2d1b4e 0%,#3d2060 100%);color:white;border-radius:10px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.2);border:1px solid rgba(155,89,208,0.2);';
-
-        const p1 = document.createElement('div'); p1.className='profile-total'; p1.style.marginBottom='8px'; p1.innerHTML = clean(`<strong>\uD83D\uDCDA ${t('totalReviewed')}:</strong> ${stats.totalReviewed}`); statsBox.appendChild(p1);
-        const p2 = document.createElement('div'); p2.className='profile-today'; p2.style.marginBottom='8px'; p2.innerHTML = clean(`<strong>\uD83D\uDCC5 ${t('todayReviewedFull')}:</strong> ${stats.todayReviewed}`); statsBox.appendChild(p2);
-        const p3 = document.createElement('div'); p3.className='profile-xp'; p3.style.marginBottom='8px'; p3.innerHTML = clean(`<strong>\u2728 ${t('xpLabel')}:</strong> ${stats.xpTotal}`); statsBox.appendChild(p3);
-        const p4 = document.createElement('div'); p4.className='profile-streak'; p4.style.marginBottom='8px'; p4.innerHTML = clean(`<strong>\uD83D\uDD25 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`); statsBox.appendChild(p4);
-        const p5 = document.createElement('div'); p5.className='profile-mpsi'; p5.innerHTML = clean(`<strong>\uD83D\uDCCA ${t('mpsiScoreMonthly')}:</strong> ${getLocalNum('fabanki:score_mpsi_mois')}`); statsBox.appendChild(p5);
-
+        statsBox.style.display = 'none';
+        const p1 = document.createElement('div'); p1.className='profile-total'; statsBox.appendChild(p1);
+        const p2 = document.createElement('div'); p2.className='profile-today'; statsBox.appendChild(p2);
+        const p3 = document.createElement('div'); p3.className='profile-xp'; statsBox.appendChild(p3);
+        const p4 = document.createElement('div'); p4.className='profile-streak'; statsBox.appendChild(p4);
+        const p5 = document.createElement('div'); p5.className='profile-mpsi'; statsBox.appendChild(p5);
         m.appendChild(statsBox);
 
-        // Sections wrapper for padding
+        // \u2500\u2500 Sections wrap \u2500\u2500
         const sectionsWrap = document.createElement('div');
-        sectionsWrap.style.cssText = 'padding:0 16px 16px;display:flex;flex-direction:column;gap:10px;';
+        sectionsWrap.style.cssText = 'padding:0 16px 20px;display:flex;flex-direction:column;gap:10px;';
 
         // Language selector section
         try{
           const langSelectorBox = document.createElement('div');
-          langSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.08);border-radius:8px;margin:12px 0;';
+          langSelectorBox.style.cssText = 'background:var(--card);border-radius:12px;padding:14px 16px;border:1px solid rgba(0,0,0,0.07);';
           const langLabel = document.createElement('div');
-          langLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:var(--fg);';
+          langLabel.style.cssText = 'font-weight:700;margin-bottom:10px;color:var(--fg);font-size:0.9rem;';
           langLabel.textContent = clean(`\uD83C\uDF10 ${t('languageSelector')}`);
           langSelectorBox.appendChild(langLabel);
-          
+
           const currentLang = localStorage.getItem('fabanki:lang') || 'fr';
-          const langs = [
-            { code: 'fr', label: t('french') },
-            { code: 'en', label: t('english') }
-          ];
-          
+          const langs = [{ code:'fr', label:t('french') }, { code:'en', label:t('english') }];
           const langButtonsContainer = document.createElement('div');
-          langButtonsContainer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
-          
+          langButtonsContainer.style.cssText = 'display:flex;gap:8px;';
           for(const lang of langs){
             const btn = document.createElement('button');
             btn.className = 'secondary';
             const isSelected = currentLang === lang.code;
-            btn.style.cssText = `flex:1;min-width:100px;padding:8px 12px;border-radius:6px;border:2px solid ${isSelected ? 'var(--accent)' : 'rgba(0,0,0,0.1)'};background:${isSelected ? 'rgba(155,89,208,0.1)' : 'var(--card)'};color:${isSelected ? 'var(--accent)' : 'var(--muted)'};font-weight:${isSelected ? '600' : '500'};cursor:pointer;transition:all 0.2s;`;
+            btn.style.cssText = `flex:1;padding:8px 12px;border-radius:8px;border:${isSelected?'2px solid var(--accent)':'1.5px solid rgba(0,0,0,0.1)'};background:${isSelected?'rgba(155,89,208,0.1)':'var(--bg)'};color:${isSelected?'var(--accent)':'var(--muted)'};font-weight:${isSelected?'600':'500'};cursor:pointer;transition:all 0.2s;`;
             btn.textContent = lang.label;
             btn.addEventListener('click', () => {
               localStorage.setItem('fabanki:lang', lang.code);
-              // Update button styles
               for(const b of langButtonsContainer.querySelectorAll('button')){
                 const sel = b === btn;
-                b.style.borderColor = sel ? 'var(--accent)' : 'rgba(0,0,0,0.1)';
-                b.style.background = sel ? 'rgba(155,89,208,0.1)' : 'var(--card)';
+                b.style.border = sel ? '2px solid var(--accent)' : '1.5px solid rgba(0,0,0,0.1)';
+                b.style.background = sel ? 'rgba(155,89,208,0.1)' : 'var(--bg)';
                 b.style.color = sel ? 'var(--accent)' : 'var(--muted)';
                 b.style.fontWeight = sel ? '600' : '500';
               }
@@ -11579,16 +11567,15 @@
             });
             langButtonsContainer.appendChild(btn);
           }
-          
           langSelectorBox.appendChild(langButtonsContainer);
           sectionsWrap.appendChild(langSelectorBox);
         }catch(e){ console.warn('Language selector error:', e); }
 
         // Title selector section
         const titleSelectorBox = document.createElement('div');
-        titleSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.08);border-radius:8px;margin:12px 0;';
+        titleSelectorBox.style.cssText = 'background:var(--card);border-radius:12px;padding:14px 16px;border:1px solid rgba(0,0,0,0.07);';
         const titleSelectorLabel = document.createElement('div');
-        titleSelectorLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:var(--fg);';
+        titleSelectorLabel.style.cssText = 'font-weight:700;margin-bottom:10px;color:var(--fg);font-size:0.9rem;';
         titleSelectorLabel.textContent = clean(`\uD83C\uDFF7 ${t('selectTitle')}`);
         titleSelectorBox.appendChild(titleSelectorLabel);
         
@@ -11612,7 +11599,7 @@
         
         if(unlockedTitles.length > 0){
           const select = document.createElement('select');
-          select.style.cssText = 'width:100%;padding:8px;border-radius:6px;border:1px solid rgba(155,89,208,0.3);margin-bottom:8px;background:var(--bg);color:var(--fg);';
+          select.style.cssText = 'width:100%;padding:8px 10px;border:1px solid rgba(155,89,208,0.3);border-radius:8px;background:var(--bg);color:var(--fg);margin-bottom:6px;';
           
           // Add option for no title
           const noneOption = document.createElement('option');
@@ -11656,12 +11643,12 @@
           
           // Display current selection
           const currentDisplay = document.createElement('div');
-          currentDisplay.style.cssText = 'font-size:0.9em;color:var(--muted);';
+          currentDisplay.style.cssText = 'font-size:0.85em;color:var(--muted);';
           currentDisplay.textContent = currentTitle ? `Actuel: ${currentTitle}` : 'Actuel: aucun';
           titleSelectorBox.appendChild(currentDisplay);
         } else {
           const noTitlesMsg = document.createElement('div');
-          noTitlesMsg.style.cssText = 'font-size:0.9em;color:var(--muted);';
+          noTitlesMsg.style.cssText = 'font-size:0.85em;color:var(--muted);';
           noTitlesMsg.textContent = t('noTitlesUnlocked');
           titleSelectorBox.appendChild(noTitlesMsg);
         }
@@ -11670,9 +11657,9 @@
 
         // Theme toggle (moved from top bar)
         const themeBox = document.createElement('div');
-        themeBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.08);border-radius:8px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+        themeBox.style.cssText = 'background:var(--card);border-radius:12px;padding:14px 16px;border:1px solid rgba(0,0,0,0.07);display:flex;align-items:center;justify-content:space-between;';
         const themeLabel = document.createElement('div');
-        themeLabel.style.cssText = 'font-weight:700;color:var(--fg);';
+        themeLabel.style.cssText = 'font-weight:600;color:var(--fg);';
         themeLabel.textContent = clean(`\uD83C\uDF19 ${t('darkMode')}`);
         themeBox.appendChild(themeLabel);
 
@@ -11705,33 +11692,33 @@
         sectionsWrap.appendChild(themeBox);
 
         // Action buttons - improved layout
-        const rankBtnWrap = document.createElement('div'); 
-        rankBtnWrap.style.cssText = 'margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;';
-        
+        const rankBtnWrap = document.createElement('div');
+        rankBtnWrap.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;';
+
         // Classement button (emoji only)
-        const rankBtn = document.createElement('button'); 
-        rankBtn.className = 'secondary'; 
+        const rankBtn = document.createElement('button');
+        rankBtn.className = 'secondary';
         rankBtn.textContent = '\uD83C\uDFC6';
         rankBtn.title = t('leaderboard');
-        rankBtn.style.cssText = 'padding:12px;font-size:1.5em;';
+        rankBtn.style.cssText = 'padding:12px;font-size:1.4em;border-radius:10px;background:var(--card);border:1px solid rgba(0,0,0,0.07);cursor:pointer;';
         rankBtn.addEventListener('click', ()=>{ try{ showLeaderboardPopup(); }catch(e){ console.warn(e) } });
         rankBtnWrap.appendChild(rankBtn);
-        
+
         // Titres button (emoji only)
-        const titlesBtn = document.createElement('button'); 
-        titlesBtn.className='secondary'; 
+        const titlesBtn = document.createElement('button');
+        titlesBtn.className='secondary';
         titlesBtn.textContent = '\uD83C\uDFF7';
         titlesBtn.title = t('titles');
-        titlesBtn.style.cssText = 'padding:12px;font-size:1.5em;';
+        titlesBtn.style.cssText = 'padding:12px;font-size:1.4em;border-radius:10px;background:var(--card);border:1px solid rgba(0,0,0,0.07);cursor:pointer;';
         titlesBtn.addEventListener('click', ()=>{ try{ showTitlesPopup(); }catch(e){ console.warn(e) } });
         rankBtnWrap.appendChild(titlesBtn);
-        
+
         // Theme personalization button
-        const themeBtn = document.createElement('button'); 
-        themeBtn.className='secondary'; 
+        const themeBtn = document.createElement('button');
+        themeBtn.className='secondary';
         themeBtn.textContent='\uD83C\uDFA8';
         themeBtn.title = 'Personnalisation du theme';
-        themeBtn.style.cssText = 'padding:12px;font-size:1.5em;';
+        themeBtn.style.cssText = 'padding:12px;font-size:1.4em;border-radius:10px;background:var(--card);border:1px solid rgba(0,0,0,0.07);cursor:pointer;';
         themeBtn.addEventListener('click', ()=>{
           try{
             if(typeof showCustomizationModal === 'function'){
@@ -11740,13 +11727,13 @@
           }catch(e){ console.warn('theme popup error', e) }
         });
         rankBtnWrap.appendChild(themeBtn);
-        
+
         // Tutorial button
-        const tutorialBtn = document.createElement('button'); 
-        tutorialBtn.className='secondary'; 
+        const tutorialBtn = document.createElement('button');
+        tutorialBtn.className='secondary';
         tutorialBtn.textContent='\uD83D\uDCD6';
         tutorialBtn.title = 'Tutoriel';
-        tutorialBtn.style.cssText = 'padding:12px;font-size:1.5em;';
+        tutorialBtn.style.cssText = 'padding:12px;font-size:1.4em;border-radius:10px;background:var(--card);border:1px solid rgba(0,0,0,0.07);cursor:pointer;';
         tutorialBtn.addEventListener('click', ()=>{
           try{
             // Close profile popup first
@@ -11761,13 +11748,13 @@
           }catch(e){ console.warn('tutorial error', e) }
         });
         rankBtnWrap.appendChild(tutorialBtn);
-        
+
         // PWA Install Tutorial button
-        const pwaInstallBtn = document.createElement('button'); 
-        pwaInstallBtn.className='secondary'; 
+        const pwaInstallBtn = document.createElement('button');
+        pwaInstallBtn.className='secondary';
         pwaInstallBtn.textContent='\uD83D\uDCF1';
         pwaInstallBtn.title = 'Installer l\'app';
-        pwaInstallBtn.style.cssText = 'padding:12px;font-size:1.5em;';
+        pwaInstallBtn.style.cssText = 'padding:12px;font-size:1.4em;border-radius:10px;background:var(--card);border:1px solid rgba(0,0,0,0.07);cursor:pointer;';
         pwaInstallBtn.addEventListener('click', (ev)=>{
           try{ ev.preventDefault(); ev.stopPropagation(); }catch(e){}
           try{
@@ -11778,13 +11765,13 @@
           }catch(e){ console.warn('pwa install tutorial error', e) }
         });
         rankBtnWrap.appendChild(pwaInstallBtn);
-        
+
         // Daily goal button
-        const dailyGoalBtn = document.createElement('button'); 
-        dailyGoalBtn.className='secondary'; 
+        const dailyGoalBtn = document.createElement('button');
+        dailyGoalBtn.className='secondary';
         dailyGoalBtn.textContent='\uD83C\uDFAF';
         dailyGoalBtn.title = 'Objectif quotidien';
-        dailyGoalBtn.style.cssText = 'padding:12px;font-size:1.5em;';
+        dailyGoalBtn.style.cssText = 'padding:12px;font-size:1.4em;border-radius:10px;background:var(--card);border:1px solid rgba(0,0,0,0.07);cursor:pointer;';
         dailyGoalBtn.addEventListener('click', ()=>{
           try{
             if(typeof showDailyGoalDialog === 'function'){
@@ -11800,7 +11787,7 @@
           const lvl = computeLevelAndProgress(stats.xpTotal || 0);
           const levelBox = document.createElement('div');
           levelBox.className = 'level-box';
-          levelBox.style.cssText = 'display:flex;flex-direction:column;align-items:center;margin:16px 0;';
+          levelBox.style.cssText = 'background:var(--card);border-radius:12px;padding:16px;text-align:center;border:1px solid rgba(0,0,0,0.07);display:flex;flex-direction:column;align-items:center;';
 
           const ring = document.createElement('div');
           ring.className = 'level-ring';
@@ -11828,7 +11815,6 @@
 
         m.appendChild(sectionsWrap);
 
-        const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='x'; cb.style.cssText='position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;'; cb.addEventListener('click', ()=>{ ov.remove(); try{ if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('home'); }catch(e){} }); m.appendChild(cb);
         ov.appendChild(m); document.body.appendChild(ov);
         // mark overlay open so CSS fade can run, then animate modal open
         try{ ov.classList.add('open'); ov.setAttribute('aria-hidden','false'); m.classList.add('open');
