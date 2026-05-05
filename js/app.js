@@ -11110,7 +11110,7 @@
       }catch(e){}
     }
     showDeckTooltipOnce();
-    if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(overlay){ overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); } });
+    if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(overlay){ overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); } try{ if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('home'); }catch(e){} });
     if(overlay){ overlay.addEventListener('click', (ev)=>{ if(ev.target === overlay){ overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); } }); }
     if(refreshBtn) refreshBtn.addEventListener('click', ()=>{ openDeckBrowser(); });
     
@@ -11781,14 +11781,14 @@
           m.appendChild(levelBox);
         }catch(e){ /* ignore level rendering errors */ }
 
-        const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='x'; cb.style.cssText='position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;'; cb.addEventListener('click', ()=>{ ov.remove(); }); m.appendChild(cb);
+        const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='x'; cb.style.cssText='position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;'; cb.addEventListener('click', ()=>{ ov.remove(); try{ if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('home'); }catch(e){} }); m.appendChild(cb);
         ov.appendChild(m); document.body.appendChild(ov);
         // mark overlay open so CSS fade can run, then animate modal open
         try{ ov.classList.add('open'); ov.setAttribute('aria-hidden','false'); m.classList.add('open');
           const anim = localStorage.getItem('fabanki:popup_animation') || 'none';
           if(anim !== 'none') m.setAttribute('data-animation', anim);
         }catch(e){}
-        ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
+        ov.addEventListener('click', (ev)=>{ if(ev.target === ov){ ov.remove(); try{ if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('home'); }catch(e){} } });
       }catch(e){ console.warn('profile popup error', e); }
     }
 
@@ -12099,7 +12099,7 @@
         const backBtn = document.createElement('button');
         backBtn.textContent = '← Retour';
         backBtn.className = 'secondary';
-        backBtn.addEventListener('click', ()=>{ container.remove(); });
+        backBtn.addEventListener('click', ()=>{ container.remove(); try{ if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('home'); }catch(e){} });
 
         // Wallet display + back button grouped
         const walletDiv = document.createElement('div');
@@ -23651,6 +23651,18 @@
     document.querySelectorAll('.bn-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === pageId));
     document.querySelectorAll('.sn-item').forEach(t => t.classList.toggle('active', t.dataset.tab === pageId));
 
+    // Close any open overlays when switching pages
+    try{
+      const deckOverlay = document.getElementById('deckBrowserOverlay');
+      if(deckOverlay && deckOverlay.style.display !== 'none'){
+        deckOverlay.classList.remove('open'); deckOverlay.style.display = 'none'; deckOverlay.setAttribute('aria-hidden','true');
+      }
+      const profileOverlay = document.getElementById('profileOverlay');
+      if(profileOverlay) profileOverlay.remove();
+      const marketContainer = document.getElementById('marketContainer');
+      if(marketContainer) marketContainer.remove();
+    }catch(e){}
+
     const mainEl = document.querySelector('main');
     const statsSection = document.getElementById('stats');
     const statsPage = document.getElementById('statsPage');
@@ -23685,7 +23697,11 @@
       if(mainEl) mainEl.style.display = '';
       if(statsSection) statsSection.style.display = '';
       if(footerEl) footerEl.style.display = '';
-      if(pageId === 'home') showWelcomePage();
+      if(pageId === 'home'){
+        const w = document.getElementById('welcomeDecks');
+        if(w){ w.style.display = ''; }
+        else if(typeof renderWelcomeDecks === 'function'){ renderWelcomeDecks().catch(e => console.warn('[nav] renderWelcomeDecks error:', e)); }
+      }
     }
   }
 
@@ -23718,19 +23734,16 @@
   document.getElementById('snReglages')?.addEventListener('click', () => setActivePage('reglages'));
   document.getElementById('snReview')?.addEventListener('click', () => triggerNowReview());
   document.getElementById('snDecks')?.addEventListener('click', () => {
-    hideWelcomePage();
-    const btn = document.getElementById('browseDecks');
-    if(btn) btn.click();
+    setActivePage('decks');
+    setTimeout(()=>{ const btn = document.getElementById('browseDecks'); if(btn) btn.click(); }, 10);
   });
   document.getElementById('snMarket')?.addEventListener('click', () => {
-    hideWelcomePage();
-    const btn = document.getElementById('marketBtn');
-    if(btn) btn.click();
+    setActivePage('marche');
+    setTimeout(()=>{ const btn = document.getElementById('marketBtn'); if(btn) btn.click(); }, 10);
   });
   document.getElementById('snProfile')?.addEventListener('click', () => {
-    hideWelcomePage();
-    const btn = document.getElementById('profileBtn');
-    if(btn) btn.click();
+    setActivePage('profile');
+    setTimeout(()=>{ const btn = document.getElementById('profileBtn'); if(btn) btn.click(); }, 10);
   });
   document.getElementById('snSync')?.addEventListener('click', () => {
     const btn = document.getElementById('syncBtn');
