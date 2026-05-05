@@ -10740,6 +10740,74 @@
       deckList.style.visibility = 'visible';
       deckList.style.backgroundColor = 'white';
       deckMsg.textContent = 'Recherche de ./decks/ ...';
+
+      // Stats bar (4 cells: total, due, new, folders)
+      if(modalEl && !modalEl.querySelector('#deckBrowserStatsBar')){
+        const statsBar = document.createElement('div');
+        statsBar.id = 'deckBrowserStatsBar';
+        statsBar.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;';
+        const statLabels = ['Cartes totales','Dues','Nouvelles','Dossiers'];
+        const statColors = ['var(--fg)','#e05252','var(--accent)','var(--fg)'];
+        statLabels.forEach((lbl, i) => {
+          const cell = document.createElement('div');
+          cell.style.cssText = 'background:var(--card);border-radius:10px;padding:10px 12px;border:1px solid rgba(0,0,0,0.07);';
+          const val = document.createElement('div');
+          val.style.cssText = `font-size:1.2rem;font-weight:800;color:${statColors[i]};line-height:1;`;
+          val.textContent = '…';
+          val.id = `deckStatCell_${i}`;
+          const label = document.createElement('div');
+          label.style.cssText = 'font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:3px;';
+          label.textContent = lbl;
+          cell.appendChild(val); cell.appendChild(label);
+          statsBar.appendChild(cell);
+        });
+        modalEl.insertBefore(statsBar, deckList);
+
+        // Search bar (insert before stats bar)
+        const searchWrap = document.createElement('div');
+        searchWrap.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--card);border-radius:9px;border:1px solid rgba(0,0,0,0.08);padding:7px 10px;margin-bottom:12px;';
+        const searchIcon = document.createElement('span');
+        searchIcon.textContent = '🔍';
+        searchIcon.style.fontSize = '12px';
+        const searchInput = document.createElement('input');
+        searchInput.placeholder = 'Rechercher un deck…';
+        searchInput.style.cssText = 'border:none;background:transparent;color:var(--fg);font-size:13px;outline:none;flex:1;';
+        searchInput.addEventListener('input', () => {
+          const q = searchInput.value.toLowerCase();
+          deckList.querySelectorAll('.deck-entry').forEach(row => {
+            const name = row.querySelector('div')?.textContent?.toLowerCase() || '';
+            row.style.display = (!q || name.includes(q)) ? '' : 'none';
+          });
+        });
+        searchWrap.appendChild(searchIcon); searchWrap.appendChild(searchInput);
+        modalEl.insertBefore(searchWrap, statsBar);
+
+        // Async populate stats
+        setTimeout(async () => {
+          try{
+            const entries = await fetchDirectory('./decks/');
+            const xmlFiles = (Array.isArray(entries)?entries:[]).filter(e=>typeof e==='string'&&e.toLowerCase().endsWith('.xml'));
+            const folders = (Array.isArray(entries)?entries:[]).filter(e=>typeof e==='string'&&!e.toLowerCase().endsWith('.xml'));
+            let totalCards = 0, totalDue = 0, totalNew = 0;
+            for(const f of xmlFiles.slice(0,20)){
+              try{
+                const cnt = await countDueNowForDeck('./decks/'+f);
+                totalDue += cnt;
+                totalNew += Number(localStorage.getItem('fabanki:deck_new_'+f)||0);
+                totalCards += Number(localStorage.getItem('fabanki:deck_cards_'+f)||0);
+              }catch(e){}
+            }
+            const el0 = document.getElementById('deckStatCell_0');
+            const el1 = document.getElementById('deckStatCell_1');
+            const el2 = document.getElementById('deckStatCell_2');
+            const el3 = document.getElementById('deckStatCell_3');
+            if(el0) el0.textContent = totalCards > 0 ? totalCards.toLocaleString() : xmlFiles.length;
+            if(el1) el1.textContent = totalDue.toLocaleString();
+            if(el2) el2.textContent = totalNew.toLocaleString();
+            if(el3) el3.textContent = folders.length || xmlFiles.length;
+          }catch(e){ console.warn('stats bar error', e); }
+        }, 100);
+      }
       try{
         const entries = await fetchDirectory('./decks/');
         if(!entries || entries.length===0){ 
@@ -10820,9 +10888,14 @@
           // folders with due counts and badge
           Array.from(folders).sort().forEach(folder=>{
             const row = document.createElement('div'); row.className='deck-entry';
+            row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
+            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
+            row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
+            const folderIconDiv = document.createElement('div'); folderIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; folderIconDiv.textContent = '📁'; row.appendChild(folderIconDiv);
             const nm = document.createElement('div'); 
             const folderName = decodeURIComponent((prefix+folder).replace(/\+/g,' ')).replace(/\/$/,'');
             nm.textContent = folderName;
+            nm.style.cssText = 'flex:1;font-weight:700;font-size:0.92rem;color:var(--fg);';
             
             // Calculate folder due count with badge
             const folderPath = prefix + folder;
@@ -10838,6 +10911,7 @@
 
             const act = document.createElement('div');
             const b = document.createElement('button'); b.className='secondary';
+            b.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
             if(folderLock.locked){
               b.textContent = '🔒 Verrouillé';
               b.addEventListener('click', ()=>{
@@ -10883,6 +10957,10 @@
           // files (limit to first 10)
           Array.from(files).sort().forEach(file=>{
             const row = document.createElement('div'); row.className='deck-entry';
+            row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
+            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
+            row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
+            const fileIconDiv = document.createElement('div'); fileIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; fileIconDiv.textContent = '📄'; row.appendChild(fileIconDiv);
             const dec = decodeURIComponent((prefix+file).replace(/\+/g,' '));
             // Extract just the deck name (without parent path) if the full path is too long
             const fullDeckName = dec.replace(/\.xml$/i,'');
@@ -10892,9 +10970,11 @@
             const nm = document.createElement('div'); 
             nm.textContent = displayName;
             nm.title = fullDeckName; // Show full path on hover
+            nm.style.cssText = 'flex:1;font-weight:500;font-size:0.9rem;color:var(--fg);';
             const act = document.createElement('div');
               if(file.toLowerCase().endsWith('.xml')){ const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
                 const b=document.createElement('button'); b.className='secondary';
+                b.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
                 b.textContent = (window.innerWidth <= 640) ? 'â–¶ï¸' : 'AccÃ©der';
                 b.addEventListener('click', async ()=>{ 
                   const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
@@ -10931,6 +11011,7 @@
             const allBtnText = document.createElement('div'); allBtnText.textContent = 'ðŸ“š RÃ©viser tous les decks du dossier'; allBtnText.style.fontWeight = '600';
             const allBtnAct = document.createElement('div');
             const reviewAllBtn = document.createElement('button'); reviewAllBtn.className = 'secondary'; reviewAllBtn.textContent = 'Commencer';
+            reviewAllBtn.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:0.9rem;font-weight:600;cursor:pointer;';
             reviewAllBtn.addEventListener('click', async ()=>{
               try{
                 // Collect all XML files from this folder
@@ -10961,16 +11042,23 @@
           deckList.innerHTML = '';
           for(const e of (list.slice ? list : list)){
             const row = document.createElement('div'); row.className='deck-entry';
-            row.style.cssText = 'padding:2px 0;';
-            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)';row.style.borderRadius='8px'; });
+            row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
+            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
             row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
             const decoded = (()=>{ try{ return decodeURIComponent(e.replace(/\+/g,' ')) }catch(x){ return e } })();
+            const isXml = e.endsWith('.xml');
+            const iconDiv = document.createElement('div');
+            if(isXml){ iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; iconDiv.textContent = '📄'; }
+            else { iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; iconDiv.textContent = '📁'; }
+            row.appendChild(iconDiv);
             const name = document.createElement('div'); name.textContent = decoded.replace(/\.xml$/i,'');
+            if(isXml){ name.style.cssText = 'flex:1;font-weight:500;font-size:0.9rem;color:var(--fg);'; } else { name.style.cssText = 'flex:1;font-weight:700;font-size:0.92rem;color:var(--fg);'; }
             const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
             name.appendChild(dueBadge);
             const actions = document.createElement('div');
             if(e.endsWith('.xml')){ const dueBadge2 = document.createElement('span'); dueBadge2.className = 'due-badge'; dueBadge2.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
               const btn = document.createElement('button'); btn.className='secondary';
+              btn.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
               try{
                 const relPath = normalizeDeckPath(base+e);
                 const folderLock = getLockForPath(relPath);
@@ -11036,6 +11124,17 @@
                   }
                 });
               }
+              // Mastery bar
+              const masteryPct = Number(localStorage.getItem('fabanki:deck_mastery_' + e.replace(/\//g,'_')) || 0);
+              if(masteryPct > 0){
+                const mBar = document.createElement('div');
+                mBar.style.cssText = 'width:36px;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;overflow:hidden;';
+                const mFill = document.createElement('div');
+                const mc = masteryPct > 75 ? '#4caf78' : masteryPct > 50 ? '#5b9bd4' : '#d97b3a';
+                mFill.style.cssText = `height:100%;width:${masteryPct}%;background:${mc};border-radius:2px;`;
+                mBar.appendChild(mFill);
+                actions.appendChild(mBar);
+              }
               actions.appendChild(dueBadge2); actions.appendChild(btn);
                 (async ()=>{ try{ const n = await countDueNowForDeck(base+e); if(typeof n === 'number' && n>=0){ dueBadge2.querySelector('.due-num').textContent = n>0? n : ''; dueBadge2.querySelector('.due-label').style.display = n>0? 'block' : 'none'; }else{ dueBadge2.querySelector('.due-num').textContent=''; dueBadge2.querySelector('.due-label').style.display='none'; } }catch(err){} })();
                 // Mastery pill: count reviewed cards from localStorage (no network)
@@ -11054,7 +11153,7 @@
                   }
                 }catch(_e){} })();
             }
-            else { const btn = document.createElement('button'); btn.className='secondary'; btn.textContent='Ouvrir'; btn.addEventListener('click', async ()=>{ deckMsg.textContent = 'Exploration de '+base+e+' ...'; try{ const sub = await fetchDirectory(base+e); renderList(sub, base+e); }catch(err){ deckMsg.textContent = 'Impossible d\'explorer le dossier: '+err.message } }); actions.appendChild(btn); }
+            else { const btn = document.createElement('button'); btn.className='secondary'; btn.style.cssText='background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;'; btn.textContent='Ouvrir'; btn.addEventListener('click', async ()=>{ deckMsg.textContent = 'Exploration de '+base+e+' ...'; try{ const sub = await fetchDirectory(base+e); renderList(sub, base+e); }catch(err){ deckMsg.textContent = 'Impossible d\'explorer le dossier: '+err.message } }); actions.appendChild(btn); }
             row.appendChild(name); row.appendChild(actions); deckList.appendChild(row);
           }
         }
@@ -11110,7 +11209,7 @@
       }catch(e){}
     }
     showDeckTooltipOnce();
-    if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(overlay){ overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); } });
+    if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(overlay){ overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); } try{ if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('home'); }catch(e){} });
     if(overlay){ overlay.addEventListener('click', (ev)=>{ if(ev.target === overlay){ overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); } }); }
     if(refreshBtn) refreshBtn.addEventListener('click', ()=>{ openDeckBrowser(); });
     
@@ -11408,124 +11507,137 @@
         const clean = fixMojibakeText;
         const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay page-overlay'; ov.style.display='flex'; ov.style.zIndex='1200';
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
-        const m = document.createElement('div'); m.className='modal'; m.style.cssText='padding:24px 20px;overflow-y:auto;background:var(--bg);';
-        const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.marginTop='0'; h.style.marginBottom='16px'; h.style.fontSize='1.5rem'; h.style.color='var(--fg)'; m.appendChild(h);
+        const m = document.createElement('div'); m.className='modal'; m.style.cssText='padding:0;overflow-y:auto;min-width:min(640px,96vw);max-height:90vh;background:var(--bg);border-radius:16px;';
+        const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.display='none'; m.appendChild(h);
 
-        // Pseudo display (from localStorage) - Improved styling
+        // Pseudo display (from localStorage)
         const userPseudo = localStorage.getItem('pseudo') || '';
 
-        // Avatar section
-        try{
-          const avatarSection = document.createElement('div');
-          avatarSection.className = 'profile-avatar-section';
-          avatarSection.style.cssText = 'background:linear-gradient(135deg,rgba(155,89,208,0.15),rgba(155,89,208,0.05));padding:16px 20px;border-bottom:1px solid rgba(155,89,208,0.12);display:flex;align-items:center;gap:14px;margin:-24px -20px 16px;border-radius:12px 12px 0 0;';
-          const avatarCircle = document.createElement('div');
-          avatarCircle.className = 'profile-avatar-circle';
-          const _pseudo = localStorage.getItem('pseudo') || '?';
-          avatarCircle.style.cssText = 'width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#c084fc);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;flex-shrink:0;text-transform:uppercase;';
-          avatarCircle.textContent = _pseudo.charAt(0) || '?';
-          const avatarInfo = document.createElement('div');
-          avatarInfo.style.cssText = 'flex:1;';
-          const avatarName = document.createElement('div');
-          avatarName.style.cssText = 'font-size:1.1rem;font-weight:700;color:var(--fg);';
-          avatarName.textContent = _pseudo;
-          const avatarTitle = document.createElement('div');
-          avatarTitle.style.cssText = 'font-size:0.8rem;color:var(--accent);font-weight:600;margin-top:2px;';
-          avatarTitle.textContent = localStorage.getItem('fabanki:selected_title') || '';
-          avatarInfo.appendChild(avatarName);
-          avatarInfo.appendChild(avatarTitle);
-          avatarSection.appendChild(avatarCircle);
-          avatarSection.appendChild(avatarInfo);
-          m.insertBefore(avatarSection, m.firstChild);
-        }catch(e){ console.warn('avatar section error', e); }
-        const pseudoBox = document.createElement('div');
-        pseudoBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.08);border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px;';
-        
-        const p0 = document.createElement('div'); 
-        p0.id='profilePseudo'; 
-        p0.style.cssText = 'flex:1;font-weight:600;font-size:0.95em;color:var(--fg);';
-        p0.textContent = `${t('pseudo')}: ${userPseudo}`;
-        
-        // modifier button
-        const editBtn = document.createElement('button'); 
-        editBtn.className='secondary'; 
-        editBtn.style.cssText = 'padding:6px 12px;font-size:0.85em;';
+        // \u2500\u2500 Avatar header \u2500\u2500
+        const avatarSection = document.createElement('div');
+        avatarSection.className = 'profile-avatar-section';
+        avatarSection.style.cssText = 'background:linear-gradient(135deg,rgba(155,89,208,0.15),rgba(155,89,208,0.05));padding:24px 20px 18px;border-bottom:1px solid rgba(155,89,208,0.12);display:flex;align-items:center;gap:16px;position:relative;border-radius:16px 16px 0 0;';
+
+        const avatarCircle = document.createElement('div');
+        avatarCircle.className = 'profile-avatar-circle';
+        avatarCircle.style.cssText = 'width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#c084fc);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#fff;flex-shrink:0;text-transform:uppercase;';
+        avatarCircle.textContent = (userPseudo.charAt(0) || '?');
+
+        const avatarInfo = document.createElement('div');
+        avatarInfo.style.cssText = 'flex:1;min-width:0;';
+
+        const pseudoRow = document.createElement('div');
+        pseudoRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:4px;';
+        const p0 = document.createElement('div');
+        p0.id = 'profilePseudo';
+        p0.style.cssText = 'flex:1;font-weight:700;font-size:1.05rem;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+        p0.textContent = `${userPseudo}`;
+        const editBtn = document.createElement('button');
+        editBtn.className = 'secondary';
+        editBtn.style.cssText = 'padding:4px 10px;font-size:0.8em;border-radius:6px;flex-shrink:0;';
         editBtn.textContent = t('editPseudo');
         editBtn.addEventListener('click', ()=>{
           try{
             const cur = localStorage.getItem('pseudo') || '';
-            const input = document.createElement('input'); 
-            input.type='text'; 
-            input.value = cur; 
+            const input = document.createElement('input');
+            input.type='text';
+            input.value = cur;
             input.style.cssText = 'flex:1;padding:6px 10px;border:2px solid var(--accent);border-radius:6px;font-size:0.9em;background:var(--bg);color:var(--fg);';
-            const save = document.createElement('button'); 
-            save.className='secondary'; 
-            save.textContent=t('save'); 
+            const save = document.createElement('button');
+            save.className='secondary';
+            save.textContent=t('save');
             save.style.cssText='padding:6px 12px;background:#10b981;color:white;border:none;font-size:0.85em;';
-            const cancel = document.createElement('button'); 
-            cancel.className='secondary'; 
-            cancel.textContent=t('cancel'); 
+            const cancel = document.createElement('button');
+            cancel.className='secondary';
+            cancel.textContent=t('cancel');
             cancel.style.cssText='padding:6px 12px;font-size:0.85em;';
             p0.textContent = '';
             p0.style.display = 'flex';
             p0.style.alignItems = 'center';
             p0.style.gap = '6px';
-            p0.appendChild(input); 
-            p0.appendChild(save); 
+            p0.appendChild(input);
+            p0.appendChild(save);
             p0.appendChild(cancel);
             save.addEventListener('click', ()=>{ const v = (input.value||'').trim(); if(!v) return input.focus(); localStorage.setItem('pseudo', v); if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){} });
-            cancel.addEventListener('click', ()=>{ p0.style.display = ''; p0.textContent = `${t('pseudo')}: ${localStorage.getItem('pseudo') || ''}`; });
+            cancel.addEventListener('click', ()=>{ p0.style.display = ''; p0.textContent = `${localStorage.getItem('pseudo') || ''}`; });
             input.focus();
           }catch(e){ console.warn('edit pseudo', e) }
         });
-        
-        pseudoBox.appendChild(p0); 
-        pseudoBox.appendChild(editBtn); 
-        m.appendChild(pseudoBox);
-        
-        // Stats box with dark theme
+        pseudoRow.appendChild(p0); pseudoRow.appendChild(editBtn);
+
+        const avatarTitleEl = document.createElement('div');
+        avatarTitleEl.style.cssText = 'font-size:0.82rem;color:var(--accent);font-weight:600;';
+        avatarTitleEl.textContent = localStorage.getItem('fabanki:selected_title') || '';
+
+        avatarInfo.appendChild(pseudoRow); avatarInfo.appendChild(avatarTitleEl);
+
+        const closeX = document.createElement('button');
+        closeX.style.cssText = 'position:absolute;top:14px;right:14px;background:rgba(0,0,0,0.07);border:none;border-radius:50%;width:30px;height:30px;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);line-height:1;';
+        closeX.textContent = '\u00D7';
+        closeX.addEventListener('click', ()=>{ ov.remove(); try{ if(typeof window.__setNavActivePage==='function') window.__setNavActivePage('home'); }catch(e){} });
+
+        avatarSection.appendChild(avatarCircle); avatarSection.appendChild(avatarInfo); avatarSection.appendChild(closeX);
+        m.appendChild(avatarSection);
+
+        // \u2500\u2500 Stats grid \u2500\u2500
+        const statsGrid = document.createElement('div');
+        statsGrid.style.cssText = 'padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;';
+        const statItems = [
+          { label:'Total r\u00E9visions', value:String(stats.totalReviewed), cls:'profile-total' },
+          { label:"Aujourd'hui", value:String(stats.todayReviewed), cls:'profile-today' },
+          { label:'XP total', value:String(stats.xpTotal), cls:'profile-xp' },
+          { label:'S\u00E9rie', value:Number(localStorage.getItem('fabanki:streak_current')||0)+' j', cls:'profile-streak' },
+          { label:'Cartes ma\u00EEtris\u00E9es', value:String(Number(localStorage.getItem('fabanki:mastered_count')||0)), cls:'profile-mastered' },
+          { label:'Taux de r\u00E9ussite', value:(()=>{ const f=Number(localStorage.getItem('fabanki:fail_total')||0), g=Number(localStorage.getItem('fabanki:good_total')||0); return (f+g>0)?Math.round(g/(f+g)*100)+'%':'\u2014'; })(), cls:'profile-rate' },
+        ];
+        statItems.forEach(s => {
+          const cell = document.createElement('div');
+          cell.style.cssText = 'background:var(--card);border-radius:10px;padding:12px 10px;border:1px solid rgba(0,0,0,0.07);display:flex;flex-direction:column;gap:3px;';
+          const val = document.createElement('div'); val.style.cssText = 'font-size:1.2rem;font-weight:800;color:var(--fg);line-height:1;'; val.textContent = s.value; val.className = s.cls;
+          const lbl = document.createElement('div'); lbl.style.cssText = 'font-size:0.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:3px;'; lbl.textContent = s.label;
+          cell.appendChild(val); cell.appendChild(lbl); statsGrid.appendChild(cell);
+        });
+        m.appendChild(statsGrid);
+
+        // Hidden legacy statsBox (for updateProfilePopupIfOpen compatibility)
         const statsBox = document.createElement('div');
-        statsBox.style.cssText = 'padding:16px;background:linear-gradient(135deg,#2d1b4e 0%,#3d2060 100%);color:white;border-radius:10px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.2);border:1px solid rgba(155,89,208,0.2);';
-        
-        const p1 = document.createElement('div'); p1.className='profile-total'; p1.style.marginBottom='8px'; p1.innerHTML = clean(`<strong>\uD83D\uDCDA ${t('totalReviewed')}:</strong> ${stats.totalReviewed}`); statsBox.appendChild(p1);
-        const p2 = document.createElement('div'); p2.className='profile-today'; p2.style.marginBottom='8px'; p2.innerHTML = clean(`<strong>\uD83D\uDCC5 ${t('todayReviewedFull')}:</strong> ${stats.todayReviewed}`); statsBox.appendChild(p2);
-        const p3 = document.createElement('div'); p3.className='profile-xp'; p3.style.marginBottom='8px'; p3.innerHTML = clean(`<strong>\u2728 ${t('xpLabel')}:</strong> ${stats.xpTotal}`); statsBox.appendChild(p3);
-        const p4 = document.createElement('div'); p4.className='profile-streak'; p4.style.marginBottom='8px'; p4.innerHTML = clean(`<strong>\uD83D\uDD25 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`); statsBox.appendChild(p4);
-        const p5 = document.createElement('div'); p5.className='profile-mpsi'; p5.innerHTML = clean(`<strong>\uD83D\uDCCA ${t('mpsiScoreMonthly')}:</strong> ${getLocalNum('fabanki:score_mpsi_mois')}`); statsBox.appendChild(p5);
-        
+        statsBox.style.display = 'none';
+        const p1 = document.createElement('div'); p1.className='profile-total'; statsBox.appendChild(p1);
+        const p2 = document.createElement('div'); p2.className='profile-today'; statsBox.appendChild(p2);
+        const p3 = document.createElement('div'); p3.className='profile-xp'; statsBox.appendChild(p3);
+        const p4 = document.createElement('div'); p4.className='profile-streak'; statsBox.appendChild(p4);
+        const p5 = document.createElement('div'); p5.className='profile-mpsi'; statsBox.appendChild(p5);
         m.appendChild(statsBox);
+
+        // \u2500\u2500 Sections wrap \u2500\u2500
+        const sectionsWrap = document.createElement('div');
+        sectionsWrap.style.cssText = 'padding:0 16px 20px;display:flex;flex-direction:column;gap:10px;';
 
         // Language selector section
         try{
           const langSelectorBox = document.createElement('div');
-          langSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.08);border-radius:8px;margin:12px 0;';
+          langSelectorBox.style.cssText = 'background:var(--card);border-radius:12px;padding:14px 16px;border:1px solid rgba(0,0,0,0.07);';
           const langLabel = document.createElement('div');
-          langLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:var(--fg);';
+          langLabel.style.cssText = 'font-weight:700;margin-bottom:10px;color:var(--fg);font-size:0.9rem;';
           langLabel.textContent = clean(`\uD83C\uDF10 ${t('languageSelector')}`);
           langSelectorBox.appendChild(langLabel);
-          
+
           const currentLang = localStorage.getItem('fabanki:lang') || 'fr';
-          const langs = [
-            { code: 'fr', label: t('french') },
-            { code: 'en', label: t('english') }
-          ];
-          
+          const langs = [{ code:'fr', label:t('french') }, { code:'en', label:t('english') }];
           const langButtonsContainer = document.createElement('div');
-          langButtonsContainer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
-          
+          langButtonsContainer.style.cssText = 'display:flex;gap:8px;';
           for(const lang of langs){
             const btn = document.createElement('button');
             btn.className = 'secondary';
             const isSelected = currentLang === lang.code;
-            btn.style.cssText = `flex:1;min-width:100px;padding:8px 12px;border-radius:6px;border:2px solid ${isSelected ? 'var(--accent)' : 'rgba(0,0,0,0.1)'};background:${isSelected ? 'rgba(155,89,208,0.1)' : 'var(--card)'};color:${isSelected ? 'var(--accent)' : 'var(--muted)'};font-weight:${isSelected ? '600' : '500'};cursor:pointer;transition:all 0.2s;`;
+            btn.style.cssText = `flex:1;padding:8px 12px;border-radius:8px;border:${isSelected?'2px solid var(--accent)':'1.5px solid rgba(0,0,0,0.1)'};background:${isSelected?'rgba(155,89,208,0.1)':'var(--bg)'};color:${isSelected?'var(--accent)':'var(--muted)'};font-weight:${isSelected?'600':'500'};cursor:pointer;transition:all 0.2s;`;
             btn.textContent = lang.label;
             btn.addEventListener('click', () => {
               localStorage.setItem('fabanki:lang', lang.code);
-              // Update button styles
               for(const b of langButtonsContainer.querySelectorAll('button')){
                 const sel = b === btn;
-                b.style.borderColor = sel ? 'var(--accent)' : 'rgba(0,0,0,0.1)';
-                b.style.background = sel ? 'rgba(155,89,208,0.1)' : 'var(--card)';
+                b.style.border = sel ? '2px solid var(--accent)' : '1.5px solid rgba(0,0,0,0.1)';
+                b.style.background = sel ? 'rgba(155,89,208,0.1)' : 'var(--bg)';
                 b.style.color = sel ? 'var(--accent)' : 'var(--muted)';
                 b.style.fontWeight = sel ? '600' : '500';
               }
@@ -11534,16 +11646,15 @@
             });
             langButtonsContainer.appendChild(btn);
           }
-          
           langSelectorBox.appendChild(langButtonsContainer);
-          m.appendChild(langSelectorBox);
+          sectionsWrap.appendChild(langSelectorBox);
         }catch(e){ console.warn('Language selector error:', e); }
 
         // Title selector section
         const titleSelectorBox = document.createElement('div');
-        titleSelectorBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.08);border-radius:8px;margin:12px 0;';
+        titleSelectorBox.style.cssText = 'background:var(--card);border-radius:12px;padding:14px 16px;border:1px solid rgba(0,0,0,0.07);';
         const titleSelectorLabel = document.createElement('div');
-        titleSelectorLabel.style.cssText = 'font-weight:700;margin-bottom:8px;color:var(--fg);';
+        titleSelectorLabel.style.cssText = 'font-weight:700;margin-bottom:10px;color:var(--fg);font-size:0.9rem;';
         titleSelectorLabel.textContent = clean(`\uD83C\uDFF7 ${t('selectTitle')}`);
         titleSelectorBox.appendChild(titleSelectorLabel);
         
@@ -11567,7 +11678,7 @@
         
         if(unlockedTitles.length > 0){
           const select = document.createElement('select');
-          select.style.cssText = 'width:100%;padding:8px;border-radius:6px;border:1px solid rgba(155,89,208,0.3);margin-bottom:8px;background:var(--bg);color:var(--fg);';
+          select.style.cssText = 'width:100%;padding:8px 10px;border:1px solid rgba(155,89,208,0.3);border-radius:8px;background:var(--bg);color:var(--fg);margin-bottom:6px;';
           
           // Add option for no title
           const noneOption = document.createElement('option');
@@ -11608,26 +11719,72 @@
           });
           
           titleSelectorBox.appendChild(select);
-          
+
           // Display current selection
           const currentDisplay = document.createElement('div');
-          currentDisplay.style.cssText = 'font-size:0.9em;color:var(--muted);';
+          currentDisplay.style.cssText = 'font-size:0.85em;color:var(--muted);';
           currentDisplay.textContent = currentTitle ? `Actuel: ${currentTitle}` : 'Actuel: aucun';
           titleSelectorBox.appendChild(currentDisplay);
+
+          // Tier-colored title pills
+          const TIER_COLORS = { 1:'#cd7f32', 2:'#aaa', 3:'#f5c518', 4:'#5bc8d0', 5:'#a88fff' };
+          const TIER_NAMES = { 1:'Bronze', 2:'Silver', 3:'Gold', 4:'Platinum', 5:'Diamond' };
+          const tierGrid = document.createElement('div');
+          tierGrid.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:10px;';
+          for(const [tierKey, tierData] of Object.entries(mathematicianTiers)){
+            const tc = TIER_COLORS[tierKey] || 'var(--accent)';
+            const tn = TIER_NAMES[tierKey] || tierKey;
+            const tierXpReq = [0, 500, 2000, 5000, 15000][Number(tierKey)-1] || 0;
+            const userXp = stats.xpTotal || 0;
+            const unlocked = userXp >= tierXpReq;
+            const tierRow = document.createElement('div');
+            tierRow.style.cssText = 'margin-bottom:4px;';
+            const tierLabel = document.createElement('div');
+            tierLabel.style.cssText = `display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:${unlocked?tc:'var(--muted)'};`;
+            tierLabel.textContent = tn + (!unlocked ? ` — ${tierXpReq.toLocaleString()} XP requis` : '');
+            tierRow.appendChild(tierLabel);
+            const pillRow = document.createElement('div');
+            pillRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;';
+            const currentSelected = localStorage.getItem('fabanki:selected_title') || '';
+            tierData.mathematicians.forEach(name => {
+              const pill = document.createElement('button');
+              const isSelected = currentSelected === name;
+              pill.style.cssText = `padding:3px 9px;border-radius:20px;font-size:11px;cursor:${unlocked?'pointer':'default'};background:${!unlocked?'rgba(0,0,0,0.04)':isSelected?tc:`${tc}22`};color:${!unlocked?'var(--muted)':isSelected?'#fff':tc};border:1px solid ${!unlocked?'rgba(0,0,0,0.07)':isSelected?tc:`${tc}55`};font-weight:${isSelected?700:400};opacity:${unlocked?1:0.5};transition:all 0.15s;`;
+              pill.textContent = name;
+              pill.disabled = !unlocked;
+              if(unlocked) pill.addEventListener('click', () => {
+                localStorage.setItem('fabanki:selected_title', name);
+                localStorage.setItem(`fabanki:title_chosen_${tierKey}`, name);
+                tierGrid.querySelectorAll('button').forEach(b => {
+                  b.style.fontWeight = b.textContent === name ? '700' : '400';
+                });
+                pill.style.background = tc;
+                pill.style.color = '#fff';
+                pill.style.borderColor = tc;
+                pill.style.fontWeight = '700';
+                currentDisplay.textContent = `Actuel: ${name}`;
+                select.value = name;
+              });
+              pillRow.appendChild(pill);
+            });
+            tierRow.appendChild(pillRow);
+            tierGrid.appendChild(tierRow);
+          }
+          titleSelectorBox.appendChild(tierGrid);
         } else {
           const noTitlesMsg = document.createElement('div');
-          noTitlesMsg.style.cssText = 'font-size:0.9em;color:var(--muted);';
+          noTitlesMsg.style.cssText = 'font-size:0.85em;color:var(--muted);';
           noTitlesMsg.textContent = t('noTitlesUnlocked');
           titleSelectorBox.appendChild(noTitlesMsg);
         }
         
-        m.appendChild(titleSelectorBox);
+        sectionsWrap.appendChild(titleSelectorBox);
 
         // Theme toggle (moved from top bar)
         const themeBox = document.createElement('div');
-        themeBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.08);border-radius:8px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+        themeBox.style.cssText = 'background:var(--card);border-radius:12px;padding:14px 16px;border:1px solid rgba(0,0,0,0.07);display:flex;align-items:center;justify-content:space-between;';
         const themeLabel = document.createElement('div');
-        themeLabel.style.cssText = 'font-weight:700;color:var(--fg);';
+        themeLabel.style.cssText = 'font-weight:600;color:var(--fg);';
         themeLabel.textContent = clean(`\uD83C\uDF19 ${t('darkMode')}`);
         themeBox.appendChild(themeLabel);
 
@@ -11657,36 +11814,36 @@
         });
 
         themeBox.appendChild(themeToggle);
-        m.appendChild(themeBox);
+        sectionsWrap.appendChild(themeBox);
 
         // Action buttons - improved layout
-        const rankBtnWrap = document.createElement('div'); 
-        rankBtnWrap.style.cssText = 'margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;';
-        
+        const rankBtnWrap = document.createElement('div');
+        rankBtnWrap.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;';
+
         // Classement button (emoji only)
-        const rankBtn = document.createElement('button'); 
-        rankBtn.className = 'secondary'; 
+        const rankBtn = document.createElement('button');
+        rankBtn.className = 'secondary';
         rankBtn.textContent = '\uD83C\uDFC6';
         rankBtn.title = t('leaderboard');
-        rankBtn.style.cssText = 'padding:12px;font-size:1.5em;';
+        rankBtn.style.cssText = 'padding:12px;font-size:1.4em;border-radius:10px;background:var(--card);border:1px solid rgba(0,0,0,0.07);cursor:pointer;';
         rankBtn.addEventListener('click', ()=>{ try{ showLeaderboardPopup(); }catch(e){ console.warn(e) } });
         rankBtnWrap.appendChild(rankBtn);
-        
+
         // Titres button (emoji only)
-        const titlesBtn = document.createElement('button'); 
-        titlesBtn.className='secondary'; 
+        const titlesBtn = document.createElement('button');
+        titlesBtn.className='secondary';
         titlesBtn.textContent = '\uD83C\uDFF7';
         titlesBtn.title = t('titles');
-        titlesBtn.style.cssText = 'padding:12px;font-size:1.5em;';
+        titlesBtn.style.cssText = 'padding:12px;font-size:1.4em;border-radius:10px;background:var(--card);border:1px solid rgba(0,0,0,0.07);cursor:pointer;';
         titlesBtn.addEventListener('click', ()=>{ try{ showTitlesPopup(); }catch(e){ console.warn(e) } });
         rankBtnWrap.appendChild(titlesBtn);
-        
+
         // Theme personalization button
-        const themeBtn = document.createElement('button'); 
-        themeBtn.className='secondary'; 
+        const themeBtn = document.createElement('button');
+        themeBtn.className='secondary';
         themeBtn.textContent='\uD83C\uDFA8';
         themeBtn.title = 'Personnalisation du theme';
-        themeBtn.style.cssText = 'padding:12px;font-size:1.5em;';
+        themeBtn.style.cssText = 'padding:12px;font-size:1.4em;border-radius:10px;background:var(--card);border:1px solid rgba(0,0,0,0.07);cursor:pointer;';
         themeBtn.addEventListener('click', ()=>{
           try{
             if(typeof showCustomizationModal === 'function'){
@@ -11695,13 +11852,13 @@
           }catch(e){ console.warn('theme popup error', e) }
         });
         rankBtnWrap.appendChild(themeBtn);
-        
+
         // Tutorial button
-        const tutorialBtn = document.createElement('button'); 
-        tutorialBtn.className='secondary'; 
+        const tutorialBtn = document.createElement('button');
+        tutorialBtn.className='secondary';
         tutorialBtn.textContent='\uD83D\uDCD6';
         tutorialBtn.title = 'Tutoriel';
-        tutorialBtn.style.cssText = 'padding:12px;font-size:1.5em;';
+        tutorialBtn.style.cssText = 'padding:12px;font-size:1.4em;border-radius:10px;background:var(--card);border:1px solid rgba(0,0,0,0.07);cursor:pointer;';
         tutorialBtn.addEventListener('click', ()=>{
           try{
             // Close profile popup first
@@ -11716,13 +11873,13 @@
           }catch(e){ console.warn('tutorial error', e) }
         });
         rankBtnWrap.appendChild(tutorialBtn);
-        
+
         // PWA Install Tutorial button
-        const pwaInstallBtn = document.createElement('button'); 
-        pwaInstallBtn.className='secondary'; 
+        const pwaInstallBtn = document.createElement('button');
+        pwaInstallBtn.className='secondary';
         pwaInstallBtn.textContent='\uD83D\uDCF1';
         pwaInstallBtn.title = 'Installer l\'app';
-        pwaInstallBtn.style.cssText = 'padding:12px;font-size:1.5em;';
+        pwaInstallBtn.style.cssText = 'padding:12px;font-size:1.4em;border-radius:10px;background:var(--card);border:1px solid rgba(0,0,0,0.07);cursor:pointer;';
         pwaInstallBtn.addEventListener('click', (ev)=>{
           try{ ev.preventDefault(); ev.stopPropagation(); }catch(e){}
           try{
@@ -11733,13 +11890,13 @@
           }catch(e){ console.warn('pwa install tutorial error', e) }
         });
         rankBtnWrap.appendChild(pwaInstallBtn);
-        
+
         // Daily goal button
-        const dailyGoalBtn = document.createElement('button'); 
-        dailyGoalBtn.className='secondary'; 
+        const dailyGoalBtn = document.createElement('button');
+        dailyGoalBtn.className='secondary';
         dailyGoalBtn.textContent='\uD83C\uDFAF';
         dailyGoalBtn.title = 'Objectif quotidien';
-        dailyGoalBtn.style.cssText = 'padding:12px;font-size:1.5em;';
+        dailyGoalBtn.style.cssText = 'padding:12px;font-size:1.4em;border-radius:10px;background:var(--card);border:1px solid rgba(0,0,0,0.07);cursor:pointer;';
         dailyGoalBtn.addEventListener('click', ()=>{
           try{
             if(typeof showDailyGoalDialog === 'function'){
@@ -11748,16 +11905,16 @@
           }catch(e){ console.warn('daily goal error', e) }
         });
         rankBtnWrap.appendChild(dailyGoalBtn);
-        m.appendChild(rankBtnWrap);
+        sectionsWrap.appendChild(rankBtnWrap);
 
         // Level box: ring + info - centered
         try{
           const lvl = computeLevelAndProgress(stats.xpTotal || 0);
-          const levelBox = document.createElement('div'); 
+          const levelBox = document.createElement('div');
           levelBox.className = 'level-box';
-          levelBox.style.cssText = 'display:flex;flex-direction:column;align-items:center;margin:16px 0;';
-          
-          const ring = document.createElement('div'); 
+          levelBox.style.cssText = 'background:var(--card);border-radius:12px;padding:16px;text-align:center;border:1px solid rgba(0,0,0,0.07);display:flex;flex-direction:column;align-items:center;';
+
+          const ring = document.createElement('div');
           ring.className = 'level-ring';
           ring.style.cssText = 'margin-bottom:8px;';
           const circ = 2 * Math.PI * 42;
@@ -11765,30 +11922,31 @@
           const offset = Math.round(circ * (1 - pct/100));
           const color = getLevelColor(lvl.level);
           ring.innerHTML = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" stroke="#eee" stroke-width="8" fill="none"></circle><circle class="ring-fill" cx="50" cy="50" r="42" stroke="${color}" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"></circle></svg><div class="level-num">${lvl.level}</div>`;
-          
-          const info = document.createElement('div'); 
+
+          const info = document.createElement('div');
           info.className='level-info';
           info.style.cssText = 'text-align:center;';
-          const next = document.createElement('div'); 
-          next.className='next muted small'; 
+          const next = document.createElement('div');
+          next.className='next muted small';
           next.textContent = `Prochain niveau dans ${lvl.toNext} XP`;
-          const rem = document.createElement('div'); 
-          rem.className='progress-remaining'; 
+          const rem = document.createElement('div');
+          rem.className='progress-remaining';
           rem.textContent = `${lvl.progress}/${lvl.need} (${pct}%)`;
           info.appendChild(next); info.appendChild(rem);
-          
+
           levelBox.appendChild(ring); levelBox.appendChild(info);
-          m.appendChild(levelBox);
+          sectionsWrap.appendChild(levelBox);
         }catch(e){ /* ignore level rendering errors */ }
 
-        const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='x'; cb.style.cssText='position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;'; cb.addEventListener('click', ()=>{ ov.remove(); }); m.appendChild(cb);
+        m.appendChild(sectionsWrap);
+
         ov.appendChild(m); document.body.appendChild(ov);
         // mark overlay open so CSS fade can run, then animate modal open
         try{ ov.classList.add('open'); ov.setAttribute('aria-hidden','false'); m.classList.add('open');
           const anim = localStorage.getItem('fabanki:popup_animation') || 'none';
           if(anim !== 'none') m.setAttribute('data-animation', anim);
         }catch(e){}
-        ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
+        ov.addEventListener('click', (ev)=>{ if(ev.target === ov){ ov.remove(); try{ if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('home'); }catch(e){} } });
       }catch(e){ console.warn('profile popup error', e); }
     }
 
@@ -12093,13 +12251,13 @@
         header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;max-width:1200px;margin-left:auto;margin-right:auto;';
         const title = document.createElement('h2');
         title.textContent = 'ðŸ›ï¸ MarchÃ©';
-        title.style.cssText = 'margin:0;font-size:2em;';
+        title.style.cssText = 'margin:0;font-size:1.6rem;font-weight:800;color:var(--fg);';
         header.appendChild(title);
-        
+
         const backBtn = document.createElement('button');
         backBtn.textContent = '← Retour';
         backBtn.className = 'secondary';
-        backBtn.addEventListener('click', ()=>{ container.remove(); });
+        backBtn.addEventListener('click', ()=>{ container.remove(); try{ if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('home'); }catch(e){} });
 
         // Wallet display + back button grouped
         const walletDiv = document.createElement('div');
@@ -12107,15 +12265,73 @@
         const creditsDisplay = document.createElement('div');
         creditsDisplay.style.cssText = 'display:flex;align-items:center;gap:6px;background:var(--card);border-radius:10px;padding:7px 12px;border:1px solid rgba(0,0,0,0.08);';
         const _creditCount = (typeof getCredits === 'function') ? getCredits() : Number(localStorage.getItem('fabanki:credits')||0);
-        creditsDisplay.innerHTML = '<span style='font-size:14px'>' + String.fromCodePoint(0x1F4B0) + '</span><span style='font-size:12px;font-weight:700;color:#c9a227;font-family:inherit'>' + _creditCount.toLocaleString() + ' crédits</span>';
+        creditsDisplay.innerHTML = `<span style="font-size:14px">\U0001F4B0</span><span style="font-size:12px;font-weight:700;color:#c9a227;font-family:inherit">${_creditCount.toLocaleString()} crédits</span>`;
         walletDiv.appendChild(creditsDisplay);
+        const xpStats = computeLevelAndProgress(getXpTotal ? getXpTotal() : 0);
+        const lvlPill = document.createElement('div');
+        lvlPill.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--card);border-radius:10px;padding:7px 12px;border:1px solid rgba(0,0,0,0.08);';
+        lvlPill.innerHTML = `<span style="font-size:12px;font-weight:700;color:var(--accent)">Niv. ${xpStats.level}</span><div style="width:40px;height:4px;background:rgba(0,0,0,0.08);border-radius:2px;overflow:hidden"><div style="height:100%;width:${Math.round(xpStats.pct)}%;background:var(--accent);border-radius:2px"></div></div>`;
+        walletDiv.appendChild(lvlPill);
         walletDiv.appendChild(backBtn);
         header.appendChild(walletDiv);
         container.appendChild(header);
-        
+
+        // Tab bar (pill style)
+        const marketTabBar = document.createElement('div');
+        marketTabBar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;padding:0 0 16px;max-width:1200px;margin:12px auto 0;';
+        const _marketTabs = [
+          { id:'all',    label:'Tout'     },
+          { id:'decks',  label:'Decks'    },
+          { id:'modes',  label:'Modes'    },
+          { id:'boosts', label:'Boosters' },
+          { id:'deco',   label:'Décoration' },
+        ];
+        let _activeMarketTab = 'all';
+        const _tabBtns = {};
+        const _setMarketTab = id => {
+          _activeMarketTab = id;
+          Object.entries(_tabBtns).forEach(([tid, b]) => {
+            const active = tid === id;
+            b.style.background = active ? 'rgba(155,89,208,0.15)' : 'transparent';
+            b.style.color = active ? 'var(--accent)' : 'var(--muted)';
+            b.style.borderColor = active ? 'var(--accent)' : 'rgba(0,0,0,0.1)';
+            b.style.fontWeight = active ? '600' : '400';
+          });
+          container.querySelectorAll('[data-market-tab]').forEach(el => {
+            const tabs = el.dataset.marketTab.split(',');
+            el.style.display = (tabs.includes(id) || (id === 'all')) ? '' : 'none';
+          });
+        };
+        _marketTabs.forEach(tab => {
+          const btn = document.createElement('button');
+          btn.style.cssText = 'padding:7px 16px;border-radius:20px;border:1px solid rgba(0,0,0,0.1);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-weight:400;transition:all 0.15s;';
+          btn.textContent = tab.label;
+          btn.addEventListener('click', () => _setMarketTab(tab.id));
+          _tabBtns[tab.id] = btn;
+          marketTabBar.appendChild(btn);
+        });
+        container.appendChild(marketTabBar);
+
+        // Featured banner
+        const featuredBanner = document.createElement('div');
+        featuredBanner.dataset.marketTab = 'all,decks';
+        featuredBanner.style.cssText = 'max-width:1200px;margin:0 auto 16px;background:linear-gradient(135deg,rgba(155,89,208,0.25),rgba(155,89,208,0.1));border-radius:14px;padding:20px 22px;border:1px solid rgba(155,89,208,0.3);display:flex;align-items:center;gap:20px;flex-wrap:wrap;';
+        const fbIcon = document.createElement('div');
+        fbIcon.style.cssText = 'width:60px;height:60px;border-radius:14px;background:linear-gradient(135deg,var(--accent),#c084fc);display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0;';
+        fbIcon.textContent = '📚';
+        const fbInfo = document.createElement('div');
+        fbInfo.style.cssText = 'flex:1;min-width:200px;';
+        fbInfo.innerHTML = `<div style="font-size:9px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">✦ En vedette</div><div style="font-size:1.1rem;font-weight:700;color:var(--fg)">Décks Fab'Anki</div><div style="font-size:12px;color:var(--muted);margin-top:3px">Explorez les decks disponibles dans le navigateur</div>`;
+        const fbBtn = document.createElement('button');
+        fbBtn.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer;';
+        fbBtn.textContent = 'Parcourir';
+        fbBtn.addEventListener('click', () => { container.remove(); try{ if(typeof window.__setNavActivePage==='function') window.__setNavActivePage('decks'); const b=document.getElementById('browseDecks'); if(b) setTimeout(()=>b.click(),10); }catch(e){} });
+        featuredBanner.appendChild(fbIcon); featuredBanner.appendChild(fbInfo); featuredBanner.appendChild(fbBtn);
+        container.appendChild(featuredBanner);
+
         // Main content wrapper
         const content = document.createElement('div');
-        content.style.cssText = 'max-width:1200px;margin:0 auto;';
+        content.style.cssText = 'max-width:1200px;margin:0 auto;padding:0 0 20px;';
         
         // Helper function to get current credits - directly call getCredits function
         const getBalance = () => {
@@ -12179,94 +12395,26 @@
         nextBtn.addEventListener('mouseover', ()=>{ nextBtn.style.background = 'rgba(155,89,208,0.8)'; });
         nextBtn.addEventListener('mouseout', ()=>{ nextBtn.style.background = 'var(--accent)'; });
         
-        carouselNavBtns.appendChild(prevBtn);
-        carouselNavBtns.appendChild(nextBtn);
+        // carouselNavBtns removed (grid layout replaces carousel)
         carouselHeader.appendChild(carouselNavBtns);
         carouselContainer.appendChild(carouselHeader);
-        
-        // Progress indicator for auto-rotation
-        const progressBar = document.createElement('div');
-        progressBar.style.cssText = 'height:4px;background:#e0e0e0;border-radius:2px;margin-bottom:16px;overflow:hidden;';
-        const progressFill = document.createElement('div');
-        progressFill.style.cssText = 'height:100%;background:linear-gradient(90deg, var(--accent) 0%, #c084fc 100%);width:0%;transition:width 0.1s linear;';
-        progressBar.appendChild(progressFill);
-        carouselContainer.appendChild(progressBar);
+        // progressBar removed (grid layout replaces carousel)
         
         // Carousel viewport
         const carouselViewport = document.createElement('div');
         carouselViewport.style.cssText = 'overflow:hidden;position:relative;';
         
-        // Carousel track (contains all slides)
+        // Carousel track (grid layout replacing carousel)
         const carouselTrack = document.createElement('div');
-        carouselTrack.style.cssText = 'display:flex;transition:transform 0.5s ease-in-out;';
+        carouselTrack.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:4px 2px;';
         carouselViewport.appendChild(carouselTrack);
         carouselContainer.appendChild(carouselViewport);
         
-        // Carousel state
-        let currentSlide = 0;
-        let autoRotateInterval = null;
-        let progressInterval = null;
-        const autoRotateDelay = 6000; // 6 seconds per slide
-        const progressUpdateInterval = 50; // Update progress bar every 50ms
-        let progressValue = 0;
-        
-        // Function to update carousel position
-        const updateCarousel = () => {
-          const slideWidth = carouselTrack.children[0]?.offsetWidth || 0;
-          carouselTrack.style.transform = `translateX(-${currentSlide * slideWidth}px)`;
-          // Reset progress bar
-          progressValue = 0;
-          progressFill.style.width = '0%';
-        };
-        
-        // Function to start auto-rotation
-        const startAutoRotate = () => {
-          stopAutoRotate(); // Clear any existing intervals
-          
-          // Progress bar animation
-          progressInterval = setInterval(() => {
-            progressValue += (progressUpdateInterval / autoRotateDelay) * 100;
-            if(progressValue >= 100) progressValue = 100;
-            progressFill.style.width = progressValue + '%';
-          }, progressUpdateInterval);
-          
-          // Auto-advance
-          autoRotateInterval = setInterval(() => {
-            currentSlide = (currentSlide + 1) % carouselTrack.children.length;
-            updateCarousel();
-          }, autoRotateDelay);
-        };
-        
-        // Function to stop auto-rotation
-        const stopAutoRotate = () => {
-          if(autoRotateInterval) clearInterval(autoRotateInterval);
-          if(progressInterval) clearInterval(progressInterval);
-          autoRotateInterval = null;
-          progressInterval = null;
-        };
-        
-        // Navigation button handlers
-        prevBtn.addEventListener('click', () => {
-          stopAutoRotate();
-          currentSlide = (currentSlide - 1 + carouselTrack.children.length) % carouselTrack.children.length;
-          updateCarousel();
-          startAutoRotate();
-        });
-        
-        nextBtn.addEventListener('click', () => {
-          stopAutoRotate();
-          currentSlide = (currentSlide + 1) % carouselTrack.children.length;
-          updateCarousel();
-          startAutoRotate();
-        });
-        
-        // Pause on hover, resume on leave
-        carouselContainer.addEventListener('mouseenter', stopAutoRotate);
-        carouselContainer.addEventListener('mouseleave', startAutoRotate);
+        // Grid layout: no carousel state needed (removed auto-rotation)
         
         // ===== SECTION 1: MODE TEXTE Ã€ TROU (TOP) =====
         const textModeSection = document.createElement('section');
-        textModeSection.style.cssText = 'flex:0 0 100%;min-width:100%;';
+        textModeSection.style.cssText = 'border-radius:12px;overflow:hidden;';
         
         const textModeItemId = 'mode_texte_trou';
         const textModeCost = 100;
@@ -12361,7 +12509,7 @@
         
         // ===== SECTION 1B: MODE RAPPEL SOUS PRESSION =====
         const timerModeSection = document.createElement('section');
-        timerModeSection.style.cssText = 'flex:0 0 100%;min-width:100%;';
+        timerModeSection.style.cssText = 'border-radius:12px;overflow:hidden;';
         
         const timerModeItemId = 'mode_rappel_sous_pression';
         const timerModeCost = 100;
@@ -12451,7 +12599,7 @@
         
         // ===== SECTION 1BR: MODE RUSH =====
         const rushModeSection = document.createElement('section');
-        rushModeSection.style.cssText = 'flex:0 0 100%;min-width:100%;';
+        rushModeSection.style.cssText = 'border-radius:12px;overflow:hidden;';
         
         const rushModeItemId = 'mode_rush';
         const rushModeCost = 150;
@@ -12541,7 +12689,7 @@
         
         // ===== SECTION 1C: MODE CALCUL =====
         const calculModeSection = document.createElement('section');
-        calculModeSection.style.cssText = 'flex:0 0 100%;min-width:100%;';
+        calculModeSection.style.cssText = 'border-radius:12px;overflow:hidden;';
         
         const calculModeItemId = 'mode_calcul';
         const calculModeCost = 100;
@@ -12629,14 +12777,8 @@
         calculModeSection.appendChild(calculModeGrid);
         carouselTrack.appendChild(calculModeSection);
         
-        // Append carousel to content and start auto-rotation
+        // Append carousel to content (grid layout, no auto-rotation needed)
         content.appendChild(carouselContainer);
-        
-        // Start carousel after a small delay to ensure DOM is ready
-        setTimeout(() => {
-          updateCarousel();
-          startAutoRotate();
-        }, 100);
         
         // ===== SECTION 2: PERSONNALISATION =====
         const personnalisationSection = document.createElement('section');
@@ -13284,8 +13426,18 @@
         content.appendChild(specialsSection);
         content.appendChild(decksSection);
         content.appendChild(personnalisationSection);
-        
+
+        // Assign tab groups and hide non-active tabs
+        carouselContainer.dataset.marketTab = 'modes,all';
+        activeMemoryModeSection.dataset.marketTab = 'modes,all';
+        specialsSection.dataset.marketTab = 'boosts,all';
+        decksSection.dataset.marketTab = 'decks,all';
+        personnalisationSection.dataset.marketTab = 'deco,all';
+
         container.appendChild(content);
+
+        // Init tab state (all active by default)
+        _setMarketTab('all');
         document.body.appendChild(container);
       }catch(e){
         console.warn('Market page error:', e);
@@ -19567,7 +19719,7 @@
             }
           }catch(e){}
           const lvlStats = computeLevelAndProgress(getXpTotal());
-          const levelCard = document.createElement('div'); levelCard.className = 'card level-summary'; levelCard.style.marginBottom = '12px'; levelCard.style.padding = '16px';
+          const levelCard = document.createElement('div'); levelCard.className = 'card level-summary'; levelCard.style.cssText = 'background:var(--card);border-radius:14px;margin-bottom:12px;padding:16px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 2px 8px rgba(0,0,0,0.04);';
           const lvlBox = document.createElement('div'); lvlBox.style.cssText='display:grid;grid-template-columns:auto 1fr;align-items:center;gap:14px;padding:14px;border-radius:12px;background:rgba(155,89,208,0.08);border:1px solid rgba(155,89,208,0.12);flex:1;';
           const circ = 2 * Math.PI * 28;
           const offset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct))/100));
@@ -19587,6 +19739,7 @@
           // Add streak display
           const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
           const streakBox = document.createElement('div'); streakBox.className = 'streak-box';
+          streakBox.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding:10px 14px;background:var(--card);border-radius:10px;gap:2px;border:1px solid rgba(0,0,0,0.07);';
           const streakFlame = document.createElement('div'); streakFlame.className = 'streak-flame'; streakFlame.textContent = 'ðŸ”¥';
           const streakLabel = document.createElement('div'); streakLabel.className = 'streak-label'; streakLabel.textContent = 'Streak';
           const streakNum = document.createElement('div'); streakNum.className = 'streak-count'; streakNum.textContent = streakCount;
@@ -19596,6 +19749,7 @@
           // Add credits box
           const creditCount = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
           const creditBox = document.createElement('div'); creditBox.className = 'credit-box';
+          creditBox.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding:10px 14px;background:var(--card);border-radius:10px;gap:2px;border:1px solid rgba(0,0,0,0.07);';
           const creditCoin = document.createElement('div'); creditCoin.className = 'credit-coin'; creditCoin.textContent = 'ðŸ’°';
           const creditLabel = document.createElement('div'); creditLabel.className = 'credit-label'; creditLabel.textContent = 'Credits';
           const creditNum = document.createElement('div'); creditNum.className = 'credit-count'; creditNum.textContent = creditCount;
@@ -19624,7 +19778,22 @@
           
           levelCard.appendChild(levelContent);
           container.appendChild(levelCard);
-          
+
+          // Sessions du jour mini-card
+          try{
+            const todayCard = document.createElement('div');
+            todayCard.style.cssText = 'background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:12px;border:1px solid rgba(0,0,0,0.07);display:flex;align-items:center;justify-content:space-between;';
+            const todayLeft = document.createElement('div');
+            const todayReviewedNow = getTodayReviewedCount ? getTodayReviewedCount() : 0;
+            const dailyGoalNow = getDailyGoal ? getDailyGoal() : 0;
+            todayLeft.innerHTML = `<div style="font-size:0.85rem;font-weight:700;color:var(--fg)">Aujourd'hui</div><div style="font-size:0.75rem;color:var(--muted);margin-top:2px">${todayReviewedNow} carte${todayReviewedNow!==1?'s':''} révisée${todayReviewedNow!==1?'s':''} ${dailyGoalNow>0?'/ '+dailyGoalNow+' objectif':''}</div>`;
+            const todayRight = document.createElement('div');
+            todayRight.style.cssText = 'font-size:1.5rem;font-weight:800;color:var(--accent);';
+            todayRight.textContent = todayReviewedNow;
+            todayCard.appendChild(todayLeft); todayCard.appendChild(todayRight);
+            container.appendChild(todayCard);
+          }catch(e){ console.warn('todayCard error', e); }
+
           // Add welcome quest card AFTER level card, BEFORE Maintenant button
           try{
             const welcomeQuestCard = renderWelcomeQuestCard();
@@ -19656,7 +19825,7 @@
           
           // Add Maintenant (now) button for quick review
           const maintenantBtn = document.createElement('button'); maintenantBtn.className = 'maintenant-btn'; maintenantBtn.textContent = 'ðŸ“š Maintenant';
-          maintenantBtn.style.cssText = 'flex:1;padding:12px;font-size:1em;border-radius:8px;';
+          maintenantBtn.style.cssText = 'flex:1;padding:13px;font-size:1.05em;font-weight:700;border-radius:10px;background:linear-gradient(135deg,var(--accent),#c084fc);border:none;color:#fff;box-shadow:0 4px 14px rgba(155,89,208,0.35);letter-spacing:0.01em;';
           maintenantBtn.addEventListener('click', async ()=>{
             try{
               const rawLimit = maintenantSelect.value;
@@ -23651,6 +23820,18 @@
     document.querySelectorAll('.bn-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === pageId));
     document.querySelectorAll('.sn-item').forEach(t => t.classList.toggle('active', t.dataset.tab === pageId));
 
+    // Close any open overlays when switching pages
+    try{
+      const deckOverlay = document.getElementById('deckBrowserOverlay');
+      if(deckOverlay && deckOverlay.style.display !== 'none'){
+        deckOverlay.classList.remove('open'); deckOverlay.style.display = 'none'; deckOverlay.setAttribute('aria-hidden','true');
+      }
+      const profileOverlay = document.getElementById('profileOverlay');
+      if(profileOverlay) profileOverlay.remove();
+      const marketContainer = document.getElementById('marketContainer');
+      if(marketContainer) marketContainer.remove();
+    }catch(e){}
+
     const mainEl = document.querySelector('main');
     const statsSection = document.getElementById('stats');
     const statsPage = document.getElementById('statsPage');
@@ -23685,7 +23866,11 @@
       if(mainEl) mainEl.style.display = '';
       if(statsSection) statsSection.style.display = '';
       if(footerEl) footerEl.style.display = '';
-      if(pageId === 'home') showWelcomePage();
+      if(pageId === 'home'){
+        const w = document.getElementById('welcomeDecks');
+        if(w){ w.style.display = ''; }
+        else if(typeof renderWelcomeDecks === 'function'){ renderWelcomeDecks().catch(e => console.warn('[nav] renderWelcomeDecks error:', e)); }
+      }
     }
   }
 
@@ -23718,19 +23903,16 @@
   document.getElementById('snReglages')?.addEventListener('click', () => setActivePage('reglages'));
   document.getElementById('snReview')?.addEventListener('click', () => triggerNowReview());
   document.getElementById('snDecks')?.addEventListener('click', () => {
-    hideWelcomePage();
-    const btn = document.getElementById('browseDecks');
-    if(btn) btn.click();
+    setActivePage('decks');
+    setTimeout(()=>{ const btn = document.getElementById('browseDecks'); if(btn) btn.click(); }, 10);
   });
   document.getElementById('snMarket')?.addEventListener('click', () => {
-    hideWelcomePage();
-    const btn = document.getElementById('marketBtn');
-    if(btn) btn.click();
+    setActivePage('marche');
+    setTimeout(()=>{ const btn = document.getElementById('marketBtn'); if(btn) btn.click(); }, 10);
   });
   document.getElementById('snProfile')?.addEventListener('click', () => {
-    hideWelcomePage();
-    const btn = document.getElementById('profileBtn');
-    if(btn) btn.click();
+    setActivePage('profile');
+    setTimeout(()=>{ const btn = document.getElementById('profileBtn'); if(btn) btn.click(); }, 10);
   });
   document.getElementById('snSync')?.addEventListener('click', () => {
     const btn = document.getElementById('syncBtn');
