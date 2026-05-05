@@ -10820,9 +10820,14 @@
           // folders with due counts and badge
           Array.from(folders).sort().forEach(folder=>{
             const row = document.createElement('div'); row.className='deck-entry';
+            row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
+            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
+            row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
+            const folderIconDiv = document.createElement('div'); folderIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; folderIconDiv.textContent = '📁'; row.appendChild(folderIconDiv);
             const nm = document.createElement('div'); 
             const folderName = decodeURIComponent((prefix+folder).replace(/\+/g,' ')).replace(/\/$/,'');
             nm.textContent = folderName;
+            nm.style.cssText = 'flex:1;font-weight:700;font-size:0.92rem;color:var(--fg);';
             
             // Calculate folder due count with badge
             const folderPath = prefix + folder;
@@ -10838,6 +10843,7 @@
 
             const act = document.createElement('div');
             const b = document.createElement('button'); b.className='secondary';
+            b.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
             if(folderLock.locked){
               b.textContent = '🔒 Verrouillé';
               b.addEventListener('click', ()=>{
@@ -10883,6 +10889,10 @@
           // files (limit to first 10)
           Array.from(files).sort().forEach(file=>{
             const row = document.createElement('div'); row.className='deck-entry';
+            row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
+            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
+            row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
+            const fileIconDiv = document.createElement('div'); fileIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; fileIconDiv.textContent = '📄'; row.appendChild(fileIconDiv);
             const dec = decodeURIComponent((prefix+file).replace(/\+/g,' '));
             // Extract just the deck name (without parent path) if the full path is too long
             const fullDeckName = dec.replace(/\.xml$/i,'');
@@ -10892,9 +10902,11 @@
             const nm = document.createElement('div'); 
             nm.textContent = displayName;
             nm.title = fullDeckName; // Show full path on hover
+            nm.style.cssText = 'flex:1;font-weight:500;font-size:0.9rem;color:var(--fg);';
             const act = document.createElement('div');
               if(file.toLowerCase().endsWith('.xml')){ const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
                 const b=document.createElement('button'); b.className='secondary';
+                b.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
                 b.textContent = (window.innerWidth <= 640) ? 'â–¶ï¸' : 'AccÃ©der';
                 b.addEventListener('click', async ()=>{ 
                   const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
@@ -10931,6 +10943,7 @@
             const allBtnText = document.createElement('div'); allBtnText.textContent = 'ðŸ“š RÃ©viser tous les decks du dossier'; allBtnText.style.fontWeight = '600';
             const allBtnAct = document.createElement('div');
             const reviewAllBtn = document.createElement('button'); reviewAllBtn.className = 'secondary'; reviewAllBtn.textContent = 'Commencer';
+            reviewAllBtn.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:0.9rem;font-weight:600;cursor:pointer;';
             reviewAllBtn.addEventListener('click', async ()=>{
               try{
                 // Collect all XML files from this folder
@@ -10961,16 +10974,23 @@
           deckList.innerHTML = '';
           for(const e of (list.slice ? list : list)){
             const row = document.createElement('div'); row.className='deck-entry';
-            row.style.cssText = 'padding:2px 0;';
-            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)';row.style.borderRadius='8px'; });
+            row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
+            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
             row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
             const decoded = (()=>{ try{ return decodeURIComponent(e.replace(/\+/g,' ')) }catch(x){ return e } })();
+            const isXml = e.endsWith('.xml');
+            const iconDiv = document.createElement('div');
+            if(isXml){ iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; iconDiv.textContent = '📄'; }
+            else { iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; iconDiv.textContent = '📁'; }
+            row.appendChild(iconDiv);
             const name = document.createElement('div'); name.textContent = decoded.replace(/\.xml$/i,'');
+            if(isXml){ name.style.cssText = 'flex:1;font-weight:500;font-size:0.9rem;color:var(--fg);'; } else { name.style.cssText = 'flex:1;font-weight:700;font-size:0.92rem;color:var(--fg);'; }
             const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
             name.appendChild(dueBadge);
             const actions = document.createElement('div');
             if(e.endsWith('.xml')){ const dueBadge2 = document.createElement('span'); dueBadge2.className = 'due-badge'; dueBadge2.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
               const btn = document.createElement('button'); btn.className='secondary';
+              btn.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
               try{
                 const relPath = normalizeDeckPath(base+e);
                 const folderLock = getLockForPath(relPath);
@@ -11054,7 +11074,7 @@
                   }
                 }catch(_e){} })();
             }
-            else { const btn = document.createElement('button'); btn.className='secondary'; btn.textContent='Ouvrir'; btn.addEventListener('click', async ()=>{ deckMsg.textContent = 'Exploration de '+base+e+' ...'; try{ const sub = await fetchDirectory(base+e); renderList(sub, base+e); }catch(err){ deckMsg.textContent = 'Impossible d\'explorer le dossier: '+err.message } }); actions.appendChild(btn); }
+            else { const btn = document.createElement('button'); btn.className='secondary'; btn.style.cssText='background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;'; btn.textContent='Ouvrir'; btn.addEventListener('click', async ()=>{ deckMsg.textContent = 'Exploration de '+base+e+' ...'; try{ const sub = await fetchDirectory(base+e); renderList(sub, base+e); }catch(err){ deckMsg.textContent = 'Impossible d\'explorer le dossier: '+err.message } }); actions.appendChild(btn); }
             row.appendChild(name); row.appendChild(actions); deckList.appendChild(row);
           }
         }
@@ -12120,9 +12140,9 @@
         header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;max-width:1200px;margin-left:auto;margin-right:auto;';
         const title = document.createElement('h2');
         title.textContent = 'ðŸ›ï¸ MarchÃ©';
-        title.style.cssText = 'margin:0;font-size:2em;';
+        title.style.cssText = 'margin:0;font-size:1.6rem;font-weight:800;color:var(--fg);';
         header.appendChild(title);
-        
+
         const backBtn = document.createElement('button');
         backBtn.textContent = '← Retour';
         backBtn.className = 'secondary';
@@ -12134,7 +12154,7 @@
         const creditsDisplay = document.createElement('div');
         creditsDisplay.style.cssText = 'display:flex;align-items:center;gap:6px;background:var(--card);border-radius:10px;padding:7px 12px;border:1px solid rgba(0,0,0,0.08);';
         const _creditCount = (typeof getCredits === 'function') ? getCredits() : Number(localStorage.getItem('fabanki:credits')||0);
-        creditsDisplay.innerHTML = '<span style='font-size:14px'>' + String.fromCodePoint(0x1F4B0) + '</span><span style='font-size:12px;font-weight:700;color:#c9a227;font-family:inherit'>' + _creditCount.toLocaleString() + ' crédits</span>';
+        creditsDisplay.innerHTML = `<span style="font-size:14px">\U0001F4B0</span><span style="font-size:12px;font-weight:700;color:#c9a227;font-family:inherit">${_creditCount.toLocaleString()} crédits</span>`;
         walletDiv.appendChild(creditsDisplay);
         walletDiv.appendChild(backBtn);
         header.appendChild(walletDiv);
@@ -19594,7 +19614,7 @@
             }
           }catch(e){}
           const lvlStats = computeLevelAndProgress(getXpTotal());
-          const levelCard = document.createElement('div'); levelCard.className = 'card level-summary'; levelCard.style.marginBottom = '12px'; levelCard.style.padding = '16px';
+          const levelCard = document.createElement('div'); levelCard.className = 'card level-summary'; levelCard.style.cssText = 'background:var(--card);border-radius:14px;margin-bottom:12px;padding:16px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 2px 8px rgba(0,0,0,0.04);';
           const lvlBox = document.createElement('div'); lvlBox.style.cssText='display:grid;grid-template-columns:auto 1fr;align-items:center;gap:14px;padding:14px;border-radius:12px;background:rgba(155,89,208,0.08);border:1px solid rgba(155,89,208,0.12);flex:1;';
           const circ = 2 * Math.PI * 28;
           const offset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct))/100));
@@ -19614,6 +19634,7 @@
           // Add streak display
           const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
           const streakBox = document.createElement('div'); streakBox.className = 'streak-box';
+          streakBox.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding:10px 14px;background:var(--card);border-radius:10px;gap:2px;border:1px solid rgba(0,0,0,0.07);';
           const streakFlame = document.createElement('div'); streakFlame.className = 'streak-flame'; streakFlame.textContent = 'ðŸ”¥';
           const streakLabel = document.createElement('div'); streakLabel.className = 'streak-label'; streakLabel.textContent = 'Streak';
           const streakNum = document.createElement('div'); streakNum.className = 'streak-count'; streakNum.textContent = streakCount;
@@ -19623,6 +19644,7 @@
           // Add credits box
           const creditCount = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
           const creditBox = document.createElement('div'); creditBox.className = 'credit-box';
+          creditBox.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding:10px 14px;background:var(--card);border-radius:10px;gap:2px;border:1px solid rgba(0,0,0,0.07);';
           const creditCoin = document.createElement('div'); creditCoin.className = 'credit-coin'; creditCoin.textContent = 'ðŸ’°';
           const creditLabel = document.createElement('div'); creditLabel.className = 'credit-label'; creditLabel.textContent = 'Credits';
           const creditNum = document.createElement('div'); creditNum.className = 'credit-count'; creditNum.textContent = creditCount;
