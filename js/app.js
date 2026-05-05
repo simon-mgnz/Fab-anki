@@ -12145,10 +12145,43 @@
         walletDiv.appendChild(backBtn);
         header.appendChild(walletDiv);
         container.appendChild(header);
-        
+
+        // Tab bar
+        const marketTabBar = document.createElement('div');
+        marketTabBar.style.cssText = 'display:flex;max-width:1200px;margin:0 auto 4px;border-bottom:2px solid rgba(0,0,0,0.06);padding:0 20px;';
+        const _marketTabs = [
+          { id:'modes', label:'🎮 Modes' },
+          { id:'titres', label:'🏷 Titres & Boosts' },
+          { id:'deco', label:'🎨 Décoration' },
+          { id:'decks', label:'📚 Decks' },
+        ];
+        let _activeMarketTab = 'modes';
+        const _tabBtns = {};
+        const _setMarketTab = id => {
+          _activeMarketTab = id;
+          Object.entries(_tabBtns).forEach(([tid, b]) => {
+            const active = tid === id;
+            b.style.borderBottomColor = active ? 'var(--accent)' : 'transparent';
+            b.style.color = active ? 'var(--accent)' : 'var(--muted)';
+            b.style.fontWeight = active ? '700' : '500';
+          });
+          container.querySelectorAll('[data-market-tab]').forEach(el => {
+            el.style.display = el.dataset.marketTab === id ? '' : 'none';
+          });
+        };
+        _marketTabs.forEach(tab => {
+          const btn = document.createElement('button');
+          btn.style.cssText = 'flex:1;padding:10px 4px;background:transparent;border:none;border-bottom:3px solid transparent;font-size:0.82rem;font-weight:500;color:var(--muted);cursor:pointer;transition:all 0.15s;margin-bottom:-2px;white-space:nowrap;';
+          btn.textContent = tab.label;
+          btn.addEventListener('click', () => _setMarketTab(tab.id));
+          _tabBtns[tab.id] = btn;
+          marketTabBar.appendChild(btn);
+        });
+        container.appendChild(marketTabBar);
+
         // Main content wrapper
         const content = document.createElement('div');
-        content.style.cssText = 'max-width:1200px;margin:0 auto;';
+        content.style.cssText = 'max-width:1200px;margin:0 auto;padding:0 0 20px;';
         
         // Helper function to get current credits - directly call getCredits function
         const getBalance = () => {
@@ -13317,8 +13350,18 @@
         content.appendChild(specialsSection);
         content.appendChild(decksSection);
         content.appendChild(personnalisationSection);
-        
+
+        // Assign tab groups and hide non-active tabs
+        carouselContainer.dataset.marketTab = 'modes';
+        activeMemoryModeSection.dataset.marketTab = 'modes';
+        specialsSection.dataset.marketTab = 'titres';
+        decksSection.dataset.marketTab = 'decks';
+        personnalisationSection.dataset.marketTab = 'deco';
+
         container.appendChild(content);
+
+        // Init tab state (modes active, others hidden)
+        _setMarketTab('modes');
         document.body.appendChild(container);
       }catch(e){
         console.warn('Market page error:', e);
@@ -19691,7 +19734,7 @@
           
           // Add Maintenant (now) button for quick review
           const maintenantBtn = document.createElement('button'); maintenantBtn.className = 'maintenant-btn'; maintenantBtn.textContent = 'ðŸ“š Maintenant';
-          maintenantBtn.style.cssText = 'flex:1;padding:12px;font-size:1em;border-radius:8px;';
+          maintenantBtn.style.cssText = 'flex:1;padding:13px;font-size:1.05em;font-weight:700;border-radius:10px;background:linear-gradient(135deg,var(--accent),#c084fc);border:none;color:#fff;box-shadow:0 4px 14px rgba(155,89,208,0.35);letter-spacing:0.01em;';
           maintenantBtn.addEventListener('click', async ()=>{
             try{
               const rawLimit = maintenantSelect.value;
