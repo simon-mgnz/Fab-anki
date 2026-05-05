@@ -10740,6 +10740,74 @@
       deckList.style.visibility = 'visible';
       deckList.style.backgroundColor = 'white';
       deckMsg.textContent = 'Recherche de ./decks/ ...';
+
+      // Stats bar (4 cells: total, due, new, folders)
+      if(modalEl && !modalEl.querySelector('#deckBrowserStatsBar')){
+        const statsBar = document.createElement('div');
+        statsBar.id = 'deckBrowserStatsBar';
+        statsBar.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;';
+        const statLabels = ['Cartes totales','Dues','Nouvelles','Dossiers'];
+        const statColors = ['var(--fg)','#e05252','var(--accent)','var(--fg)'];
+        statLabels.forEach((lbl, i) => {
+          const cell = document.createElement('div');
+          cell.style.cssText = 'background:var(--card);border-radius:10px;padding:10px 12px;border:1px solid rgba(0,0,0,0.07);';
+          const val = document.createElement('div');
+          val.style.cssText = `font-size:1.2rem;font-weight:800;color:${statColors[i]};line-height:1;`;
+          val.textContent = '…';
+          val.id = `deckStatCell_${i}`;
+          const label = document.createElement('div');
+          label.style.cssText = 'font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:3px;';
+          label.textContent = lbl;
+          cell.appendChild(val); cell.appendChild(label);
+          statsBar.appendChild(cell);
+        });
+        modalEl.insertBefore(statsBar, deckList);
+
+        // Search bar (insert before stats bar)
+        const searchWrap = document.createElement('div');
+        searchWrap.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--card);border-radius:9px;border:1px solid rgba(0,0,0,0.08);padding:7px 10px;margin-bottom:12px;';
+        const searchIcon = document.createElement('span');
+        searchIcon.textContent = '🔍';
+        searchIcon.style.fontSize = '12px';
+        const searchInput = document.createElement('input');
+        searchInput.placeholder = 'Rechercher un deck…';
+        searchInput.style.cssText = 'border:none;background:transparent;color:var(--fg);font-size:13px;outline:none;flex:1;';
+        searchInput.addEventListener('input', () => {
+          const q = searchInput.value.toLowerCase();
+          deckList.querySelectorAll('.deck-entry').forEach(row => {
+            const name = row.querySelector('div')?.textContent?.toLowerCase() || '';
+            row.style.display = (!q || name.includes(q)) ? '' : 'none';
+          });
+        });
+        searchWrap.appendChild(searchIcon); searchWrap.appendChild(searchInput);
+        modalEl.insertBefore(searchWrap, statsBar);
+
+        // Async populate stats
+        setTimeout(async () => {
+          try{
+            const entries = await fetchDirectory('./decks/');
+            const xmlFiles = (Array.isArray(entries)?entries:[]).filter(e=>typeof e==='string'&&e.toLowerCase().endsWith('.xml'));
+            const folders = (Array.isArray(entries)?entries:[]).filter(e=>typeof e==='string'&&!e.toLowerCase().endsWith('.xml'));
+            let totalCards = 0, totalDue = 0, totalNew = 0;
+            for(const f of xmlFiles.slice(0,20)){
+              try{
+                const cnt = await countDueNowForDeck('./decks/'+f);
+                totalDue += cnt;
+                totalNew += Number(localStorage.getItem('fabanki:deck_new_'+f)||0);
+                totalCards += Number(localStorage.getItem('fabanki:deck_cards_'+f)||0);
+              }catch(e){}
+            }
+            const el0 = document.getElementById('deckStatCell_0');
+            const el1 = document.getElementById('deckStatCell_1');
+            const el2 = document.getElementById('deckStatCell_2');
+            const el3 = document.getElementById('deckStatCell_3');
+            if(el0) el0.textContent = totalCards > 0 ? totalCards.toLocaleString() : xmlFiles.length;
+            if(el1) el1.textContent = totalDue.toLocaleString();
+            if(el2) el2.textContent = totalNew.toLocaleString();
+            if(el3) el3.textContent = folders.length || xmlFiles.length;
+          }catch(e){ console.warn('stats bar error', e); }
+        }, 100);
+      }
       try{
         const entries = await fetchDirectory('./decks/');
         if(!entries || entries.length===0){ 
@@ -11055,6 +11123,17 @@
                     showDeckLoading(false);
                   }
                 });
+              }
+              // Mastery bar
+              const masteryPct = Number(localStorage.getItem('fabanki:deck_mastery_' + e.replace(/\//g,'_')) || 0);
+              if(masteryPct > 0){
+                const mBar = document.createElement('div');
+                mBar.style.cssText = 'width:36px;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;overflow:hidden;';
+                const mFill = document.createElement('div');
+                const mc = masteryPct > 75 ? '#4caf78' : masteryPct > 50 ? '#5b9bd4' : '#d97b3a';
+                mFill.style.cssText = `height:100%;width:${masteryPct}%;background:${mc};border-radius:2px;`;
+                mBar.appendChild(mFill);
+                actions.appendChild(mBar);
               }
               actions.appendChild(dueBadge2); actions.appendChild(btn);
                 (async ()=>{ try{ const n = await countDueNowForDeck(base+e); if(typeof n === 'number' && n>=0){ dueBadge2.querySelector('.due-num').textContent = n>0? n : ''; dueBadge2.querySelector('.due-label').style.display = n>0? 'block' : 'none'; }else{ dueBadge2.querySelector('.due-num').textContent=''; dueBadge2.querySelector('.due-label').style.display='none'; } }catch(err){} })();
@@ -11504,12 +11583,12 @@
         const statsGrid = document.createElement('div');
         statsGrid.style.cssText = 'padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;';
         const statItems = [
-          { label:'R\u00E9visions', value:String(stats.totalReviewed), cls:'profile-total' },
+          { label:'Total r\u00E9visions', value:String(stats.totalReviewed), cls:'profile-total' },
           { label:"Aujourd'hui", value:String(stats.todayReviewed), cls:'profile-today' },
           { label:'XP total', value:String(stats.xpTotal), cls:'profile-xp' },
           { label:'S\u00E9rie', value:Number(localStorage.getItem('fabanki:streak_current')||0)+' j', cls:'profile-streak' },
-          { label:'Score MPSI', value:String(getLocalNum('fabanki:score_mpsi_mois')), cls:'profile-mpsi' },
-          { label:'Cr\u00E9dits', value:String((typeof getCredits==='function')?getCredits():Number(localStorage.getItem('fabanki:credits')||0)), cls:'credit-count-cell' },
+          { label:'Cartes ma\u00EEtris\u00E9es', value:String(Number(localStorage.getItem('fabanki:mastered_count')||0)), cls:'profile-mastered' },
+          { label:'Taux de r\u00E9ussite', value:(()=>{ const f=Number(localStorage.getItem('fabanki:fail_total')||0), g=Number(localStorage.getItem('fabanki:good_total')||0); return (f+g>0)?Math.round(g/(f+g)*100)+'%':'\u2014'; })(), cls:'profile-rate' },
         ];
         statItems.forEach(s => {
           const cell = document.createElement('div');
@@ -11640,12 +11719,58 @@
           });
           
           titleSelectorBox.appendChild(select);
-          
+
           // Display current selection
           const currentDisplay = document.createElement('div');
           currentDisplay.style.cssText = 'font-size:0.85em;color:var(--muted);';
           currentDisplay.textContent = currentTitle ? `Actuel: ${currentTitle}` : 'Actuel: aucun';
           titleSelectorBox.appendChild(currentDisplay);
+
+          // Tier-colored title pills
+          const TIER_COLORS = { 1:'#cd7f32', 2:'#aaa', 3:'#f5c518', 4:'#5bc8d0', 5:'#a88fff' };
+          const TIER_NAMES = { 1:'Bronze', 2:'Silver', 3:'Gold', 4:'Platinum', 5:'Diamond' };
+          const tierGrid = document.createElement('div');
+          tierGrid.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:10px;';
+          for(const [tierKey, tierData] of Object.entries(mathematicianTiers)){
+            const tc = TIER_COLORS[tierKey] || 'var(--accent)';
+            const tn = TIER_NAMES[tierKey] || tierKey;
+            const tierXpReq = [0, 500, 2000, 5000, 15000][Number(tierKey)-1] || 0;
+            const userXp = stats.xpTotal || 0;
+            const unlocked = userXp >= tierXpReq;
+            const tierRow = document.createElement('div');
+            tierRow.style.cssText = 'margin-bottom:4px;';
+            const tierLabel = document.createElement('div');
+            tierLabel.style.cssText = `display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:${unlocked?tc:'var(--muted)'};`;
+            tierLabel.textContent = tn + (!unlocked ? ` — ${tierXpReq.toLocaleString()} XP requis` : '');
+            tierRow.appendChild(tierLabel);
+            const pillRow = document.createElement('div');
+            pillRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;';
+            const currentSelected = localStorage.getItem('fabanki:selected_title') || '';
+            tierData.mathematicians.forEach(name => {
+              const pill = document.createElement('button');
+              const isSelected = currentSelected === name;
+              pill.style.cssText = `padding:3px 9px;border-radius:20px;font-size:11px;cursor:${unlocked?'pointer':'default'};background:${!unlocked?'rgba(0,0,0,0.04)':isSelected?tc:`${tc}22`};color:${!unlocked?'var(--muted)':isSelected?'#fff':tc};border:1px solid ${!unlocked?'rgba(0,0,0,0.07)':isSelected?tc:`${tc}55`};font-weight:${isSelected?700:400};opacity:${unlocked?1:0.5};transition:all 0.15s;`;
+              pill.textContent = name;
+              pill.disabled = !unlocked;
+              if(unlocked) pill.addEventListener('click', () => {
+                localStorage.setItem('fabanki:selected_title', name);
+                localStorage.setItem(`fabanki:title_chosen_${tierKey}`, name);
+                tierGrid.querySelectorAll('button').forEach(b => {
+                  b.style.fontWeight = b.textContent === name ? '700' : '400';
+                });
+                pill.style.background = tc;
+                pill.style.color = '#fff';
+                pill.style.borderColor = tc;
+                pill.style.fontWeight = '700';
+                currentDisplay.textContent = `Actuel: ${name}`;
+                select.value = name;
+              });
+              pillRow.appendChild(pill);
+            });
+            tierRow.appendChild(pillRow);
+            tierGrid.appendChild(tierRow);
+          }
+          titleSelectorBox.appendChild(tierGrid);
         } else {
           const noTitlesMsg = document.createElement('div');
           noTitlesMsg.style.cssText = 'font-size:0.85em;color:var(--muted);';
@@ -12142,42 +12267,67 @@
         const _creditCount = (typeof getCredits === 'function') ? getCredits() : Number(localStorage.getItem('fabanki:credits')||0);
         creditsDisplay.innerHTML = `<span style="font-size:14px">\U0001F4B0</span><span style="font-size:12px;font-weight:700;color:#c9a227;font-family:inherit">${_creditCount.toLocaleString()} crédits</span>`;
         walletDiv.appendChild(creditsDisplay);
+        const xpStats = computeLevelAndProgress(getXpTotal ? getXpTotal() : 0);
+        const lvlPill = document.createElement('div');
+        lvlPill.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--card);border-radius:10px;padding:7px 12px;border:1px solid rgba(0,0,0,0.08);';
+        lvlPill.innerHTML = `<span style="font-size:12px;font-weight:700;color:var(--accent)">Niv. ${xpStats.level}</span><div style="width:40px;height:4px;background:rgba(0,0,0,0.08);border-radius:2px;overflow:hidden"><div style="height:100%;width:${Math.round(xpStats.pct)}%;background:var(--accent);border-radius:2px"></div></div>`;
+        walletDiv.appendChild(lvlPill);
         walletDiv.appendChild(backBtn);
         header.appendChild(walletDiv);
         container.appendChild(header);
 
-        // Tab bar
+        // Tab bar (pill style)
         const marketTabBar = document.createElement('div');
-        marketTabBar.style.cssText = 'display:flex;max-width:1200px;margin:0 auto 4px;border-bottom:2px solid rgba(0,0,0,0.06);padding:0 20px;';
+        marketTabBar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;padding:0 0 16px;max-width:1200px;margin:12px auto 0;';
         const _marketTabs = [
-          { id:'modes', label:'🎮 Modes' },
-          { id:'titres', label:'🏷 Titres & Boosts' },
-          { id:'deco', label:'🎨 Décoration' },
-          { id:'decks', label:'📚 Decks' },
+          { id:'all',    label:'Tout'     },
+          { id:'decks',  label:'Decks'    },
+          { id:'modes',  label:'Modes'    },
+          { id:'boosts', label:'Boosters' },
+          { id:'deco',   label:'Décoration' },
         ];
-        let _activeMarketTab = 'modes';
+        let _activeMarketTab = 'all';
         const _tabBtns = {};
         const _setMarketTab = id => {
           _activeMarketTab = id;
           Object.entries(_tabBtns).forEach(([tid, b]) => {
             const active = tid === id;
-            b.style.borderBottomColor = active ? 'var(--accent)' : 'transparent';
+            b.style.background = active ? 'rgba(155,89,208,0.15)' : 'transparent';
             b.style.color = active ? 'var(--accent)' : 'var(--muted)';
-            b.style.fontWeight = active ? '700' : '500';
+            b.style.borderColor = active ? 'var(--accent)' : 'rgba(0,0,0,0.1)';
+            b.style.fontWeight = active ? '600' : '400';
           });
           container.querySelectorAll('[data-market-tab]').forEach(el => {
-            el.style.display = el.dataset.marketTab === id ? '' : 'none';
+            const tabs = el.dataset.marketTab.split(',');
+            el.style.display = (tabs.includes(id) || (id === 'all')) ? '' : 'none';
           });
         };
         _marketTabs.forEach(tab => {
           const btn = document.createElement('button');
-          btn.style.cssText = 'flex:1;padding:10px 4px;background:transparent;border:none;border-bottom:3px solid transparent;font-size:0.82rem;font-weight:500;color:var(--muted);cursor:pointer;transition:all 0.15s;margin-bottom:-2px;white-space:nowrap;';
+          btn.style.cssText = 'padding:7px 16px;border-radius:20px;border:1px solid rgba(0,0,0,0.1);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-weight:400;transition:all 0.15s;';
           btn.textContent = tab.label;
           btn.addEventListener('click', () => _setMarketTab(tab.id));
           _tabBtns[tab.id] = btn;
           marketTabBar.appendChild(btn);
         });
         container.appendChild(marketTabBar);
+
+        // Featured banner
+        const featuredBanner = document.createElement('div');
+        featuredBanner.dataset.marketTab = 'all,decks';
+        featuredBanner.style.cssText = 'max-width:1200px;margin:0 auto 16px;background:linear-gradient(135deg,rgba(155,89,208,0.25),rgba(155,89,208,0.1));border-radius:14px;padding:20px 22px;border:1px solid rgba(155,89,208,0.3);display:flex;align-items:center;gap:20px;flex-wrap:wrap;';
+        const fbIcon = document.createElement('div');
+        fbIcon.style.cssText = 'width:60px;height:60px;border-radius:14px;background:linear-gradient(135deg,var(--accent),#c084fc);display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0;';
+        fbIcon.textContent = '📚';
+        const fbInfo = document.createElement('div');
+        fbInfo.style.cssText = 'flex:1;min-width:200px;';
+        fbInfo.innerHTML = `<div style="font-size:9px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">✦ En vedette</div><div style="font-size:1.1rem;font-weight:700;color:var(--fg)">Décks Fab'Anki</div><div style="font-size:12px;color:var(--muted);margin-top:3px">Explorez les decks disponibles dans le navigateur</div>`;
+        const fbBtn = document.createElement('button');
+        fbBtn.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer;';
+        fbBtn.textContent = 'Parcourir';
+        fbBtn.addEventListener('click', () => { container.remove(); try{ if(typeof window.__setNavActivePage==='function') window.__setNavActivePage('decks'); const b=document.getElementById('browseDecks'); if(b) setTimeout(()=>b.click(),10); }catch(e){} });
+        featuredBanner.appendChild(fbIcon); featuredBanner.appendChild(fbInfo); featuredBanner.appendChild(fbBtn);
+        container.appendChild(featuredBanner);
 
         // Main content wrapper
         const content = document.createElement('div');
@@ -12245,94 +12395,26 @@
         nextBtn.addEventListener('mouseover', ()=>{ nextBtn.style.background = 'rgba(155,89,208,0.8)'; });
         nextBtn.addEventListener('mouseout', ()=>{ nextBtn.style.background = 'var(--accent)'; });
         
-        carouselNavBtns.appendChild(prevBtn);
-        carouselNavBtns.appendChild(nextBtn);
+        // carouselNavBtns removed (grid layout replaces carousel)
         carouselHeader.appendChild(carouselNavBtns);
         carouselContainer.appendChild(carouselHeader);
-        
-        // Progress indicator for auto-rotation
-        const progressBar = document.createElement('div');
-        progressBar.style.cssText = 'height:4px;background:#e0e0e0;border-radius:2px;margin-bottom:16px;overflow:hidden;';
-        const progressFill = document.createElement('div');
-        progressFill.style.cssText = 'height:100%;background:linear-gradient(90deg, var(--accent) 0%, #c084fc 100%);width:0%;transition:width 0.1s linear;';
-        progressBar.appendChild(progressFill);
-        carouselContainer.appendChild(progressBar);
+        // progressBar removed (grid layout replaces carousel)
         
         // Carousel viewport
         const carouselViewport = document.createElement('div');
         carouselViewport.style.cssText = 'overflow:hidden;position:relative;';
         
-        // Carousel track (contains all slides)
+        // Carousel track (grid layout replacing carousel)
         const carouselTrack = document.createElement('div');
-        carouselTrack.style.cssText = 'display:flex;transition:transform 0.5s ease-in-out;';
+        carouselTrack.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:4px 2px;';
         carouselViewport.appendChild(carouselTrack);
         carouselContainer.appendChild(carouselViewport);
         
-        // Carousel state
-        let currentSlide = 0;
-        let autoRotateInterval = null;
-        let progressInterval = null;
-        const autoRotateDelay = 6000; // 6 seconds per slide
-        const progressUpdateInterval = 50; // Update progress bar every 50ms
-        let progressValue = 0;
-        
-        // Function to update carousel position
-        const updateCarousel = () => {
-          const slideWidth = carouselTrack.children[0]?.offsetWidth || 0;
-          carouselTrack.style.transform = `translateX(-${currentSlide * slideWidth}px)`;
-          // Reset progress bar
-          progressValue = 0;
-          progressFill.style.width = '0%';
-        };
-        
-        // Function to start auto-rotation
-        const startAutoRotate = () => {
-          stopAutoRotate(); // Clear any existing intervals
-          
-          // Progress bar animation
-          progressInterval = setInterval(() => {
-            progressValue += (progressUpdateInterval / autoRotateDelay) * 100;
-            if(progressValue >= 100) progressValue = 100;
-            progressFill.style.width = progressValue + '%';
-          }, progressUpdateInterval);
-          
-          // Auto-advance
-          autoRotateInterval = setInterval(() => {
-            currentSlide = (currentSlide + 1) % carouselTrack.children.length;
-            updateCarousel();
-          }, autoRotateDelay);
-        };
-        
-        // Function to stop auto-rotation
-        const stopAutoRotate = () => {
-          if(autoRotateInterval) clearInterval(autoRotateInterval);
-          if(progressInterval) clearInterval(progressInterval);
-          autoRotateInterval = null;
-          progressInterval = null;
-        };
-        
-        // Navigation button handlers
-        prevBtn.addEventListener('click', () => {
-          stopAutoRotate();
-          currentSlide = (currentSlide - 1 + carouselTrack.children.length) % carouselTrack.children.length;
-          updateCarousel();
-          startAutoRotate();
-        });
-        
-        nextBtn.addEventListener('click', () => {
-          stopAutoRotate();
-          currentSlide = (currentSlide + 1) % carouselTrack.children.length;
-          updateCarousel();
-          startAutoRotate();
-        });
-        
-        // Pause on hover, resume on leave
-        carouselContainer.addEventListener('mouseenter', stopAutoRotate);
-        carouselContainer.addEventListener('mouseleave', startAutoRotate);
+        // Grid layout: no carousel state needed (removed auto-rotation)
         
         // ===== SECTION 1: MODE TEXTE Ã€ TROU (TOP) =====
         const textModeSection = document.createElement('section');
-        textModeSection.style.cssText = 'flex:0 0 100%;min-width:100%;';
+        textModeSection.style.cssText = 'border-radius:12px;overflow:hidden;';
         
         const textModeItemId = 'mode_texte_trou';
         const textModeCost = 100;
@@ -12427,7 +12509,7 @@
         
         // ===== SECTION 1B: MODE RAPPEL SOUS PRESSION =====
         const timerModeSection = document.createElement('section');
-        timerModeSection.style.cssText = 'flex:0 0 100%;min-width:100%;';
+        timerModeSection.style.cssText = 'border-radius:12px;overflow:hidden;';
         
         const timerModeItemId = 'mode_rappel_sous_pression';
         const timerModeCost = 100;
@@ -12517,7 +12599,7 @@
         
         // ===== SECTION 1BR: MODE RUSH =====
         const rushModeSection = document.createElement('section');
-        rushModeSection.style.cssText = 'flex:0 0 100%;min-width:100%;';
+        rushModeSection.style.cssText = 'border-radius:12px;overflow:hidden;';
         
         const rushModeItemId = 'mode_rush';
         const rushModeCost = 150;
@@ -12607,7 +12689,7 @@
         
         // ===== SECTION 1C: MODE CALCUL =====
         const calculModeSection = document.createElement('section');
-        calculModeSection.style.cssText = 'flex:0 0 100%;min-width:100%;';
+        calculModeSection.style.cssText = 'border-radius:12px;overflow:hidden;';
         
         const calculModeItemId = 'mode_calcul';
         const calculModeCost = 100;
@@ -12695,14 +12777,8 @@
         calculModeSection.appendChild(calculModeGrid);
         carouselTrack.appendChild(calculModeSection);
         
-        // Append carousel to content and start auto-rotation
+        // Append carousel to content (grid layout, no auto-rotation needed)
         content.appendChild(carouselContainer);
-        
-        // Start carousel after a small delay to ensure DOM is ready
-        setTimeout(() => {
-          updateCarousel();
-          startAutoRotate();
-        }, 100);
         
         // ===== SECTION 2: PERSONNALISATION =====
         const personnalisationSection = document.createElement('section');
@@ -13352,16 +13428,16 @@
         content.appendChild(personnalisationSection);
 
         // Assign tab groups and hide non-active tabs
-        carouselContainer.dataset.marketTab = 'modes';
-        activeMemoryModeSection.dataset.marketTab = 'modes';
-        specialsSection.dataset.marketTab = 'titres';
-        decksSection.dataset.marketTab = 'decks';
-        personnalisationSection.dataset.marketTab = 'deco';
+        carouselContainer.dataset.marketTab = 'modes,all';
+        activeMemoryModeSection.dataset.marketTab = 'modes,all';
+        specialsSection.dataset.marketTab = 'boosts,all';
+        decksSection.dataset.marketTab = 'decks,all';
+        personnalisationSection.dataset.marketTab = 'deco,all';
 
         container.appendChild(content);
 
-        // Init tab state (modes active, others hidden)
-        _setMarketTab('modes');
+        // Init tab state (all active by default)
+        _setMarketTab('all');
         document.body.appendChild(container);
       }catch(e){
         console.warn('Market page error:', e);
@@ -19702,7 +19778,22 @@
           
           levelCard.appendChild(levelContent);
           container.appendChild(levelCard);
-          
+
+          // Sessions du jour mini-card
+          try{
+            const todayCard = document.createElement('div');
+            todayCard.style.cssText = 'background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:12px;border:1px solid rgba(0,0,0,0.07);display:flex;align-items:center;justify-content:space-between;';
+            const todayLeft = document.createElement('div');
+            const todayReviewedNow = getTodayReviewedCount ? getTodayReviewedCount() : 0;
+            const dailyGoalNow = getDailyGoal ? getDailyGoal() : 0;
+            todayLeft.innerHTML = `<div style="font-size:0.85rem;font-weight:700;color:var(--fg)">Aujourd'hui</div><div style="font-size:0.75rem;color:var(--muted);margin-top:2px">${todayReviewedNow} carte${todayReviewedNow!==1?'s':''} révisée${todayReviewedNow!==1?'s':''} ${dailyGoalNow>0?'/ '+dailyGoalNow+' objectif':''}</div>`;
+            const todayRight = document.createElement('div');
+            todayRight.style.cssText = 'font-size:1.5rem;font-weight:800;color:var(--accent);';
+            todayRight.textContent = todayReviewedNow;
+            todayCard.appendChild(todayLeft); todayCard.appendChild(todayRight);
+            container.appendChild(todayCard);
+          }catch(e){ console.warn('todayCard error', e); }
+
           // Add welcome quest card AFTER level card, BEFORE Maintenant button
           try{
             const welcomeQuestCard = renderWelcomeQuestCard();
