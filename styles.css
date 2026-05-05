@@ -1940,7 +1940,7 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
   background:var(--card);
   border-top:1px solid rgba(0,0,0,0.08);
   padding-bottom:env(safe-area-inset-bottom,0px);
-  z-index:1100;
+  z-index:1300;
   box-shadow:0 -2px 12px rgba(0,0,0,0.06)
 }
 .bn-tab{

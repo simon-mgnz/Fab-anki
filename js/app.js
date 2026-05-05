@@ -2390,9 +2390,54 @@
         rightPanel.appendChild(desc);
       }
       
-      // Star rating and progress bar
+      // Clean mastery bar
+      const masterySection = document.createElement('div');
+      masterySection.style.cssText = 'background:var(--card);border-radius:12px;padding:16px;border:1px solid rgba(0,0,0,0.07);margin-bottom:12px;';
+      const masteryLabel = document.createElement('div');
+      masteryLabel.style.cssText = 'font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;font-weight:600;';
+      masteryLabel.textContent = 'Maîtrise';
+      masterySection.appendChild(masteryLabel);
+      const nowCards = counts.now || 0;
+      const masteryPct = reviewed > 0 && total > 0 ? Math.round((1 - nowCards/total)*100) : 0;
+      const masteryBarWrap = document.createElement('div');
+      masteryBarWrap.style.cssText = 'height:8px;background:rgba(0,0,0,0.07);border-radius:4px;overflow:hidden;margin-bottom:8px;';
+      const masteryBarFill = document.createElement('div');
+      const mc = masteryPct > 75 ? '#4caf78' : masteryPct > 50 ? '#5b9bd4' : masteryPct > 25 ? '#d97b3a' : '#e05252';
+      masteryBarFill.style.cssText = `height:100%;width:${masteryPct}%;background:${mc};border-radius:4px;transition:width 0.5s;`;
+      masteryBarWrap.appendChild(masteryBarFill);
+      masterySection.appendChild(masteryBarWrap);
+      const masteryNum = document.createElement('div');
+      masteryNum.style.cssText = `font-size:1.4rem;font-weight:800;color:${mc};`;
+      masteryNum.textContent = masteryPct + '%';
+      masterySection.appendChild(masteryNum);
+      rightPanel.appendChild(masterySection);
+
+      // Stats grid (4 cells)
+      const overviewGrid = document.createElement('div');
+      overviewGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;';
+      const gridItems = [
+        { label:'Total', value:String(total), color:'var(--fg)' },
+        { label:'À revoir', value:String(nowCards), color:'#e05252' },
+        { label:'Révisées', value:String(reviewed), color:'#4caf78' },
+        { label:'Précision', value: reviewed>0 ? Math.round((reviewed-nowCards)/Math.max(reviewed,1)*100)+'%' : 'N/A', color:'var(--accent)' },
+      ];
+      gridItems.forEach(item => {
+        const cell = document.createElement('div');
+        cell.style.cssText = 'background:var(--card);border-radius:10px;padding:12px 14px;border:1px solid rgba(0,0,0,0.07);';
+        const val = document.createElement('div');
+        val.style.cssText = `font-size:1.3rem;font-weight:800;color:${item.color};line-height:1;margin-bottom:3px;`;
+        val.textContent = item.value;
+        const lbl = document.createElement('div');
+        lbl.style.cssText = 'font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;';
+        lbl.textContent = item.label;
+        cell.appendChild(val); cell.appendChild(lbl);
+        overviewGrid.appendChild(cell);
+      });
+      rightPanel.appendChild(overviewGrid);
+
+      // Star rating and progress bar (legacy, kept for reference but hidden)
       const ratingContainer = document.createElement('div');
-      ratingContainer.style.cssText = 'margin-bottom:16px;';
+      ratingContainer.style.cssText = 'margin-bottom:16px;display:none;';
       
       // Calculate accuracy for star rating
       let accuracyForRating = 0;
@@ -2477,36 +2522,14 @@
       ratingContainer.appendChild(progressWrapper);
       rightPanel.appendChild(ratingContainer);
       
-      const stats = document.createElement('div');
-      stats.style.cssText = 'background:linear-gradient(135deg, #1e293b 0%, #334155 100%);color:#fff;padding:16px;border-radius:12px;margin-bottom:16px;font-size:0.9em;line-height:1.8;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
-      
-      // Accuracy calculation
-      let accuracy = 'N/A';
-      if(!fsrsDisabledForStats){
-        let accuracySum = 0, reviewedTotal = 0;
-        for(const c of cardsList){
-          if(c.category === 'now') { accuracySum += 0; reviewedTotal++; }
-          else if(c.category === 'h12') { accuracySum += 5; reviewedTotal++; }
-          else if(c.category === 'tomorrow') { accuracySum += 10; reviewedTotal++; }
-          else if(c.category === 'week') { accuracySum += 15; reviewedTotal++; }
-          else if(c.category === 'long') { accuracySum += 20; reviewedTotal++; }
-        }
-        accuracy = reviewedTotal > 0 ? (accuracySum / reviewedTotal).toFixed(2) : 'N/A';
-      }
-      
-      stats.innerHTML = `
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Cartes rÃ©visÃ©es</span><strong>${reviewed}</strong></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Total</span><strong>${total}</strong></div>
-        <div style="display:flex;justify-content:space-between;"><span>PrÃ©cision</span><strong>${accuracy}</strong></div>
-      `;
-      rightPanel.appendChild(stats);
+      // Dark stats box removed — replaced by overviewGrid above
 
       // Retention slider and FSRS toggle
       const retentionBox = document.createElement('div');
-      retentionBox.style.cssText = 'margin-bottom:16px;padding:12px;border-radius:10px;background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.12);';
+      retentionBox.style.cssText = 'margin-bottom:12px;padding:14px 16px;border-radius:12px;background:var(--card);border:1px solid rgba(155,89,208,0.2);';
       const retentionTitle = document.createElement('div');
-      retentionTitle.style.cssText = 'font-weight:700;margin-bottom:8px;color:#1e293b;';
-      retentionTitle.textContent = 'RÃ©tention ciblÃ©e (FSRS)';
+      retentionTitle.style.cssText = 'font-weight:700;margin-bottom:10px;color:var(--fg);font-size:0.9rem;';
+      retentionTitle.textContent = 'Rétention ciblée (FSRS)';
       retentionBox.appendChild(retentionTitle);
 
       const retentionRow = document.createElement('div');
@@ -2518,7 +2541,7 @@
       slider.min = '50';
       slider.max = '99';
       slider.step = '1';
-      slider.style.cssText = 'flex:1;min-width:200px;';
+      slider.style.cssText = 'flex:1;accent-color:var(--accent);';
       const disableBtn = document.createElement('button');
       disableBtn.className = 'secondary';
       disableBtn.style.cssText = 'min-width:150px;';
@@ -10767,8 +10790,9 @@
         const searchWrap = document.createElement('div');
         searchWrap.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--card);border-radius:9px;border:1px solid rgba(0,0,0,0.08);padding:7px 10px;margin-bottom:12px;';
         const searchIcon = document.createElement('span');
-        searchIcon.textContent = '🔍';
-        searchIcon.style.fontSize = '12px';
+        searchIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+        searchIcon.style.color = 'var(--muted)';
+        searchIcon.style.display = 'flex';
         const searchInput = document.createElement('input');
         searchInput.placeholder = 'Rechercher un deck…';
         searchInput.style.cssText = 'border:none;background:transparent;color:var(--fg);font-size:13px;outline:none;flex:1;';
@@ -10891,7 +10915,7 @@
             row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
             row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
             row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
-            const folderIconDiv = document.createElement('div'); folderIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; folderIconDiv.textContent = '📁'; row.appendChild(folderIconDiv);
+            const folderIconDiv = document.createElement('div'); folderIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:var(--accent);'; folderIconDiv.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>'; row.appendChild(folderIconDiv);
             const nm = document.createElement('div'); 
             const folderName = decodeURIComponent((prefix+folder).replace(/\+/g,' ')).replace(/\/$/,'');
             nm.textContent = folderName;
@@ -10960,7 +10984,7 @@
             row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
             row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
             row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
-            const fileIconDiv = document.createElement('div'); fileIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; fileIconDiv.textContent = '📄'; row.appendChild(fileIconDiv);
+            const fileIconDiv = document.createElement('div'); fileIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);color:var(--muted);'; fileIconDiv.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>'; row.appendChild(fileIconDiv);
             const dec = decodeURIComponent((prefix+file).replace(/\+/g,' '));
             // Extract just the deck name (without parent path) if the full path is too long
             const fullDeckName = dec.replace(/\.xml$/i,'');
@@ -11048,8 +11072,8 @@
             const decoded = (()=>{ try{ return decodeURIComponent(e.replace(/\+/g,' ')) }catch(x){ return e } })();
             const isXml = e.endsWith('.xml');
             const iconDiv = document.createElement('div');
-            if(isXml){ iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; iconDiv.textContent = '📄'; }
-            else { iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; iconDiv.textContent = '📁'; }
+            if(isXml){ iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);color:var(--muted);'; iconDiv.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>'; }
+            else { iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:var(--accent);'; iconDiv.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>'; }
             row.appendChild(iconDiv);
             const name = document.createElement('div'); name.textContent = decoded.replace(/\.xml$/i,'');
             if(isXml){ name.style.cssText = 'flex:1;font-weight:500;font-size:0.9rem;color:var(--fg);'; } else { name.style.cssText = 'flex:1;font-weight:700;font-size:0.92rem;color:var(--fg);'; }
@@ -11505,7 +11529,7 @@
         
         const stats = getProfileStats();
         const clean = fixMojibakeText;
-        const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay page-overlay'; ov.style.display='flex'; ov.style.zIndex='1200';
+        const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay page-overlay'; ov.style.display='flex'; ov.style.zIndex='1200'; ov.style.paddingBottom='64px';
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
         const m = document.createElement('div'); m.className='modal'; m.style.cssText='padding:0;overflow-y:auto;min-width:min(640px,96vw);max-height:90vh;background:var(--bg);border-radius:16px;';
         const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.display='none'; m.appendChild(h);
@@ -11957,12 +11981,12 @@
         const clean = fixMojibakeText;
         const stats = getProfileStats();
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
-        const pseudoNode = ov.querySelector('#profilePseudo'); if(pseudoNode) pseudoNode.textContent = `${t('pseudo')}: ${localStorage.getItem('pseudo') || ''}`;
-        const totalNode = ov.querySelector('.profile-total'); if(totalNode) totalNode.innerHTML = clean(`<strong>\uD83D\uDCDA ${t('totalReviewed')}:</strong> ${stats.totalReviewed}`);
-        const todayNode = ov.querySelector('.profile-today'); if(todayNode) todayNode.innerHTML = clean(`<strong>\uD83D\uDCC5 ${t('todayReviewedFull')}:</strong> ${stats.todayReviewed}`);
-        const xpNode = ov.querySelector('.profile-xp'); if(xpNode) xpNode.innerHTML = clean(`<strong>\u2728 ${t('xpLabel')}:</strong> ${stats.xpTotal}`);
-        const streakNode = ov.querySelector('.profile-streak'); if(streakNode) streakNode.innerHTML = clean(`<strong>\uD83D\uDD25 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`);
-        const mpsiNode = ov.querySelector('.profile-mpsi'); if(mpsiNode) mpsiNode.innerHTML = clean(`<strong>\uD83D\uDCCA ${t('mpsiScoreMonthly')}:</strong> ${getLocalNum('fabanki:score_mpsi_mois')}`);
+        const pseudoNode = ov.querySelector('#profilePseudo'); if(pseudoNode && pseudoNode.style.display !== 'flex') pseudoNode.textContent = localStorage.getItem('pseudo') || '';
+        const totalNode = ov.querySelector('.profile-total'); if(totalNode) totalNode.textContent = String(stats.totalReviewed);
+        const todayNode = ov.querySelector('.profile-today'); if(todayNode) todayNode.textContent = String(stats.todayReviewed);
+        const xpNode = ov.querySelector('.profile-xp'); if(xpNode) xpNode.textContent = String(stats.xpTotal);
+        const streakNode = ov.querySelector('.profile-streak'); if(streakNode) streakNode.textContent = Number(localStorage.getItem('fabanki:streak_current')||0) + ' j';
+        const mpsiNode = ov.querySelector('.profile-mpsi'); if(mpsiNode) mpsiNode.textContent = String(getLocalNum('fabanki:score_mpsi_mois'));
         // Update credit count
         const creditNum = ov.querySelector('.credit-count');
         if(creditNum){
@@ -11993,8 +12017,8 @@
           if(remTxt) remTxt.textContent = `${lvl.progress}/${lvl.need} (${Math.round(lvl.pct||0)}%)`;
         }catch(e){}
         // refresh pseudo display (target the specific element, not the first div)
-        try{ const p0 = ov.querySelector('#profilePseudo'); if(p0) p0.textContent = `${t('pseudo')}: ${localStorage.getItem('pseudo') || ''}` }catch(e){}
-        try{ const s = ov.querySelector('.profile-streak'); if(s) s.innerHTML = clean(`<strong>\uD83D\uDD25 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`) }catch(e){}
+        try{ const p0 = ov.querySelector('#profilePseudo'); if(p0 && p0.style.display !== 'flex') p0.textContent = localStorage.getItem('pseudo') || ''; }catch(e){}
+        try{ const s = ov.querySelector('.profile-streak'); if(s) s.textContent = Number(localStorage.getItem('fabanki:streak_current')||0) + ' j'; }catch(e){}
       }catch(e){}
     }
 
@@ -19934,20 +19958,22 @@
         try{ const totalDue = rows.reduce((s,x)=> s + (x.cnt||0), 0); title.innerHTML = `Decks disponibles <span style="color:#d9534f;margin-left:8px">(${totalDue} Ã  faire)</span>`; }catch(e){}
         
         for(const r of topRows){
-          const row = document.createElement('div'); row.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;transition:background 0.12s;cursor:default;';
+          const row = document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:10px;transition:background 0.12s;cursor:default;';
           row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
           row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
-          const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='12px';
-          const nm = document.createElement('div'); nm.textContent = r.name; nm.style.fontWeight = '600'; nm.style.color = 'var(--fg)';
-          left.appendChild(nm);
-          const act = document.createElement('div'); act.style.display='flex'; act.style.alignItems='center'; act.style.gap='8px';
-          const badge = document.createElement('span'); badge.className='due-badge'; badge.innerHTML = `<div class="due-num">${r.cnt>0? r.cnt : ''}</div><div class="due-label" style="display:${r.cnt>0?'block':'none'}">Ã  faire</div>`;
+          // Icon on left
+          const iconEl = document.createElement('div'); iconEl.style.cssText='width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--accent);';
+          iconEl.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+          // Name in middle
+          const nm = document.createElement('div'); nm.textContent = r.name; nm.style.cssText='flex:1;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+          const act = document.createElement('div'); act.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0;';
+          const badge = document.createElement('span'); badge.className='due-badge'; badge.innerHTML = `<div class="due-num">${r.cnt>0? r.cnt : ''}</div><div class="due-label" style="display:${r.cnt>0?'block':'none'}">à faire</div>`;
           const b = document.createElement('button'); b.className='secondary';
-          b.textContent = (window.innerWidth <= 640) ? 'ðŸ“‚' : 'Charger';
+          b.style.cssText='background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
+          b.textContent = 'Accéder';
           b.addEventListener('click', async (e)=>{ await openDeckWithModeSelection(r.url, r.name, e.currentTarget); });
-          // mirror deck-browser layout: badge to the left of the Charger button
           act.appendChild(badge); act.appendChild(b);
-          row.appendChild(left); row.appendChild(act); list.appendChild(row);
+          row.appendChild(iconEl); row.appendChild(nm); row.appendChild(act); list.appendChild(row);
         }
         card.appendChild(list);
         
