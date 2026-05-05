@@ -11408,8 +11408,8 @@
         const clean = fixMojibakeText;
         const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay page-overlay'; ov.style.display='flex'; ov.style.zIndex='1200';
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
-        const m = document.createElement('div'); m.className='modal'; m.style.cssText='padding:24px 20px;overflow-y:auto;background:var(--bg);';
-        const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.marginTop='0'; h.style.marginBottom='16px'; h.style.fontSize='1.5rem'; h.style.color='var(--fg)'; m.appendChild(h);
+        const m = document.createElement('div'); m.className='modal'; m.style.cssText='padding:0;overflow-y:auto;min-width:min(560px,96vw);background:var(--bg);';
+        const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.display='none'; m.appendChild(h);
 
         // Pseudo display (from localStorage) - Improved styling
         const userPseudo = localStorage.getItem('pseudo') || '';
@@ -11418,7 +11418,7 @@
         try{
           const avatarSection = document.createElement('div');
           avatarSection.className = 'profile-avatar-section';
-          avatarSection.style.cssText = 'background:linear-gradient(135deg,rgba(155,89,208,0.15),rgba(155,89,208,0.05));padding:16px 20px;border-bottom:1px solid rgba(155,89,208,0.12);display:flex;align-items:center;gap:14px;margin:-24px -20px 16px;border-radius:12px 12px 0 0;';
+          avatarSection.style.cssText = 'background:linear-gradient(135deg,rgba(155,89,208,0.15),rgba(155,89,208,0.05));padding:16px 20px;border-bottom:1px solid rgba(155,89,208,0.12);display:flex;align-items:center;gap:14px;border-radius:12px 12px 0 0;';
           const avatarCircle = document.createElement('div');
           avatarCircle.className = 'profile-avatar-circle';
           const _pseudo = localStorage.getItem('pseudo') || '?';
@@ -11439,7 +11439,7 @@
           m.insertBefore(avatarSection, m.firstChild);
         }catch(e){ console.warn('avatar section error', e); }
         const pseudoBox = document.createElement('div');
-        pseudoBox.style.cssText = 'padding:12px;background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.08);border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px;';
+        pseudoBox.style.cssText = 'padding:12px 16px;background:rgba(0,0,0,0.05);border-bottom:1px solid rgba(0,0,0,0.08);display:flex;align-items:center;gap:8px;';
         
         const p0 = document.createElement('div'); 
         p0.id='profilePseudo'; 
@@ -11482,18 +11482,43 @@
         pseudoBox.appendChild(p0); 
         pseudoBox.appendChild(editBtn); 
         m.appendChild(pseudoBox);
-        
-        // Stats box with dark theme
+
+        // Stats grid (visible)
+        const statsGrid = document.createElement('div');
+        statsGrid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px;';
+        const statItems = [
+          { label:'R\u00E9visions', value: String(stats.totalReviewed) },
+          { label:"Aujourd'hui", value: String(stats.todayReviewed) },
+          { label:'XP total', value: String(stats.xpTotal) },
+          { label:'S\u00E9rie', value: Number(localStorage.getItem('fabanki:streak_current')||0)+' j' },
+          { label:'Score MPSI', value: String(getLocalNum('fabanki:score_mpsi_mois')) },
+          { label:'Cr\u00E9dits', value: String((typeof getCredits==='function')?getCredits():Number(localStorage.getItem('fabanki:credits')||0)) },
+        ];
+        statItems.forEach(s => {
+          const cell = document.createElement('div');
+          cell.style.cssText = 'background:var(--card);border-radius:10px;padding:12px 10px;border:1px solid rgba(0,0,0,0.07);display:flex;flex-direction:column;gap:3px;';
+          const val = document.createElement('div'); val.className = 'profile-stat-val'; val.style.cssText = 'font-size:1.2rem;font-weight:800;color:var(--fg);line-height:1;'; val.textContent = s.value;
+          const lbl = document.createElement('div'); lbl.style.cssText = 'font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;'; lbl.textContent = s.label;
+          cell.appendChild(val); cell.appendChild(lbl);
+          statsGrid.appendChild(cell);
+        });
+        m.appendChild(statsGrid);
+
+        // Stats box with dark theme (hidden, kept for updateProfilePopupIfOpen)
         const statsBox = document.createElement('div');
-        statsBox.style.cssText = 'padding:16px;background:linear-gradient(135deg,#2d1b4e 0%,#3d2060 100%);color:white;border-radius:10px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.2);border:1px solid rgba(155,89,208,0.2);';
-        
+        statsBox.style.cssText = 'display:none;padding:16px;background:linear-gradient(135deg,#2d1b4e 0%,#3d2060 100%);color:white;border-radius:10px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.2);border:1px solid rgba(155,89,208,0.2);';
+
         const p1 = document.createElement('div'); p1.className='profile-total'; p1.style.marginBottom='8px'; p1.innerHTML = clean(`<strong>\uD83D\uDCDA ${t('totalReviewed')}:</strong> ${stats.totalReviewed}`); statsBox.appendChild(p1);
         const p2 = document.createElement('div'); p2.className='profile-today'; p2.style.marginBottom='8px'; p2.innerHTML = clean(`<strong>\uD83D\uDCC5 ${t('todayReviewedFull')}:</strong> ${stats.todayReviewed}`); statsBox.appendChild(p2);
         const p3 = document.createElement('div'); p3.className='profile-xp'; p3.style.marginBottom='8px'; p3.innerHTML = clean(`<strong>\u2728 ${t('xpLabel')}:</strong> ${stats.xpTotal}`); statsBox.appendChild(p3);
         const p4 = document.createElement('div'); p4.className='profile-streak'; p4.style.marginBottom='8px'; p4.innerHTML = clean(`<strong>\uD83D\uDD25 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`); statsBox.appendChild(p4);
         const p5 = document.createElement('div'); p5.className='profile-mpsi'; p5.innerHTML = clean(`<strong>\uD83D\uDCCA ${t('mpsiScoreMonthly')}:</strong> ${getLocalNum('fabanki:score_mpsi_mois')}`); statsBox.appendChild(p5);
-        
+
         m.appendChild(statsBox);
+
+        // Sections wrapper for padding
+        const sectionsWrap = document.createElement('div');
+        sectionsWrap.style.cssText = 'padding:0 16px 16px;display:flex;flex-direction:column;gap:10px;';
 
         // Language selector section
         try{
@@ -11536,7 +11561,7 @@
           }
           
           langSelectorBox.appendChild(langButtonsContainer);
-          m.appendChild(langSelectorBox);
+          sectionsWrap.appendChild(langSelectorBox);
         }catch(e){ console.warn('Language selector error:', e); }
 
         // Title selector section
@@ -11621,7 +11646,7 @@
           titleSelectorBox.appendChild(noTitlesMsg);
         }
         
-        m.appendChild(titleSelectorBox);
+        sectionsWrap.appendChild(titleSelectorBox);
 
         // Theme toggle (moved from top bar)
         const themeBox = document.createElement('div');
@@ -11657,7 +11682,7 @@
         });
 
         themeBox.appendChild(themeToggle);
-        m.appendChild(themeBox);
+        sectionsWrap.appendChild(themeBox);
 
         // Action buttons - improved layout
         const rankBtnWrap = document.createElement('div'); 
@@ -11748,16 +11773,16 @@
           }catch(e){ console.warn('daily goal error', e) }
         });
         rankBtnWrap.appendChild(dailyGoalBtn);
-        m.appendChild(rankBtnWrap);
+        sectionsWrap.appendChild(rankBtnWrap);
 
         // Level box: ring + info - centered
         try{
           const lvl = computeLevelAndProgress(stats.xpTotal || 0);
-          const levelBox = document.createElement('div'); 
+          const levelBox = document.createElement('div');
           levelBox.className = 'level-box';
           levelBox.style.cssText = 'display:flex;flex-direction:column;align-items:center;margin:16px 0;';
-          
-          const ring = document.createElement('div'); 
+
+          const ring = document.createElement('div');
           ring.className = 'level-ring';
           ring.style.cssText = 'margin-bottom:8px;';
           const circ = 2 * Math.PI * 42;
@@ -11765,21 +11790,23 @@
           const offset = Math.round(circ * (1 - pct/100));
           const color = getLevelColor(lvl.level);
           ring.innerHTML = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" stroke="#eee" stroke-width="8" fill="none"></circle><circle class="ring-fill" cx="50" cy="50" r="42" stroke="${color}" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"></circle></svg><div class="level-num">${lvl.level}</div>`;
-          
-          const info = document.createElement('div'); 
+
+          const info = document.createElement('div');
           info.className='level-info';
           info.style.cssText = 'text-align:center;';
-          const next = document.createElement('div'); 
-          next.className='next muted small'; 
+          const next = document.createElement('div');
+          next.className='next muted small';
           next.textContent = `Prochain niveau dans ${lvl.toNext} XP`;
-          const rem = document.createElement('div'); 
-          rem.className='progress-remaining'; 
+          const rem = document.createElement('div');
+          rem.className='progress-remaining';
           rem.textContent = `${lvl.progress}/${lvl.need} (${pct}%)`;
           info.appendChild(next); info.appendChild(rem);
-          
+
           levelBox.appendChild(ring); levelBox.appendChild(info);
-          m.appendChild(levelBox);
+          sectionsWrap.appendChild(levelBox);
         }catch(e){ /* ignore level rendering errors */ }
+
+        m.appendChild(sectionsWrap);
 
         const cb = document.createElement('button'); cb.className='secondary'; cb.textContent='x'; cb.style.cssText='position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;'; cb.addEventListener('click', ()=>{ ov.remove(); try{ if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('home'); }catch(e){} }); m.appendChild(cb);
         ov.appendChild(m); document.body.appendChild(ov);
