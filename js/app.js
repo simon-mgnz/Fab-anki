@@ -2390,9 +2390,54 @@
         rightPanel.appendChild(desc);
       }
       
-      // Star rating and progress bar
+      // Clean mastery bar
+      const masterySection = document.createElement('div');
+      masterySection.style.cssText = 'background:var(--card);border-radius:12px;padding:16px;border:1px solid rgba(0,0,0,0.07);margin-bottom:12px;';
+      const masteryLabel = document.createElement('div');
+      masteryLabel.style.cssText = 'font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;font-weight:600;';
+      masteryLabel.textContent = 'Maîtrise';
+      masterySection.appendChild(masteryLabel);
+      const nowCards = counts.now || 0;
+      const masteryPct = reviewed > 0 && total > 0 ? Math.round((1 - nowCards/total)*100) : 0;
+      const masteryBarWrap = document.createElement('div');
+      masteryBarWrap.style.cssText = 'height:8px;background:rgba(0,0,0,0.07);border-radius:4px;overflow:hidden;margin-bottom:8px;';
+      const masteryBarFill = document.createElement('div');
+      const mc = masteryPct > 75 ? '#4caf78' : masteryPct > 50 ? '#5b9bd4' : masteryPct > 25 ? '#d97b3a' : '#e05252';
+      masteryBarFill.style.cssText = `height:100%;width:${masteryPct}%;background:${mc};border-radius:4px;transition:width 0.5s;`;
+      masteryBarWrap.appendChild(masteryBarFill);
+      masterySection.appendChild(masteryBarWrap);
+      const masteryNum = document.createElement('div');
+      masteryNum.style.cssText = `font-size:1.4rem;font-weight:800;color:${mc};`;
+      masteryNum.textContent = masteryPct + '%';
+      masterySection.appendChild(masteryNum);
+      rightPanel.appendChild(masterySection);
+
+      // Stats grid (4 cells)
+      const overviewGrid = document.createElement('div');
+      overviewGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;';
+      const gridItems = [
+        { label:'Total', value:String(total), color:'var(--fg)' },
+        { label:'À revoir', value:String(nowCards), color:'#e05252' },
+        { label:'Révisées', value:String(reviewed), color:'#4caf78' },
+        { label:'Précision', value: reviewed>0 ? Math.round((reviewed-nowCards)/Math.max(reviewed,1)*100)+'%' : 'N/A', color:'var(--accent)' },
+      ];
+      gridItems.forEach(item => {
+        const cell = document.createElement('div');
+        cell.style.cssText = 'background:var(--card);border-radius:10px;padding:12px 14px;border:1px solid rgba(0,0,0,0.07);';
+        const val = document.createElement('div');
+        val.style.cssText = `font-size:1.3rem;font-weight:800;color:${item.color};line-height:1;margin-bottom:3px;`;
+        val.textContent = item.value;
+        const lbl = document.createElement('div');
+        lbl.style.cssText = 'font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;';
+        lbl.textContent = item.label;
+        cell.appendChild(val); cell.appendChild(lbl);
+        overviewGrid.appendChild(cell);
+      });
+      rightPanel.appendChild(overviewGrid);
+
+      // Star rating and progress bar (legacy, kept for reference but hidden)
       const ratingContainer = document.createElement('div');
-      ratingContainer.style.cssText = 'margin-bottom:16px;';
+      ratingContainer.style.cssText = 'margin-bottom:16px;display:none;';
       
       // Calculate accuracy for star rating
       let accuracyForRating = 0;
@@ -2477,36 +2522,14 @@
       ratingContainer.appendChild(progressWrapper);
       rightPanel.appendChild(ratingContainer);
       
-      const stats = document.createElement('div');
-      stats.style.cssText = 'background:linear-gradient(135deg, #1e293b 0%, #334155 100%);color:#fff;padding:16px;border-radius:12px;margin-bottom:16px;font-size:0.9em;line-height:1.8;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
-      
-      // Accuracy calculation
-      let accuracy = 'N/A';
-      if(!fsrsDisabledForStats){
-        let accuracySum = 0, reviewedTotal = 0;
-        for(const c of cardsList){
-          if(c.category === 'now') { accuracySum += 0; reviewedTotal++; }
-          else if(c.category === 'h12') { accuracySum += 5; reviewedTotal++; }
-          else if(c.category === 'tomorrow') { accuracySum += 10; reviewedTotal++; }
-          else if(c.category === 'week') { accuracySum += 15; reviewedTotal++; }
-          else if(c.category === 'long') { accuracySum += 20; reviewedTotal++; }
-        }
-        accuracy = reviewedTotal > 0 ? (accuracySum / reviewedTotal).toFixed(2) : 'N/A';
-      }
-      
-      stats.innerHTML = `
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Cartes rÃ©visÃ©es</span><strong>${reviewed}</strong></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Total</span><strong>${total}</strong></div>
-        <div style="display:flex;justify-content:space-between;"><span>PrÃ©cision</span><strong>${accuracy}</strong></div>
-      `;
-      rightPanel.appendChild(stats);
+      // Dark stats box removed — replaced by overviewGrid above
 
       // Retention slider and FSRS toggle
       const retentionBox = document.createElement('div');
-      retentionBox.style.cssText = 'margin-bottom:16px;padding:12px;border-radius:10px;background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.12);';
+      retentionBox.style.cssText = 'margin-bottom:12px;padding:14px 16px;border-radius:12px;background:var(--card);border:1px solid rgba(155,89,208,0.2);';
       const retentionTitle = document.createElement('div');
-      retentionTitle.style.cssText = 'font-weight:700;margin-bottom:8px;color:#1e293b;';
-      retentionTitle.textContent = 'RÃ©tention ciblÃ©e (FSRS)';
+      retentionTitle.style.cssText = 'font-weight:700;margin-bottom:10px;color:var(--fg);font-size:0.9rem;';
+      retentionTitle.textContent = 'Rétention ciblée (FSRS)';
       retentionBox.appendChild(retentionTitle);
 
       const retentionRow = document.createElement('div');
@@ -2518,7 +2541,7 @@
       slider.min = '50';
       slider.max = '99';
       slider.step = '1';
-      slider.style.cssText = 'flex:1;min-width:200px;';
+      slider.style.cssText = 'flex:1;accent-color:var(--accent);';
       const disableBtn = document.createElement('button');
       disableBtn.className = 'secondary';
       disableBtn.style.cssText = 'min-width:150px;';
@@ -10767,8 +10790,9 @@
         const searchWrap = document.createElement('div');
         searchWrap.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--card);border-radius:9px;border:1px solid rgba(0,0,0,0.08);padding:7px 10px;margin-bottom:12px;';
         const searchIcon = document.createElement('span');
-        searchIcon.textContent = '🔍';
-        searchIcon.style.fontSize = '12px';
+        searchIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+        searchIcon.style.color = 'var(--muted)';
+        searchIcon.style.display = 'flex';
         const searchInput = document.createElement('input');
         searchInput.placeholder = 'Rechercher un deck…';
         searchInput.style.cssText = 'border:none;background:transparent;color:var(--fg);font-size:13px;outline:none;flex:1;';
@@ -10891,7 +10915,7 @@
             row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
             row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
             row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
-            const folderIconDiv = document.createElement('div'); folderIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; folderIconDiv.textContent = '📁'; row.appendChild(folderIconDiv);
+            const folderIconDiv = document.createElement('div'); folderIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:var(--accent);'; folderIconDiv.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>'; row.appendChild(folderIconDiv);
             const nm = document.createElement('div'); 
             const folderName = decodeURIComponent((prefix+folder).replace(/\+/g,' ')).replace(/\/$/,'');
             nm.textContent = folderName;
@@ -10960,7 +10984,7 @@
             row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
             row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
             row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
-            const fileIconDiv = document.createElement('div'); fileIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; fileIconDiv.textContent = '📄'; row.appendChild(fileIconDiv);
+            const fileIconDiv = document.createElement('div'); fileIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);color:var(--muted);'; fileIconDiv.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>'; row.appendChild(fileIconDiv);
             const dec = decodeURIComponent((prefix+file).replace(/\+/g,' '));
             // Extract just the deck name (without parent path) if the full path is too long
             const fullDeckName = dec.replace(/\.xml$/i,'');
@@ -11048,8 +11072,8 @@
             const decoded = (()=>{ try{ return decodeURIComponent(e.replace(/\+/g,' ')) }catch(x){ return e } })();
             const isXml = e.endsWith('.xml');
             const iconDiv = document.createElement('div');
-            if(isXml){ iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; iconDiv.textContent = '📄'; }
-            else { iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; iconDiv.textContent = '📁'; }
+            if(isXml){ iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);color:var(--muted);'; iconDiv.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>'; }
+            else { iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:var(--accent);'; iconDiv.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>'; }
             row.appendChild(iconDiv);
             const name = document.createElement('div'); name.textContent = decoded.replace(/\.xml$/i,'');
             if(isXml){ name.style.cssText = 'flex:1;font-weight:500;font-size:0.9rem;color:var(--fg);'; } else { name.style.cssText = 'flex:1;font-weight:700;font-size:0.92rem;color:var(--fg);'; }
@@ -11505,7 +11529,7 @@
         
         const stats = getProfileStats();
         const clean = fixMojibakeText;
-        const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay page-overlay'; ov.style.display='flex'; ov.style.zIndex='1200';
+        const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay page-overlay'; ov.style.display='flex'; ov.style.zIndex='1200'; ov.style.paddingBottom='64px';
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
         const m = document.createElement('div'); m.className='modal'; m.style.cssText='padding:0;overflow-y:auto;min-width:min(640px,96vw);max-height:90vh;background:var(--bg);border-radius:16px;';
         const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.display='none'; m.appendChild(h);
@@ -11957,12 +11981,12 @@
         const clean = fixMojibakeText;
         const stats = getProfileStats();
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
-        const pseudoNode = ov.querySelector('#profilePseudo'); if(pseudoNode) pseudoNode.textContent = `${t('pseudo')}: ${localStorage.getItem('pseudo') || ''}`;
-        const totalNode = ov.querySelector('.profile-total'); if(totalNode) totalNode.innerHTML = clean(`<strong>\uD83D\uDCDA ${t('totalReviewed')}:</strong> ${stats.totalReviewed}`);
-        const todayNode = ov.querySelector('.profile-today'); if(todayNode) todayNode.innerHTML = clean(`<strong>\uD83D\uDCC5 ${t('todayReviewedFull')}:</strong> ${stats.todayReviewed}`);
-        const xpNode = ov.querySelector('.profile-xp'); if(xpNode) xpNode.innerHTML = clean(`<strong>\u2728 ${t('xpLabel')}:</strong> ${stats.xpTotal}`);
-        const streakNode = ov.querySelector('.profile-streak'); if(streakNode) streakNode.innerHTML = clean(`<strong>\uD83D\uDD25 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`);
-        const mpsiNode = ov.querySelector('.profile-mpsi'); if(mpsiNode) mpsiNode.innerHTML = clean(`<strong>\uD83D\uDCCA ${t('mpsiScoreMonthly')}:</strong> ${getLocalNum('fabanki:score_mpsi_mois')}`);
+        const pseudoNode = ov.querySelector('#profilePseudo'); if(pseudoNode && pseudoNode.style.display !== 'flex') pseudoNode.textContent = localStorage.getItem('pseudo') || '';
+        const totalNode = ov.querySelector('.profile-total'); if(totalNode) totalNode.textContent = String(stats.totalReviewed);
+        const todayNode = ov.querySelector('.profile-today'); if(todayNode) todayNode.textContent = String(stats.todayReviewed);
+        const xpNode = ov.querySelector('.profile-xp'); if(xpNode) xpNode.textContent = String(stats.xpTotal);
+        const streakNode = ov.querySelector('.profile-streak'); if(streakNode) streakNode.textContent = Number(localStorage.getItem('fabanki:streak_current')||0) + ' j';
+        const mpsiNode = ov.querySelector('.profile-mpsi'); if(mpsiNode) mpsiNode.textContent = String(getLocalNum('fabanki:score_mpsi_mois'));
         // Update credit count
         const creditNum = ov.querySelector('.credit-count');
         if(creditNum){
@@ -11993,8 +12017,8 @@
           if(remTxt) remTxt.textContent = `${lvl.progress}/${lvl.need} (${Math.round(lvl.pct||0)}%)`;
         }catch(e){}
         // refresh pseudo display (target the specific element, not the first div)
-        try{ const p0 = ov.querySelector('#profilePseudo'); if(p0) p0.textContent = `${t('pseudo')}: ${localStorage.getItem('pseudo') || ''}` }catch(e){}
-        try{ const s = ov.querySelector('.profile-streak'); if(s) s.innerHTML = clean(`<strong>\uD83D\uDD25 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`) }catch(e){}
+        try{ const p0 = ov.querySelector('#profilePseudo'); if(p0 && p0.style.display !== 'flex') p0.textContent = localStorage.getItem('pseudo') || ''; }catch(e){}
+        try{ const s = ov.querySelector('.profile-streak'); if(s) s.textContent = Number(localStorage.getItem('fabanki:streak_current')||0) + ' j'; }catch(e){}
       }catch(e){}
     }
 
@@ -19660,994 +19684,482 @@
     async function renderWelcomeDecks(){
       try{
         hideBootSplash();
-        // Restore top bar buttons (swap home back to sync)
         try{
           const syncBtn = document.getElementById('syncBtn');
           const homeBtn = document.getElementById('homeBtn');
-          
-          console.log('renderWelcomeDecks - restoring buttons:', {
-            syncBtn: !!syncBtn,
-            homeBtn: !!homeBtn,
-            homeBtnVisible: homeBtn ? homeBtn.style.display : null,
-            homeBtnParent: homeBtn ? !!homeBtn.parentNode : null
-          });
-          
-          // If home button is visible (in DOM and displayed), swap it with sync
           if(homeBtn && syncBtn && homeBtn.style.display !== 'none' && homeBtn.parentNode){
             const parent = homeBtn.parentNode;
-            const homeBtnNextSibling = homeBtn.nextSibling;
+            const next = homeBtn.nextSibling;
             parent.removeChild(homeBtn);
-            parent.insertBefore(syncBtn, homeBtnNextSibling);
-            console.log('Buttons swapped back successfully');
+            parent.insertBefore(syncBtn, next);
           }
-          
-          // Ensure correct visibility
           if(syncBtn) syncBtn.style.display = 'inline-block';
           if(homeBtn) homeBtn.style.display = 'none';
           setReviewTopBarVisibility(false);
-        }catch(e){ console.warn('Button swap error:', e); }
-        
-        // remove any existing welcome first
+        }catch(e){}
+
         await removeWelcome();
         updateStatus(t('welcomeStatus'));
-        // hide existing main/stats but keep DOM so handlers remain
         const mainEl = document.querySelector('main'); if(!mainEl) return;
         mainEl.style.display = 'none';
-        const stats = document.getElementById('stats'); if(stats) stats.style.display='none';
-        const hint = document.getElementById('histHint');
-        const container = document.createElement('div'); container.id = 'welcomeDecks'; container.style.padding = '18px';
-
-        // allow vertical scrolling on welcome page
+        const statsEl = document.getElementById('stats'); if(statsEl) statsEl.style.display = 'none';
         try{ document.body.style.overflowY = 'auto'; }catch(e){}
 
-        // Level summary card (above the decks list)
-        try{
-          // if a hint exists, clone it and place the clone above the level card so it's not overlaying
-          try{
-            if(hint){
-              const clone = hint.cloneNode(true);
-              clone.id = 'histHint_welcome';
-              clone.style.position = 'static';
-              clone.style.top = '';
-              clone.style.left = '';
-              clone.style.right = '';
-              clone.style.zIndex = '';
-              clone.style.marginBottom = '10px';
-              container.appendChild(clone);
-              // hide original to prevent overlap
-              hint.style.display = 'none';
-            }
-          }catch(e){}
-          const lvlStats = computeLevelAndProgress(getXpTotal());
-          const levelCard = document.createElement('div'); levelCard.className = 'card level-summary'; levelCard.style.cssText = 'background:var(--card);border-radius:14px;margin-bottom:12px;padding:16px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 2px 8px rgba(0,0,0,0.04);';
-          const lvlBox = document.createElement('div'); lvlBox.style.cssText='display:grid;grid-template-columns:auto 1fr;align-items:center;gap:14px;padding:14px;border-radius:12px;background:rgba(155,89,208,0.08);border:1px solid rgba(155,89,208,0.12);flex:1;';
-          const circ = 2 * Math.PI * 28;
-          const offset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct))/100));
-          const color = getLevelColor(lvlStats.level);
-          const ringHtml = `<div class="level-ring" style="flex:0 0 64px"><svg viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"28\" stroke=\"#eee\" stroke-width=\"8\" fill=\"none\"></circle><circle class="ring-fill" cx=\"50\" cy=\"50\" r=\"28\" stroke=\"${color}\" stroke-width=\"8\" fill=\"none\" stroke-linecap=\"round\" stroke-dasharray=\"${circ}\" stroke-dashoffset=\"${offset}\"></circle></svg><div class=\"level-num\">${lvlStats.level}</div></div>`;
-          const info = document.createElement('div'); info.style.display='flex'; info.style.flexDirection='column';
-          const t = document.createElement('div'); t.style.fontWeight='700'; t.textContent = `Level ${lvlStats.level}`;
-          const s = document.createElement('div'); s.className='muted small'; s.textContent = `${lvlStats.progress}/${lvlStats.need} XP`;
-          info.appendChild(t); info.appendChild(s);
-          lvlBox.innerHTML = ringHtml; lvlBox.appendChild(info);
-          
-          // Create main content wrapper
-          const levelContent = document.createElement('div'); levelContent.className = 'level-content'; levelContent.style.display='flex'; levelContent.style.gap='12px';
-
-          levelContent.appendChild(lvlBox);
-          
-          // Add streak display
-          const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
-          const streakBox = document.createElement('div'); streakBox.className = 'streak-box';
-          streakBox.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding:10px 14px;background:var(--card);border-radius:10px;gap:2px;border:1px solid rgba(0,0,0,0.07);';
-          const streakFlame = document.createElement('div'); streakFlame.className = 'streak-flame'; streakFlame.textContent = 'ðŸ”¥';
-          const streakLabel = document.createElement('div'); streakLabel.className = 'streak-label'; streakLabel.textContent = 'Streak';
-          const streakNum = document.createElement('div'); streakNum.className = 'streak-count'; streakNum.textContent = streakCount;
-          streakBox.appendChild(streakFlame); streakBox.appendChild(streakLabel); streakBox.appendChild(streakNum);
-          levelContent.appendChild(streakBox);
-          
-          // Add credits box
-          const creditCount = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
-          const creditBox = document.createElement('div'); creditBox.className = 'credit-box';
-          creditBox.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding:10px 14px;background:var(--card);border-radius:10px;gap:2px;border:1px solid rgba(0,0,0,0.07);';
-          const creditCoin = document.createElement('div'); creditCoin.className = 'credit-coin'; creditCoin.textContent = 'ðŸ’°';
-          const creditLabel = document.createElement('div'); creditLabel.className = 'credit-label'; creditLabel.textContent = 'Credits';
-          const creditNum = document.createElement('div'); creditNum.className = 'credit-count'; creditNum.textContent = creditCount;
-          creditBox.appendChild(creditCoin); creditBox.appendChild(creditLabel); creditBox.appendChild(creditNum);
-          levelContent.appendChild(creditBox);
-          
-          // Add daily goal progress bar
-          const dailyGoal = getDailyGoal();
-          const todayReviewed = getTodayReviewedCount();
-          const dailyGoalBox = document.createElement('div'); dailyGoalBox.className = 'daily-goal-box'; dailyGoalBox.style.cssText = 'padding:12px;background:var(--card);border-radius:10px;flex:1;border:1px solid rgba(155,89,208,0.1);';
-          const goalLabel = document.createElement('div'); goalLabel.style.cssText = 'font-size:0.8em;color:var(--muted);font-weight:600;margin-bottom:6px;'; goalLabel.textContent = `Objectif: ${todayReviewed} / ${dailyGoal || '---'} cartes`;
-          dailyGoalBox.appendChild(goalLabel);
-          if(dailyGoal > 0){
-            const barContainer = document.createElement('div'); barContainer.style.cssText = 'width:100%;height:8px;background:rgba(0,0,0,0.08);border-radius:4px;overflow:hidden;';
-            barContainer.className = 'goal-bar-container';
-            const barFill = document.createElement('div'); barFill.style.cssText = `width:${Math.min(100, (todayReviewed/dailyGoal)*100)}%;height:100%;background:linear-gradient(90deg,var(--accent),#c084fc);transition:width 0.3s;`;
-            barContainer.appendChild(barFill);
-            dailyGoalBox.appendChild(barContainer);
-            const pctText = document.createElement('div'); pctText.className = 'goal-pct-text'; pctText.style.cssText = 'font-size:0.75em;color:var(--muted);margin-top:4px;text-align:right;'; pctText.textContent = `${Math.round((todayReviewed/dailyGoal)*100)}%`;
-            dailyGoalBox.appendChild(pctText);
-          } else {
-            const noGoalText = document.createElement('div'); noGoalText.className = 'goal-no-goal-text'; noGoalText.style.cssText = 'font-size:0.8em;color:var(--muted);text-align:center;'; noGoalText.textContent = 'Cliquez sur ðŸŽ¯ pour dÃ©finir un objectif';
-            dailyGoalBox.appendChild(noGoalText);
-          }
-          levelContent.appendChild(dailyGoalBox);
-          
-          levelCard.appendChild(levelContent);
-          container.appendChild(levelCard);
-
-          // Sessions du jour mini-card
-          try{
-            const todayCard = document.createElement('div');
-            todayCard.style.cssText = 'background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:12px;border:1px solid rgba(0,0,0,0.07);display:flex;align-items:center;justify-content:space-between;';
-            const todayLeft = document.createElement('div');
-            const todayReviewedNow = getTodayReviewedCount ? getTodayReviewedCount() : 0;
-            const dailyGoalNow = getDailyGoal ? getDailyGoal() : 0;
-            todayLeft.innerHTML = `<div style="font-size:0.85rem;font-weight:700;color:var(--fg)">Aujourd'hui</div><div style="font-size:0.75rem;color:var(--muted);margin-top:2px">${todayReviewedNow} carte${todayReviewedNow!==1?'s':''} révisée${todayReviewedNow!==1?'s':''} ${dailyGoalNow>0?'/ '+dailyGoalNow+' objectif':''}</div>`;
-            const todayRight = document.createElement('div');
-            todayRight.style.cssText = 'font-size:1.5rem;font-weight:800;color:var(--accent);';
-            todayRight.textContent = todayReviewedNow;
-            todayCard.appendChild(todayLeft); todayCard.appendChild(todayRight);
-            container.appendChild(todayCard);
-          }catch(e){ console.warn('todayCard error', e); }
-
-          // Add welcome quest card AFTER level card, BEFORE Maintenant button
-          try{
-            const welcomeQuestCard = renderWelcomeQuestCard();
-            if(welcomeQuestCard){
-              container.appendChild(welcomeQuestCard);
-            }
-          }catch(e){ console.warn('Welcome quest card error:', e); }
-          
-          // Create button container for Maintenant button - place AFTER level card, BEFORE decks card
-          const buttonContainer = document.createElement('div');
-          buttonContainer.style.cssText = 'display:flex;align-items:center;gap:8px;margin:16px 0;width:100%;';
-
-          const maintenantSelect = document.createElement('select');
-          maintenantSelect.style.cssText = 'padding:10px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:var(--card);color:var(--fg);font-size:0.95em;';
-          const selectOptions = [
-            { label: '10', value: '10' },
-            { label: '25', value: '25' },
-            { label: '50', value: '50' },
-            { label: '100', value: '100' },
-            { label: '200', value: '200' },
-            { label: 'toutes', value: 'all' }
-          ];
-          for(const opt of selectOptions){
-            const o = document.createElement('option');
-            o.value = opt.value; o.textContent = opt.label;
-            if(opt.value === '50') o.selected = true;
-            maintenantSelect.appendChild(o);
-          }
-          
-          // Add Maintenant (now) button for quick review
-          const maintenantBtn = document.createElement('button'); maintenantBtn.className = 'maintenant-btn'; maintenantBtn.textContent = 'ðŸ“š Maintenant';
-          maintenantBtn.style.cssText = 'flex:1;padding:13px;font-size:1.05em;font-weight:700;border-radius:10px;background:linear-gradient(135deg,var(--accent),#c084fc);border:none;color:#fff;box-shadow:0 4px 14px rgba(155,89,208,0.35);letter-spacing:0.01em;';
-          maintenantBtn.addEventListener('click', async ()=>{
-            try{
-              const rawLimit = maintenantSelect.value;
-              const limitCount = (rawLimit === 'all') ? null : Number(rawLimit);
-              console.log('ðŸ” Maintenant button clicked - loading all decks with cards due now');
-              updateStatus('Recherche des cartes Ã  rÃ©viser maintenant...');
-              
-              // Get all deck files
-              let entries = [];
-              try{ entries = await fetchDirectory('./decks/'); console.log('ðŸ“‚ Found', entries.length, 'files in decks folder'); }catch(e){ console.error('âŒ Error fetching directory:', e); entries = []; }
-              const allFiles = (Array.isArray(entries) ? entries : []).filter(e=> typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
-              console.log('ðŸ“„ XML files found:', allFiles.length);
-              
-              // Collect all decks that have cards due now
-              const decksWithDueCards = [];
-              let totalDueCount = 0;
-              
-              updateStatus('Analyse des decks...');
-              for(const f of allFiles){
-                const url = './decks/' + f;
-                const cnt = await countDueNowForDeck(url);
-                if(cnt > 0){
-                  decksWithDueCards.push(url);
-                  totalDueCount += cnt;
-                  console.log('  âœ“', f, 'â†’', cnt, 'cartes Ã  faire');
-                }
-              }
-              
-              console.log('ðŸ“Š Total:', decksWithDueCards.length, 'decks with', totalDueCount, 'cards due now');
-              
-              if(decksWithDueCards.length > 0){
-                console.log('ðŸ“š Loading', decksWithDueCards.length, 'decks for review');
-                updateStatus(`Chargement de ${totalDueCount} cartes...`);
-                
-                // Remove welcome screen and load all decks with due cards
-                await removeWelcome();
-                console.log('ðŸ—‘ï¸ Welcome screen removed');
-                
-                await loadMultipleDeckCards(decksWithDueCards, { onlyNow: true, limitCount: (Number.isFinite(limitCount) ? limitCount : null) });
-                console.log('âœ… Decks loaded, total cards:', multiDeckCards.length);
-                
-                if(typeof showNextCard === 'function'){
-                  console.log('â–¶ï¸ Showing first card');
-                  showNextCard();
-                } else {
-                  console.error('âŒ showNextCard function not available!');
-                  updateStatus('Erreur: fonction showNextCard introuvable');
-                }
-              } else {
-                console.warn('âš ï¸ No cards due now in any deck');
-                updateStatus('Aucune carte Ã  rÃ©viser maintenant ðŸŽ‰');
-              }
-            }catch(e){
-              console.error('âŒ Error loading Maintenant cards:', e);
-              console.error('Stack trace:', e.stack);
-              updateStatus('Erreur: ' + e.message);
-            }
-          });
-          
-          buttonContainer.appendChild(maintenantBtn);
-          buttonContainer.appendChild(maintenantSelect);
-          container.appendChild(buttonContainer);
-        }catch(e){ /* ignore level rendering on welcome if error */ }
-
-        // Create main decks card first (will be appended after level card)
-        const card = document.createElement('div'); card.className='card';
-        const title = document.createElement('h2'); title.textContent = "Decks disponibles"; title.style.margin='6px 0 12px 0'; title.style.color='var(--muted)';
-        card.appendChild(title);
-        const list = document.createElement('div'); list.style.display='flex'; list.style.flexDirection='column'; list.style.gap='8px';
-        // fetch deck list
-        let entries = [];
-        try{ entries = await fetchDirectory('./decks/'); }catch(e){ entries = []; }
-        if(!entries || entries.length===0){ const msg = document.createElement('div'); msg.textContent='Aucun deck trouvÃ©'; card.appendChild(msg); container.appendChild(card); document.body.appendChild(container); return }
-        // normalize to simple file list
-        const allFiles = (Array.isArray(entries) ? entries : []).filter(e=> typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
-        
-        // compute counts for ALL decks first
-        const rows = [];
-        for(const f of allFiles){
-          const url = './decks/' + f;
-          const name = decodeURIComponent(f.replace(/\+/g,'')).replace(/\.xml$/i,'');
-          const cnt = await countDueNowForDeck(url);
-          rows.push({name, url, cnt});
-        }
-        
-        // sort by due count (descending)
-        rows.sort((a,b)=> (b.cnt||0) - (a.cnt||0));
-        
-        // compute limit: desktop -> 10; mobile -> depends on available vertical space
-        function computeWelcomeLimit(){
-          try{
-            const headerHeight = 66; // fixed header
-            const reserved = headerHeight + 160; // approximate space for title and actions
-            const rowH = 64; // estimated per-row height
-            const avail = Math.max(200, window.innerHeight - reserved);
-            const lim = Math.max(3, Math.floor(avail / rowH));
-            return lim;
-          }catch(e){ return 6 }
-        }
-        const limit = computeWelcomeLimit();
-        
-        // take top decks by due count
-        const topRows = rows.slice(0, limit);
-        
-        // show total due count next to title in red
-        try{ const totalDue = rows.reduce((s,x)=> s + (x.cnt||0), 0); title.innerHTML = `Decks disponibles <span style="color:#d9534f;margin-left:8px">(${totalDue} Ã  faire)</span>`; }catch(e){}
-        
-        for(const r of topRows){
-          const row = document.createElement('div'); row.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;transition:background 0.12s;cursor:default;';
-          row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
-          row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
-          const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='12px';
-          const nm = document.createElement('div'); nm.textContent = r.name; nm.style.fontWeight = '600'; nm.style.color = 'var(--fg)';
-          left.appendChild(nm);
-          const act = document.createElement('div'); act.style.display='flex'; act.style.alignItems='center'; act.style.gap='8px';
-          const badge = document.createElement('span'); badge.className='due-badge'; badge.innerHTML = `<div class="due-num">${r.cnt>0? r.cnt : ''}</div><div class="due-label" style="display:${r.cnt>0?'block':'none'}">Ã  faire</div>`;
-          const b = document.createElement('button'); b.className='secondary';
-          b.textContent = (window.innerWidth <= 640) ? 'ðŸ“‚' : 'Charger';
-          b.addEventListener('click', async (e)=>{ await openDeckWithModeSelection(r.url, r.name, e.currentTarget); });
-          // mirror deck-browser layout: badge to the left of the Charger button
-          act.appendChild(badge); act.appendChild(b);
-          row.appendChild(left); row.appendChild(act); list.appendChild(row);
-        }
-        card.appendChild(list);
-        
-        // Append main decks card right after level card
-        container.appendChild(card);
-
-        // Add daily/weekly missions card AFTER Decks disponibles box
-        try{
-          const missionsCard = renderWelcomeMissionsCard();
-          if(missionsCard){
-            container.appendChild(missionsCard);
-          }
-        }catch(e){ console.warn('Welcome missions card error:', e); }
-
-        // Add last recently added deck card (if tagged to display)
-        try{
-          const manifestRes = await fetch('./decks/manifest.json?v=' + Date.now());
-          let manifestData = [];
-          if(manifestRes && manifestRes.ok){
-            manifestData = await manifestRes.json();
-          }
-          
-          // Find all decks with "featured" or "last" tag to display
-          const decksToDisplay = [];
-          for(const item of manifestData){
-            const itemPath = typeof item === 'string' ? item : item.path;
-            const itemTags = typeof item === 'string' ? [] : (item.tags || []);
-            if(itemTags.includes('featured') || itemTags.includes('last')){
-              decksToDisplay.push(itemPath);
-            }
-          }
-          
-          if(decksToDisplay.length > 0){
-            const lastCard = document.createElement('div');
-            lastCard.className = 'card';
-            lastCard.id = 'featuredDeckCard';
-            lastCard.style.marginBottom = '12px';
-            lastCard.style.padding = '16px';
-            lastCard.style.display = 'flex';
-            lastCard.style.flexDirection = 'column';
-            lastCard.style.height = 'auto';
-            
-            const lastTitle = document.createElement('h2');
-            lastTitle.textContent = 'âœ¨ Nouveaux decks ajoutÃ©s';
-            lastTitle.style.margin = '6px 0 12px 0';
-            lastTitle.style.color = 'var(--muted)';
-            lastCard.appendChild(lastTitle);
-            
-            // Create a responsive container for all decks with "last" tag
-            const decksContainer = document.createElement('div');
-            decksContainer.style.display = 'grid';
-            // Responsive grid: at least 250px per deck, but adapt to number of decks
-            const deckWidth = Math.max(240, Math.floor((window.innerWidth - 48) / Math.min(3, decksToDisplay.length)));
-            decksContainer.style.gridTemplateColumns = `repeat(auto-fit, minmax(${deckWidth}px, 1fr))`;
-            decksContainer.style.gap = '12px';
-            
-            // Add each deck to the container
-            for(const deckToDisplay of decksToDisplay){
-              const lastDeckFile = deckToDisplay;
-              const lastDeckName = decodeURIComponent(lastDeckFile.replace(/\+/g,'')).replace(/\.xml$/i,'');
-              const lastDeckUrl = './decks/' + lastDeckFile;
-              const lastDeckCount = await countDueNowForDeck(lastDeckUrl);
-              
-              const deckRow = document.createElement('div');
-              deckRow.style.display = 'flex';
-              deckRow.style.justifyContent = 'space-between';
-              deckRow.style.alignItems = 'center';
-              deckRow.style.gap = '8px';
-              deckRow.style.padding = '12px';
-              deckRow.style.background = 'rgba(155, 89, 208, 0.04)';
-              deckRow.style.borderRadius = '8px';
-              deckRow.style.border = '1px solid rgba(155, 89, 208, 0.1)';
-              
-              const deckLeft = document.createElement('div');
-              deckLeft.style.display = 'flex';
-              deckLeft.style.alignItems = 'center';
-              deckLeft.style.gap = '8px';
-              deckLeft.style.flex = '1';
-              deckLeft.style.minWidth = '0';
-              
-              const deckNm = document.createElement('div');
-              deckNm.textContent = lastDeckName;
-              deckNm.style.fontWeight = '600';
-              deckNm.style.fontSize = '0.95rem';
-              deckNm.style.overflow = 'hidden';
-              deckNm.style.textOverflow = 'ellipsis';
-              deckNm.style.whiteSpace = 'nowrap';
-              deckLeft.appendChild(deckNm);
-              
-              const deckAct = document.createElement('div');
-              deckAct.style.display = 'flex';
-              deckAct.style.alignItems = 'center';
-              deckAct.style.gap = '6px';
-              deckAct.style.flexShrink = '0';
-              
-              const deckBadge = document.createElement('span');
-              deckBadge.className = 'due-badge';
-              deckBadge.innerHTML = `<div class="due-num">${lastDeckCount>0? lastDeckCount : ''}</div><div class="due-label" style="display:${lastDeckCount>0?'block':'none'}">Ã  faire</div>`;
-              
-              const deckBtn = document.createElement('button');
-              deckBtn.className = 'secondary';
-              deckBtn.textContent = (window.innerWidth <= 640) ? 'ðŸ“‚' : 'Charger';
-              deckBtn.style.fontSize = '0.9rem';
-              deckBtn.style.padding = '6px 10px';
-              deckBtn.addEventListener('click', async (e)=>{ await openDeckWithModeSelection(lastDeckUrl, lastDeckName, e.currentTarget); });
-              
-              deckAct.appendChild(deckBadge);
-              deckAct.appendChild(deckBtn);
-              deckRow.appendChild(deckLeft);
-              deckRow.appendChild(deckAct);
-              decksContainer.appendChild(deckRow);
-            }
-            
-            lastCard.appendChild(decksContainer);
-            container.appendChild(lastCard);
-          }
-        }catch(e){ console.warn('featured deck card error:', e) }
-        
-        // Helper function to update chart when stat is clicked
-        const updateChartForStat = (statId) => {
-          window.__currentStatFilter = statId;
-          // Redraw chart based on selected stat
-          if(typeof window.__redrawChart === 'function'){
-            window.__redrawChart();
-          }
+        // ── helpers ──────────────────────────────────────────────────────────
+        const CARD = 'background:var(--card);border-radius:16px;padding:20px;border:1px solid rgba(0,0,0,0.07);margin-bottom:14px;';
+        const mkCard = () => { const d = document.createElement('div'); d.style.cssText = CARD; return d; };
+        const mkSecTitle = (txt) => {
+          const d = document.createElement('div');
+          d.style.cssText = 'font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:14px;';
+          d.textContent = txt; return d;
         };
-        
-        // === COMPREHENSIVE STATS CARD WITH BLUR/UNLOCK SYSTEM ===
-        try{
-          const statsCard = document.createElement('div');
-          statsCard.className = 'card stats-card';
-          statsCard.style.cssText = 'margin-top:16px;';
-          
-          const statsTitle = document.createElement('h2');
-          statsTitle.textContent = 'Statistiques';
-          statsTitle.style.margin = '6px 0 16px 0';
-          statsTitle.style.color = 'var(--muted)';
-          statsCard.appendChild(statsTitle);
-          
-          // Helper to check if a stat is unlocked
-          const unlockedStats = JSON.parse(localStorage.getItem('fabanki:unlocked_stats') || '[]');
-          const isUnlocked = (statId) => unlockedStats.includes(statId);
-          const unlockStat = (statId, cost) => {
-            const credits = Number(localStorage.getItem('fabanki:credits') || 0);
-            if(credits < cost){
-              alert(`Pas assez de crÃ©dits! Il vous faut ${cost} crÃ©dits.`);
-              return false;
+
+        const container = document.createElement('div');
+        container.id = 'welcomeDecks';
+        container.style.cssText = 'padding:16px;max-width:860px;margin:0 auto;';
+
+        // ── PAGE TITLE ────────────────────────────────────────────────────────
+        const pageTitle = document.createElement('div');
+        pageTitle.style.cssText = 'font-size:1.5rem;font-weight:800;color:var(--fg);margin-bottom:16px;padding:0 2px;';
+        pageTitle.textContent = 'Accueil';
+        container.appendChild(pageTitle);
+
+        // ── 1. HERO CARD ──────────────────────────────────────────────────────
+        const heroCard = mkCard();
+
+        const lvlStats = computeLevelAndProgress(getXpTotal());
+        const circ = 2 * Math.PI * 28;
+        const ringOffset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct)) / 100));
+        const ringColor = getLevelColor(lvlStats.level);
+
+        // Top row: ring + level info
+        const heroTop = document.createElement('div');
+        heroTop.style.cssText = 'display:flex;align-items:center;gap:16px;margin-bottom:16px;';
+
+        const ringWrap = document.createElement('div');
+        ringWrap.style.cssText = 'position:relative;width:72px;height:72px;flex-shrink:0;';
+        ringWrap.innerHTML = `<svg width="72" height="72" viewBox="0 0 100 100"><circle cx="50" cy="50" r="28" stroke="rgba(0,0,0,0.07)" stroke-width="8" fill="none"/><circle cx="50" cy="50" r="28" stroke="${ringColor}" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${ringOffset}" transform="rotate(-90 50 50)"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:800;color:var(--fg);">${lvlStats.level}</div>`;
+
+        const levelInfo = document.createElement('div');
+        levelInfo.style.flex = '1';
+        const levelName = document.createElement('div');
+        levelName.style.cssText = 'font-size:1.1rem;font-weight:800;color:var(--fg);margin-bottom:4px;';
+        levelName.textContent = 'Niveau ' + lvlStats.level;
+        const xpText = document.createElement('div');
+        xpText.style.cssText = 'font-size:0.78rem;color:var(--muted);margin-bottom:8px;';
+        xpText.textContent = lvlStats.progress + ' / ' + lvlStats.need + ' XP';
+        const xpBarWrap = document.createElement('div');
+        xpBarWrap.style.cssText = 'width:100%;height:6px;background:rgba(0,0,0,0.07);border-radius:3px;overflow:hidden;';
+        const xpBarFill = document.createElement('div');
+        xpBarFill.style.cssText = 'width:' + Math.min(100, lvlStats.pct) + '%;height:100%;background:linear-gradient(90deg,' + ringColor + ',' + ringColor + 'cc);border-radius:3px;';
+        xpBarWrap.appendChild(xpBarFill);
+        levelInfo.appendChild(levelName);
+        levelInfo.appendChild(xpText);
+        levelInfo.appendChild(xpBarWrap);
+        heroTop.appendChild(ringWrap);
+        heroTop.appendChild(levelInfo);
+        heroCard.appendChild(heroTop);
+
+        // Stat pills: Credits · Streak · Daily goal
+        const pillsRow = document.createElement('div');
+        pillsRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;';
+
+        const creditCount = typeof getCredits === 'function' ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+        const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
+        const dailyGoal = getDailyGoal();
+        const todayCount = getTodayReviewedCount();
+
+        const mkPill = (iconSvg, value, label, hex) => {
+          const p = document.createElement('div');
+          p.style.cssText = 'background:' + hex + '14;border:1px solid ' + hex + '22;border-radius:12px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;';
+          p.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + hex + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + iconSvg + '</svg>';
+          const v = document.createElement('div');
+          v.style.cssText = 'font-size:1.1rem;font-weight:800;color:var(--fg);line-height:1;';
+          v.textContent = String(value);
+          const l = document.createElement('div');
+          l.style.cssText = 'font-size:0.66rem;color:var(--muted);font-weight:500;text-align:center;';
+          l.textContent = label;
+          p.appendChild(v); p.appendChild(l); return p;
+        };
+
+        const coinSvg = '<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="9" y1="11" x2="15" y2="11"/>';
+        const flameSvg = '<path d="M12 2s-4 4-4 8a4 4 0 0 0 8 0c0-1.5-.5-3-2-4 0 2-1 3-2 3s-2-1.5-2-3c0-1.5 1-3 1-4z"/>';
+        const targetSvg = '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>';
+
+        const goalPct = dailyGoal > 0 ? Math.min(100, Math.round((todayCount / dailyGoal) * 100)) : null;
+        pillsRow.appendChild(mkPill(coinSvg, creditCount, 'Crédits', '#c9a227'));
+        pillsRow.appendChild(mkPill(flameSvg, streakCount + ' j', 'Série', '#e05252'));
+        pillsRow.appendChild(mkPill(targetSvg, goalPct !== null ? goalPct + '%' : '—', 'Objectif', '#4caf78'));
+        heroCard.appendChild(pillsRow);
+
+        // Daily goal bar
+        if(dailyGoal > 0){
+          const goalRow = document.createElement('div');
+          goalRow.style.cssText = 'margin-bottom:14px;';
+          const goalLbl = document.createElement('div');
+          goalLbl.style.cssText = 'font-size:0.76rem;color:var(--muted);font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between;';
+          goalLbl.innerHTML = '<span>Objectif du jour</span><span>' + todayCount + ' / ' + dailyGoal + ' cartes</span>';
+          const goalBarWrap = document.createElement('div');
+          goalBarWrap.style.cssText = 'width:100%;height:8px;background:rgba(0,0,0,0.07);border-radius:4px;overflow:hidden;';
+          const goalBarFill = document.createElement('div');
+          goalBarFill.style.cssText = 'width:' + Math.min(100, (todayCount / dailyGoal) * 100) + '%;height:100%;background:linear-gradient(90deg,var(--accent),#c084fc);border-radius:4px;transition:width 0.3s;';
+          goalBarWrap.appendChild(goalBarFill);
+          goalRow.appendChild(goalLbl);
+          goalRow.appendChild(goalBarWrap);
+          heroCard.appendChild(goalRow);
+        }
+
+        // Maintenant button + limit select
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:8px;';
+        const limitSelect = document.createElement('select');
+        limitSelect.style.cssText = 'padding:10px 12px;border-radius:10px;border:1px solid rgba(0,0,0,0.1);background:var(--bg);color:var(--fg);font-size:0.9rem;cursor:pointer;';
+        for(const [lbl, val] of [['10','10'],['25','25'],['50','50'],['100','100'],['200','200'],['Tout','all']]){
+          const o = document.createElement('option'); o.value = val; o.textContent = lbl;
+          if(val === '50') o.selected = true;
+          limitSelect.appendChild(o);
+        }
+        const maintenantBtn = document.createElement('button');
+        maintenantBtn.style.cssText = 'flex:1;padding:12px;font-size:1rem;font-weight:700;border-radius:10px;background:linear-gradient(135deg,var(--accent),#c084fc);border:none;color:#fff;cursor:pointer;box-shadow:0 4px 14px rgba(155,89,208,0.3);';
+        maintenantBtn.textContent = 'Réviser maintenant';
+        maintenantBtn.addEventListener('click', async () => {
+          try{
+            const rawLimit = limitSelect.value;
+            const limitCount = rawLimit === 'all' ? null : Number(rawLimit);
+            updateStatus('Recherche des cartes à réviser...');
+            let entries = [];
+            try{ entries = await fetchDirectory('./decks/'); }catch(e){ entries = []; }
+            const xmlFiles = (Array.isArray(entries) ? entries : []).filter(e => typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
+            const decksWithDue = [];
+            for(const f of xmlFiles){
+              const url = './decks/' + f;
+              const cnt = await countDueNowForDeck(url);
+              if(cnt > 0) decksWithDue.push(url);
             }
-            const confirmed = confirm(`DÃ©bloquer cette statistique pour ${cost} crÃ©dits?`);
-            if(!confirmed) return false;
-            
-            localStorage.setItem('fabanki:credits', String(credits - cost));
-            unlockedStats.push(statId);
-            localStorage.setItem('fabanki:unlocked_stats', JSON.stringify(unlockedStats));
-            return true;
-          };
-          
-          // Calculate comprehensive stats
-          const now = new Date();
-          const oneWeekAgo = new Date(now - 7*24*60*60*1000);
-          const oneMonthAgo = new Date(now - 30*24*60*60*1000);
-          
-          const stats = {
-            forever: {reviewed: 0, newCards: 0, dailyData: []},
-            week: {reviewed: 0, newCards: 0, dailyData: []},
-            month: {reviewed: 0, newCards: 0, dailyData: []}
-          };
-          
-          // Initialize daily data arrays with multiple metrics
-          for(let i = 6; i >= 0; i--){
-            const d = new Date(now);
-            d.setDate(d.getDate() - i);
-            d.setHours(0, 0, 0, 0);
-            stats.week.dailyData.push({date: d, reviewed: 0, newCards: 0, correct: 0, total: 0, timeSpent: 0});
-          }
-          for(let i = 29; i >= 0; i--){
-            const d = new Date(now);
-            d.setDate(d.getDate() - i);
-            d.setHours(0, 0, 0, 0);
-            stats.month.dailyData.push({date: d, reviewed: 0, newCards: 0, correct: 0, total: 0, timeSpent: 0});
-          }
-          
-          // Scan all card data from localStorage
-          const allKeys = Object.keys(localStorage);
-          for(const key of allKeys){
+            if(decksWithDue.length > 0){
+              await removeWelcome();
+              await loadMultipleDeckCards(decksWithDue, { onlyNow: true, limitCount: Number.isFinite(limitCount) ? limitCount : null });
+              if(typeof showNextCard === 'function') showNextCard();
+            } else {
+              updateStatus('Aucune carte à réviser maintenant 🎉');
+            }
+          }catch(e){ updateStatus('Erreur: ' + e.message); }
+        });
+        btnRow.appendChild(maintenantBtn);
+        btnRow.appendChild(limitSelect);
+        heroCard.appendChild(btnRow);
+        container.appendChild(heroCard);
+
+        // ── 2. TWO-COLUMN: Quick Stats + Quest ───────────────────────────────
+        const twoCol = document.createElement('div');
+        twoCol.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:14px;';
+
+        // ── 2a. Quick Stats Card ──────────────────────────────────────────────
+        const statsCard = mkCard();
+        statsCard.style.margin = '0';
+        statsCard.appendChild(mkSecTitle('Statistiques rapides'));
+
+        const totalReviewed = typeof getTotalReviewedCount === 'function' ? getTotalReviewedCount() : 0;
+        const xpTotal = getXpTotal();
+        let masteredCards = 0; let totalCardCount = 0; let correctCards = 0;
+        try{
+          for(const key of Object.keys(localStorage)){
             if(!key.includes(':card:')) continue;
             try{
-              const data = JSON.parse(localStorage.getItem(key) || '{}');
-              if(!data || !data.last) continue;
-              
-              const lastReview = new Date(data.last);
-              const lastReviewDate = new Date(lastReview);
-              lastReviewDate.setHours(0, 0, 0, 0);
-              
-              const reps = data.reps || 0;
-              const interval = data.interval || 0;
-              
-              // Count for forever
-              stats.forever.reviewed++;
-              if(reps === 1) stats.forever.newCards++;
-              
-              // Count for week
-              if(lastReview >= oneWeekAgo){
-                stats.week.reviewed++;
-                if(reps === 1) stats.week.newCards++;
-                // Add to daily data
-                const weekDay = stats.week.dailyData.find(d => {
-                  const dDate = new Date(d.date);
-                  return dDate.getTime() === lastReviewDate.getTime();
-                });
-                if(weekDay){
-                  weekDay.reviewed++;
-                  if(reps === 1) weekDay.newCards++;
-                  // Card with interval > 0 means user rated it positively (correct)
-                  if(interval > 0) weekDay.correct++;
-                  weekDay.total++;
-                  weekDay.timeSpent += Math.random() * 120 + 30; // Random time 30-150 seconds for demo
-                }
-              }
-              
-              // Count for month
-              if(lastReview >= oneMonthAgo){
-                stats.month.reviewed++;
-                if(reps === 1) stats.month.newCards++;
-                // Add to daily data
-                const monthDay = stats.month.dailyData.find(d => {
-                  const dDate = new Date(d.date);
-                  return dDate.getTime() === lastReviewDate.getTime();
-                });
-                if(monthDay){
-                  monthDay.reviewed++;
-                  if(reps === 1) monthDay.newCards++;
-                  if(interval > 0) monthDay.correct++;
-                  monthDay.total++;
-                  monthDay.timeSpent += Math.random() * 120 + 30;
-                }
-              }
-            }catch(e){ continue; }
+              const d = JSON.parse(localStorage.getItem(key) || '{}');
+              if(!d || !d.last) continue;
+              totalCardCount++;
+              if((d.interval || 0) >= 21) masteredCards++;
+              if((d.interval || 0) > 0) correctCards++;
+            }catch(ex){}
           }
+        }catch(ex){}
+        const masteryPct = totalCardCount > 0 ? Math.round((masteredCards / totalCardCount) * 100) : 0;
+        const accuracyPct = totalCardCount > 0 ? Math.round((correctCards / totalCardCount) * 100) : 0;
 
-          try{
-            const totalReviewedEver = getTotalReviewedCount();
-            if(totalReviewedEver > 0){
-              stats.forever.reviewed = totalReviewedEver;
-            }
-          }catch(e){}
-          
-          // Create tabs for time periods
-          const tabContainer = document.createElement('div');
-          tabContainer.style.cssText = 'display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--border, #ddd);';
-          
-          const tabs = ['week', 'month', 'forever'];
-          const tabLabels = {week: 'Semaine', month: 'Mois', forever: 'Total'};
-          let activeTab = 'week';
-          
-          const tabButtons = {};
-          for(const tab of tabs){
-            const btn = document.createElement('button');
-            btn.textContent = tabLabels[tab];
-            btn.className = 'secondary';
-            btn.style.cssText = 'flex:1;padding:8px;border:none;background:transparent;cursor:pointer;font-weight:500;color:var(--muted);transition:all 0.2s;';
-            btn.addEventListener('click', () => {
-              activeTab = tab;
-              Object.values(tabButtons).forEach(b => {
-                b.style.borderBottom = 'none';
-                b.style.color = 'var(--muted)';
-              });
-              btn.style.borderBottom = '3px solid var(--accent, #667eea)';
-              btn.style.color = 'var(--fg)';
-              renderStatsContent();
-            });
-            tabButtons[tab] = btn;
-            tabContainer.appendChild(btn);
-          }
-          
-          tabButtons[activeTab].style.borderBottom = '3px solid var(--accent, #667eea)';
-          tabButtons[activeTab].style.color = 'var(--fg)';
-          
-          statsCard.appendChild(tabContainer);
-          
-          const statsContent = document.createElement('div');
-          statsContent.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;';
-          
-          const renderStatsContent = () => {
-            statsContent.innerHTML = '';
-            const currentStats = stats[activeTab];
-            
-            // Calculate total time and average based on actual data
-            let totalCorrect = 0;
-            let totalReviews = 0;
-            let totalTimeSeconds = 0;
-            let longTermCards = 0; // Cards with interval > 7 days for retention
-            
-            if(activeTab === 'forever'){
-              // For forever tab, scan all cards directly since dailyData is empty
-              const allKeys = Object.keys(localStorage);
-              for(const key of allKeys){
-                if(!key.includes(':card:')) continue;
-                try{
-                  const data = JSON.parse(localStorage.getItem(key) || '{}');
-                  if(!data || !data.last) continue;
-                  
-                  const interval = data.interval || 0;
-                  const reps = data.reps || 0;
-                  
-                  totalReviews++;
-                  if(interval > 0) totalCorrect++;
-                  if(interval > 7) longTermCards++;
-                  // Estimate time: average 60 seconds per card reviewed
-                  totalTimeSeconds += 60;
-                }catch(e){ continue; }
-              }
-            } else {
-              // For week/month tabs, use dailyData
-              for(const day of stats[activeTab].dailyData){
-                totalCorrect += day.correct || 0;
-                totalReviews += day.total || 0;
-                totalTimeSeconds += day.timeSpent || 0;
-                // Count long-term cards in daily data
-                // Note: dailyData doesn't track interval, so we'll calculate from localStorage for consistency
-              }
-              
-              // Calculate long-term cards from localStorage for the current period
-              const allKeys = Object.keys(localStorage);
-              const now = new Date();
-              const cutoffDate = activeTab === 'week' ? new Date(now - 7*24*60*60*1000) : new Date(now - 30*24*60*60*1000);
-              
-              for(const key of allKeys){
-                if(!key.includes(':card:')) continue;
-                try{
-                  const data = JSON.parse(localStorage.getItem(key) || '{}');
-                  if(!data || !data.last) continue;
-                  
-                  const lastReview = new Date(data.last);
-                  if(lastReview >= cutoffDate){
-                    const interval = data.interval || 0;
-                    if(interval > 7) longTermCards++;
-                  }
-                }catch(e){ continue; }
-              }
-            }
-            
-            const accuracy = totalReviews > 0 ? Math.round((totalCorrect / totalReviews) * 100) : null;
-            const retention = totalReviews > 0 ? Math.round((longTermCards / totalReviews) * 100) : null;
-            const avgTimeSeconds = totalReviews > 0 ? Math.round(totalTimeSeconds / totalReviews) : 0;
-            const avgTimeMinutes = (avgTimeSeconds / 60).toFixed(1);
-            
-            const totalHours = Math.floor(totalTimeSeconds / 3600);
-            const totalMinutes = Math.round((totalTimeSeconds % 3600) / 60);
-            const timeSpentDisplay = totalHours > 0 ? `${totalHours}h ${totalMinutes}min` : `${totalMinutes}min`;
-            
-            // Create stat boxes with blur/unlock system
-            const statBoxes = [
-              {id: 'reviewed', label: 'Cartes rÃ©visÃ©es', value: currentStats.reviewed, icon: 'ðŸ“š', cost: 0, unlocked: true, description: 'Nombre total de cartes rÃ©visÃ©es'},
-              {id: 'newCards', label: 'Nouvelles cartes', value: currentStats.newCards, icon: 'âœ¨', cost: 50, unlocked: isUnlocked('newCards'), description: 'Nombre de cartes vues pour la premiÃ¨re fois'},
-              {id: 'accuracy', label: 'PrÃ©cision', value: accuracy !== null ? `${accuracy}%` : 'N/A', icon: 'ðŸŽ¯', cost: 75, unlocked: isUnlocked('accuracy'), description: 'Pourcentage de rÃ©ponses correctes'},
-              {id: 'timeSpent', label: 'Temps passÃ©', value: timeSpentDisplay, icon: 'â±ï¸', cost: 100, unlocked: isUnlocked('timeSpent'), description: 'Temps total consacrÃ© aux rÃ©visions'},
-              {id: 'avgTime', label: 'Temps moyen', value: `${avgTimeMinutes}min`, icon: 'â³', cost: 125, unlocked: isUnlocked('avgTime'), description: 'Temps moyen par carte'},
-              {id: 'retention', label: 'RÃ©tention', value: retention !== null ? `${retention}%` : 'N/A', icon: 'ðŸ§ ', cost: 150, unlocked: isUnlocked('retention'), description: 'Taux de cartes bien mÃ©morisÃ©es'}
-            ];
-            
-            for(const statBox of statBoxes){
-              const box = document.createElement('div');
-              box.style.cssText = `
-                background:linear-gradient(135deg, var(--accent) 0%, #c084fc 100%);
-                color:white;
-                padding:16px;
-                border-radius:12px;
-                position:relative;
-                overflow:${statBox.unlocked ? 'visible' : 'hidden'};
-                cursor:pointer;
-                transition:transform 0.2s, box-shadow 0.2s;
-              `;
-              
-              const contentWrapper = document.createElement('div');
-              
-              const iconDiv = document.createElement('div');
-              iconDiv.textContent = statBox.icon;
-              iconDiv.style.cssText = 'font-size:2em;margin-bottom:8px;';
-              contentWrapper.appendChild(iconDiv);
-              
-              const valueDiv = document.createElement('div');
-              valueDiv.textContent = statBox.value;
-              valueDiv.style.cssText = 'font-size:1.8em;font-weight:bold;margin-bottom:4px;';
-              contentWrapper.appendChild(valueDiv);
-              
-              const labelDiv = document.createElement('div');
-              labelDiv.textContent = statBox.label;
-              labelDiv.style.cssText = 'font-size:0.85em;opacity:0.9;margin-bottom:4px;';
-              contentWrapper.appendChild(labelDiv);
-              
-              const descDiv = document.createElement('div');
-              descDiv.textContent = statBox.description;
-              descDiv.style.cssText = 'font-size:0.75em;opacity:0.7;line-height:1.3;';
-              contentWrapper.appendChild(descDiv);
-              
-              if(statBox.unlocked){
-                box.appendChild(contentWrapper);
-                // Add click handler to filter chart
-                box.addEventListener('click', () => {
-                  updateChartForStat(statBox.id);
-                  // Highlight the selected stat box
-                  document.querySelectorAll('.stats-box').forEach(b => b.style.opacity = '0.7');
-                  box.style.opacity = '1';
-                });
-                box.classList.add('stats-box');
-                box.addEventListener('mouseenter', () => box.style.boxShadow = '0 0 20px rgba(255,255,255,0.3)');
-                box.addEventListener('mouseleave', () => box.style.boxShadow = '');
-              } else {
-                // Apply blur only to content, not the cost overlay
-                contentWrapper.style.filter = 'blur(8px)';
-                contentWrapper.style.pointerEvents = 'none';
-                box.appendChild(contentWrapper);
-                box.classList.add('stats-box');
-                
-                // Add clickable cost overlay below the blur
-                const costOverlay = document.createElement('div');
-                costOverlay.style.cssText = `
-                  position:absolute;
-                  top:0;
-                  left:0;
-                  right:0;
-                  bottom:0;
-                  display:flex;
-                  align-items:center;
-                  justify-content:center;
-                  background:rgba(0,0,0,0);
-                  cursor:pointer;
-                `;
-                costOverlay.addEventListener('mouseenter', () => box.style.transform = 'scale(1.05)');
-                costOverlay.addEventListener('mouseleave', () => box.style.transform = 'scale(1)');
-                costOverlay.addEventListener('click', () => {
-                  if(unlockStat(statBox.id, statBox.cost)){
-                    renderStatsContent();
-                  }
-                });
-                
-                const costText = document.createElement('div');
-                costText.style.cssText = 'background:rgba(0,0,0,0.8);color:white;padding:12px 20px;border-radius:8px;font-weight:bold;font-size:1.1em;text-align:center;';
-                costText.innerHTML = `ðŸ”’<br>${statBox.cost} crÃ©dits`;
-                costOverlay.appendChild(costText);
-                
-                box.appendChild(costOverlay);
-              }
-              
-              statsContent.appendChild(box);
-            }
-            
-            // Add interactive chart (if week or month)
-            if(activeTab !== 'forever'){
-              const chartBox = document.createElement('div');
-              chartBox.style.cssText = 'grid-column:1/-1;background:var(--card);padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);position:relative;';
-              chartBox.className = 'stats-chart';
-              
-              const chartTitle = document.createElement('h3');
-              chartTitle.textContent = 'Progression quotidienne';
-              chartTitle.style.margin = '0 0 16px 0';
-              chartBox.appendChild(chartTitle);
-              
-              const tooltipDiv = document.createElement('div');
-              tooltipDiv.style.cssText = 'position:fixed;background:rgba(0,0,0,0.9);color:white;padding:8px 12px;border-radius:6px;font-size:0.85em;pointer-events:none;display:none;z-index:1000;white-space:nowrap;';
-              document.body.appendChild(tooltipDiv);
-              
-              const canvas = document.createElement('canvas');
-              canvas.height = 200;
-              canvas.style.cursor = 'crosshair';
-              chartBox.appendChild(canvas);
-              
-              const redrawChart = () => {
-                setTimeout(() => {
-                  const drawCanvas = chartBox.querySelector('canvas') || canvas;
-                  const ctx = drawCanvas.getContext('2d');
-                  const days = activeTab === 'week' ? 7 : 30;
-                  const width = drawCanvas.width = chartBox.clientWidth - 40;
-                  const height = 200;
-                  
-                  // Clear canvas
-                  ctx.clearRect(0, 0, width, height);
-                  
-                  const padding = 40;
-                  const graphWidth = width - padding * 2;
-                  const graphHeight = height - padding * 2;
-                  const pointSpacing = graphWidth / (days - 1 || 1);
-                  
-                  let dayData = stats[activeTab].dailyData;
-                  let dataKey = 'reviewed'; // default
-                  let maxValue = 0;
-                  let yAxisLabel = 'Cartes';
-                  
-                  // Determine which metric to display based on selected stat
-                  if(window.__currentStatFilter === 'newCards'){
-                    dataKey = 'newCards';
-                    yAxisLabel = 'Nouvelles';
-                  } else if(window.__currentStatFilter === 'accuracy'){
-                    dataKey = 'accuracy'; // calculated field
-                    yAxisLabel = 'PrÃ©cision %';
-                  } else if(window.__currentStatFilter === 'timeSpent'){
-                    dataKey = 'timeSpent';
-                    yAxisLabel = 'Temps (min)';
-                  } else if(window.__currentStatFilter === 'avgTime'){
-                    dataKey = 'avgTime'; // calculated field
-                    yAxisLabel = 'Moy (sec)';
-                  } else if(window.__currentStatFilter === 'retention'){
-                    dataKey = 'retention'; // calculated field
-                    yAxisLabel = 'RÃ©tention %';
-                  } else {
-                    dataKey = 'reviewed';
-                    yAxisLabel = 'Cartes';
-                  }
-                  
-                  // Calculate values based on dataKey
-                  const points = [];
-                  for(let i = 0; i < days; i++){
-                    const day = dayData[i];
-                    let value = 0;
-                    
-                    if(dataKey === 'reviewed'){
-                      value = day.reviewed || 0;
-                    } else if(dataKey === 'newCards'){
-                      value = day.newCards || 0;
-                    } else if(dataKey === 'accuracy'){
-                      value = day.total > 0 ? Math.round((day.correct / day.total) * 100) : 0;
-                    } else if(dataKey === 'timeSpent'){
-                      value = Math.round((day.timeSpent || 0) / 60); // convert to minutes
-                    } else if(dataKey === 'avgTime'){
-                      value = day.total > 0 ? Math.round((day.timeSpent || 0) / day.total) : 0; // seconds
-                    } else if(dataKey === 'retention'){
-                      value = day.total > 0 ? Math.round((day.correct / day.total) * 100) : 0;
-                    }
-                    
-                    maxValue = Math.max(maxValue, value);
-                    
-                    const x = padding + (i * pointSpacing);
-                    const y = height - padding; // placeholder, will calculate below
-                    points.push({x, y, value, day: i, date: day.date});
-                  }
-                  
-                  // Calculate Y scale
-                  const yMax = Math.max(maxValue + 2, 5);
-                  for(let i = 0; i < points.length; i++){
-                    const pt = points[i];
-                    pt.y = height - padding - (pt.value / yMax) * graphHeight;
-                  }
-                  
-                  // Draw background gradient
-                  const bgGradient = ctx.createLinearGradient(0, padding, 0, height - padding);
-                  bgGradient.addColorStop(0, 'rgba(155, 89, 208, 0.3)');
-                  bgGradient.addColorStop(1, 'rgba(155, 89, 208, 0)');
-                  
-                  // Draw grid lines
-                  ctx.strokeStyle = 'rgba(200, 200, 200, 0.2)';
-                  ctx.lineWidth = 1;
-                  for(let i = 0; i <= 5; i++){
-                    const y = padding + (graphHeight / 5) * i;
-                    ctx.beginPath();
-                    ctx.moveTo(padding, y);
-                    ctx.lineTo(width - padding, y);
-                    ctx.stroke();
-                  }
-                  
-                  // Draw filled area under line
-                  ctx.fillStyle = bgGradient;
-                  ctx.beginPath();
-                  ctx.moveTo(points[0].x, points[0].y);
-                  for(let i = 1; i < points.length; i++){
-                    ctx.lineTo(points[i].x, points[i].y);
-                  }
-                  ctx.lineTo(points[points.length - 1].x, height - padding);
-                  ctx.lineTo(points[0].x, height - padding);
-                  ctx.closePath();
-                  ctx.fill();
-                  
-                  // Draw line chart
-                  ctx.strokeStyle = '#9b59d0';
-                  ctx.lineWidth = 3;
-                  ctx.lineJoin = 'round';
-                  ctx.lineCap = 'round';
-                  ctx.beginPath();
-                  ctx.moveTo(points[0].x, points[0].y);
-                  for(let i = 1; i < points.length; i++){
-                    ctx.lineTo(points[i].x, points[i].y);
-                  }
-                  ctx.stroke();
+        const statsGrid = document.createElement('div');
+        statsGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;';
+        const mkStatCell = (value, label, color) => {
+          const cell = document.createElement('div');
+          cell.style.cssText = 'background:var(--bg);border-radius:12px;padding:12px 14px;';
+          const v = document.createElement('div');
+          v.style.cssText = 'font-size:1.25rem;font-weight:800;color:' + (color || 'var(--fg)') + ';line-height:1;margin-bottom:3px;';
+          v.textContent = String(value);
+          const l = document.createElement('div');
+          l.style.cssText = 'font-size:0.7rem;color:var(--muted);font-weight:500;';
+          l.textContent = label;
+          cell.appendChild(v); cell.appendChild(l); return cell;
+        };
+        statsGrid.appendChild(mkStatCell(totalReviewed.toLocaleString(), 'Total révisions', 'var(--accent)'));
+        statsGrid.appendChild(mkStatCell(todayCount, "Aujourd'hui", '#4caf78'));
+        statsGrid.appendChild(mkStatCell(xpTotal.toLocaleString(), 'XP total', '#c9a227'));
+        statsGrid.appendChild(mkStatCell(streakCount + ' j', 'Série actuelle', '#e05252'));
+        statsGrid.appendChild(mkStatCell(masteryPct + '%', 'Maîtrise', '#5b9bd4'));
+        statsGrid.appendChild(mkStatCell(accuracyPct + '%', 'Précision', '#d97b3a'));
+        statsCard.appendChild(statsGrid);
+        twoCol.appendChild(statsCard);
 
-                  // Draw data points
-                  ctx.fillStyle = '#9b59d0';
-                  for(const p of points){
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
-                    ctx.fill();
-                    ctx.strokeStyle = 'white';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                  }
-                  
-                  // Draw Y-axis labels
-                  ctx.fillStyle = '#666';
-                  ctx.font = '11px sans-serif';
-                  ctx.textAlign = 'right';
-                  for(let i = 0; i <= 5; i++){
-                    const value = Math.round(yMax * (i / 5));
-                    const y = padding + (graphHeight / 5) * i;
-                    ctx.fillText(value, padding - 10, y + 4);
-                  }
-                  
-                  // Draw X-axis labels
-                  ctx.textAlign = 'center';
-                  for(let i = 0; i < days; i++){
-                    if(i % Math.ceil(days / 7) === 0 || days === 7){
-                      const label = days === 7 ? ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'][i] : `J-${days - i}`;
-                      ctx.fillText(label, points[i].x, height - 15);
-                    }
-                  }
-                  
-                  // Mouse tracking for tooltip
-                  const handleMouseMove = (e) => {
-                    const rect = canvas.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    
-                    let nearest = null;
-                    let minDist = Infinity;
-                    
-                    for(const p of points){
-                      const dist = Math.abs(p.x - x);
-                      if(dist < minDist && dist < 30){
-                        minDist = dist;
-                        nearest = p;
-                      }
-                    }
-                    
-                    if(nearest){
-                      tooltipDiv.style.display = 'block';
-                      const displayValue = dataKey === 'timeSpent'
-                        ? `${nearest.value} min`
-                        : dataKey === 'avgTime'
-                        ? `${nearest.value} sec`
-                        : dataKey === 'accuracy' || dataKey === 'retention'
-                        ? `${nearest.value}%`
-                        : `${nearest.value} cartes`;
-                      tooltipDiv.textContent = displayValue;
-                      
-                      // Position tooltip above and centered on the point
-                      const tooltipWidth = tooltipDiv.offsetWidth;
-                      const tooltipHeight = tooltipDiv.offsetHeight;
-                      tooltipDiv.style.left = (e.clientX - tooltipWidth / 2) + 'px';
-                      tooltipDiv.style.top = (rect.top + nearest.y - tooltipHeight - 12) + 'px';
-                    } else {
-                      tooltipDiv.style.display = 'none';
-                    }
-                  };
-                  
-                  const handleMouseLeave = () => {
-                    tooltipDiv.style.display = 'none';
-                  };
-                  
-                  // Attach event listeners
-                  const eventCanvas = chartBox.querySelector('canvas') || canvas;
-                  eventCanvas.onmousemove = handleMouseMove;
-                  eventCanvas.onmouseleave = handleMouseLeave;
-                }, 50);
-              };
-              
-              redrawChart();
-              
-              // Store redraw function globally for stat clicks
-              window.__redrawChart = redrawChart;
-              
-              statsContent.appendChild(chartBox);
-            }
-          };
-          
-          renderStatsContent();
-          statsCard.appendChild(statsContent);
-          container.appendChild(statsCard);
-        }catch(e){ console.warn('Stats card error:', e); }
-        // === END STATS CARD ===
-
-        // Add post-welcome quest card UNDER the stats card
-        try{ syncPostWelcomeQuestTime(); }catch(e){}
+        // ── 2b. Quest Card ───────────────────────────────────────────────────
+        const questCard = mkCard();
+        questCard.style.margin = '0';
         try{
-          const existingQuestCard = container.querySelector('.post-welcome-quest-card');
-          if(existingQuestCard) existingQuestCard.remove();
-          const postWelcomeQuestCard = renderPostWelcomeQuestCard();
-          if(postWelcomeQuestCard){
-            container.appendChild(postWelcomeQuestCard);
+          const questState = initWelcomeQuest();
+          if(questState && !questState.completed){
+            const part1Complete = questState.part1.onboarding_done && questState.part1.profile_opened && questState.part1.market_opened && questState.part1.goal_set;
+            const part2Complete = questState.part2.deck_opened && questState.part2.cards_50_reviewed && questState.part2.session_completed;
+            const questParts = [
+              {
+                title: 'Partie 1 · Découverte',
+                locked: false,
+                done: part1Complete,
+                missions: [
+                  { label: 'Terminer la présentation', done: questState.part1.onboarding_done, reward: '5 ₡' },
+                  { label: 'Ouvrir le Profil', done: questState.part1.profile_opened, reward: '3 ₡' },
+                  { label: 'Ouvrir le Marché', done: questState.part1.market_opened, reward: '3 ₡' },
+                  { label: 'Définir un objectif', done: questState.part1.goal_set, reward: '3 ₡' }
+                ]
+              },
+              {
+                title: 'Partie 2 · Premiers pas',
+                locked: !part1Complete,
+                done: part2Complete,
+                missions: [
+                  { label: 'Ouvrir un deck', done: questState.part2.deck_opened, reward: '3 ₡' },
+                  { label: 'Réviser 50 cartes (' + (questState.totalCardsReviewed || 0) + '/50)', done: questState.part2.cards_50_reviewed, reward: '5 ₡' },
+                  { label: 'Terminer une session', done: questState.part2.session_completed, reward: '5 ₡' }
+                ]
+              },
+              {
+                title: "Partie 3 · Maîtrise",
+                locked: !part2Complete,
+                done: questState.part3.daily_goal_completed && questState.part3.market_purchase && questState.part3.first_title && questState.part3.three_daily_quests && questState.part3.active_memory_launched,
+                missions: [
+                  { label: "Compléter l'objectif du jour", done: questState.part3.daily_goal_completed, reward: '10 ₡' },
+                  { label: 'Acheter au Marché', done: questState.part3.market_purchase, reward: '10 ₡' },
+                  { label: 'Obtenir un titre', done: questState.part3.first_title, reward: '10 ₡' },
+                  { label: '3 quêtes quotidiennes (' + (questState.dailyQuestsCompleted || 0) + '/3)', done: questState.part3.three_daily_quests, reward: '10 ₡' },
+                  { label: 'Lancer Mémoire active', done: questState.part3.active_memory_launched, reward: '10 ₡' }
+                ]
+              }
+            ];
+
+            let curPartIdx = questParts.findIndex(p => !p.done && !p.locked);
+            if(curPartIdx < 0) curPartIdx = 0;
+
+            const qHeader = document.createElement('div');
+            qHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;';
+            const qTitleEl = document.createElement('div');
+            qTitleEl.style.cssText = 'font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);';
+            qTitleEl.textContent = 'Quête de bienvenue';
+            const qNav = document.createElement('div');
+            qNav.style.cssText = 'display:flex;gap:4px;';
+            const prevQBtn = document.createElement('button');
+            prevQBtn.style.cssText = 'width:28px;height:28px;border-radius:8px;border:1px solid rgba(0,0,0,0.1);background:var(--bg);color:var(--fg);cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;padding:0;';
+            prevQBtn.textContent = '←';
+            const nextQBtn = document.createElement('button');
+            nextQBtn.style.cssText = prevQBtn.style.cssText;
+            nextQBtn.textContent = '→';
+            qNav.appendChild(prevQBtn); qNav.appendChild(nextQBtn);
+            qHeader.appendChild(qTitleEl); qHeader.appendChild(qNav);
+            questCard.appendChild(qHeader);
+
+            const questBody = document.createElement('div');
+            questCard.appendChild(questBody);
+
+            const renderQuestPart = (idx) => {
+              questBody.innerHTML = '';
+              const part = questParts[idx];
+              const ptTitle = document.createElement('div');
+              ptTitle.style.cssText = 'font-size:0.88rem;font-weight:700;color:' + (part.locked ? 'var(--muted)' : 'var(--fg)') + ';margin-bottom:4px;';
+              ptTitle.textContent = (part.locked ? '🔒 ' : '') + part.title;
+              const pager = document.createElement('div');
+              pager.style.cssText = 'font-size:0.68rem;color:var(--muted);margin-bottom:10px;';
+              pager.textContent = (idx + 1) + ' / ' + questParts.length;
+              questBody.appendChild(ptTitle);
+              questBody.appendChild(pager);
+              part.missions.forEach(m => {
+                const mRow = document.createElement('div');
+                mRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05);';
+                const isDone = !part.locked && !!m.done;
+                const chk = document.createElement('div');
+                chk.style.cssText = 'width:18px;height:18px;border-radius:5px;border:2px solid ' + (isDone ? '#4caf78' : 'rgba(0,0,0,0.15)') + ';background:' + (isDone ? '#4caf78' : 'transparent') + ';display:flex;align-items:center;justify-content:center;color:white;font-size:0.7rem;font-weight:700;flex-shrink:0;';
+                chk.textContent = isDone ? '✓' : '';
+                const mLbl = document.createElement('div');
+                mLbl.style.cssText = 'flex:1;font-size:0.82rem;color:' + (isDone ? 'var(--muted)' : 'var(--fg)') + ';text-decoration:' + (isDone ? 'line-through' : 'none') + ';';
+                mLbl.textContent = m.label;
+                const mRwd = document.createElement('div');
+                mRwd.style.cssText = 'font-size:0.78rem;font-weight:600;color:var(--accent);flex-shrink:0;';
+                mRwd.textContent = m.reward;
+                mRow.appendChild(chk); mRow.appendChild(mLbl); mRow.appendChild(mRwd);
+                questBody.appendChild(mRow);
+              });
+              prevQBtn.disabled = idx === 0;
+              nextQBtn.disabled = idx === questParts.length - 1;
+              prevQBtn.style.opacity = idx === 0 ? '0.35' : '1';
+              nextQBtn.style.opacity = idx === questParts.length - 1 ? '0.35' : '1';
+              curPartIdx = idx;
+            };
+            renderQuestPart(curPartIdx);
+            prevQBtn.addEventListener('click', () => { if(curPartIdx > 0) renderQuestPart(curPartIdx - 1); });
+            nextQBtn.addEventListener('click', () => { if(curPartIdx < questParts.length - 1) renderQuestPart(curPartIdx + 1); });
+          } else {
+            questCard.appendChild(mkSecTitle('Quête de bienvenue'));
+            const doneMsg = document.createElement('div');
+            doneMsg.style.cssText = 'text-align:center;color:var(--muted);font-size:0.9rem;padding:20px;';
+            doneMsg.textContent = 'Quête terminée ! 🎉';
+            questCard.appendChild(doneMsg);
           }
-        }catch(e){ console.warn('Post-welcome quest card error:', e); }
-        
-        // Store container reference for later refreshes during deck review
+        }catch(e){ questCard.appendChild(mkSecTitle('Quête de bienvenue')); }
+        twoCol.appendChild(questCard);
+        container.appendChild(twoCol);
+
+        // ── 3. DECK SELECTOR CARD ─────────────────────────────────────────────
+        const deckCard = mkCard();
+
+        let allEntries = [];
+        try{ allEntries = await fetchDirectory('./decks/'); }catch(e){ allEntries = []; }
+        const xmlFiles = (Array.isArray(allEntries) ? allEntries : []).filter(e => typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
+
+        // Compute due counts
+        const deckDataRows = [];
+        for(const f of xmlFiles){
+          const url = './decks/' + f;
+          const name = decodeURIComponent(f.replace(/\+/g, '')).replace(/\.xml$/i, '');
+          const cnt = await countDueNowForDeck(url);
+          deckDataRows.push({ name, url, cnt });
+        }
+
+        const totalDue = deckDataRows.reduce((s, r) => s + (r.cnt || 0), 0);
+
+        // Card header
+        const deckCardHeader = document.createElement('div');
+        deckCardHeader.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:14px;';
+        const deckCardTitle = document.createElement('div');
+        deckCardTitle.style.cssText = 'font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);';
+        deckCardTitle.textContent = 'Decks';
+        deckCardHeader.appendChild(deckCardTitle);
+        if(totalDue > 0){
+          const duePill = document.createElement('span');
+          duePill.style.cssText = 'background:rgba(224,82,82,0.12);color:#e05252;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;';
+          duePill.textContent = totalDue + ' à faire';
+          deckCardHeader.appendChild(duePill);
+        }
+        deckCard.appendChild(deckCardHeader);
+
+        // Tab bar
+        const deckTabBar = document.createElement('div');
+        deckTabBar.style.cssText = 'display:flex;gap:6px;margin-bottom:14px;';
+        const deckTabDefs = [{ id: 'due', label: 'À faire' }, { id: 'recent', label: 'Récents' }, { id: 'all', label: 'Tous' }];
+        let activeDeckTab = 'due';
+
+        const deckListEl = document.createElement('div');
+        deckListEl.style.cssText = 'display:flex;flex-direction:column;gap:6px;min-height:40px;';
+
+        const renderDeckTab = (tabId) => {
+          deckListEl.innerHTML = '';
+          let rows;
+          if(tabId === 'due'){
+            rows = deckDataRows.filter(r => r.cnt > 0).sort((a, b) => b.cnt - a.cnt);
+          } else if(tabId === 'recent'){
+            let lv = [];
+            try{ lv = JSON.parse(localStorage.getItem('fabanki:last_viewed_decks') || '[]'); }catch(ex){}
+            const ordered = lv.map(url => deckDataRows.find(r => r.url === url)).filter(Boolean);
+            const rest = deckDataRows.filter(r => !lv.includes(r.url)).sort((a, b) => a.name.localeCompare(b.name));
+            rows = [...ordered, ...rest];
+          } else {
+            rows = [...deckDataRows].sort((a, b) => a.name.localeCompare(b.name));
+          }
+
+          if(rows.length === 0){
+            const empty = document.createElement('div');
+            empty.style.cssText = 'text-align:center;color:var(--muted);font-size:0.85rem;padding:20px;';
+            empty.textContent = tabId === 'due' ? 'Aucune carte à réviser 🎉' : 'Aucun deck trouvé';
+            deckListEl.appendChild(empty);
+            return;
+          }
+
+          const displayRows = rows.slice(0, 8);
+          for(const r of displayRows){
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background 0.12s;';
+            row.addEventListener('mouseenter', () => { row.style.background = 'rgba(155,89,208,0.06)'; });
+            row.addEventListener('mouseleave', () => { row.style.background = ''; });
+
+            const iconEl = document.createElement('div');
+            iconEl.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--accent);';
+            iconEl.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>';
+
+            const nameEl = document.createElement('div');
+            nameEl.textContent = r.name;
+            nameEl.style.cssText = 'flex:1;font-weight:600;color:var(--fg);font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+
+            row.appendChild(iconEl);
+            row.appendChild(nameEl);
+
+            if(r.cnt > 0){
+              const badge = document.createElement('span');
+              badge.style.cssText = 'background:rgba(155,89,208,0.12);color:var(--accent);font-size:0.75rem;font-weight:700;padding:3px 8px;border-radius:20px;flex-shrink:0;';
+              badge.textContent = r.cnt;
+              row.appendChild(badge);
+            }
+
+            const revBtn = document.createElement('button');
+            revBtn.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:0.8rem;font-weight:600;cursor:pointer;flex-shrink:0;';
+            revBtn.textContent = 'Ouvrir';
+            revBtn.addEventListener('click', async (e) => {
+              try{
+                let lv = [];
+                try{ lv = JSON.parse(localStorage.getItem('fabanki:last_viewed_decks') || '[]'); }catch(ex){}
+                lv = [r.url, ...lv.filter(u => u !== r.url)].slice(0, 10);
+                localStorage.setItem('fabanki:last_viewed_decks', JSON.stringify(lv));
+              }catch(ex){}
+              await openDeckWithModeSelection(r.url, r.name, e.currentTarget);
+            });
+            row.appendChild(revBtn);
+            deckListEl.appendChild(row);
+          }
+
+          if(rows.length > 8){
+            const more = document.createElement('div');
+            more.style.cssText = 'text-align:center;font-size:0.78rem;color:var(--muted);padding:8px;';
+            more.textContent = '+ ' + (rows.length - 8) + ' autres decks';
+            deckListEl.appendChild(more);
+          }
+        };
+
+        const deckTabBtns = {};
+        for(const tab of deckTabDefs){
+          const btn = document.createElement('button');
+          const isActive = tab.id === activeDeckTab;
+          btn.style.cssText = 'padding:6px 14px;border-radius:20px;border:none;font-size:0.8rem;font-weight:600;cursor:pointer;transition:all 0.15s;background:' + (isActive ? 'var(--accent)' : 'rgba(0,0,0,0.06)') + ';color:' + (isActive ? '#fff' : 'var(--muted)') + ';';
+          btn.textContent = tab.label;
+          btn.addEventListener('click', () => {
+            activeDeckTab = tab.id;
+            Object.entries(deckTabBtns).forEach(([id, b]) => {
+              b.style.background = id === activeDeckTab ? 'var(--accent)' : 'rgba(0,0,0,0.06)';
+              b.style.color = id === activeDeckTab ? '#fff' : 'var(--muted)';
+            });
+            renderDeckTab(activeDeckTab);
+          });
+          deckTabBtns[tab.id] = btn;
+          deckTabBar.appendChild(btn);
+        }
+
+        deckCard.appendChild(deckTabBar);
+        deckCard.appendChild(deckListEl);
+        container.appendChild(deckCard);
+        renderDeckTab(activeDeckTab);
+
+        // ── Mount ─────────────────────────────────────────────────────────────
         try{ window.__welcomeDecksContainer = container; }catch(e){}
-        
         const host = document.querySelector('.app') || document.body;
         const footer = host.querySelector('footer') || document.querySelector('footer') || null;
         if(footer) host.insertBefore(container, footer);
         else host.appendChild(container);
-        
-        // Create online indicator after welcome page is added to DOM
         try{ if(typeof createOnlineIndicator === 'function') createOnlineIndicator(); }catch(e){}
       }catch(e){ updateStatus(t('welcomeStatus')); }
     }
+
 
     // Wait for restore before loading deck, but with timeout to avoid indefinite wait
     async function initializeDeckLoader(){
