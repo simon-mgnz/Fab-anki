@@ -26,7 +26,7 @@
 <p>Par défaut immuable</p>
 <p><br/></p>
 <p>Ex:</p>
-<p>type note_ponderee = { note: int, coeff: float};;</p>
+<p>type note_ponderee = { note: int; coeff: float};;</p>
 <p>let n = {note = 15; coeff = 1.5};; (OCaml reconnaît un type note_ponderee)</p>
 <p>n.note;; (On accède aux valeurs de la clé avec un ".")</p></rich-text><code name='Code'></code></card><card><rich-text name='Front'><p>Dictionnaire</p></rich-text><rich-text name='Back'><p>Structure de données dynamique mutable qui stocke des couples (clé, valeur).</p>
 <p>Les opérations :</p>

@@ -39,7 +39,7 @@
   // Service Worker Registration
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js')
+      navigator.serviceWorker.register('./service-worker.js')
         .then((registration) => {
           console.log('[PWA] Service Worker registered:', registration.scope);
 
@@ -610,6 +610,10 @@
       if(questsBtn) questsBtn.style.display = isReview ? 'none' : '';
       if(statsBtn) statsBtn.style.display = isReview ? '' : 'none';
       document.body.classList.toggle('in-review', !!isReview);
+      // Home layout hides <main> with !important (nav-home-active). Reviews must show the card area.
+      if(isReview){
+        try{ document.body.classList.remove('nav-home-active'); }catch(e){}
+      }
       try{ updateReviewMobileHeader(); }catch(e){}
     }catch(e){}
   }
@@ -663,16 +667,18 @@
     }catch(e){}
   }
 
-  function updateReviewMobileHeader(cardData){
+  function updateReviewMobileHeader(cardData, opts){
     try{
+      const forceShellOff = !!(opts && opts.forceShellOff);
+      const reviewChrome = !!isReviewing && !forceShellOff;
       const appEl = document.getElementById('app');
       const titleEl = document.getElementById('appTitle');
       const homeBtn = document.getElementById('homeBtn');
       const reviewMenuBtn = document.getElementById('reviewMenuBtn');
       const headerEl = document.querySelector('header');
       const isMobile = window.innerWidth <= 640;
-      const useReviewMobile = !!(isReviewing && isMobile);
-      const useReviewDesktop = !!(isReviewing && !isMobile);
+      const useReviewMobile = !!(reviewChrome && isMobile);
+      const useReviewDesktop = !!(reviewChrome && !isMobile);
 
       if(appEl) appEl.classList.toggle('review-mobile-active', useReviewMobile);
       if(appEl) appEl.classList.toggle('review-desktop-active', useReviewDesktop);
@@ -719,7 +725,7 @@
       } else {
         if(titleEl) titleEl.classList.remove('review-mobile-title');
         if(reviewMenuBtn){
-          if(isReviewing){
+          if(reviewChrome){
             try{
               const editBtn = document.getElementById('requestModBtn');
               const buttonsWrap = document.querySelector('.card > div[style*="justify-content:space-between"] > .buttons');
@@ -737,7 +743,7 @@
           }
         }
         if(homeBtn){
-          if(isReviewing){
+          if(reviewChrome){
             homeBtn.classList.add('review-icon-btn', 'review-back-btn');
             homeBtn.textContent = '';
             homeBtn.setAttribute('aria-label', 'Retour');
@@ -749,16 +755,39 @@
         closeReviewMoreMenu();
       }
 
-      if(isReviewing){
+      if(reviewChrome){
         syncHeaderHeight();
         try{ requestAnimationFrame(syncHeaderHeight); }catch(e){}
       } else {
         try{ document.documentElement.style.removeProperty('--review-header-h'); }catch(e){}
       }
 
-      try{ if(!isReviewing || !isMobile) updateAppTitle(); }catch(e){}
+      try{ if(!reviewChrome || !isMobile) updateAppTitle(); }catch(e){}
     }catch(e){}
   }
+
+  try{
+    window.__fabanki_resetReviewMenuButtonUi = function(){
+      try{
+        const rm = document.getElementById('reviewMenuBtn');
+        if(!rm) return;
+        rm.style.display = 'none';
+        rm.classList.remove('review-icon-btn', 'review-dots-btn');
+        rm.textContent = '...';
+        rm.setAttribute('aria-expanded', 'false');
+        rm.setAttribute('aria-label', 'Menu');
+        rm.removeAttribute('title');
+      }catch(e){}
+    };
+    window.__fabanki_detachReviewShellForNav = function(){
+      const appEl = document.getElementById('app');
+      appEl?.classList.remove('review-mobile-active', 'review-desktop-active');
+      document.documentElement.classList.remove('review-mobile-global', 'review-desktop-global');
+      document.body.classList.remove('review-mobile-global', 'review-desktop-global');
+      updateReviewMobileHeader(null, { forceShellOff: true });
+      window.__fabanki_resetReviewMenuButtonUi?.();
+    };
+  }catch(e){}
 
   function isInAppBrowser(){
     try{
@@ -1277,7 +1306,10 @@
       transform = 'translateX(-50%)';
     }
 
-    tooltip.style.cssText = `position:fixed;top:${tooltipTop};left:${tooltipLeft};transform:${transform};background:white;border-radius:12px;padding:16px 20px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:10000;opacity:0;animation:tooltipFadeIn 0.2s ease forwards;`;
+    tooltip.className = 'fab-mode-tooltip';
+    tooltip.style.top = tooltipTop;
+    tooltip.style.left = tooltipLeft;
+    tooltip.style.transform = transform;
 
     // Add animation keyframes if not already present
     if(!document.getElementById('tooltipAnimationStyle')){
@@ -1293,7 +1325,7 @@
     }
 
     const modesContainer = document.createElement('div');
-    modesContainer.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;';
+    modesContainer.className = 'fab-mode-tooltip-grid';
 
     const modeIcons = {
       'default': 'ðŸ“š',
@@ -1327,30 +1359,18 @@
 
     modes.forEach((mode) => {
       const btn = document.createElement('button');
-      btn.style.cssText = 'flex:0 0 auto;padding:16px 20px;border:2px solid #ddd;border-radius:8px;background:white;color:#333;cursor:pointer;font-size:0.85em;user-select:none;transition:all 0.2s;font-weight:600;min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;';
+      btn.type = 'button';
+      btn.className = 'fab-mode-select-btn';
 
       const icon = document.createElement('div');
-      icon.style.cssText = 'font-size:1.5em;';
+      icon.className = 'fab-mode-select-icon';
       icon.textContent = modeIcons[mode.id] || 'ðŸŽ¯';
       btn.appendChild(icon);
 
       const text = document.createElement('div');
-      text.style.cssText = 'font-size:0.9em;white-space:nowrap;';
+      text.className = 'fab-mode-select-label';
       text.textContent = modeFullNames[mode.id] || mode.name;
       btn.appendChild(text);
-
-      btn.addEventListener('mouseenter', () => {
-        btn.style.background = '#0066ff';
-        btn.style.color = '#fff';
-        btn.style.borderColor = '#0066ff';
-        icon.style.transform = 'scale(1.1)';
-      });
-      btn.addEventListener('mouseleave', () => {
-        btn.style.background = 'white';
-        btn.style.color = '#333';
-        btn.style.borderColor = '#ddd';
-        icon.style.transform = 'scale(1)';
-      });
 
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -1569,6 +1589,62 @@
   function getMultiDeckCardMapKey(deckKeyValue, cardIdValue){
     return String(deckKeyValue || '') + '::' + String(cardIdValue || '');
   }
+
+  /**
+   * Match each <card> field to deck.fieldDefs using the same rules as parseXMLDeck:
+   * named direct child > unnamed direct child matching field type > descendant [name="..."].
+   * No “first unused child” fallback (that stole nodes and broke types / KaTeX).
+   */
+  function extractMultiDeckCardFieldsFromNode(node, fieldDefs){
+    const fields = {};
+    const usedElements = new Set();
+    const order = [];
+    if(!fieldDefs || fieldDefs.length === 0){
+      return { fields, _fieldOrder: order };
+    }
+    const children = Array.from(node.children || []).filter(ch => ch.nodeType === 1);
+    for(const def of fieldDefs){
+      let el = null;
+      const defTypeLc = (def.type || '').toLowerCase();
+      const byNameChild = children.find(ch =>
+        ch.getAttribute &&
+        ch.getAttribute('name') === def.name &&
+        !usedElements.has(ch)
+      );
+      if(byNameChild){
+        el = byNameChild;
+      }
+      if(!el){
+        el = children.find(ch => {
+          if(usedElements.has(ch)) return false;
+          const hasName = ch.getAttribute && ch.getAttribute('name');
+          const tag = (ch.localName || ch.tagName || '').toLowerCase();
+          return tag === defTypeLc && !hasName;
+        }) || null;
+      }
+      if(!el){
+        try{
+          const cand = node.querySelector(`[name="${def.name}"]`);
+          if(cand && !usedElements.has(cand)) el = cand;
+        }catch(e){}
+      }
+      if(el){
+        usedElements.add(el);
+        let html = '';
+        if(defTypeLc === 'tts'){
+          html = (el.textContent || '').trim();
+        } else {
+          html = (el.innerHTML || '').trim();
+        }
+        fields[def.name] = { html, type: def.type, sides: def.sides };
+        order.push(def.name);
+      } else {
+        fields[def.name] = { html: '', type: def.type, sides: def.sides };
+        order.push(def.name);
+      }
+    }
+    return { fields, _fieldOrder: order };
+  }
   
   async function loadMultipleDeckCards(deckURLs, options = {}){
     try{
@@ -1639,58 +1715,15 @@
           for(const node of cardNodes){
             try{
               const id = node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idx++));
-              const fields = {};
-              const usedElements = new Set();
-              
-              // Map card content to field definitions
-              const _fieldOrder = []; // preserve field order for multi-deck rendering
+              let fields = {};
+              let _fieldOrder = [];
               if(tempDeck.fieldDefs.length > 0){
-                // Use field definitions order - find matching elements for each definition
-                for(const def of tempDeck.fieldDefs){
-                  let fieldEl = null;
-                  const defName = String(def.name || '');
-                  // Try multiple strategies to find the field element:
-                  // 1) Direct child with matching name attribute
-                  fieldEl = Array.from(node.children).find(ch => (ch.getAttribute && ch.getAttribute('name') === def.name && !usedElements.has(ch)));
-                  // 2) Direct child with matching type, but never steal a differently named field
-                  if(!fieldEl) fieldEl = Array.from(node.children).find(ch => {
-                    const typeMatch = ((ch.localName || ch.tagName || '').toLowerCase() === def.type);
-                    if(!typeMatch || usedElements.has(ch)) return false;
-                    const chName = ch.getAttribute ? String(ch.getAttribute('name') || '') : '';
-                    return !chName || chName === defName;
-                  });
-                  // 3) Descendant with matching name attribute
-                  if(!fieldEl){
-                    const byName = node.querySelectorAll(`[name="${def.name}"]`);
-                    fieldEl = Array.from(byName).find(el => !usedElements.has(el)) || null;
-                  }
-                  // 4) Descendant with matching type (same rule: do not take differently named fields)
-                  if(!fieldEl){
-                    const byType = node.querySelectorAll(def.type);
-                    fieldEl = Array.from(byType).find(el => {
-                      if(usedElements.has(el)) return false;
-                      const elName = el.getAttribute ? String(el.getAttribute('name') || '') : '';
-                      return !elName || elName === defName;
-                    }) || null;
-                  }
-                  // 5) Any first child element if nothing else works
-                  if(!fieldEl && node.children && node.children.length > 0){
-                    fieldEl = Array.from(node.children).find(ch => !usedElements.has(ch)) || null;
-                  }
-                  
-                  if(fieldEl){
-                    usedElements.add(fieldEl);
-                    fields[def.name] = {
-                      html: fieldEl.innerHTML,
-                      type: def.type,
-                      sides: def.sides
-                    };
-                    _fieldOrder.push(def.name);
-                  }
-                }
+                const extracted = extractMultiDeckCardFieldsFromNode(node, tempDeck.fieldDefs);
+                fields = extracted.fields;
+                _fieldOrder = extracted._fieldOrder;
               } else {
                 // No field definitions - look for rich-text or tex tags first (like parseXMLDeck does)
-                let richTexTags = Array.from(node.querySelectorAll('rich-text, tex'));
+                let richTexTags = Array.from(node.querySelectorAll('rich-text, tex, katex'));
                 let fieldEls = richTexTags.length > 0 ? richTexTags : Array.from(node.children || []);
                 
                 // Filter to only element nodes (no text nodes, comments, etc)
@@ -2151,14 +2184,21 @@
       // Create overview container with high z-index to ensure visibility
       const container = document.createElement('div');
       container.id = 'deckOverviewContainer';
+      container.className = 'deck-overview-page';
+      const sideOffset = (typeof window.__getSideNavWidth === 'function')
+        ? window.__getSideNavWidth()
+        : ((window.innerWidth >= 1024 && document.getElementById('sideNav')) ? 220 : 0);
       container.style.cssText = `
-        padding:20px;
+        padding:20px 20px 26px;
         overflow-y:auto;
-        max-height:90vh;
-        position:relative;
-        z-index:9999;
+        position:fixed;
+        top:0;
+        right:0;
+        bottom:0;
+        left:${sideOffset}px;
+        z-index:1300;
         background:var(--bg);
-        width:100%;
+        width:auto;
       `;
 
       // Parse deck to get stats
@@ -2190,6 +2230,7 @@
       const counts = {new:0, now:0, h12:0, tomorrow:0, week:0, long:0};
       const cardsList = [];
       let reviewed = 0;
+      let masteredReviewed = 0;
       
       console.log('Overview: deckKeyForStats=', deckKeyForStats, 'Looking for keys like: fabanki:' + deckKeyForStats + ':card:*');
       
@@ -2227,8 +2268,14 @@
           // Debug logging for categorization
           console.log('Overview card categorization:', {cardId, storedData: !!storedData, st, hasBeenReviewed, isNew, due, hrs: due ? (due - now) / (1000*60*60) : 'N/A'});
           
-          // Count reviewed
-          if(hasBeenReviewed) reviewed++;
+          // Count reviewed + approximate mastered cards
+          if(hasBeenReviewed){
+            reviewed++;
+            const interval = Number(st?.interval || 0);
+            const stability = Number(st?.stability || 0);
+            const repsNum = Number(st?.reps || 0);
+            if(interval >= 7 || stability >= 14 || repsNum >= 5) masteredReviewed++;
+          }
           
           // Get first field for card display
           const firstField = cardNode.children[0]?.innerHTML || cardNode.textContent?.slice(0,60) || '...';
@@ -2278,11 +2325,11 @@
       
       // Build header
       const header = document.createElement('div');
-      header.style.cssText = 'display:flex;gap:20px;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;';
+      header.className = 'deck-overview-header';
       
       // Ring chart
       const chartDiv = document.createElement('div');
-      chartDiv.style.cssText = 'flex:0 0 200px;display:flex;flex-direction:column;align-items:center;';
+      chartDiv.className = 'deck-overview-chart-wrap';
       const canvas = document.createElement('canvas');
       canvas.width = 180;
       canvas.height = 180;
@@ -2310,12 +2357,16 @@
       
       // Legend
       const legend = document.createElement('div');
-      legend.style.cssText = 'font-size:0.85em;margin-top:12px;text-align:center;';
+      legend.className = 'deck-overview-legend';
       Object.entries(counts).forEach(([cat, cnt]) => {
         if(cnt === 0) return;
         const line = document.createElement('div');
-        line.style.cssText = `margin:4px 0;color:#666;`;
-        line.innerHTML = `<span style="display:inline-block;width:12px;height:12px;background:${colors[cat]};margin-right:6px;border-radius:2px;"></span>${labels[cat]}: ${cnt}`;
+        line.className = 'deck-overview-legend-line';
+        const swatch = document.createElement('span');
+        swatch.className = 'deck-overview-legend-swatch';
+        swatch.style.background = colors[cat];
+        line.appendChild(swatch);
+        line.appendChild(document.createTextNode(`${labels[cat]}: ${cnt}`));
         legend.appendChild(line);
       });
       chartDiv.appendChild(legend);
@@ -2323,16 +2374,15 @@
       
       // Stats and button
       const rightPanel = document.createElement('div');
-      rightPanel.style.cssText = 'flex:1;min-width:200px;';
+      rightPanel.className = 'deck-overview-right';
       
       // Back button and reset button in a horizontal layout
       const buttonRow = document.createElement('div');
-      buttonRow.style.cssText = 'display:flex;gap:8px;margin-bottom:12px;';
+      buttonRow.className = 'deck-overview-btn-row';
       
       const backBtn = document.createElement('button');
       backBtn.textContent = 'â† Retour';
       backBtn.className = 'secondary';
-      backBtn.style.cssText = 'flex:1;padding:8px;font-size:0.9em;';
       backBtn.addEventListener('click', async ()=>{
         // Remove overview container
         const overviewContainer = document.getElementById('deckOverviewContainer');
@@ -2362,7 +2412,6 @@
       const resetBtn = document.createElement('button');
       resetBtn.textContent = 'â™»ï¸ RÃ©initialiser';
       resetBtn.className = 'secondary';
-      resetBtn.style.cssText = 'flex:1;padding:8px;font-size:0.9em;';
       resetBtn.addEventListener('click', ()=>{
         if(confirm('Supprimer toutes les donnÃ©es locales pour ce deck ?')){
           if(!deckKey) { alert('Aucun deck chargÃ©'); return }
@@ -2378,21 +2427,30 @@
       rightPanel.appendChild(buttonRow);
       
       const title = document.createElement('h2');
+      title.className = 'deck-overview-title';
       title.textContent = tempDeck.title || 'Deck';
-      title.style.cssText = 'margin:0 0 16px 0;font-size:1.4em;';
       rightPanel.appendChild(title);
 
       const deckEntryForDesc = getManifestEntryForPath(url);
       if(deckEntryForDesc && deckEntryForDesc.description){
         const desc = document.createElement('div');
-        desc.style.cssText = 'margin:0 0 16px 0;color:#6b7280;font-size:0.95em;line-height:1.4;';
+        desc.className = 'deck-overview-desc';
         desc.textContent = deckEntryForDesc.description;
         rightPanel.appendChild(desc);
       }
+
+      const masteryPct = reviewed > 0 ? Math.round((masteredReviewed / reviewed) * 100) : 0;
+      const masteryBox = document.createElement('div');
+      masteryBox.className = 'deck-overview-mastery';
+      masteryBox.innerHTML = `
+        <div class="deck-overview-mastery-row"><span>Maîtrise</span><strong>${masteryPct}%</strong></div>
+        <div class="deck-overview-mastery-bar"><i style="width:${Math.max(0, Math.min(100, masteryPct))}%"></i></div>
+      `;
+      rightPanel.appendChild(masteryBox);
       
       // Star rating and progress bar
       const ratingContainer = document.createElement('div');
-      ratingContainer.style.cssText = 'margin-bottom:16px;';
+      ratingContainer.className = 'deck-overview-rating-block';
       
       // Calculate accuracy for star rating
       let accuracyForRating = 0;
@@ -2417,41 +2475,42 @@
       
       // Star rating display
       const starDiv = document.createElement('div');
-      starDiv.style.cssText = 'display:flex;gap:4px;align-items:center;margin-bottom:8px;';
+      starDiv.className = 'deck-overview-stars';
       
       for(let i = 0; i < 3; i++) {
         const star = document.createElement('span');
+        star.className = 'deck-overview-star';
         if(i < Math.floor(starCount)) {
           star.textContent = 'â˜…';
-          star.style.color = '#fbbf24'; // Gold
+          star.classList.add('deck-overview-star--on');
         } else if(i === Math.floor(starCount) && starCount % 1 !== 0) {
           star.textContent = 'âœ¦'; // Half star
-          star.style.color = '#fbbf24';
+          star.classList.add('deck-overview-star--half');
         } else {
           star.textContent = 'â˜†';
-          star.style.color = '#d1d5db'; // Gray
+          star.classList.add('deck-overview-star--off');
         }
-        star.style.fontSize = '1.5em';
         starDiv.appendChild(star);
       }
       
       const ratingText = document.createElement('span');
       ratingText.textContent = `${(accuracyForRating * 100).toFixed(0)}%`;
-      ratingText.style.cssText = 'margin-left:8px;font-weight:bold;font-size:0.9em;color:#666;';
+      ratingText.className = 'deck-overview-rating-pct';
       starDiv.appendChild(ratingText);
       ratingContainer.appendChild(starDiv);
       
       // Progress bar with tier markers
       const progressWrapper = document.createElement('div');
-      progressWrapper.style.cssText = 'position:relative;height:24px;margin-bottom:8px;';
+      progressWrapper.className = 'deck-overview-accuracy-track';
       
       const progressBar = document.createElement('div');
-      progressBar.style.cssText = 'position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg, #ef4444 0%, #f97316 33%, #eab308 66%, #22c55e 100%);border-radius:6px;border:1px solid #ddd;width:100%;';
+      progressBar.className = 'deck-overview-accuracy-bar';
       progressWrapper.appendChild(progressBar);
       
       // Progress fill
       const progressFill = document.createElement('div');
-      progressFill.style.cssText = `position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 100%);border-radius:6px;width:${accuracyForRating * 100}%;transition:width 0.3s ease;`;
+      progressFill.className = 'deck-overview-accuracy-fill';
+      progressFill.style.width = `${accuracyForRating * 100}%`;
       progressWrapper.appendChild(progressFill);
       
       // Tier markers at 60%, 80%, 90%
@@ -2463,7 +2522,8 @@
       
       tiers.forEach(tier => {
         const marker = document.createElement('div');
-        marker.style.cssText = `position:absolute;top:-20px;left:calc(${tier.percent}% - 8px);width:16px;text-align:center;font-size:0.7em;color:#999;`;
+        marker.className = 'deck-overview-tier-label';
+        marker.style.left = `calc(${tier.percent}% - 8px)`;
         marker.textContent = tier.label;
         progressWrapper.appendChild(marker);
       });
@@ -2471,14 +2531,15 @@
       // Current position indicator on progress bar
       const positionIndicator = document.createElement('div');
       const currentPercent = accuracyForRating * 100;
-      positionIndicator.style.cssText = `position:absolute;top:-4px;left:calc(${currentPercent}% - 6px);width:12px;height:32px;background:#fff;border:2px solid #333;border-radius:2px;box-shadow:0 2px 4px rgba(0,0,0,0.2);transition:left 0.3s ease;`;
+      positionIndicator.className = 'deck-overview-tier-marker';
+      positionIndicator.style.left = `calc(${currentPercent}% - 6px)`;
       progressWrapper.appendChild(positionIndicator);
       
       ratingContainer.appendChild(progressWrapper);
       rightPanel.appendChild(ratingContainer);
       
       const stats = document.createElement('div');
-      stats.style.cssText = 'background:linear-gradient(135deg, #1e293b 0%, #334155 100%);color:#fff;padding:16px;border-radius:12px;margin-bottom:16px;font-size:0.9em;line-height:1.8;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+      stats.className = 'deck-overview-stats-card';
       
       // Accuracy calculation
       let accuracy = 'N/A';
@@ -2503,32 +2564,32 @@
 
       // Retention slider and FSRS toggle
       const retentionBox = document.createElement('div');
-      retentionBox.style.cssText = 'margin-bottom:16px;padding:12px;border-radius:10px;background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.12);';
+      retentionBox.className = 'deck-overview-retention';
       const retentionTitle = document.createElement('div');
-      retentionTitle.style.cssText = 'font-weight:700;margin-bottom:8px;color:#1e293b;';
+      retentionTitle.className = 'deck-overview-retention-title';
       retentionTitle.textContent = 'RÃ©tention ciblÃ©e (FSRS)';
       retentionBox.appendChild(retentionTitle);
 
       const retentionRow = document.createElement('div');
-      retentionRow.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
+      retentionRow.className = 'deck-overview-retention-row';
       const retentionValue = document.createElement('div');
-      retentionValue.style.cssText = 'min-width:56px;font-weight:700;color:#2563eb;';
+      retentionValue.className = 'deck-overview-retention-value';
       const slider = document.createElement('input');
       slider.type = 'range';
       slider.min = '50';
       slider.max = '99';
       slider.step = '1';
-      slider.style.cssText = 'flex:1;min-width:200px;';
+      slider.className = 'deck-overview-retention-slider';
       const disableBtn = document.createElement('button');
       disableBtn.className = 'secondary';
-      disableBtn.style.cssText = 'min-width:150px;';
+      disableBtn.style.minWidth = '150px';
       retentionRow.appendChild(retentionValue);
       retentionRow.appendChild(slider);
       retentionRow.appendChild(disableBtn);
       retentionBox.appendChild(retentionRow);
 
       const retentionHint = document.createElement('div');
-      retentionHint.style.cssText = 'margin-top:6px;font-size:0.85em;color:#64748b;';
+      retentionHint.className = 'deck-overview-retention-hint';
       retentionBox.appendChild(retentionHint);
 
       const updateRetentionUi = () => {
@@ -2613,11 +2674,10 @@
       
       if((deckHasTextTag || deckHasTimerTag) && !lockState.locked){
         const modeContainer = document.createElement('div');
-        modeContainer.style.cssText = 'margin-bottom:16px;display:flex;flex-direction:column;gap:8px;';
+        modeContainer.className = 'deck-overview-mode-wrap';
         
         const modesContainer = document.createElement('div');
-        modesContainer.className = 'mode-grid';
-        modesContainer.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start;align-items:center;';
+        modesContainer.className = 'mode-grid overview-mode-grid';
         
         const modeIcons = {
           'default': 'ðŸ“š',
@@ -2765,6 +2825,13 @@
           locked: rushLocked,
           lockReason: rushLockedByDeck ? 'Deck incompatible' : 'Mode bloque'
         });
+        const sortModes = (a, b) => {
+          if(a.id === 'default' && !a.locked) return -1;
+          if(b.id === 'default' && !b.locked) return 1;
+          if(a.locked !== b.locked) return a.locked ? 1 : -1;
+          return (a.name || '').localeCompare((b.name || ''), 'fr', { sensitivity: 'base' });
+        };
+        availableModes.sort(sortModes);
         
         const buttons = new Map();
         let activeMode = null;
@@ -2773,25 +2840,14 @@
           reviewMode = modeId;
           localStorage.setItem(`fabanki:review_mode:${deckKey}`, reviewMode);
           buttons.forEach((btn, id) => {
-            const icon = btn.querySelector('.mode-icon');
-            if(id === modeId){
-              btn.style.background = '#0066ff';
-              btn.style.color = '#fff';
-              btn.style.borderColor = '#0066ff';
-              if(icon) icon.style.transform = 'scale(1.1)';
-            } else {
-              btn.style.background = 'white';
-              btn.style.color = '#333';
-              btn.style.borderColor = '#ddd';
-              if(icon) icon.style.transform = 'scale(1)';
-            }
+            btn.classList.toggle('is-active', id === modeId);
           });
         };
         
         availableModes.forEach((mode) => {
           const btn = document.createElement('button');
-          btn.className = 'mode-btn';
-          btn.style.cssText = 'flex:0 0 auto;padding:12px 16px;border:2px solid #ddd;border-radius:8px;background:white;color:#333;cursor:pointer;font-size:0.85em;user-select:none;transition:all 0.2s;font-weight:600;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;';
+          btn.type = 'button';
+          btn.className = 'mode-btn overview-mode-btn';
           
           const icon = document.createElement('div');
           icon.className = 'mode-icon';
@@ -2805,28 +2861,13 @@
           btn.appendChild(text);
 
           if(mode.locked){
-            btn.style.opacity = '0.45';
-            btn.style.cursor = 'not-allowed';
+            btn.classList.add('is-locked');
             const lock = document.createElement('div');
-            lock.style.cssText = 'font-size:0.75em;color:#6b7280;';
+            lock.style.cssText = 'font-size:0.75em;color:var(--muted);';
             lock.textContent = 'ðŸ”’ ' + (mode.lockReason || 'VerrouillÃ©');
             btn.appendChild(lock);
           }
           
-          btn.addEventListener('mouseenter', () => {
-            if(mode.id === activeMode || mode.locked) return;
-            btn.style.background = '#0066ff';
-            btn.style.color = '#fff';
-            btn.style.borderColor = '#0066ff';
-            icon.style.transform = 'scale(1.1)';
-          });
-          btn.addEventListener('mouseleave', () => {
-            if(mode.id === activeMode || mode.locked) return;
-            btn.style.background = 'white';
-            btn.style.color = '#333';
-            btn.style.borderColor = '#ddd';
-            icon.style.transform = 'scale(1)';
-          });
           btn.addEventListener('click', () => {
             if(mode.locked) return;
             setActiveMode(mode.id);
@@ -2852,17 +2893,16 @@
         
         // Add helpful hint about modes
         const modeHint = document.createElement('div');
-        modeHint.style.cssText = 'font-size:0.85em;color:#666;margin-bottom:12px;padding:8px;background:rgba(0,0,0,0.05);border-radius:4px;';
+        modeHint.className = 'deck-overview-mode-hint';
         modeHint.innerHTML = 'ðŸ’¡ SÃ©lectionnez votre mode d\'Ã©tude, puis cliquez sur le deck pour commencer. Chaque mode offre une expÃ©rience diffÃ©rente!';
         rightPanel.appendChild(modeHint);
       } else if(isActiveMemoryUnlocked && !lockState.locked){
         // Show mode buttons even if no other modes are available
         const modeContainer = document.createElement('div');
-        modeContainer.style.cssText = 'margin-bottom:16px;display:flex;flex-direction:column;gap:8px;';
+        modeContainer.className = 'deck-overview-mode-wrap';
         
         const modesContainer = document.createElement('div');
-        modesContainer.className = 'mode-grid';
-        modesContainer.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start;align-items:center;';
+        modesContainer.className = 'mode-grid overview-mode-grid';
         
         const modeIcons = {
           'default': 'ðŸ“š',
@@ -2926,6 +2966,13 @@
           {id: 'calcul', name: 'Calcul', locked: calculLocked, lockReason: calculLockedByDeck ? 'Deck incompatible' : 'Mode bloque'},
           {id: 'associer', name: 'Associer', locked: associerLocked, lockReason: 'Deck incompatible'}
         ];
+        const sortModes = (a, b) => {
+          if(a.id === 'default' && !a.locked) return -1;
+          if(b.id === 'default' && !b.locked) return 1;
+          if(a.locked !== b.locked) return a.locked ? 1 : -1;
+          return (a.name || '').localeCompare((b.name || ''), 'fr', { sensitivity: 'base' });
+        };
+        availableModes.sort(sortModes);
         
         const buttons = new Map();
         let activeMode = null;
@@ -2934,25 +2981,14 @@
           reviewMode = modeId;
           localStorage.setItem(`fabanki:review_mode:${deckKey}`, reviewMode);
           buttons.forEach((btn, id) => {
-            const icon = btn.querySelector('.mode-icon');
-            if(id === modeId){
-              btn.style.background = '#0066ff';
-              btn.style.color = '#fff';
-              btn.style.borderColor = '#0066ff';
-              if(icon) icon.style.transform = 'scale(1.1)';
-            } else {
-              btn.style.background = 'white';
-              btn.style.color = '#333';
-              btn.style.borderColor = '#ddd';
-              if(icon) icon.style.transform = 'scale(1)';
-            }
+            btn.classList.toggle('is-active', id === modeId);
           });
         };
         
         availableModes.forEach((mode) => {
           const btn = document.createElement('button');
-          btn.className = 'mode-btn';
-          btn.style.cssText = 'flex:0 0 auto;padding:12px 16px;border:2px solid #ddd;border-radius:8px;background:white;color:#333;cursor:pointer;font-size:0.85em;user-select:none;transition:all 0.2s;font-weight:600;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;';
+          btn.type = 'button';
+          btn.className = 'mode-btn overview-mode-btn';
           
           const icon = document.createElement('div');
           icon.className = 'mode-icon';
@@ -2966,28 +3002,13 @@
           btn.appendChild(text);
 
           if(mode.locked){
-            btn.style.opacity = '0.45';
-            btn.style.cursor = 'not-allowed';
+            btn.classList.add('is-locked');
             const lock = document.createElement('div');
-            lock.style.cssText = 'font-size:0.75em;color:#6b7280;';
+            lock.style.cssText = 'font-size:0.75em;color:var(--muted);';
             lock.textContent = 'ðŸ”’ ' + (mode.lockReason || 'Verrouille');
             btn.appendChild(lock);
           }
           
-          btn.addEventListener('mouseenter', () => {
-            if(mode.id === activeMode || mode.locked) return;
-            btn.style.background = '#0066ff';
-            btn.style.color = '#fff';
-            btn.style.borderColor = '#0066ff';
-            icon.style.transform = 'scale(1.1)';
-          });
-          btn.addEventListener('mouseleave', () => {
-            if(mode.id === activeMode || mode.locked) return;
-            btn.style.background = 'white';
-            btn.style.color = '#333';
-            btn.style.borderColor = '#ddd';
-            icon.style.transform = 'scale(1)';
-          });
           btn.addEventListener('click', () => {
             if(mode.locked) return;
             setActiveMode(mode.id);
@@ -3013,7 +3034,7 @@
         
         // Add helpful hint about modes
         const modeHint = document.createElement('div');
-        modeHint.style.cssText = 'font-size:0.85em;color:#666;margin-bottom:12px;padding:8px;background:rgba(0,0,0,0.05);border-radius:4px;';
+        modeHint.className = 'deck-overview-mode-hint';
         modeHint.innerHTML = 'ðŸ’¡ SÃ©lectionnez votre mode d\'Ã©tude, puis cliquez sur le deck pour commencer. Chaque mode offre une expÃ©rience diffÃ©rente!';
         rightPanel.appendChild(modeHint);
       }
@@ -3112,19 +3133,16 @@
       
       // Card grid + sorting controls
       const gridHeader = document.createElement('div');
-      gridHeader.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:24px 0 12px 0;';
+      gridHeader.className = 'deck-overview-grid-header';
 
       const gridTitle = document.createElement('h3');
       gridTitle.textContent = 'Cartes';
-      gridTitle.style.cssText = 'margin:0;';
       gridHeader.appendChild(gridTitle);
 
       const sortWrap = document.createElement('label');
-      sortWrap.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:0.9em;color:#475569;';
-      sortWrap.textContent = 'Trier par:';
-
+      sortWrap.className = 'deck-overview-sort';
+      sortWrap.appendChild(document.createTextNode('Trier par: '));
       const sortSelect = document.createElement('select');
-      sortSelect.style.cssText = 'padding:6px 8px;border:1px solid rgba(0,0,0,0.15);border-radius:8px;background:#fff;color:#0f172a;';
       sortSelect.innerHTML = `
         <option value="default">Statut</option>
         <option value="name">Nom</option>
@@ -3136,7 +3154,7 @@
       container.appendChild(gridHeader);
 
       const grid = document.createElement('div');
-      grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;';
+      grid.className = 'deck-overview-card-grid';
 
       const categoryOrder = {now: 0, h12: 1, tomorrow: 2, week: 3, long: 4, new: 5};
       const sortCardsForOverview = () => {
@@ -3215,7 +3233,7 @@
         
         // Create preview container with KaTeX support
         const previewEl = document.createElement('div');
-        previewEl.style.cssText = 'overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;';
+        previewEl.className = 'deck-overview-card-preview';
         
         // Add the rendered HTML (with KaTeX)
         previewEl.innerHTML = preview;
@@ -3229,25 +3247,7 @@
         
         // Add tooltip on hover
         const tooltip = document.createElement('div');
-        tooltip.style.cssText = `
-          position:absolute;
-          bottom:100%;
-          left:50%;
-          transform:translateX(-50%);
-          background:#333;
-          color:#fff;
-          padding:8px 12px;
-          border-radius:6px;
-          font-size:0.75em;
-          white-space:normal;
-          min-width:170px;
-          max-width:260px;
-          z-index:10000;
-          pointer-events:auto;
-          opacity:0;
-          transition:opacity 0.2s;
-          margin-bottom:8px;
-        `;
+        tooltip.className = 'deck-overview-card-tooltip';
         
         // Calculate relative time strings with multi-unit precision (no seconds).
         const now = new Date();
@@ -3295,12 +3295,12 @@
         
         const tooltipInfo = document.createElement('div');
         tooltipInfo.textContent = tooltipText;
-        tooltipInfo.style.cssText = 'margin-bottom:6px;line-height:1.3;word-break:break-word;';
+        tooltipInfo.className = 'deck-overview-card-tooltip-info';
 
         const resetGradeBtn = document.createElement('button');
         resetGradeBtn.type = 'button';
         resetGradeBtn.textContent = 'RÃ©initialiser note';
-        resetGradeBtn.style.cssText = 'font-size:0.72em;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.12);color:#fff;cursor:pointer;';
+        resetGradeBtn.className = 'deck-overview-card-tooltip-btn';
         resetGradeBtn.addEventListener('click', (ev) => {
           try{
             ev.preventDefault();
@@ -3798,7 +3798,7 @@
     wrapper.className = 'field field-'+def.name.replace(/\s+/g,'-').toLowerCase();
     // Treat only explicit 'tex'/'math' types as TeX â€” avoid matching 'text'
     const ttype = (f.type||def.type||'').toLowerCase();
-    const isTexType = ['tex','math','latex'].includes(ttype);
+    const isTexType = ['tex','math','latex','katex'].includes(ttype);
     const isTTS = (ttype === 'tts');
     const isPlainText = (ttype === 'text');
     
@@ -4629,7 +4629,7 @@
       // Ensure correct visibility
       if(syncBtn) syncBtn.style.display = 'inline-block';
       if(homeBtn) homeBtn.style.display = 'none';
-      try{ updateReviewMobileHeader(); }catch(err){}
+      try{ window.__fabanki_detachReviewShellForNav?.(); }catch(err){}
     }catch(e){ console.warn('Button swap error in renderEmpty:', e); }
     
     const front = $('#front');
@@ -4952,7 +4952,17 @@
               clearTimeout(window.__activeMemoryTimerState.timeoutHandle);
             }
           }
-          window.location.href = window.location.origin + window.location.pathname;
+          try{
+            if(typeof window.__setNavActivePage === 'function'){
+              window.__setNavActivePage('home');
+            }else if(typeof window.renderWelcomeDecks === 'function'){
+              window.renderWelcomeDecks().catch(err => console.warn('[recap Accueil] renderWelcomeDecks', err));
+            }else{
+              window.location.href = window.location.origin + window.location.pathname;
+            }
+          }catch(e){
+            window.location.href = window.location.origin + window.location.pathname;
+          }
         });
       }
       // Show recap onboarding on first completion
@@ -5020,6 +5030,11 @@
     }
 
     if(back){ back.innerHTML=''; back.style.display = 'none'; }
+
+    try{
+      multiDeckMode = false;
+      onlyNowMode = false;
+    }catch(e){}
   }
   function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x }
   function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x }
@@ -9267,23 +9282,8 @@
         if(shouldRenderCurrentBack){
           renderBack(c);
           console.log('renderBack completed');
-          // For multi-deck mode, defer KaTeX rendering to avoid blocking UI
-          if(multiDeckMode && typeof renderMathInElement !== 'undefined' && backEl){
-            // Use setTimeout with 0 to defer rendering until after button shows
-            setTimeout(() => {
-              try{
-                renderMathInElement(backEl, {
-                  delimiters: [
-                    {left: '$$', right: '$$', display: true},
-                    {left: '$', right: '$', display: false},
-                    {left: '\\[', right: '\\]', display: true},
-                    {left: '\\(', right: '\\)', display: false}
-                  ],
-                  throwOnError: false
-                });
-              }catch(e){ console.warn('KaTeX renderMathInElement error:', e); }
-            }, 0);
-          }
+          // Multi-deck: do NOT run renderMathInElement on #back — it treats $...$ inside rich-text as math
+          // and breaks French prose; explicit <tex>/<katex> fields are already rendered via katex.render in buildFieldElement.
         }
         
         // For Active Memory mode, stop the timer
@@ -9838,11 +9838,63 @@
     }catch(e){ console.warn('pass error', e); }
   }
 
+  /** Local calendar YYYY-MM-DD (aligné avec l'affichage « aujourd'hui » du tableau de bord). */
+  function fabankiLocalDayKey(d){
+    try{
+      const x = d instanceof Date ? new Date(d.getTime()) : new Date(d);
+      if(Number.isNaN(x.getTime())) return new Date().toISOString().slice(0, 10);
+      const y = x.getFullYear();
+      const m = String(x.getMonth() + 1).padStart(2, '0');
+      const day = String(x.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }catch(e){
+      return new Date().toISOString().slice(0, 10);
+    }
+  }
+
+  function normalizeDailyHistObj(raw){
+    let h = {};
+    try{
+      if(typeof raw === 'string') raw = JSON.parse(raw || '{}');
+    }catch(e){ raw = {}; }
+    if(Array.isArray(raw)){
+      const o = {};
+      raw.forEach((entry) => {
+        if(entry && typeof entry === 'object'){
+          const dk = entry.date || entry.day || entry.key;
+          const n = Number(entry.count ?? entry.value ?? entry.v ?? 0);
+          if(dk && Number.isFinite(n)) o[String(dk)] = (Number(o[String(dk)]) || 0) + n;
+        }
+      });
+      return o;
+    }
+    if(raw && typeof raw === 'object'){
+      for(const k of Object.keys(raw)){
+        const v = raw[k];
+        const n = typeof v === 'number' ? v : Number(v);
+        if(Number.isFinite(n)) h[k] = n;
+      }
+    }
+    return h;
+  }
+
+  /** Compte pour un jour local : clé locale d'abord, puis clé UTC (anciennes données). */
+  function dailyHistCountForLocalDay(histObj, localDayDate){
+    const lk = fabankiLocalDayKey(localDayDate);
+    let n = Number(histObj[lk]);
+    if(Number.isFinite(n) && n > 0) return n;
+    const uk = localDayDate.toISOString().slice(0, 10);
+    if(uk !== lk){
+      n = Number(histObj[uk]);
+      if(Number.isFinite(n)) return n;
+    }
+    return 0;
+  }
+
   function recordDailyReview(){
-    const today = new Date().toISOString().slice(0,10);
-    let hist = {};
-    try{ hist = JSON.parse(localStorage.getItem('fabanki:daily_history')||'{}'); }catch(e){}
-    hist[today] = (hist[today]||0) + 1;
+    const today = fabankiLocalDayKey(new Date());
+    let hist = normalizeDailyHistObj(localStorage.getItem('fabanki:daily_history'));
+    hist[today] = (Number(hist[today]) || 0) + 1;
     const keys = Object.keys(hist).sort();
     if(keys.length > 90){ for(let i=0;i<keys.length-90;i++) delete hist[keys[i]]; }
     localStorage.setItem('fabanki:daily_history', JSON.stringify(hist));
@@ -10688,6 +10740,7 @@
         throw err;
       }
     }
+    try{ window.fetchDirectory = fetchDirectory; }catch(e){}
 
     async function openDeckBrowser(){
       if(!overlay) return;
@@ -10698,17 +10751,9 @@
       const statsEl = document.getElementById('stats');
       if(statsEl) statsEl.style.display = 'none';
       
-      // Show or create welcome page
-      let welcomeEl = document.getElementById('welcomeDecks');
-      if(!welcomeEl){
-        // Recreate a light shell while the deck browser is opening.
-        welcomeEl = document.createElement('div');
-        welcomeEl.id = 'welcomeDecks';
-        welcomeEl.style.cssText = 'padding:24px 18px;display:flex;justify-content:center;';
-        welcomeEl.innerHTML = '<div style="width:min(560px,96vw);background:var(--card);border:1px solid rgba(0,102,255,0.12);border-radius:14px;padding:18px 16px;box-shadow:0 10px 26px rgba(2,6,23,0.08);text-align:center"><div style="font-size:1.1rem;font-weight:800;margin-bottom:4px">Fab\'Anki</div><div class="muted small">PrÃ©paration du navigateur de decks...</div></div>';
-        document.body.insertBefore(welcomeEl, document.body.firstChild);
-      }
-      welcomeEl.style.display = 'block';
+      // Never inject a temporary welcome shell here; it causes layout shifts.
+      const welcomeEl = document.getElementById('welcomeDecks');
+      if(welcomeEl) welcomeEl.style.display = 'none';
       
       // Show contextual onboarding on first open
       setTimeout(() => {
@@ -10730,11 +10775,7 @@
       if(modalEl){
         modalEl.classList.add('open');
         modalEl.style.display = 'block';
-        modalEl.style.backgroundColor = 'white';
-        modalEl.style.color = '#333';
-        modalEl.style.padding = '20px';
-        modalEl.style.borderRadius = '8px';
-        modalEl.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+        modalEl.style.padding = '18px';
       }
       deckList.innerHTML = '';
       deckList.style.visibility = 'visible';
@@ -10743,14 +10784,29 @@
 
       // Stats bar (4 cells: total, due, new, folders)
       if(modalEl && !modalEl.querySelector('#deckBrowserStatsBar')){
+        const titleNode = modalEl.querySelector('h3');
+        const titleRow = titleNode ? titleNode.parentElement : null;
+        if(titleNode && titleRow){
+          titleRow.classList.add('deck-browser-head');
+          if(!titleRow.querySelector('.deck-browser-title')){
+            const titleWrap = document.createElement('div');
+            titleWrap.className = 'deck-browser-title';
+            titleNode.parentNode.insertBefore(titleWrap, titleNode);
+            titleWrap.appendChild(titleNode);
+            const hint = document.createElement('div');
+            hint.className = 'trail';
+            hint.textContent = 'Arborescence des dossiers et decks';
+            titleWrap.appendChild(hint);
+          }
+        }
         const statsBar = document.createElement('div');
         statsBar.id = 'deckBrowserStatsBar';
-        statsBar.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;';
+        statsBar.className = 'deck-browser-stats';
         const statLabels = ['Cartes totales','Dues','Nouvelles','Dossiers'];
         const statColors = ['var(--fg)','#e05252','var(--accent)','var(--fg)'];
         statLabels.forEach((lbl, i) => {
           const cell = document.createElement('div');
-          cell.style.cssText = 'background:var(--card);border-radius:10px;padding:10px 12px;border:1px solid rgba(0,0,0,0.07);';
+          cell.className = 'deck-browser-stat';
           const val = document.createElement('div');
           val.style.cssText = `font-size:1.2rem;font-weight:800;color:${statColors[i]};line-height:1;`;
           val.textContent = '…';
@@ -10764,38 +10820,61 @@
         modalEl.insertBefore(statsBar, deckList);
 
         // Search bar (insert before stats bar)
+        const toolbar = document.createElement('div');
+        toolbar.className = 'deck-browser-toolbar';
         const searchWrap = document.createElement('div');
-        searchWrap.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--card);border-radius:9px;border:1px solid rgba(0,0,0,0.08);padding:7px 10px;margin-bottom:12px;';
+        searchWrap.className = 'deck-browser-search';
         const searchIcon = document.createElement('span');
         searchIcon.textContent = '🔍';
         searchIcon.style.fontSize = '12px';
         const searchInput = document.createElement('input');
         searchInput.placeholder = 'Rechercher un deck…';
-        searchInput.style.cssText = 'border:none;background:transparent;color:var(--fg);font-size:13px;outline:none;flex:1;';
         searchInput.addEventListener('input', () => {
           const q = searchInput.value.toLowerCase();
           deckList.querySelectorAll('.deck-entry').forEach(row => {
-            const name = row.querySelector('div')?.textContent?.toLowerCase() || '';
+            const name = (row.dataset.search || row.querySelector('.deck-entry-name')?.textContent || row.textContent || '').toLowerCase();
             row.style.display = (!q || name.includes(q)) ? '' : 'none';
           });
         });
         searchWrap.appendChild(searchIcon); searchWrap.appendChild(searchInput);
-        modalEl.insertBefore(searchWrap, statsBar);
+        toolbar.appendChild(searchWrap);
+        modalEl.insertBefore(toolbar, statsBar);
 
         // Async populate stats
         setTimeout(async () => {
           try{
             const entries = await fetchDirectory('./decks/');
             const xmlFiles = (Array.isArray(entries)?entries:[]).filter(e=>typeof e==='string'&&e.toLowerCase().endsWith('.xml'));
-            const folders = (Array.isArray(entries)?entries:[]).filter(e=>typeof e==='string'&&!e.toLowerCase().endsWith('.xml'));
+            const rootFolders = new Set();
+            (Array.isArray(entries)?entries:[]).forEach(e => {
+              if(typeof e !== 'string') return;
+              const top = e.split('/')[0];
+              if(top && !e.toLowerCase().endsWith('.xml')) rootFolders.add(top);
+            });
             let totalCards = 0, totalDue = 0, totalNew = 0;
-            for(const f of xmlFiles.slice(0,20)){
+            for(const f of xmlFiles){
               try{
-                const cnt = await countDueNowForDeck('./decks/'+f);
-                totalDue += cnt;
-                totalNew += Number(localStorage.getItem('fabanki:deck_new_'+f)||0);
-                totalCards += Number(localStorage.getItem('fabanki:deck_cards_'+f)||0);
-              }catch(e){}
+                const deckUrl = './decks/' + f;
+                const deckKeyStat = (typeof getDeckKeyFromUrl === 'function') ? getDeckKeyFromUrl(deckUrl) : null;
+                const knownCardCount = deckKeyStat
+                  ? Number(localStorage.getItem(`fabanki:deck_card_count:${deckKeyStat}`) || 0)
+                  : 0;
+                const legacyCardCount = Number(localStorage.getItem('fabanki:deck_cards_' + f) || 0);
+                const cardCount = knownCardCount > 0 ? knownCardCount : legacyCardCount;
+                const dueCnt = await countDueNowForDeck(deckUrl);
+                totalDue += Number(dueCnt || 0);
+                totalCards += cardCount > 0 ? cardCount : 0;
+                if(deckKeyStat){
+                  const pfx = `fabanki:${deckKeyStat}:card:`;
+                  let reviewed = 0;
+                  for(let i=0;i<localStorage.length;i++){
+                    const k = localStorage.key(i);
+                    if(k && k.startsWith(pfx)) reviewed++;
+                  }
+                  const freshEstimate = Math.max(0, (cardCount || 0) - reviewed);
+                  totalNew += freshEstimate;
+                }
+              }catch(e){ /* ignore */ }
             }
             const el0 = document.getElementById('deckStatCell_0');
             const el1 = document.getElementById('deckStatCell_1');
@@ -10804,7 +10883,7 @@
             if(el0) el0.textContent = totalCards > 0 ? totalCards.toLocaleString() : xmlFiles.length;
             if(el1) el1.textContent = totalDue.toLocaleString();
             if(el2) el2.textContent = totalNew.toLocaleString();
-            if(el3) el3.textContent = folders.length || xmlFiles.length;
+            if(el3) el3.textContent = rootFolders.size || xmlFiles.length;
           }catch(e){ console.warn('stats bar error', e); }
         }, 100);
       }
@@ -10827,6 +10906,63 @@
           renderList(entries, './decks/');
         }
 
+        const deckUiMetaCache = new Map();
+        function getReviewedCountForDeck(deckUrl){
+          try{
+            const dk = (typeof getDeckKeyFromUrl === 'function') ? getDeckKeyFromUrl(deckUrl) : null;
+            if(!dk) return 0;
+            const pfx = `fabanki:${dk}:card:`;
+            let reviewed = 0;
+            for(let i=0;i<localStorage.length;i++){
+              const k = localStorage.key(i);
+              if(k && k.startsWith(pfx)) reviewed++;
+            }
+            return reviewed;
+          }catch(e){ return 0; }
+        }
+        function getDeckUiMeta(deckUrl){
+          if(deckUiMetaCache.has(deckUrl)) return deckUiMetaCache.get(deckUrl);
+          const due = Number(localStorage.getItem('fabanki:deck_due_' + normalizeDeckPath(deckUrl)) || 0);
+          const fallbackNew = Number(localStorage.getItem('fabanki:deck_new_' + normalizeDeckPath(deckUrl)) || 0);
+          const reviewed = getReviewedCountForDeck(deckUrl);
+          let mastered = Number(localStorage.getItem('fabanki:deck_mastery_' + normalizeDeckPath(deckUrl).replace(/\//g,'_')) || 0);
+          if(!(mastered > 0) && reviewed > 0){
+            try{
+              const canonical = (typeof getDeckKeyFromUrl === 'function') ? getDeckKeyFromUrl(deckUrl) : null;
+              const legacy = (typeof getLegacyDeckKeysForUrl === 'function') ? getLegacyDeckKeysForUrl(deckUrl) : [];
+              const deckKeys = [canonical, ...legacy].filter(Boolean);
+              let reviewedCards = 0;
+              let masteredCards = 0;
+              const seen = new Set();
+              for(const dk of deckKeys){
+                const pfx = `fabanki:${dk}:card:`;
+                for(let i=0;i<localStorage.length;i++){
+                  const k = localStorage.key(i);
+                  if(!k || !k.startsWith(pfx) || seen.has(k)) continue;
+                  seen.add(k);
+                  try{
+                    const st = JSON.parse(localStorage.getItem(k) || '{}');
+                    const reps = Number(st.reps || 0);
+                    const interval = Number(st.interval || 0);
+                    const stability = Number(st.stability || 0);
+                    const hasLast = !!st.last;
+                    const isReviewed = reps > 0 || hasLast;
+                    if(!isReviewed) continue;
+                    reviewedCards += 1;
+                    const isMastered = interval >= 7 || stability >= 14 || reps >= 5;
+                    if(isMastered) masteredCards += 1;
+                  }catch(e){}
+                }
+              }
+              if(reviewedCards > 0){
+                mastered = Math.round((masteredCards / reviewedCards) * 100);
+              }
+            }catch(e){}
+          }
+          const data = { due, reviewed, mastered, fresh: fallbackNew };
+          deckUiMetaCache.set(deckUrl, data);
+          return data;
+        }
         function renderPath(path){
           const prefix = path;
           deckList.innerHTML = '';
@@ -10879,6 +11015,7 @@
           // parent link
           if(prefix){
             const back = document.createElement('div'); back.className='deck-entry';
+            back.dataset.search = 'retour parent ..';
             const nm = document.createElement('div'); nm.textContent = '..';
             const act = document.createElement('div');
               const b = document.createElement('button'); b.className='secondary'; b.textContent='Retour';
@@ -10888,14 +11025,21 @@
           // folders with due counts and badge
           Array.from(folders).sort().forEach(folder=>{
             const row = document.createElement('div'); row.className='deck-entry';
-            row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
-            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
-            row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
-            const folderIconDiv = document.createElement('div'); folderIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; folderIconDiv.textContent = '📁'; row.appendChild(folderIconDiv);
-            const nm = document.createElement('div'); 
+            const folderIconDiv = document.createElement('div'); folderIconDiv.className='deck-folder-icon'; folderIconDiv.textContent = '📁'; row.appendChild(folderIconDiv);
+            const main = document.createElement('div'); main.className = 'deck-entry-main';
+            const nm = document.createElement('div'); nm.className = 'deck-entry-name';
             const folderName = decodeURIComponent((prefix+folder).replace(/\+/g,' ')).replace(/\/$/,'');
             nm.textContent = folderName;
-            nm.style.cssText = 'flex:1;font-weight:700;font-size:0.92rem;color:var(--fg);';
+            row.dataset.search = folderName.toLowerCase();
+            const titleLine = document.createElement('div'); titleLine.className = 'deck-entry-titleline';
+            const folderKpis = document.createElement('div'); folderKpis.className = 'deck-entry-kpis';
+            folderKpis.innerHTML = `<span class="deck-kpi deck-kpi--mastery">Maitrise --</span>`;
+            const folderMBar = document.createElement('div'); folderMBar.className = 'deck-mastery deck-mastery--lead';
+            folderMBar.innerHTML = '<i style="width:0%"></i>';
+            titleLine.appendChild(folderMBar);
+            titleLine.appendChild(nm);
+            main.appendChild(titleLine);
+            main.appendChild(folderKpis);
             
             // Calculate folder due count with badge
             const folderPath = prefix + folder;
@@ -10909,7 +11053,7 @@
             badge.className = 'due-badge';
             badge.innerHTML = `<div class="due-num"></div><div class="due-label">Ã  faire</div>`;
 
-            const act = document.createElement('div');
+            const act = document.createElement('div'); act.className = 'deck-entry-actions';
             const b = document.createElement('button'); b.className='secondary';
             b.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
             if(folderLock.locked){
@@ -10931,7 +11075,7 @@
             }
             act.appendChild(badge);
             act.appendChild(b); 
-            row.appendChild(nm); 
+            row.appendChild(main); 
             row.appendChild(act); 
             deckList.appendChild(row);
             
@@ -10939,10 +11083,18 @@
             (async ()=>{
               try{
                 let totalDue = 0;
+                let weightedMastery = 0;
+                let totalReviewedDeckCards = 0;
                 for(const p of entries){
                   if(!p.startsWith(folderPath) || !p.toLowerCase().endsWith('.xml')) continue;
-                  const n = await countDueNowForDeck('./decks/'+p);
+                  const deckUrl = './decks/'+p;
+                  const n = await countDueNowForDeck(deckUrl);
                   if(typeof n === 'number') totalDue += n;
+                  const meta = getDeckUiMeta(deckUrl);
+                  if(meta.reviewed > 0){
+                    weightedMastery += Number(meta.mastered || 0) * Number(meta.reviewed || 0);
+                    totalReviewedDeckCards += Number(meta.reviewed || 0);
+                  }
                 }
                 if(totalDue > 0){
                   badge.querySelector('.due-num').textContent = totalDue;
@@ -10951,27 +11103,45 @@
                   badge.querySelector('.due-num').textContent = '';
                   badge.querySelector('.due-label').style.display = 'none';
                 }
+                if(totalReviewedDeckCards > 0){
+                  const masteryFolderPct = Math.round(weightedMastery / totalReviewedDeckCards);
+                  folderKpis.innerHTML = `<span class="deck-kpi deck-kpi--mastery">Maitrise ${masteryFolderPct}%</span>`;
+                  folderMBar.innerHTML = `<i style="width:${Math.max(0, Math.min(100, masteryFolderPct))}%"></i>`;
+                } else {
+                  folderKpis.innerHTML = `<span class="deck-kpi deck-kpi--mastery">Maitrise --</span>`;
+                  folderMBar.innerHTML = '<i style="width:0%"></i>';
+                }
               }catch(e){ /* ignore */ }
             })();
           });
           // files (limit to first 10)
           Array.from(files).sort().forEach(file=>{
             const row = document.createElement('div'); row.className='deck-entry';
-            row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
-            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
-            row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
-            const fileIconDiv = document.createElement('div'); fileIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; fileIconDiv.textContent = '📄'; row.appendChild(fileIconDiv);
+            const fileIconDiv = document.createElement('div'); fileIconDiv.className='deck-file-icon'; fileIconDiv.textContent = '📄'; row.appendChild(fileIconDiv);
             const dec = decodeURIComponent((prefix+file).replace(/\+/g,' '));
             // Extract just the deck name (without parent path) if the full path is too long
             const fullDeckName = dec.replace(/\.xml$/i,'');
             const shortDeckName = fullDeckName.split('/').pop(); // Just the filename
             // Use short name if full path is longer than 40 characters
             const displayName = fullDeckName.length > 40 ? shortDeckName : fullDeckName;
-            const nm = document.createElement('div'); 
+            const main = document.createElement('div'); main.className = 'deck-entry-main';
+            const nm = document.createElement('div'); nm.className = 'deck-entry-name';
             nm.textContent = displayName;
-            nm.title = fullDeckName; // Show full path on hover
-            nm.style.cssText = 'flex:1;font-weight:500;font-size:0.9rem;color:var(--fg);';
-            const act = document.createElement('div');
+            row.dataset.search = `${displayName} ${fullDeckName} ${prefix}`.toLowerCase();
+            nm.title = fullDeckName;
+            const sub = document.createElement('div'); sub.className = 'deck-entry-sub';
+            sub.textContent = prefix ? prefix.replace(/\/$/,'') : 'Racine';
+            const kpis = document.createElement('div'); kpis.className = 'deck-entry-kpis';
+            const deckUrlForMeta = './decks/'+prefix+file;
+            const meta = getDeckUiMeta(deckUrlForMeta);
+            kpis.innerHTML = `<span class="deck-kpi deck-kpi--due">Due ${meta.due}</span><span class="deck-kpi deck-kpi--new">Nouv. ${meta.fresh}</span><span class="deck-kpi deck-kpi--mastery">Maitrise ${meta.mastered}%</span>`;
+            const mBar = document.createElement('div'); mBar.className = 'deck-mastery deck-mastery--lead';
+            mBar.innerHTML = `<i style="width:${Math.max(0, Math.min(100, meta.mastered))}%"></i>`;
+            const headRow = document.createElement('div'); headRow.className = 'deck-entry-head';
+            headRow.appendChild(mBar);
+            headRow.appendChild(nm);
+            main.appendChild(headRow); main.appendChild(sub); main.appendChild(kpis);
+            const act = document.createElement('div'); act.className = 'deck-entry-actions';
               if(file.toLowerCase().endsWith('.xml')){ const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
                 const b=document.createElement('button'); b.className='secondary';
                 b.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
@@ -11001,7 +11171,7 @@
                   }catch(e){ /* ignore */ }
                 })();
               }
-            row.appendChild(nm); row.appendChild(act); deckList.appendChild(row);
+            row.appendChild(main); row.appendChild(act); deckList.appendChild(row);
           });
           
           // Add "Review all decks in this folder" button if there are any XML files
@@ -11042,20 +11212,27 @@
           deckList.innerHTML = '';
           for(const e of (list.slice ? list : list)){
             const row = document.createElement('div'); row.className='deck-entry';
-            row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
-            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
-            row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
             const decoded = (()=>{ try{ return decodeURIComponent(e.replace(/\+/g,' ')) }catch(x){ return e } })();
             const isXml = e.endsWith('.xml');
             const iconDiv = document.createElement('div');
-            if(isXml){ iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; iconDiv.textContent = '📄'; }
-            else { iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; iconDiv.textContent = '📁'; }
+            if(isXml){ iconDiv.className = 'deck-file-icon'; iconDiv.textContent = '📄'; }
+            else { iconDiv.className = 'deck-folder-icon'; iconDiv.textContent = '📁'; }
             row.appendChild(iconDiv);
-            const name = document.createElement('div'); name.textContent = decoded.replace(/\.xml$/i,'');
-            if(isXml){ name.style.cssText = 'flex:1;font-weight:500;font-size:0.9rem;color:var(--fg);'; } else { name.style.cssText = 'flex:1;font-weight:700;font-size:0.92rem;color:var(--fg);'; }
-            const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
-            name.appendChild(dueBadge);
-            const actions = document.createElement('div');
+            const main = document.createElement('div'); main.className = 'deck-entry-main';
+            const name = document.createElement('div'); name.className = 'deck-entry-name'; name.textContent = decoded.replace(/\.xml$/i,'');
+            row.dataset.search = decoded.toLowerCase();
+            const sub = document.createElement('div'); sub.className = 'deck-entry-sub'; sub.textContent = isXml ? 'Deck' : 'Dossier';
+            let deckMBarLead = null;
+            if(isXml){
+              const headRow = document.createElement('div'); headRow.className = 'deck-entry-head';
+              deckMBarLead = document.createElement('div'); deckMBarLead.className = 'deck-mastery deck-mastery--lead'; deckMBarLead.innerHTML = '<i style="width:0%"></i>';
+              headRow.appendChild(deckMBarLead); headRow.appendChild(name);
+              main.appendChild(headRow);
+            }else{
+              main.appendChild(name);
+            }
+            main.appendChild(sub);
+            const actions = document.createElement('div'); actions.className = 'deck-entry-actions';
             if(e.endsWith('.xml')){ const dueBadge2 = document.createElement('span'); dueBadge2.className = 'due-badge'; dueBadge2.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
               const btn = document.createElement('button'); btn.className='secondary';
               btn.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
@@ -11124,17 +11301,6 @@
                   }
                 });
               }
-              // Mastery bar
-              const masteryPct = Number(localStorage.getItem('fabanki:deck_mastery_' + e.replace(/\//g,'_')) || 0);
-              if(masteryPct > 0){
-                const mBar = document.createElement('div');
-                mBar.style.cssText = 'width:36px;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;overflow:hidden;';
-                const mFill = document.createElement('div');
-                const mc = masteryPct > 75 ? '#4caf78' : masteryPct > 50 ? '#5b9bd4' : '#d97b3a';
-                mFill.style.cssText = `height:100%;width:${masteryPct}%;background:${mc};border-radius:2px;`;
-                mBar.appendChild(mFill);
-                actions.appendChild(mBar);
-              }
               actions.appendChild(dueBadge2); actions.appendChild(btn);
                 (async ()=>{ try{ const n = await countDueNowForDeck(base+e); if(typeof n === 'number' && n>=0){ dueBadge2.querySelector('.due-num').textContent = n>0? n : ''; dueBadge2.querySelector('.due-label').style.display = n>0? 'block' : 'none'; }else{ dueBadge2.querySelector('.due-num').textContent=''; dueBadge2.querySelector('.due-label').style.display='none'; } }catch(err){} })();
                 // Mastery pill: count reviewed cards from localStorage (no network)
@@ -11149,12 +11315,18 @@
                     pill.className='deck-mastery-pill';
                     pill.title=reviewed+' cartes révisées';
                     pill.textContent='✓ '+reviewed;
-                    name.appendChild(pill);
+                    const kpis = document.createElement('div');
+                    kpis.className = 'deck-entry-kpis';
+                    const masteryPct = Number(localStorage.getItem('fabanki:deck_mastery_' + normalizeDeckPath(base+e).replace(/\//g,'_')) || 0);
+                    kpis.innerHTML = `<span class="deck-kpi deck-kpi--mastery">Maitrise ${masteryPct}%</span>`;
+                    if(deckMBarLead) deckMBarLead.innerHTML = `<i style="width:${Math.max(0, Math.min(100, masteryPct))}%"></i>`;
+                    main.appendChild(kpis);
+                    main.appendChild(pill);
                   }
                 }catch(_e){} })();
             }
             else { const btn = document.createElement('button'); btn.className='secondary'; btn.style.cssText='background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;'; btn.textContent='Ouvrir'; btn.addEventListener('click', async ()=>{ deckMsg.textContent = 'Exploration de '+base+e+' ...'; try{ const sub = await fetchDirectory(base+e); renderList(sub, base+e); }catch(err){ deckMsg.textContent = 'Impossible d\'explorer le dossier: '+err.message } }); actions.appendChild(btn); }
-            row.appendChild(name); row.appendChild(actions); deckList.appendChild(row);
+            row.appendChild(main); row.appendChild(actions); deckList.appendChild(row);
           }
         }
       }catch(err){
@@ -11494,7 +11666,7 @@
     function showProfilePopup(){
       try{
         // prevent duplicates
-        if(document.getElementById('profileOverlay')) return;
+        if(document.getElementById('profileContainer')) return;
         
         // Show contextual onboarding on first open
         setTimeout(() => {
@@ -11505,9 +11677,12 @@
         
         const stats = getProfileStats();
         const clean = fixMojibakeText;
-        const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay page-overlay'; ov.style.display='flex'; ov.style.zIndex='1200';
+        const ov = document.createElement('div');
+        ov.id='profileContainer';
+        const _sideW = (typeof window.__getSideNavWidth === 'function') ? window.__getSideNavWidth() : ((window.innerWidth >= 1024 && document.getElementById('sideNav')) ? 220 : 0);
+        ov.style.cssText = `position:fixed;top:0;left:${_sideW}px;right:0;bottom:0;background:var(--bg);overflow-y:auto;z-index:1200;padding:18px;box-sizing:border-box;`;
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
-        const m = document.createElement('div'); m.className='modal'; m.style.cssText='padding:0;overflow-y:auto;min-width:min(640px,96vw);max-height:90vh;background:var(--bg);border-radius:16px;';
+        const m = document.createElement('div'); m.className='profile-page-shell profile-refonte'; m.style.cssText='padding:0;overflow:visible;min-width:0;max-height:none;background:var(--bg);border-radius:16px;';
         const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.display='none'; m.appendChild(h);
 
         // Pseudo display (from localStorage)
@@ -11531,7 +11706,7 @@
         const p0 = document.createElement('div');
         p0.id = 'profilePseudo';
         p0.style.cssText = 'flex:1;font-weight:700;font-size:1.05rem;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-        p0.textContent = `${userPseudo}`;
+        p0.textContent = `Pseudo: ${userPseudo}`;
         const editBtn = document.createElement('button');
         editBtn.className = 'secondary';
         editBtn.style.cssText = 'padding:4px 10px;font-size:0.8em;border-radius:6px;flex-shrink:0;';
@@ -11572,32 +11747,15 @@
         avatarInfo.appendChild(pseudoRow); avatarInfo.appendChild(avatarTitleEl);
 
         const closeX = document.createElement('button');
-        closeX.style.cssText = 'position:absolute;top:14px;right:14px;background:rgba(0,0,0,0.07);border:none;border-radius:50%;width:30px;height:30px;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);line-height:1;';
+        closeX.style.cssText = 'display:none;';
         closeX.textContent = '\u00D7';
         closeX.addEventListener('click', ()=>{ ov.remove(); try{ if(typeof window.__setNavActivePage==='function') window.__setNavActivePage('home'); }catch(e){} });
 
-        avatarSection.appendChild(avatarCircle); avatarSection.appendChild(avatarInfo); avatarSection.appendChild(closeX);
+        avatarSection.appendChild(avatarCircle); avatarSection.appendChild(avatarInfo);
         m.appendChild(avatarSection);
 
         // \u2500\u2500 Stats grid \u2500\u2500
-        const statsGrid = document.createElement('div');
-        statsGrid.style.cssText = 'padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;';
-        const statItems = [
-          { label:'Total r\u00E9visions', value:String(stats.totalReviewed), cls:'profile-total' },
-          { label:"Aujourd'hui", value:String(stats.todayReviewed), cls:'profile-today' },
-          { label:'XP total', value:String(stats.xpTotal), cls:'profile-xp' },
-          { label:'S\u00E9rie', value:Number(localStorage.getItem('fabanki:streak_current')||0)+' j', cls:'profile-streak' },
-          { label:'Cartes ma\u00EEtris\u00E9es', value:String(Number(localStorage.getItem('fabanki:mastered_count')||0)), cls:'profile-mastered' },
-          { label:'Taux de r\u00E9ussite', value:(()=>{ const f=Number(localStorage.getItem('fabanki:fail_total')||0), g=Number(localStorage.getItem('fabanki:good_total')||0); return (f+g>0)?Math.round(g/(f+g)*100)+'%':'\u2014'; })(), cls:'profile-rate' },
-        ];
-        statItems.forEach(s => {
-          const cell = document.createElement('div');
-          cell.style.cssText = 'background:var(--card);border-radius:10px;padding:12px 10px;border:1px solid rgba(0,0,0,0.07);display:flex;flex-direction:column;gap:3px;';
-          const val = document.createElement('div'); val.style.cssText = 'font-size:1.2rem;font-weight:800;color:var(--fg);line-height:1;'; val.textContent = s.value; val.className = s.cls;
-          const lbl = document.createElement('div'); lbl.style.cssText = 'font-size:0.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:3px;'; lbl.textContent = s.label;
-          cell.appendChild(val); cell.appendChild(lbl); statsGrid.appendChild(cell);
-        });
-        m.appendChild(statsGrid);
+        // profile stats cards removed; use Statistics page for metrics
 
         // Hidden legacy statsBox (for updateProfilePopupIfOpen compatibility)
         const statsBox = document.createElement('div');
@@ -11609,6 +11767,281 @@
         const p5 = document.createElement('div'); p5.className='profile-mpsi'; statsBox.appendChild(p5);
         m.appendChild(statsBox);
 
+        const profileV3Wrap = document.createElement('div');
+        profileV3Wrap.className = 'profile-v3';
+        const currentLang = localStorage.getItem('fabanki:lang') || 'fr';
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+        const currentTitle = localStorage.getItem('fabanki:selected_title') || '';
+        const currentGoal = Number(localStorage.getItem('fabanki:daily_goal') || 20);
+        const fontSizeNow = Number(localStorage.getItem('fabanki:font_size') || 16);
+        profileV3Wrap.innerHTML = `
+          <section class="profile-v3-grid">
+            <article class="profile-v3-card">
+              <h4>Apparence</h4>
+              <div class="profile-v3-field">Thème</div>
+              <div class="profile-v3-seg" id="profileThemeSeg">
+                <button data-theme="light" class="${currentTheme==='light'?'active':''}">Clair</button>
+                <button data-theme="dark" class="${currentTheme==='dark'?'active':''}">Sombre</button>
+              </div>
+              <div class="profile-v3-field">Langue</div>
+              <div class="profile-v3-seg" id="profileLangSeg">
+                <button data-lang="fr" class="${currentLang==='fr'?'active':''}">Français</button>
+                <button data-lang="en" class="${currentLang==='en'?'active':''}">English</button>
+              </div>
+              <div class="profile-v3-field">Taille du texte <span id="profileFontSizeValue">${fontSizeNow}px</span></div>
+              <input id="profileFontSizeRange" type="range" min="12" max="20" step="1" value="${fontSizeNow}">
+            </article>
+            <article class="profile-v3-card">
+              <h4>Titres</h4>
+              <div class="profile-v3-field">Sélectionner un titre</div>
+              <p class="profile-v3-hint">Seuls les titres des paliers débloqués (selon votre XP) peuvent être choisis. Les autres restent visibles mais verrouillés.</p>
+              <select id="profileTitleSel" class="profile-v3-select"></select>
+              <div id="profileTitlePills" class="profile-v3-pills"></div>
+            </article>
+            <article class="profile-v3-card">
+              <h4>Objectifs</h4>
+              <div class="profile-v3-field">Objectif quotidien <span id="profileGoalValue">${currentGoal}</span></div>
+              <input id="profileDailyGoalRange" type="range" min="0" max="300" step="5" value="${currentGoal}">
+              <div class="profile-v3-actions">
+                <button id="profileDailyGoalDialogBtn" class="secondary">Ajuster en détail</button>
+                <button id="profileClassementBtn" class="secondary">Ouvrir Classement</button>
+              </div>
+            </article>
+            <article class="profile-v3-card">
+              <h4>Personnalisation</h4>
+              <div class="profile-v3-field">Couleur d'accent</div>
+              <div id="profileAccentPalette" class="profile-v3-color-palette">
+                <button class="profile-v3-color-dot" data-accent="#9b59d0" style="background:#9b59d0"></button>
+                <button class="profile-v3-color-dot" data-accent="#6366f1" style="background:#6366f1"></button>
+                <button class="profile-v3-color-dot" data-accent="#58cc3a" style="background:#58cc3a"></button>
+                <button class="profile-v3-color-dot" data-accent="#d946a6" style="background:#d946a6"></button>
+                <button class="profile-v3-color-dot" data-accent="#f59e0b" style="background:#f59e0b"></button>
+                <button class="profile-v3-color-dot" data-accent="#5aaed6" style="background:#5aaed6"></button>
+                <button class="profile-v3-color-dot" data-accent="#ef4444" style="background:#ef4444"></button>
+                <button class="profile-v3-color-dot" data-accent="#eab308" style="background:#eab308"></button>
+              </div>
+              <div class="profile-v3-field">Motifs</div>
+              <div id="profilePatternPicker" class="profile-v3-pick-grid">
+                <button data-pattern="none" class="profile-v3-pattern-btn">Aucun</button>
+                <button data-pattern="dots" class="profile-v3-pattern-btn profile-v3-pattern--dots">Points</button>
+                <button data-pattern="grid" class="profile-v3-pattern-btn profile-v3-pattern--grid">Grille</button>
+                <button data-pattern="stripes" class="profile-v3-pattern-btn profile-v3-pattern--stripes">Rayures</button>
+                <button data-pattern="waves" class="profile-v3-pattern-btn profile-v3-pattern--waves">Vagues</button>
+                <button data-pattern="zigzag" class="profile-v3-pattern-btn profile-v3-pattern--zigzag">Zigzag</button>
+                <button data-pattern="circles" class="profile-v3-pattern-btn profile-v3-pattern--circles">Cercles</button>
+                <button data-pattern="mesh" class="profile-v3-pattern-btn profile-v3-pattern--mesh">Mesh</button>
+                <button data-pattern="diamond" class="profile-v3-pattern-btn profile-v3-pattern--diamond">Diamant</button>
+                <button data-pattern="hero_topography" class="profile-v3-pattern-btn profile-v3-pattern--topography">Topo</button>
+              </div>
+              <div class="profile-v3-field">Texte (police)</div>
+              <div id="profileFontPicker" class="profile-v3-pick-grid">
+                <button data-font="" class="profile-v3-font-btn">Système</button>
+                <button data-font='"Inter", "Helvetica", "Arial", sans-serif' class="profile-v3-font-btn" style="font-family:'Inter','Helvetica','Arial',sans-serif">Moderne</button>
+                <button data-font='"Segoe UI", "Tahoma", sans-serif' class="profile-v3-font-btn" style="font-family:'Segoe UI','Tahoma',sans-serif">Confort</button>
+                <button data-font='"Georgia", "Times New Roman", serif' class="profile-v3-font-btn" style="font-family:'Georgia','Times New Roman',serif">Sérif</button>
+                <button data-font='"Trebuchet MS", "Verdana", sans-serif' class="profile-v3-font-btn" style="font-family:'Trebuchet MS','Verdana',sans-serif">Trebuchet</button>
+                <button data-font='"Courier New", monospace' class="profile-v3-font-btn" style="font-family:'Courier New',monospace">Mono</button>
+              </div>
+              <div class="profile-v3-field">Animations</div>
+              <div id="profileAnimPicker" class="profile-v3-pick-grid">
+                <button data-anim="none">Aucune</button>
+                <button data-anim="fade">Fade</button>
+                <button data-anim="slidedown">Slide</button>
+                <button data-anim="bounce">Bounce</button>
+                <button data-anim="zoom">Zoom</button>
+                <button data-anim="spring">Spring</button>
+                <button data-anim="flip">Flip</button>
+                <button data-anim="pulse">Pulse</button>
+                <button data-anim="wobble">Wobble</button>
+                <button data-anim="shake">Shake</button>
+              </div>
+              <div class="profile-v3-actions">
+                <button id="profileAdvancedCustomizeBtn" class="secondary">Options avancées</button>
+              </div>
+            </article>
+          </section>
+        `;
+        m.appendChild(profileV3Wrap);
+        try{
+          const titleByTier = {
+            1: { tier:'Bronze', names:['Lagrange','Laplace','Fourier','Cauchy','Riemann'] },
+            2: { tier:'Silver', names:['Ramanujan','Cantor','Hilbert','Leibniz','Boole'] },
+            3: { tier:'Gold', names:['Descartes','Bernoulli','Weierstrass','Dirichlet','Archimedes'] },
+            4: { tier:'Platinum', names:['Euclid','Pythagoras','Al-Khwarizmi','Galois','Grothendieck'] },
+            5: { tier:'Diamond', names:['Euler','Newton','Gauss','Fibonacci','Pascal'] }
+          };
+          const TITLE_TIER_XP_REQ = [0, 500, 2000, 5000, 15000];
+          const titleSel = profileV3Wrap.querySelector('#profileTitleSel');
+          const pillsWrap = profileV3Wrap.querySelector('#profileTitlePills');
+          const xpTot = Number(stats.xpTotal || 0);
+          function isTierUnlocked(tierKey){
+            const idx = Number(tierKey) - 1;
+            const req = TITLE_TIER_XP_REQ[idx];
+            if(req === undefined) return false;
+            return xpTot >= req;
+          }
+          function findTierKeyForTitle(name){
+            for(const [k, data] of Object.entries(titleByTier)){
+              if(data.names.includes(name)) return k;
+            }
+            return null;
+          }
+          function rebuildProfileTitleSelect(){
+            titleSel.innerHTML = '';
+            const noneOpt = document.createElement('option');
+            noneOpt.value = '';
+            noneOpt.textContent = t('noTitle');
+            titleSel.appendChild(noneOpt);
+            const unlockedNames = new Set();
+            Object.entries(titleByTier).forEach(([tierKey, data]) => {
+              if(!isTierUnlocked(tierKey)) return;
+              data.names.forEach(name => {
+                unlockedNames.add(name);
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = `${name} (${data.tier})`;
+                titleSel.appendChild(opt);
+              });
+            });
+            let sel = localStorage.getItem('fabanki:selected_title') || '';
+            if(sel && !unlockedNames.has(sel)){
+              localStorage.removeItem('fabanki:selected_title');
+              sel = '';
+            }
+            titleSel.value = sel || '';
+            return unlockedNames;
+          }
+          function refreshProfileTitlePillsActive(){
+            const v = localStorage.getItem('fabanki:selected_title') || '';
+            pillsWrap.querySelectorAll('.profile-v3-pill[data-title-name]').forEach(p => {
+              const ok = !p.classList.contains('profile-v3-pill--locked');
+              p.classList.toggle('active', ok && p.getAttribute('data-title-name') === v);
+            });
+          }
+          Object.entries(titleByTier).forEach(([tierKey, data]) => {
+            const row = document.createElement('div');
+            row.className = 'profile-v3-pill-row';
+            const cap = document.createElement('div');
+            cap.className = 'profile-v3-pill-tier';
+            const req = TITLE_TIER_XP_REQ[Number(tierKey) - 1] ?? 0;
+            const tierOk = isTierUnlocked(tierKey);
+            cap.textContent = data.tier + (!tierOk ? ` · ${req.toLocaleString()} XP` : '');
+            if(!tierOk) cap.classList.add('profile-v3-pill-tier--locked');
+            row.appendChild(cap);
+            data.names.forEach(name => {
+              const unlocked = tierOk;
+              const pill = document.createElement('button');
+              pill.type = 'button';
+              pill.className = 'profile-v3-pill';
+              pill.setAttribute('data-title-name', name);
+              pill.textContent = name;
+              if(!unlocked){
+                pill.classList.add('profile-v3-pill--locked');
+                pill.setAttribute('aria-disabled', 'true');
+                pill.title = `${data.tier} — ${req.toLocaleString()} XP requis`;
+              } else {
+                pill.addEventListener('click', () => {
+                  localStorage.setItem('fabanki:selected_title', name);
+                  localStorage.setItem(`fabanki:title_chosen_${tierKey}`, name);
+                  titleSel.value = name;
+                  refreshProfileTitlePillsActive();
+                  try{ avatarTitleEl.textContent = name; }catch(e){}
+                  try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+                  try{ if(typeof autoSync === 'function') autoSync().catch(() => {}); }catch(e){}
+                });
+              }
+              if(currentTitle === name && unlocked) pill.classList.add('active');
+              row.appendChild(pill);
+            });
+            pillsWrap.appendChild(row);
+          });
+          rebuildProfileTitleSelect();
+          refreshProfileTitlePillsActive();
+          try{
+            avatarTitleEl.textContent = localStorage.getItem('fabanki:selected_title') || '';
+          }catch(e){}
+          titleSel.addEventListener('change', (e) => {
+            const v = e.target.value || '';
+            if(v){
+              localStorage.setItem('fabanki:selected_title', v);
+              const tk = findTierKeyForTitle(v);
+              if(tk) localStorage.setItem(`fabanki:title_chosen_${tk}`, v);
+            } else {
+              localStorage.removeItem('fabanki:selected_title');
+            }
+            refreshProfileTitlePillsActive();
+            try{ avatarTitleEl.textContent = v || ''; }catch(e){}
+            try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+            try{ if(typeof autoSync === 'function') autoSync().catch(() => {}); }catch(e){}
+          });
+
+          const themeButtons = Array.from(profileV3Wrap.querySelectorAll('#profileThemeSeg button'));
+          themeButtons.forEach(btn => btn.addEventListener('click', ()=>{
+            const next = btn.dataset.theme || 'light';
+            setThemeMode(next);
+            themeButtons.forEach(b => b.classList.toggle('active', b === btn));
+          }));
+          const langButtons = Array.from(profileV3Wrap.querySelectorAll('#profileLangSeg button'));
+          langButtons.forEach(btn => btn.addEventListener('click', ()=>{
+            const nextLang = btn.dataset.lang || 'fr';
+            localStorage.setItem('fabanki:lang', nextLang);
+            langButtons.forEach(b => b.classList.toggle('active', b === btn));
+            try{ if(typeof updateUILanguage === 'function') updateUILanguage(nextLang); }catch(e){}
+          }));
+
+          const fsRange = profileV3Wrap.querySelector('#profileFontSizeRange');
+          const fsValue = profileV3Wrap.querySelector('#profileFontSizeValue');
+          fsRange?.addEventListener('input', ()=>{
+            const v = Number(fsRange.value || 16);
+            fsValue.textContent = `${v}px`;
+            localStorage.setItem('fabanki:font_size', String(v));
+            document.documentElement.style.fontSize = `${v}px`;
+          });
+          const dailyRange = profileV3Wrap.querySelector('#profileDailyGoalRange');
+          const dailyValue = profileV3Wrap.querySelector('#profileGoalValue');
+          dailyRange?.addEventListener('input', ()=>{
+            const v = Number(dailyRange.value || 0);
+            dailyValue.textContent = String(v);
+            localStorage.setItem('fabanki:daily_goal', String(Math.max(0, v)));
+          });
+
+          const currentAccent = localStorage.getItem('fabanki:accent_color') || '#9b59d0';
+          const accentBtns = Array.from(profileV3Wrap.querySelectorAll('#profileAccentPalette .profile-v3-color-dot'));
+          accentBtns.forEach(btn => {
+            btn.classList.toggle('active', (btn.dataset.accent || '') === currentAccent);
+            btn.addEventListener('click', ()=>{
+              const val = btn.dataset.accent || '#9b59d0';
+              localStorage.setItem('fabanki:accent_color', val);
+              accentBtns.forEach(b => b.classList.toggle('active', b === btn));
+              if(typeof applyCustomization==='function') applyCustomization();
+            });
+          });
+          const bindPicker = (selector, dataAttr, storageKey, fallback) => {
+            const buttons = Array.from(profileV3Wrap.querySelectorAll(selector));
+            const current = localStorage.getItem(storageKey) || fallback;
+            buttons.forEach(btn => {
+              btn.classList.toggle('active', (btn.dataset[dataAttr] || '') === current);
+              btn.addEventListener('click', ()=>{
+                const v = btn.dataset[dataAttr] || fallback;
+                localStorage.setItem(storageKey, v);
+                buttons.forEach(b => b.classList.toggle('active', b === btn));
+                if(typeof applyCustomization==='function') applyCustomization();
+              });
+            });
+          };
+          bindPicker('#profilePatternPicker button', 'pattern', 'fabanki:bg_pattern', 'none');
+          bindPicker('#profileFontPicker button', 'font', 'fabanki:font_stack', '');
+          bindPicker('#profileAnimPicker button', 'anim', 'fabanki:popup_animation', 'none');
+          profileV3Wrap.querySelector('#profileClassementBtn')?.addEventListener('click', ()=>{
+            const cur = document.getElementById('profileContainer');
+            if(cur) cur.remove();
+            try{ if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('classement'); }catch(e){}
+          });
+          profileV3Wrap.querySelector('#profileDailyGoalDialogBtn')?.addEventListener('click', ()=>{ try{ if(typeof showDailyGoalDialog === 'function') showDailyGoalDialog(); }catch(e){} });
+          profileV3Wrap.querySelector('#profileAdvancedCustomizeBtn')?.addEventListener('click', ()=>{ try{ if(typeof showCustomizationModal === 'function') showCustomizationModal(); }catch(e){} });
+        }catch(e){ console.warn('profile v3 bind error', e); }
+        ov.appendChild(m); document.body.appendChild(ov); return;
+
         // \u2500\u2500 Sections wrap \u2500\u2500
         const sectionsWrap = document.createElement('div');
         sectionsWrap.style.cssText = 'padding:0 16px 20px;display:flex;flex-direction:column;gap:10px;';
@@ -11619,7 +12052,7 @@
           langSelectorBox.style.cssText = 'background:var(--card);border-radius:12px;padding:14px 16px;border:1px solid rgba(0,0,0,0.07);';
           const langLabel = document.createElement('div');
           langLabel.style.cssText = 'font-weight:700;margin-bottom:10px;color:var(--fg);font-size:0.9rem;';
-          langLabel.textContent = clean(`\uD83C\uDF10 ${t('languageSelector')}`);
+          langLabel.textContent = clean(`${t('languageSelector')}`);
           langSelectorBox.appendChild(langLabel);
 
           const currentLang = localStorage.getItem('fabanki:lang') || 'fr';
@@ -11655,10 +12088,10 @@
         titleSelectorBox.style.cssText = 'background:var(--card);border-radius:12px;padding:14px 16px;border:1px solid rgba(0,0,0,0.07);';
         const titleSelectorLabel = document.createElement('div');
         titleSelectorLabel.style.cssText = 'font-weight:700;margin-bottom:10px;color:var(--fg);font-size:0.9rem;';
-        titleSelectorLabel.textContent = clean(`\uD83C\uDFF7 ${t('selectTitle')}`);
+        titleSelectorLabel.textContent = clean(`${t('selectTitle')}`);
         titleSelectorBox.appendChild(titleSelectorLabel);
         
-        // Get all unlocked titles
+        // All titles whose tier is unlocked by XP (not only those previously saved in localStorage)
         const unlockedTitles = [];
         const mathematicianTiers = {
           1: { name: 'Bronze', mathematicians: ['Lagrange', 'Laplace', 'Fourier', 'Cauchy', 'Riemann'] },
@@ -11667,13 +12100,15 @@
           4: { name: 'Platinum', mathematicians: ['Euclid', 'Pythagoras', 'Al-Khwarizmi', 'Galois', 'Grothendieck'] },
           5: { name: 'Diamond', mathematicians: ['Euler', 'Newton', 'Gauss', 'Fibonacci', 'Pascal'] }
         };
+        const _tierXpReqLegacy = [0, 500, 2000, 5000, 15000];
+        const _xpLegacy = Number(stats.xpTotal || 0);
         
         for(const [tierKey, tierData] of Object.entries(mathematicianTiers)){
-          const titleStorageKey = `fabanki:title_chosen_${tierKey}`;
-          const chosenTitle = localStorage.getItem(titleStorageKey);
-          if(chosenTitle){
-            unlockedTitles.push({name: chosenTitle, tier: tierKey, tierName: tierData.name});
-          }
+          const need = _tierXpReqLegacy[Number(tierKey) - 1] ?? Infinity;
+          if(_xpLegacy < need) continue;
+          tierData.mathematicians.forEach(name => {
+            unlockedTitles.push({name, tier: tierKey, tierName: tierData.name});
+          });
         }
         
         if(unlockedTitles.length > 0){
@@ -11694,14 +12129,20 @@
             select.appendChild(option);
           });
           
-          // Load current selection
+          // Load current selection (clear if no longer unlocked)
           const currentTitle = localStorage.getItem('fabanki:selected_title') || '';
-          select.value = currentTitle;
+          const unlockedSetLegacy = new Set(unlockedTitles.map(u => u.name));
+          select.value = currentTitle && unlockedSetLegacy.has(currentTitle) ? currentTitle : '';
+          if(currentTitle && !unlockedSetLegacy.has(currentTitle)){
+            localStorage.removeItem('fabanki:selected_title');
+          }
           
           select.addEventListener('change', (e) => {
             const selectedTitle = e.target.value;
             if(selectedTitle){
               localStorage.setItem('fabanki:selected_title', selectedTitle);
+              const tierEnt = Object.entries(mathematicianTiers).find(([, d]) => d.mathematicians.includes(selectedTitle));
+              if(tierEnt) localStorage.setItem(`fabanki:title_chosen_${tierEnt[0]}`, selectedTitle);
               showXpToast(clean(`Titre selectionne: ${selectedTitle}`));
               // Trigger sync to update leaderboard
               try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
@@ -11723,7 +12164,7 @@
           // Display current selection
           const currentDisplay = document.createElement('div');
           currentDisplay.style.cssText = 'font-size:0.85em;color:var(--muted);';
-          currentDisplay.textContent = currentTitle ? `Actuel: ${currentTitle}` : 'Actuel: aucun';
+          currentDisplay.textContent = select.value ? `Actuel: ${select.value}` : 'Actuel: aucun';
           titleSelectorBox.appendChild(currentDisplay);
 
           // Tier-colored title pills
@@ -11748,10 +12189,13 @@
             const currentSelected = localStorage.getItem('fabanki:selected_title') || '';
             tierData.mathematicians.forEach(name => {
               const pill = document.createElement('button');
-              const isSelected = currentSelected === name;
-              pill.style.cssText = `padding:3px 9px;border-radius:20px;font-size:11px;cursor:${unlocked?'pointer':'default'};background:${!unlocked?'rgba(0,0,0,0.04)':isSelected?tc:`${tc}22`};color:${!unlocked?'var(--muted)':isSelected?'#fff':tc};border:1px solid ${!unlocked?'rgba(0,0,0,0.07)':isSelected?tc:`${tc}55`};font-weight:${isSelected?700:400};opacity:${unlocked?1:0.5};transition:all 0.15s;`;
-              pill.textContent = name;
-              pill.disabled = !unlocked;
+              pill.type = 'button';
+              const isSelected = currentSelected === name && unlocked;
+              pill.style.cssText = unlocked
+                ? `padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer;background:${isSelected?tc:`${tc}22`};color:${isSelected?'#fff':tc};border:1px solid ${isSelected?tc:`${tc}55`};font-weight:${isSelected?700:500};opacity:1;transition:all 0.15s;`
+                : `padding:4px 10px;border-radius:20px;font-size:11px;cursor:not-allowed;background:rgba(0,0,0,0.06);color:var(--muted);border:1px dashed rgba(0,0,0,0.16);font-weight:500;opacity:1;transition:all 0.15s;`;
+              pill.textContent = (unlocked ? '' : '🔒 ') + name;
+              if(!unlocked) pill.title = `${tierData.name} — ${tierXpReq.toLocaleString()} XP requis`;
               if(unlocked) pill.addEventListener('click', () => {
                 localStorage.setItem('fabanki:selected_title', name);
                 localStorage.setItem(`fabanki:title_chosen_${tierKey}`, name);
@@ -11785,7 +12229,7 @@
         themeBox.style.cssText = 'background:var(--card);border-radius:12px;padding:14px 16px;border:1px solid rgba(0,0,0,0.07);display:flex;align-items:center;justify-content:space-between;';
         const themeLabel = document.createElement('div');
         themeLabel.style.cssText = 'font-weight:600;color:var(--fg);';
-        themeLabel.textContent = clean(`\uD83C\uDF19 ${t('darkMode')}`);
+        themeLabel.textContent = clean(`${t('darkMode')}`);
         themeBox.appendChild(themeLabel);
 
         const themeToggle = document.createElement('button');
@@ -11818,7 +12262,7 @@
 
         // Action buttons - improved layout
         const rankBtnWrap = document.createElement('div');
-        rankBtnWrap.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;';
+        rankBtnWrap.style.cssText = 'display:none;';
 
         // Classement button (emoji only)
         const rankBtn = document.createElement('button');
@@ -11862,7 +12306,7 @@
         tutorialBtn.addEventListener('click', ()=>{
           try{
             // Close profile popup first
-            const profileOverlay = document.getElementById('profileOverlay');
+            const profileOverlay = document.getElementById('profileContainer') || document.getElementById('profileOverlay');
             if(profileOverlay) profileOverlay.remove();
             // Start tutorial after a short delay
             setTimeout(() => {
@@ -11906,53 +12350,170 @@
         });
         rankBtnWrap.appendChild(dailyGoalBtn);
         sectionsWrap.appendChild(rankBtnWrap);
+        const directSection = document.createElement('div');
+        directSection.className = 'profile-direct-grid';
+        directSection.innerHTML = `
+          <div class="profile-direct-card">
+            <div class="profile-direct-title">Classement</div>
+            <div class="profile-direct-sub">Score MPSI: ${Number(localStorage.getItem('fabanki:score_mpsi_mois') || 0).toLocaleString()}</div>
+          </div>
+          <div class="profile-direct-card">
+            <div class="profile-direct-title">Titres</div>
+            <div class="profile-direct-sub">${localStorage.getItem('fabanki:selected_title') || 'Aucun titre sélectionné'}</div>
+          </div>
+          <div class="profile-direct-card">
+            <div class="profile-direct-title">Personnalisation</div>
+            <div class="profile-direct-sub">Paramètres appliqués en direct sur cette page</div>
+          </div>
+        `;
+        sectionsWrap.appendChild(directSection);
 
-        // Level box: ring + info - centered
+        const appearanceSection = document.createElement('div');
+        appearanceSection.className = 'profile-appearance';
+        appearanceSection.innerHTML = `
+          <div class="profile-appearance-title">Personnalisation de l'interface</div>
+          <div class="profile-appearance-grid">
+            <label class="profile-field">Taille du texte
+              <input id="profileFontSizeRange" type="range" min="12" max="20" step="1" value="${Number(localStorage.getItem('fabanki:font_size') || 16)}">
+            </label>
+            <label class="profile-field">Animation popup
+              <select id="profilePopupAnim">
+                <option value="none">Aucune</option><option value="fade">Fade</option><option value="slidedown">Slide down</option>
+                <option value="bounce">Bounce</option><option value="zoom">Zoom</option><option value="spring">Spring</option>
+              </select>
+            </label>
+          </div>
+        `;
+        sectionsWrap.appendChild(appearanceSection);
+
+        const fullOptions = document.createElement('div');
+        fullOptions.className = 'profile-full-options';
+        fullOptions.innerHTML = `
+          <h4>Options de personnalisation</h4>
+          <div class="profile-options-grid">
+            <label class="profile-field">Couleur de fond
+              <select id="profileBgColorSel">
+                <option value="">Défaut</option>
+                <option value="#f6f7fb">Clair</option>
+                <option value="#e8f4f8">Bleu</option>
+                <option value="#e8f5e9">Vert</option>
+                <option value="#fce4ec">Rose</option>
+              </select>
+            </label>
+            <label class="profile-field">Motif de fond
+              <select id="profileBgPatternSel">
+                <option value="none">Aucun</option><option value="dots">Points</option><option value="grid">Grille</option>
+                <option value="stripes">Rayures</option><option value="waves">Vagues</option>
+              </select>
+            </label>
+            <label class="profile-field">Police
+              <select id="profileFontSel">
+                <option value="">Défaut système</option>
+                <option value='"Inter", "Helvetica", "Arial", sans-serif'>Moderne</option>
+                <option value='"Segoe UI", "Tahoma", sans-serif'>Confortable</option>
+                <option value='"Georgia", "Times New Roman", serif'>Littéraire</option>
+              </select>
+            </label>
+            <label class="profile-field">Couleur des cartes
+              <select id="profileCardColorSel">
+                <option value="">Défaut</option>
+                <option value="#ffffff">Blanc</option>
+                <option value="#f7f2ff">Lavande</option>
+                <option value="#f2fbf6">Menthe</option>
+              </select>
+            </label>
+          </div>
+          <div class="profile-actions-row">
+            <button id="profileOnboardingBtn" class="secondary">Relancer l'onboarding</button>
+            <button id="profileClassementBtn" class="secondary">Aller à la page Classement</button>
+            <button id="profileAdvancedCustomizeBtn" class="secondary">Toutes les options de personnalisation</button>
+            <button id="profileResetThemeBtn" class="secondary">Réinitialiser le thème</button>
+          </div>
+        `;
+        sectionsWrap.appendChild(fullOptions);
+
+        // level ring removed from profile page
+
         try{
-          const lvl = computeLevelAndProgress(stats.xpTotal || 0);
-          const levelBox = document.createElement('div');
-          levelBox.className = 'level-box';
-          levelBox.style.cssText = 'background:var(--card);border-radius:12px;padding:16px;text-align:center;border:1px solid rgba(0,0,0,0.07);display:flex;flex-direction:column;align-items:center;';
-
-          const ring = document.createElement('div');
-          ring.className = 'level-ring';
-          ring.style.cssText = 'margin-bottom:8px;';
-          const circ = 2 * Math.PI * 42;
-          const pct = Math.max(0, Math.min(100, Math.round(lvl.pct || 0)));
-          const offset = Math.round(circ * (1 - pct/100));
-          const color = getLevelColor(lvl.level);
-          ring.innerHTML = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" stroke="#eee" stroke-width="8" fill="none"></circle><circle class="ring-fill" cx="50" cy="50" r="42" stroke="${color}" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"></circle></svg><div class="level-num">${lvl.level}</div>`;
-
-          const info = document.createElement('div');
-          info.className='level-info';
-          info.style.cssText = 'text-align:center;';
-          const next = document.createElement('div');
-          next.className='next muted small';
-          next.textContent = `Prochain niveau dans ${lvl.toNext} XP`;
-          const rem = document.createElement('div');
-          rem.className='progress-remaining';
-          rem.textContent = `${lvl.progress}/${lvl.need} (${pct}%)`;
-          info.appendChild(next); info.appendChild(rem);
-
-          levelBox.appendChild(ring); levelBox.appendChild(info);
-          sectionsWrap.appendChild(levelBox);
-        }catch(e){ /* ignore level rendering errors */ }
+          const fsRange = sectionsWrap.querySelector('#profileFontSizeRange');
+          const popupAnim = sectionsWrap.querySelector('#profilePopupAnim');
+          if(fsRange){
+            fsRange.addEventListener('input', () => {
+              const v = Number(fsRange.value || 16);
+              localStorage.setItem('fabanki:font_size', String(v));
+              document.documentElement.style.fontSize = `${v}px`;
+            });
+          }
+          if(popupAnim){
+            popupAnim.value = localStorage.getItem('fabanki:popup_animation') || 'none';
+            popupAnim.addEventListener('change', () => {
+              localStorage.setItem('fabanki:popup_animation', popupAnim.value || 'none');
+            });
+          }
+          const bgColorSel = sectionsWrap.querySelector('#profileBgColorSel');
+          const bgPatternSel = sectionsWrap.querySelector('#profileBgPatternSel');
+          const fontSel = sectionsWrap.querySelector('#profileFontSel');
+          const cardColorSel = sectionsWrap.querySelector('#profileCardColorSel');
+          const onboardingBtn = sectionsWrap.querySelector('#profileOnboardingBtn');
+          const classementBtn = sectionsWrap.querySelector('#profileClassementBtn');
+          const advCustomizeBtn = sectionsWrap.querySelector('#profileAdvancedCustomizeBtn');
+          const resetThemeBtn = sectionsWrap.querySelector('#profileResetThemeBtn');
+          if(bgColorSel){
+            bgColorSel.value = localStorage.getItem('fabanki:bg_color') || '';
+            bgColorSel.addEventListener('change', ()=>{ localStorage.setItem('fabanki:bg_color', bgColorSel.value || '#f6f7fb'); if(typeof applyCustomization==='function') applyCustomization(); });
+          }
+          if(bgPatternSel){
+            bgPatternSel.value = localStorage.getItem('fabanki:bg_pattern') || 'none';
+            bgPatternSel.addEventListener('change', ()=>{ localStorage.setItem('fabanki:bg_pattern', bgPatternSel.value || 'none'); if(typeof applyCustomization==='function') applyCustomization(); });
+          }
+          if(fontSel){
+            fontSel.value = localStorage.getItem('fabanki:font_stack') || '';
+            fontSel.addEventListener('change', ()=>{ localStorage.setItem('fabanki:font_stack', fontSel.value || ''); if(typeof applyCustomization==='function') applyCustomization(); });
+          }
+          if(cardColorSel){
+            cardColorSel.value = localStorage.getItem('fabanki:card_color') || '';
+            cardColorSel.addEventListener('change', ()=>{ localStorage.setItem('fabanki:card_color', cardColorSel.value || ''); if(typeof applyCustomization==='function') applyCustomization(); });
+          }
+          if(onboardingBtn){
+            onboardingBtn.addEventListener('click', ()=>{
+              try{
+                localStorage.removeItem('fabanki:onboarding_completed');
+                if(typeof showOnboarding === 'function') showOnboarding();
+              }catch(e){}
+            });
+          }
+          if(classementBtn){
+            classementBtn.addEventListener('click', ()=>{
+              try{
+                const cur = document.getElementById('profileContainer'); if(cur) cur.remove();
+                if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('classement');
+              }catch(e){}
+            });
+          }
+          if(resetThemeBtn){
+            resetThemeBtn.addEventListener('click', ()=>{
+              ['fabanki:bg_color','fabanki:bg_pattern','fabanki:font_stack','fabanki:card_color','fabanki:popup_animation','fabanki:font_size'].forEach(k=>localStorage.removeItem(k));
+              if(typeof applyCustomization==='function') applyCustomization();
+              if(fsRange) fsRange.value = '16';
+              if(popupAnim) popupAnim.value = 'none';
+            });
+          }
+          if(advCustomizeBtn){
+            advCustomizeBtn.addEventListener('click', ()=>{
+              try{ if(typeof showCustomizationModal === 'function') showCustomizationModal(); }catch(e){}
+            });
+          }
+        }catch(e){}
 
         m.appendChild(sectionsWrap);
 
         ov.appendChild(m); document.body.appendChild(ov);
-        // mark overlay open so CSS fade can run, then animate modal open
-        try{ ov.classList.add('open'); ov.setAttribute('aria-hidden','false'); m.classList.add('open');
-          const anim = localStorage.getItem('fabanki:popup_animation') || 'none';
-          if(anim !== 'none') m.setAttribute('data-animation', anim);
-        }catch(e){}
-        ov.addEventListener('click', (ev)=>{ if(ev.target === ov){ ov.remove(); try{ if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('home'); }catch(e){} } });
       }catch(e){ console.warn('profile popup error', e); }
     }
 
     function updateProfilePopupIfOpen(){
       try{
-        const ov = document.getElementById('profileOverlay');
+        const ov = document.getElementById('profileContainer') || document.getElementById('profileOverlay');
         if(!ov) return;
         const clean = fixMojibakeText;
         const stats = getProfileStats();
@@ -12223,7 +12784,7 @@
     function showMarketToast(message){
       try{
         const toast = document.createElement('div');
-        toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#333;color:white;padding:12px 16px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:10000;max-width:300px;word-wrap:break-word;animation:fadeInOut 3s ease-in-out;';
+        toast.className = 'fab-market-toast';
         toast.textContent = message;
         document.body.appendChild(toast);
         setTimeout(()=>{ try{ toast.remove(); }catch(e){} }, 3000);
@@ -12240,19 +12801,31 @@
         
         // Prevent duplicates
         if(document.getElementById('marketContainer')) return;
-        
+
+        try{
+          document.getElementById('modeSelectionTooltip')?.remove();
+        }catch(e){}
+
         const container = document.createElement('div');
         container.id = 'marketContainer';
+        container.className = 'market-shell';
         const _sideW = (typeof window.__getSideNavWidth === 'function') ? window.__getSideNavWidth() : ((window.innerWidth >= 1024 && document.getElementById('sideNav')) ? 220 : 0);
         container.style.cssText = `position:fixed;top:0;left:${_sideW}px;right:0;bottom:0;background:var(--bg);overflow-y:auto;z-index:1000;padding:20px;box-sizing:border-box;`;
         
         // Header with back button
         const header = document.createElement('div');
-        header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;max-width:1200px;margin-left:auto;margin-right:auto;';
+        header.className = 'market-topbar';
+        header.style.cssText = 'width:100%;';
+        const titleWrap = document.createElement('div');
+        titleWrap.className = 'market-title-wrap';
         const title = document.createElement('h2');
-        title.textContent = 'ðŸ›ï¸ MarchÃ©';
-        title.style.cssText = 'margin:0;font-size:1.6rem;font-weight:800;color:var(--fg);';
-        header.appendChild(title);
+        title.textContent = 'Marché total';
+        const marketSub = document.createElement('div');
+        marketSub.className = 'market-sub';
+        marketSub.textContent = 'Modes, decks, boosters et personnalisation';
+        titleWrap.appendChild(title);
+        titleWrap.appendChild(marketSub);
+        header.appendChild(titleWrap);
 
         const backBtn = document.createElement('button');
         backBtn.textContent = '← Retour';
@@ -12262,23 +12835,30 @@
         // Wallet display + back button grouped
         const walletDiv = document.createElement('div');
         walletDiv.style.cssText = 'display:flex;gap:8px;align-items:center;';
-        const creditsDisplay = document.createElement('div');
-        creditsDisplay.style.cssText = 'display:flex;align-items:center;gap:6px;background:var(--card);border-radius:10px;padding:7px 12px;border:1px solid rgba(0,0,0,0.08);';
-        const _creditCount = (typeof getCredits === 'function') ? getCredits() : Number(localStorage.getItem('fabanki:credits')||0);
-        creditsDisplay.innerHTML = `<span style="font-size:14px">\U0001F4B0</span><span style="font-size:12px;font-weight:700;color:#c9a227;font-family:inherit">${_creditCount.toLocaleString()} crédits</span>`;
-        walletDiv.appendChild(creditsDisplay);
-        const xpStats = computeLevelAndProgress(getXpTotal ? getXpTotal() : 0);
-        const lvlPill = document.createElement('div');
-        lvlPill.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--card);border-radius:10px;padding:7px 12px;border:1px solid rgba(0,0,0,0.08);';
-        lvlPill.innerHTML = `<span style="font-size:12px;font-weight:700;color:var(--accent)">Niv. ${xpStats.level}</span><div style="width:40px;height:4px;background:rgba(0,0,0,0.08);border-radius:2px;overflow:hidden"><div style="height:100%;width:${Math.round(xpStats.pct)}%;background:var(--accent);border-radius:2px"></div></div>`;
-        walletDiv.appendChild(lvlPill);
         walletDiv.appendChild(backBtn);
         header.appendChild(walletDiv);
         container.appendChild(header);
 
+        const _creditCount = (typeof getCredits === 'function') ? getCredits() : Number(localStorage.getItem('fabanki:credits')||0);
+        const xpStats = computeLevelAndProgress(getXpTotal ? getXpTotal() : 0);
+        const levelCard = document.createElement('div');
+        levelCard.className = 'market-level-card';
+        levelCard.innerHTML = `
+          <div class="market-level-ring" style="--p:${Math.round(xpStats.pct)}"><b>Niv ${xpStats.level}</b></div>
+          <div class="market-level-meta">
+            <div class="market-level-line">
+              <span class="market-pill market-pill--credits">💰 ${_creditCount.toLocaleString()} crédits</span>
+              <span class="market-pill">✨ ${xpStats.progress}/${xpStats.need} XP</span>
+              <span class="market-pill">⬆ ${xpStats.toNext} pour le niveau suivant</span>
+            </div>
+            <div class="market-progress"><i style="width:${Math.round(xpStats.pct)}%"></i></div>
+          </div>
+        `;
+        container.appendChild(levelCard);
+
         // Tab bar (pill style)
         const marketTabBar = document.createElement('div');
-        marketTabBar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;padding:0 0 16px;max-width:1200px;margin:12px auto 0;';
+        marketTabBar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;padding:0 0 16px;width:100%;margin:12px 0 0;';
         const _marketTabs = [
           { id:'all',    label:'Tout'     },
           { id:'decks',  label:'Decks'    },
@@ -12315,7 +12895,7 @@
         // Featured banner
         const featuredBanner = document.createElement('div');
         featuredBanner.dataset.marketTab = 'all,decks';
-        featuredBanner.style.cssText = 'max-width:1200px;margin:0 auto 16px;background:linear-gradient(135deg,rgba(155,89,208,0.25),rgba(155,89,208,0.1));border-radius:14px;padding:20px 22px;border:1px solid rgba(155,89,208,0.3);display:flex;align-items:center;gap:20px;flex-wrap:wrap;';
+        featuredBanner.style.cssText = 'width:100%;margin:0 0 16px;background:linear-gradient(135deg,rgba(155,89,208,0.25),rgba(155,89,208,0.1));border-radius:14px;padding:20px 22px;border:1px solid rgba(155,89,208,0.3);display:flex;align-items:center;gap:20px;flex-wrap:wrap;';
         const fbIcon = document.createElement('div');
         fbIcon.style.cssText = 'width:60px;height:60px;border-radius:14px;background:linear-gradient(135deg,var(--accent),#c084fc);display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0;';
         fbIcon.textContent = '📚';
@@ -12331,7 +12911,7 @@
 
         // Main content wrapper
         const content = document.createElement('div');
-        content.style.cssText = 'max-width:1200px;margin:0 auto;padding:0 0 20px;';
+        content.style.cssText = 'width:100%;padding:0 0 20px;';
         
         // Helper function to get current credits - directly call getCredits function
         const getBalance = () => {
@@ -12369,7 +12949,8 @@
         
         // ===== CAROUSEL SECTION: MODES DE RÃ‰VISION =====
         const carouselContainer = document.createElement('section');
-        carouselContainer.style.cssText = 'margin-bottom:40px;position:relative;';
+        carouselContainer.className = 'market-modes-section';
+        carouselContainer.style.cssText = 'margin-bottom:32px;position:relative;';
         
         // Carousel header with title and arrows
         const carouselHeader = document.createElement('div');
@@ -12406,7 +12987,8 @@
         
         // Carousel track (grid layout replacing carousel)
         const carouselTrack = document.createElement('div');
-        carouselTrack.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:4px 2px;';
+        carouselTrack.className = 'market-modes-grid';
+        carouselTrack.style.cssText = 'padding:2px;';
         carouselViewport.appendChild(carouselTrack);
         carouselContainer.appendChild(carouselViewport);
         
@@ -12414,7 +12996,7 @@
         
         // ===== SECTION 1: MODE TEXTE Ã€ TROU (TOP) =====
         const textModeSection = document.createElement('section');
-        textModeSection.style.cssText = 'border-radius:12px;overflow:hidden;';
+        textModeSection.className = 'market-mode-item';
         
         const textModeItemId = 'mode_texte_trou';
         const textModeCost = 100;
@@ -12429,6 +13011,7 @@
         const cardLayout = isMobile
           ? 'background:linear-gradient(135deg, var(--accent) 0%, #c084fc 100%);border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(155,89,208,0.3);display:flex;flex-direction:column;gap:16px;color:#FFFFFF;'
           : 'background:linear-gradient(135deg, var(--accent) 0%, #c084fc 100%);border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(155,89,208,0.3);display:flex;align-items:center;gap:24px;color:#FFFFFF;';
+        textModeCard.className = 'market-mode-card market-mode-card--text';
         textModeCard.style.cssText = cardLayout;
         
         // Icon/emojis section
@@ -12509,7 +13092,7 @@
         
         // ===== SECTION 1B: MODE RAPPEL SOUS PRESSION =====
         const timerModeSection = document.createElement('section');
-        timerModeSection.style.cssText = 'border-radius:12px;overflow:hidden;';
+        timerModeSection.className = 'market-mode-item';
         
         const timerModeItemId = 'mode_rappel_sous_pression';
         const timerModeCost = 100;
@@ -12522,6 +13105,7 @@
         const timerCardLayout = isMobile 
           ? 'background:linear-gradient(135deg, #FF6B6B 0%, #FF8E72 100%);border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(255, 107, 107, 0.3);display:flex;flex-direction:column;gap:16px;color:#FFFFFF;'
           : 'background:linear-gradient(135deg, #FF6B6B 0%, #FF8E72 100%);border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(255, 107, 107, 0.3);display:flex;align-items:center;gap:24px;color:#FFFFFF;';
+        timerModeCard.className = 'market-mode-card market-mode-card--timer';
         timerModeCard.style.cssText = timerCardLayout;
         
         const timerIconDiv = document.createElement('div');
@@ -12599,7 +13183,7 @@
         
         // ===== SECTION 1BR: MODE RUSH =====
         const rushModeSection = document.createElement('section');
-        rushModeSection.style.cssText = 'border-radius:12px;overflow:hidden;';
+        rushModeSection.className = 'market-mode-item';
         
         const rushModeItemId = 'mode_rush';
         const rushModeCost = 150;
@@ -12612,6 +13196,7 @@
         const rushCardLayout = isMobile 
           ? 'background:linear-gradient(135deg, #f093fb 0%, #f5576c 100%);border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(240, 147, 251, 0.3);display:flex;flex-direction:column;gap:16px;color:#FFFFFF;'
           : 'background:linear-gradient(135deg, #f093fb 0%, #f5576c 100%);border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(240, 147, 251, 0.3);display:flex;align-items:center;gap:24px;color:#FFFFFF;';
+        rushModeCard.className = 'market-mode-card market-mode-card--rush';
         rushModeCard.style.cssText = rushCardLayout;
         
         const rushIconDiv = document.createElement('div');
@@ -12689,7 +13274,7 @@
         
         // ===== SECTION 1C: MODE CALCUL =====
         const calculModeSection = document.createElement('section');
-        calculModeSection.style.cssText = 'border-radius:12px;overflow:hidden;';
+        calculModeSection.className = 'market-mode-item';
         
         const calculModeItemId = 'mode_calcul';
         const calculModeCost = 100;
@@ -12702,6 +13287,7 @@
         const calculCardLayout = isMobile 
           ? 'background:linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(79, 172, 254, 0.3);display:flex;flex-direction:column;gap:16px;color:#FFFFFF;'
           : 'background:linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);border-radius:12px;padding:24px;box-shadow:0 4px 16px rgba(79, 172, 254, 0.3);display:flex;align-items:center;gap:24px;color:#FFFFFF;';
+        calculModeCard.className = 'market-mode-card market-mode-card--calcul';
         calculModeCard.style.cssText = calculCardLayout;
         
         const calculIconDiv = document.createElement('div');
@@ -13429,7 +14015,6 @@
 
         // Assign tab groups and hide non-active tabs
         carouselContainer.dataset.marketTab = 'modes,all';
-        activeMemoryModeSection.dataset.marketTab = 'modes,all';
         specialsSection.dataset.marketTab = 'boosts,all';
         decksSection.dataset.marketTab = 'decks,all';
         personnalisationSection.dataset.marketTab = 'deco,all';
@@ -13959,7 +14544,10 @@
 
     function renderWelcomeQuestCard(){
       const state = initWelcomeQuest(); // Initialize if doesn't exist
-      if(!state || state.completed) return null;
+      if(!state) return null;
+      if(state.completed){
+        return renderPostWelcomeQuestCard({ embedded: true });
+      }
       
       const card = document.createElement('div');
       card.className = 'card welcome-quest-card';
@@ -14416,7 +15004,8 @@
       }
     }
 
-    function renderPostWelcomeQuestCard(){
+    function renderPostWelcomeQuestCard(options = {}){
+      const embedded = !!(options && options.embedded);
       const state = initPostWelcomeQuest();
       console.log('[Quest Debug] Rendering quest card with state:', { stepCards: state.stepCards, activeCards: state.activeCards, reverseCards: state.reverseCards });
       const timerUnlocked = !!localStorage.getItem('fabanki:market_mode_rappel_sous_pression');
@@ -14426,7 +15015,7 @@
       }
       const card = document.createElement('div');
       card.className = 'card post-welcome-quest-card';
-      card.style.cssText = 'margin-top:16px;padding:16px;';
+      card.style.cssText = embedded ? 'margin-bottom:12px;padding:16px;' : 'margin-top:16px;padding:16px;';
 
       const title = document.createElement('h2');
       title.textContent = 'ðŸŽ¯ QuÃªte avancÃ©e';
@@ -14599,16 +15188,9 @@
           existing.replaceWith(newCard);
           return;
         }
-        // Try to find container - could be in welcome page or stored reference
-        let container = document.getElementById('welcomeDecks');
-        if(!container) container = window.__welcomeDecksContainer;
-        if(!container) return;
-        const statsCard = container.querySelector('.stats-card');
-        if(statsCard && statsCard.parentNode === container){
-          statsCard.insertAdjacentElement('afterend', newCard);
-        } else {
-          container.appendChild(newCard);
-        }
+        // Do not create a standalone card anymore:
+        // the advanced quest lives in the quest box when available.
+        return;
       }catch(e){ console.warn('refreshPostWelcomeQuestUI error:', e); }
     }
 
@@ -15382,28 +15964,37 @@
           }
         }
 
-        // Canonical compatibility write: always mirror into users/{uid}.decks
-        // so restoreFromCloud (which reads users/{uid}) gets fresh card due values.
-        // If subcollection write was blocked or unavailable, this also acts as fallback.
-        const fallbackDeckPatch = {
-          decks: {
-            [String(deckKeyValue)]: {
-              cards: {
-                [String(cardIdValue)]: cardState
+        // Mirror into users/{uid}.decks ONLY when cardStates subcollection is unavailable.
+        // Merging every card into the user doc creates huge nested maps and hits Firestore index limits.
+        let wroteFallbackDeck = false;
+        if(__cardStatesSubcollectionBlocked || !wroteSubcollection){
+          const fallbackDeckPatch = {
+            decks: {
+              [String(deckKeyValue)]: {
+                cards: {
+                  [String(cardIdValue)]: cardState
+                }
               }
-            }
-          },
-          lastUpdated: Date.now()
-        };
-        await db.collection('users').doc(uid).set(fallbackDeckPatch, { merge: true });
-        console.log('[syncSingleCardState] Synced card to users/{uid}.decks:', {
-          deckKey: String(deckKeyValue),
-          cardId: String(cardIdValue)
-        });
+            },
+            lastUpdated: Date.now(),
+            cardStatesRevision: firebase.firestore.FieldValue.increment(1)
+          };
+          await db.collection('users').doc(uid).set(fallbackDeckPatch, { merge: true });
+          wroteFallbackDeck = true;
+          console.log('[syncSingleCardState] Synced card to users/{uid}.decks (fallback):', {
+            deckKey: String(deckKeyValue),
+            cardId: String(cardIdValue)
+          });
+        }
 
-        if(!wroteSubcollection && !__cardStatesSubcollectionBlocked && !__cardStatesFallbackWarned){
-          __cardStatesFallbackWarned = true;
-          console.warn('[syncSingleCardState] Subcollection write unavailable; relying on users/{uid}.decks compatibility writes.');
+        if(wroteSubcollection && !wroteFallbackDeck){
+          try{
+            await db.collection('users').doc(uid).set({
+              cardStatesRevision: firebase.firestore.FieldValue.increment(1)
+            }, { merge: true });
+          }catch(err){
+            console.warn('[syncSingleCardState] cardStatesRevision increment failed:', err);
+          }
         }
 
         return true;
@@ -15458,6 +16049,94 @@
       }
     }
 
+    const __fabanki_cloud_card_pull_uid_key = 'fabanki:cloud_card_pull_uid';
+    const __fabanki_cloud_card_pull_rev_key = 'fabanki:cloud_card_pull_rev';
+    function __fabanki_cloud_pull_rev0_ok_key(uid){ return 'fabanki:cloud_pull_rev0_ok:' + uid; }
+
+    function invalidateFabankiCloudCardPullCache(forUid){
+      try{
+        const u = forUid || localStorage.getItem('fabanki:user_id') || '';
+        localStorage.removeItem(__fabanki_cloud_card_pull_uid_key);
+        localStorage.removeItem(__fabanki_cloud_card_pull_rev_key);
+        if(u) localStorage.removeItem(__fabanki_cloud_pull_rev0_ok_key(u));
+      }catch(e){}
+    }
+
+    function shouldSkipFabankiCloudCardStatesPull(uid, remoteRev){
+      try{
+        const cachedUid = localStorage.getItem(__fabanki_cloud_card_pull_uid_key);
+        const cachedRev = Number(localStorage.getItem(__fabanki_cloud_card_pull_rev_key) || '');
+        if(cachedUid !== uid || !Number.isFinite(cachedRev)) return false;
+        const r = Number(remoteRev || 0);
+        if(!Number.isFinite(r)) return false;
+        if(r >= 1) return cachedRev === r;
+        if(r === 0 && cachedRev === 0){
+          return localStorage.getItem(__fabanki_cloud_pull_rev0_ok_key(uid)) === '1';
+        }
+        return false;
+      }catch(e){ return false; }
+    }
+
+    function updateFabankiCloudCardPullCache(uid, remoteRev, opts){
+      try{
+        localStorage.setItem(__fabanki_cloud_card_pull_uid_key, uid);
+        localStorage.setItem(__fabanki_cloud_card_pull_rev_key, String(remoteRev));
+        const rev0 = __fabanki_cloud_pull_rev0_ok_key(uid);
+        if(opts && opts.rev0Ok){
+          localStorage.setItem(rev0, '1');
+        } else if(Number(remoteRev) >= 1){
+          localStorage.removeItem(rev0);
+        }
+      }catch(e){}
+    }
+
+    /** Full cardStates collection pull only when cloud revision changed (avoids N reads on every reload). */
+    async function fetchCloudCardStatesMaybe(db, uid, remoteSt){
+      if(!db || !uid) return {};
+      try{
+        if(localStorage.getItem('fabanki:force_cloud_pull') === '1'){
+          localStorage.removeItem('fabanki:force_cloud_pull');
+          invalidateFabankiCloudCardPullCache(uid);
+          const forcedDecks = await fetchCloudCardStates(db, uid);
+          try{
+            const snap = await db.collection('users').doc(uid).get();
+            const d = snap.exists ? (snap.data() || {}) : {};
+            const revAfter = Number(d.cardStatesRevision || 0);
+            let revCache = revAfter;
+            const cc = Object.values(forcedDecks || {}).reduce((sum, x) => sum + Object.keys(x?.cards || {}).length, 0);
+            if(revAfter < 1 && cc > 0){
+              await db.collection('users').doc(uid).set({ cardStatesRevision: 1 }, { merge: true });
+              revCache = 1;
+            }
+            updateFabankiCloudCardPullCache(uid, revCache, { rev0Ok: revCache === 0 && cc === 0 });
+          }catch(e){ console.warn('[fetchCloudCardStatesMaybe] force refresh cache update failed:', e); }
+          return forcedDecks;
+        }
+      }catch(e){}
+
+      const remoteRevSafe = Number(remoteSt?.cardStatesRevision || 0);
+      if(shouldSkipFabankiCloudCardStatesPull(uid, remoteRevSafe)){
+        syncLog('[fetchCloudCardStates] skip — cardStatesRevision unchanged:', remoteRevSafe);
+        return {};
+      }
+
+      const decks = await fetchCloudCardStates(db, uid);
+      let revForCache = remoteRevSafe;
+      try{
+        const cardCount = Object.values(decks || {}).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
+        if(remoteRevSafe < 1 && cardCount > 0){
+          await db.collection('users').doc(uid).set({ cardStatesRevision: 1 }, { merge: true });
+          revForCache = 1;
+        }
+        updateFabankiCloudCardPullCache(uid, revForCache, { rev0Ok: revForCache === 0 && cardCount === 0 });
+      }catch(e){
+        console.warn('[fetchCloudCardStatesMaybe] bootstrap/cache failed:', e);
+      }
+      return decks;
+    }
+
+    try{ window.__fabanki_invalidateCloudCardPullCache = invalidateFabankiCloudCardPullCache; }catch(e){}
+
     async function saveState(state, preserveTimestamp = false){
       try{
         // Preserve original lastUpdated timestamp if explicitly requested (during sync operations)
@@ -15484,13 +16163,14 @@
               }
 
               // Create an ULTRA-LEAN cloud state: only flat values, NO nested objects
+              // Do not sync quests on users/{uid}: nested arrays/maps inflate Firestore index entries and trigger
+              // "too many index entries for entity" when combined with deck/card mirrors. Quests stay in localStorage.
               const cloudState = {
                 userId: uid,
                 mode: 'synced',
                 lastUpdated: lastUpdated,
                 xp: Number(toSave.xp || 0),
-                credits: Number(toSave.credits || 0),
-                quests: mergeQuestState(collectQuestState(), toSave.quests || null)
+                credits: Number(toSave.credits || 0)
               };
               
               // === SAFETY GATE 1.5: Block xp=0 upload ONLY when cloud already has real data ===
@@ -15562,7 +16242,6 @@
                 try{
                   await window.__fabanki_firestore.collection('users').doc(uid).set(cloudState, { merge: true });
                 }catch(writeErr){
-                  // Keep core sync alive even if optional quests payload is rejected by rules/shape.
                   const fallbackCloudState = {
                     userId: uid,
                     mode: 'synced',
@@ -15570,7 +16249,7 @@
                     xp: Number(cloudState.xp || 0),
                     credits: Number(cloudState.credits || 0)
                   };
-                  console.warn('[saveState] Full cloud write failed, retrying minimal payload (without quests):', writeErr);
+                  console.warn('[saveState] Cloud write failed, retrying xp/credits/lastUpdated only:', writeErr);
                   await window.__fabanki_firestore.collection('users').doc(uid).set(fallbackCloudState, { merge: true });
                 }
                 __lastCloudPushSignature = cloudSig;
@@ -15624,7 +16303,7 @@
         const docRef = db.collection('users').doc(uid);
         const snap = await docRef.get();
         const remoteSt = snap.exists ? (snap.data() || {}) : {};
-        const remoteCardDecks = await fetchCloudCardStates(db, uid);
+        const remoteCardDecks = await fetchCloudCardStatesMaybe(db, uid, remoteSt);
         const remoteDecks = mergeDeckStates(remoteSt.decks || {}, remoteCardDecks || {});
         const mergedDecks = mergeDeckStates(localDecks || {}, remoteDecks || {});
         const mergedSig = getDeckSnapshotSignature(mergedDecks);
@@ -15637,7 +16316,8 @@
           decks: mergedDecks,
           lastUpdated: Date.now(),
           mode: 'synced',
-          userId: uid
+          userId: uid,
+          cardStatesRevision: firebase.firestore.FieldValue.increment(1)
         }, { merge: true });
 
         __lastDeckSnapshotSignature = mergedSig;
@@ -15740,7 +16420,7 @@
           
           if(snap.exists){
             const remoteSt = snap.data();
-            const remoteCardDecks = await fetchCloudCardStates(db, userId);
+            const remoteCardDecks = await fetchCloudCardStatesMaybe(db, userId, remoteSt);
             remoteSt.decks = mergeDeckStates(remoteSt.decks || {}, remoteCardDecks || {});
             pulledRemoteDecks = remoteSt.decks || {};
             const localStateRaw = localStorage.getItem('fabanki:user_state');
@@ -15893,7 +16573,7 @@
         }
         
         const remoteSt = snap.data();
-        const remoteCardDecks = await fetchCloudCardStates(db, uid);
+        const remoteCardDecks = await fetchCloudCardStatesMaybe(db, uid, remoteSt);
         // Compose deck data from both legacy location (users/{uid}.decks) and new cardStates subcollection
         remoteSt.decks = mergeDeckStates(remoteSt.decks || {}, remoteCardDecks || {});
         // Cache the cloud XP immediately for safety checks
@@ -16050,6 +16730,13 @@
     // Expose "Réviser maintenant" logic for bottom nav / sidebar
     window.__fabanki_startNowReview = async function(limitCount){
       try{
+        // Bottom nav used to call setActivePage('home'), which sets nav-home-active and hides <main> with !important.
+        // Scanning decks can take a while — ensure the card area stays visible before removeWelcome / fetch work.
+        try{
+          document.body.classList.remove('nav-home-active');
+          const statusEl = document.getElementById('status');
+          if(statusEl) statusEl.style.display = '';
+        }catch(e){}
         updateStatus('Recherche des cartes à réviser maintenant...');
         let entries = [];
         try{ entries = await fetchDirectory('./decks/'); }catch(e){ entries = []; }
@@ -16482,6 +17169,10 @@
       try{
         const auth = firebase?.auth?.();
         if(!auth) return;
+        try{
+          const uidOut = localStorage.getItem('fabanki:user_id') || localStorage.getItem('userId');
+          invalidateFabankiCloudCardPullCache(uidOut);
+        }catch(e){}
         await auth.signOut();
         const st = defaultUserState();
         st.mode = 'local';
@@ -18209,6 +18900,15 @@
         const bgColor = localStorage.getItem('fabanki:bg_color');
         const bgPattern = localStorage.getItem('fabanki:bg_pattern') || 'dots';
         const fontFamily = localStorage.getItem('fabanki:font_stack');
+        const accentColor = localStorage.getItem('fabanki:accent_color');
+        if(accentColor){
+          root.style.setProperty('--accent', accentColor);
+          const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(accentColor);
+          if(m){
+            const rgb = `${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)}`;
+            root.style.setProperty('--accent-rgb', rgb);
+          }
+        }
         
         if (bgColor) {
           root.style.setProperty('--bg', bgColor);
@@ -19685,20 +20385,348 @@
           if(syncBtn) syncBtn.style.display = 'inline-block';
           if(homeBtn) homeBtn.style.display = 'none';
           setReviewTopBarVisibility(false);
+          try{ window.__fabanki_detachReviewShellForNav?.(); }catch(err){}
         }catch(e){ console.warn('Button swap error:', e); }
         
         // remove any existing welcome first
         await removeWelcome();
-        updateStatus(t('welcomeStatus'));
+        // Leave multi-review state so the next session / home widgets behave like a cold start
+        try{
+          multiDeckMode = false;
+          onlyNowMode = false;
+        }catch(e){}
+        try{
+          const frontEl = document.getElementById('front');
+          const backEl = document.getElementById('back');
+          if(frontEl){
+            frontEl.innerHTML = '';
+            frontEl.style.display = '';
+            frontEl.style.alignItems = '';
+            frontEl.style.justifyContent = '';
+          }
+          if(backEl){
+            backEl.innerHTML = '';
+            backEl.style.display = 'none';
+          }
+        }catch(e){}
+        updateStatus('');
         // hide existing main/stats but keep DOM so handlers remain
         const mainEl = document.querySelector('main'); if(!mainEl) return;
         mainEl.style.display = 'none';
         const stats = document.getElementById('stats'); if(stats) stats.style.display='none';
         const hint = document.getElementById('histHint');
-        const container = document.createElement('div'); container.id = 'welcomeDecks'; container.style.padding = '18px';
+        const container = document.createElement('div'); container.id = 'welcomeDecks';
 
-        // allow vertical scrolling on welcome page
-        try{ document.body.style.overflowY = 'auto'; }catch(e){}
+        // Scroll stays on #app on mobile (fixed body); avoid fighting that layout.
+        try{
+          if(window.matchMedia && window.matchMedia('(min-width:641px)').matches){
+            document.body.style.overflowY = 'auto';
+          }else{
+            document.body.style.removeProperty('overflow-y');
+          }
+        }catch(e){}
+
+        // === HOME V2 (from scratch) ===
+        try{
+          container.className = 'homev2-root';
+          container.innerHTML = '';
+          if(hint) hint.style.display = 'none';
+
+          const entries = await fetchDirectory('./decks/').catch(() => []);
+          const allFiles = (Array.isArray(entries) ? entries : []).filter(e => typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
+
+          const deckRows = [];
+          let dueTotal = 0;
+          for(const f of allFiles){
+            const url = './decks/' + f;
+            const name = decodeURIComponent(f.replace(/\+/g,'')).replace(/\.xml$/i,'');
+            const due = await countDueNowForDeck(url).catch(() => 0);
+            dueTotal += Number(due || 0);
+
+            const deckKey = (typeof normalizeDeckKeyFromURL === 'function') ? normalizeDeckKeyFromURL(url) : null;
+            const prefix = deckKey ? `fabanki:${deckKey}:card:` : null;
+            let reviewed = 0;
+            let lastSeen = 0;
+            if(prefix){
+              for(let i = 0; i < localStorage.length; i++){
+                const k = localStorage.key(i);
+                if(!k || !k.startsWith(prefix)) continue;
+                try{
+                  const st = JSON.parse(localStorage.getItem(k) || '{}');
+                  const reps = Number(st.reps || 0);
+                  if(reps > 0) reviewed += 1;
+                  const ts = st.last ? new Date(st.last).getTime() : 0;
+                  if(Number.isFinite(ts) && ts > lastSeen) lastSeen = ts;
+                }catch(e){}
+              }
+            }
+            deckRows.push({ name, url, due: Number(due || 0), reviewed, lastSeen });
+          }
+
+          const recentDecks = deckRows.filter(d => d.lastSeen > 0).sort((a,b) => b.lastSeen - a.lastSeen).slice(0, 6);
+          const mostDueDecks = deckRows.filter(d => d.due > 0).sort((a,b) => b.due - a.due).slice(0, 6);
+          const unseenDecks = deckRows.filter(d => d.reviewed === 0).slice(0, 6);
+
+          const lvlStats = computeLevelAndProgress(getXpTotal());
+          const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
+          const creditCount = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          const dailyGoal = getDailyGoal();
+          const todayReviewed = getTodayReviewedCount();
+          const goalPct = dailyGoal > 0 ? Math.max(0, Math.min(100, Math.round((todayReviewed / dailyGoal) * 100))) : 0;
+
+          const lvlRingR = 38;
+          const lvlRingCirc = 2 * Math.PI * lvlRingR;
+          const lvlPctClamped = Math.max(0, Math.min(100, Number(lvlStats.pct) || 0));
+          const lvlRingOffset = lvlRingCirc * (1 - lvlPctClamped / 100);
+          const lvlRingColor = getLevelColor(lvlStats.level);
+
+          const homeHero = document.createElement('section');
+          homeHero.className = 'homev2-hero card';
+          homeHero.innerHTML = `
+            <div class="homev2-hero-top">
+              <div>
+                <div class="homev2-kicker">Accueil</div>
+                <div class="homev2-title">Ton tableau de bord</div>
+              </div>
+              <div class="homev2-level-wrap" title="Progression vers le niveau ${lvlStats.level + 1}">
+                <div class="homev2-level-ring" aria-hidden="true">
+                  <svg viewBox="0 0 100 100" width="76" height="76">
+                    <circle class="homev2-level-ring-track" cx="50" cy="50" r="${lvlRingR}" fill="none" stroke-width="10"/>
+                    <circle class="homev2-level-ring-fill" cx="50" cy="50" r="${lvlRingR}" fill="none" stroke="${lvlRingColor}" stroke-width="10" stroke-linecap="round"
+                      stroke-dasharray="${lvlRingCirc}" stroke-dashoffset="${lvlRingOffset}" transform="rotate(-90 50 50)"/>
+                  </svg>
+                  <span class="homev2-level-ring-num">${lvlStats.level}</span>
+                </div>
+                <span class="homev2-level-ring-sub">Niveau · ${Math.round(lvlPctClamped)}%</span>
+              </div>
+            </div>
+            <div class="homev2-hero-grid">
+              <div class="homev2-stat"><span>XP</span><strong>${lvlStats.progress}/${lvlStats.need}</strong></div>
+              <div class="homev2-stat"><span>Streak</span><strong>${streakCount} j</strong></div>
+              <div class="homev2-stat"><span>Crédits</span><strong>${creditCount}</strong></div>
+              <div class="homev2-stat"><span>Objectif du jour</span><strong>${dailyGoal > 0 ? `${todayReviewed}/${dailyGoal}` : `${todayReviewed}/—`}</strong></div>
+            </div>
+            <div class="homev2-goal">
+              <div class="homev2-goal-bar"><i style="width:${goalPct}%;"></i></div>
+              <div class="homev2-goal-meta">${dailyGoal > 0 ? `${goalPct}% de l'objectif` : 'Définis un objectif quotidien'}</div>
+            </div>
+            <div class="homev2-actions">
+              <button class="primary" id="homev2NowBtn">Réviser maintenant</button>
+              <select id="homev2NowLimit" class="homev2-select">
+                <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option><option value="all">Toutes</option>
+              </select>
+            </div>
+          `;
+          container.appendChild(homeHero);
+
+          const grid = document.createElement('section');
+          grid.className = 'homev2-grid';
+          container.appendChild(grid);
+
+          const quickStats = document.createElement('article');
+          quickStats.className = 'card homev2-card';
+          quickStats.innerHTML = `
+            <div class="homev2-card-title">Aperçu rapide</div>
+            <div class="homev2-mini-grid">
+              <div><span>Decks</span><strong>${deckRows.length}</strong></div>
+              <div><span>À faire</span><strong>${dueTotal}</strong></div>
+              <div><span>Jamais vus</span><strong>${deckRows.filter(d=>d.reviewed===0).length}</strong></div>
+              <div><span>Aujourd'hui</span><strong>${todayReviewed}</strong></div>
+            </div>
+          `;
+          grid.appendChild(quickStats);
+
+          const statsSummary = document.createElement('article');
+          statsSummary.className = 'card homev2-card homev2-stats-card';
+          const totalReviewedAll = (typeof getTotalReviewedCount === 'function') ? getTotalReviewedCount() : Number(localStorage.getItem('fabanki:cards_total') || 0);
+          const totalFail = Number(localStorage.getItem('fabanki:fail_total') || 0);
+          const totalHard = Number(localStorage.getItem('fabanki:difficult_total') || 0);
+          const totalGood = Number(localStorage.getItem('fabanki:good_total') || 0);
+          const totalEasy = Number(localStorage.getItem('fabanki:easy_total') || 0);
+          const gradeTotal = totalFail + totalHard + totalGood + totalEasy;
+          const successPct = gradeTotal > 0 ? Math.round(((totalGood + totalEasy) / gradeTotal) * 100) : 0;
+          let weeklyBars = [];
+          try{
+            const histObj = normalizeDailyHistObj(localStorage.getItem('fabanki:daily_history'));
+            for(let i = 6; i >= 0; i--){
+              const d = new Date();
+              d.setHours(12, 0, 0, 0);
+              d.setDate(d.getDate() - i);
+              weeklyBars.push(dailyHistCountForLocalDay(histObj, d));
+            }
+          }catch(e){ weeklyBars = []; }
+          while(weeklyBars.length < 7) weeklyBars.unshift(0);
+          if(weeklyBars.length > 7) weeklyBars = weeklyBars.slice(-7);
+          try{
+            const todayStr = new Date().toDateString();
+            const rd = localStorage.getItem('fabanki:daily_reviewed_date');
+            const rc = Number(localStorage.getItem('fabanki:daily_reviewed_count') || 0);
+            if(rd === todayStr && Number.isFinite(rc) && rc > 0){
+              const last = weeklyBars.length - 1;
+              if(last >= 0) weeklyBars[last] = Math.max(Number(weeklyBars[last]) || 0, rc);
+            }
+          }catch(e){}
+          const weeklyMax = Math.max(...weeklyBars, 1);
+          const barPct = (v) => {
+            if(v <= 0) return 4;
+            return Math.max(12, Math.round((v / weeklyMax) * 100));
+          };
+          const barsHtml = weeklyBars.map(v => `<div class="homev2-bar-col"><i style="height:${barPct(v)}%"></i><span>${v}</span></div>`).join('');
+          statsSummary.innerHTML = `
+            <div class="homev2-stats-head">
+              <div class="homev2-card-title">Résumé statistiques</div>
+            </div>
+            <div class="homev2-stats-kpis homev2-stats-kpis--wide">
+              <div><span>Cartes lues</span><strong>${totalReviewedAll}</strong></div>
+              <div><span>Précision</span><strong>${successPct}%</strong></div>
+              <div><span>Bonnes+Faciles</span><strong>${totalGood + totalEasy}</strong></div>
+              <div><span>Ratées</span><strong>${totalFail}</strong></div>
+            </div>
+            <div class="homev2-bars">${barsHtml}</div>
+          `;
+          grid.appendChild(statsSummary);
+
+          const decksCard = document.createElement('article');
+          decksCard.className = 'card homev2-card homev2-decks-card';
+          const deckSources = {
+            recent: { label:'Récents', rows: recentDecks, empty:'Aucun deck récent.' },
+            due: { label:'À faire', rows: mostDueDecks, empty:'Aucune carte due actuellement.' },
+            unseen: { label:'Jamais vus', rows: unseenDecks, empty:'Tous les decks ont déjà été ouverts.' }
+          };
+          let activeDeckFilter = 'due';
+          function renderDeckRows(){
+            const src = deckSources[activeDeckFilter];
+            const rows = src.rows;
+            const body = decksCard.querySelector('.homev2-deck-list');
+            if(!body) return;
+            body.innerHTML = rows.length
+              ? rows.map(r => `<div class="homev2-deck-row" data-url="${r.url}" data-name="${encodeURIComponent(r.name)}"><div class="homev2-deck-name">${r.name}</div><div class="homev2-deck-meta">${r.due>0?`<span class="homev2-badge">${r.due} à faire</span>`:''}${r.reviewed===0?`<span class="homev2-badge homev2-badge-muted">Nouveau</span>`:''}<button class="secondary homev2-open-btn">Ouvrir</button></div></div>`).join('')
+              : `<div class="homev2-empty">${src.empty}</div>`;
+            body.querySelectorAll('.homev2-deck-row').forEach(row => {
+              const openDeckFromRow = async (triggerEl) => {
+                const url = row.getAttribute('data-url');
+                const name = decodeURIComponent(row.getAttribute('data-name') || '');
+                await openDeckWithModeSelection(url, name, triggerEl);
+              };
+              row.querySelector('.homev2-open-btn')?.addEventListener('click', async (ev) => {
+                ev.stopPropagation();
+                await openDeckFromRow(ev.currentTarget);
+              });
+              row.addEventListener('click', async (ev) => {
+                if(ev.target.closest('button')) return;
+                await openDeckFromRow(row.querySelector('.homev2-open-btn'));
+              });
+            });
+            decksCard.querySelectorAll('.homev2-tab').forEach(t => t.classList.toggle('is-active', t.getAttribute('data-type') === activeDeckFilter));
+          }
+          decksCard.innerHTML = `
+            <div class="homev2-card-title">Decks</div>
+            <div class="homev2-tabs">
+              <button class="secondary homev2-tab" data-type="recent">Récents</button>
+              <button class="secondary homev2-tab is-active" data-type="due">Les plus dus</button>
+              <button class="secondary homev2-tab" data-type="unseen">Jamais vus</button>
+            </div>
+            <div class="homev2-deck-list"></div>
+          `;
+          decksCard.querySelectorAll('.homev2-tab').forEach(btn => btn.addEventListener('click', ()=>{
+            activeDeckFilter = btn.getAttribute('data-type') || 'due';
+            renderDeckRows();
+          }));
+          renderDeckRows();
+          grid.appendChild(decksCard);
+
+          const questCard = document.createElement('article');
+          questCard.className = 'card homev2-card homev2-quest-card';
+          const welcomeState = getWelcomeQuestState ? getWelcomeQuestState() : null;
+          const postState = initPostWelcomeQuest ? initPostWelcomeQuest() : null;
+          const parts = [];
+          if(welcomeState && !welcomeState.completed){
+            const p1Done = !!(welcomeState.part1?.onboarding_done && welcomeState.part1?.profile_opened && welcomeState.part1?.market_opened && welcomeState.part1?.goal_set);
+            const p2Done = !!(welcomeState.part2?.deck_opened && welcomeState.part2?.cards_50_reviewed && welcomeState.part2?.session_completed);
+            parts.push({ title: 'Quête bienvenue · Partie 1', lines: [
+              ['Terminer onboarding', !!welcomeState.part1?.onboarding_done],
+              ['Ouvrir profil', !!welcomeState.part1?.profile_opened],
+              ['Ouvrir marché', !!welcomeState.part1?.market_opened],
+              ['Définir un objectif', !!welcomeState.part1?.goal_set]
+            ]});
+            parts.push({ title: 'Quête bienvenue · Partie 2', locked: !p1Done, lines: [
+              ['Ouvrir un deck', !!welcomeState.part2?.deck_opened],
+              ['Réviser 50 cartes', !!welcomeState.part2?.cards_50_reviewed],
+              ['Terminer une session', !!welcomeState.part2?.session_completed]
+            ]});
+            parts.push({ title: 'Quête bienvenue · Partie 3', locked: !p2Done, lines: [
+              ['Objectif du jour', !!welcomeState.part3?.daily_goal_completed],
+              ['Achat au marché', !!welcomeState.part3?.market_purchase],
+              ['Obtenir un titre', !!welcomeState.part3?.first_title],
+              ['3 quêtes quotidiennes', !!welcomeState.part3?.three_daily_quests],
+              ['Lancer mémoire active', !!welcomeState.part3?.active_memory_launched]
+            ]});
+          } else if(postState){
+            const decksCount = new Set((postState.part3_decksReviewedSet || '').split(',').filter(Boolean)).size;
+            parts.push({ title: 'Quête avancée · Partie 1', lines: [
+              ['25 cartes étape', Number(postState.stepCards||0) >= postWelcomeQuestTargets.stepCards],
+              ['25 cartes mémoire active', Number(postState.activeCards||0) >= postWelcomeQuestTargets.activeCards],
+              ['1h sur l’app', Number(postState.timeSec||0) >= postWelcomeQuestTargets.timeSec]
+            ]});
+            parts.push({ title: 'Quête avancée · Partie 2', lines: [
+              ['250 cartes', Number(postState.totalCards||0) >= postWelcomeQuestTargets.totalCards],
+              ['50 cartes revers', Number(postState.reverseCards||0) >= postWelcomeQuestTargets.reverseCards],
+              ['Mode rappel débloqué', !!postState.timerUnlocked]
+            ]});
+            parts.push({ title: 'Quête avancée · Partie 3', lines: [
+              ['3h sur l’app', Number(postState.part3_timeSec||0) >= postWelcomeQuestTargets.part3_timeSec],
+              ['20 decks différents', decksCount >= postWelcomeQuestTargets.part3_decksReviewed],
+              ['50 cartes maîtrisées', Number(postState.part3_masteredCards||0) >= postWelcomeQuestTargets.part3_masteredCards],
+              ['100 cartes aléatoires', Number(postState.part3_randomCards||0) >= postWelcomeQuestTargets.part3_randomCards],
+              ['1 achat marché', Number(postState.part3_marketPurchase||0) >= postWelcomeQuestTargets.part3_marketPurchase]
+            ]});
+          }
+          let questIndex = Math.max(0, parts.findIndex(p => p.lines.some(l => !l[1])));
+          if(questIndex < 0) questIndex = 0;
+          function renderQuestPart(){
+            if(!parts.length){
+              questCard.innerHTML = '<div class="homev2-card-title">Quêtes</div><div class="homev2-empty">Aucune quête active.</div>';
+              return;
+            }
+            const part = parts[questIndex];
+            const doneCount = part.lines.filter(l => !!l[1]).length;
+            const progressPct = part.lines.length ? Math.round((doneCount / part.lines.length) * 100) : 0;
+            const lines = part.lines.map(([label, done]) => `<div class="homev2-quest-line ${done?'is-done':''}"><span class="homev2-quest-check">${done?'✓':'○'}</span><span>${label}</span></div>`).join('');
+            questCard.innerHTML = `<div class="homev2-quest-head"><button class="secondary homev2-quest-nav" id="homev2QuestPrev">←</button><div><div class="homev2-card-title">${part.title}</div><div class="homev2-quest-sub">${questIndex+1}/${parts.length}${part.locked?' · Verrouillée':''} · ${doneCount}/${part.lines.length}</div></div><button class="secondary homev2-quest-nav" id="homev2QuestNext">→</button></div><div class="homev2-quest-progress"><i style="width:${progressPct}%"></i></div><div class="homev2-quest-lines">${lines}</div>`;
+            questCard.querySelector('#homev2QuestPrev')?.addEventListener('click', ()=>{ questIndex = (questIndex - 1 + parts.length) % parts.length; renderQuestPart(); });
+            questCard.querySelector('#homev2QuestNext')?.addEventListener('click', ()=>{ questIndex = (questIndex + 1) % parts.length; renderQuestPart(); });
+          }
+          renderQuestPart();
+          grid.appendChild(questCard);
+
+          homeHero.querySelector('#homev2NowBtn')?.addEventListener('click', async () => {
+            try{
+              const rawLimit = homeHero.querySelector('#homev2NowLimit')?.value || '50';
+              const limitCount = rawLimit === 'all' ? null : Number(rawLimit);
+              const dueDeckUrls = mostDueDecks.length ? mostDueDecks.map(d => d.url) : deckRows.filter(d => d.due > 0).map(d => d.url);
+              if(!dueDeckUrls.length){ updateStatus('Aucune carte à réviser maintenant.'); return; }
+              try{
+                document.body.classList.remove('nav-home-active');
+                const stEl = document.getElementById('status');
+                if(stEl) stEl.style.display = '';
+              }catch(e){}
+              await removeWelcome();
+              await loadMultipleDeckCards(dueDeckUrls, { onlyNow:true, limitCount:(Number.isFinite(limitCount)?limitCount:null) });
+              if(typeof showNextCard === 'function') showNextCard();
+            }catch(e){ console.warn('homev2 now review error', e); }
+          });
+
+          try{ syncPostWelcomeQuestTime(); }catch(e){}
+          try{ window.__welcomeDecksContainer = container; }catch(e){}
+
+          const host = document.querySelector('.app') || document.body;
+          const footer = host.querySelector('footer') || document.querySelector('footer') || null;
+          if(footer) host.insertBefore(container, footer); else host.appendChild(container);
+          try{ if(typeof createOnlineIndicator === 'function') createOnlineIndicator(); }catch(e){}
+          return;
+        }catch(e){
+          console.warn('homev2 render failed, fallback to legacy welcome:', e);
+        }
 
         // Level summary card (above the decks list)
         try{
@@ -20625,16 +21653,8 @@
         }catch(e){ console.warn('Stats card error:', e); }
         // === END STATS CARD ===
 
-        // Add post-welcome quest card UNDER the stats card
+        // Keep quest progress synced; advanced quest is now rendered in the quest box.
         try{ syncPostWelcomeQuestTime(); }catch(e){}
-        try{
-          const existingQuestCard = container.querySelector('.post-welcome-quest-card');
-          if(existingQuestCard) existingQuestCard.remove();
-          const postWelcomeQuestCard = renderPostWelcomeQuestCard();
-          if(postWelcomeQuestCard){
-            container.appendChild(postWelcomeQuestCard);
-          }
-        }catch(e){ console.warn('Post-welcome quest card error:', e); }
         
         // Store container reference for later refreshes during deck review
         try{ window.__welcomeDecksContainer = container; }catch(e){}
@@ -20646,7 +21666,7 @@
         
         // Create online indicator after welcome page is added to DOM
         try{ if(typeof createOnlineIndicator === 'function') createOnlineIndicator(); }catch(e){}
-      }catch(e){ updateStatus(t('welcomeStatus')); }
+      }catch(e){ updateStatus(''); }
     }
 
     // Wait for restore before loading deck, but with timeout to avoid indefinite wait
@@ -20710,6 +21730,12 @@
       }
     }
     
+    // Nav / settings call welcome via window.* — these live inside this load handler scope only.
+    try{
+      window.removeWelcome = removeWelcome;
+      window.renderWelcomeDecks = renderWelcomeDecks;
+    }catch(e){}
+
     // Start deck loader initialization
     initializeDeckLoader().catch(e => console.warn('Deck loader error:', e));
     
@@ -21778,7 +22804,7 @@
     try{
       const existingOverlay = document.getElementById('pwaInstallOverlay');
       if(existingOverlay) existingOverlay.remove();
-      const profileOverlay = document.getElementById('profileOverlay');
+      const profileOverlay = document.getElementById('profileContainer') || document.getElementById('profileOverlay');
       if(profileOverlay) profileOverlay.remove();
 
       const createSection = (title, steps) => {
@@ -23415,13 +24441,13 @@
     const qualMax = Math.max(1, fail, hard, good-easy, easy);
     function qualBar(v,color){ return `<div class="sp-qual-bar-fill" style="width:${Math.round((v/qualMax)*100)}%;background:${color}"></div>`; }
 
-    el.innerHTML = `<div class="sp-wrap">
+    el.innerHTML = `<div class="sp-wrap sp-mosaic">
       <div class="sp-header">
         <span class="sp-header-title">Statistiques</span>
         <button class="sp-sync-btn" id="spSyncBtn">↺ Sync</button>
       </div>
 
-      <div class="sp-section">
+      <div class="sp-section sp-box sp-box-progress">
         <span class="sp-section-title">Progression du jour</span>
         <div class="sp-card">
           <div class="sp-grid-4">
@@ -23434,7 +24460,7 @@
         </div>
       </div>
 
-      <div class="sp-section">
+      <div class="sp-section sp-box sp-box-streak">
         <span class="sp-section-title">Élan d'étude</span>
         <div class="sp-card">
           <div class="sp-grid-4">
@@ -23446,7 +24472,7 @@
         </div>
       </div>
 
-      <div class="sp-section">
+      <div class="sp-section sp-box sp-box-library">
         <span class="sp-section-title">Bibliothèque</span>
         <div class="sp-card">
           <div class="sp-grid-4">
@@ -23458,7 +24484,7 @@
         </div>
       </div>
 
-      <div class="sp-section">
+      <div class="sp-section sp-box sp-box-quality">
         <span class="sp-section-title">Qualité des réponses</span>
         <div class="sp-card">
           <div class="sp-grid-4" style="margin-bottom:14px">
@@ -23474,7 +24500,7 @@
         </div>
       </div>
 
-      <div class="sp-section">
+      <div class="sp-section sp-box sp-box-due">
         <span class="sp-section-title">Répartition des échéances</span>
         <div class="sp-card">
           <div class="sp-hist-bars">
@@ -23491,14 +24517,14 @@
         </div>
       </div>
 
-      <div class="sp-section">
+      <div class="sp-section sp-box sp-box-calendar">
         <span class="sp-section-title">Calendrier (16 semaines)</span>
         <div class="sp-card">
           <div class="sp-heatmap">${buildHeatmap(hist)}</div>
         </div>
       </div>
 
-      <div class="sp-section">
+      <div class="sp-section sp-box sp-box-titles">
         <span class="sp-section-title">Titres & Tiers</span>
         <div class="sp-card">
           <div class="sp-titre-grid">${titreHtml||'<span style="color:var(--muted);font-size:0.85rem">Aucun titre disponible</span>'}</div>
@@ -23510,6 +24536,107 @@
       const syncBtn = document.getElementById('syncBtn');
       if(syncBtn) syncBtn.click();
     });
+  };
+})();
+
+// ===== CLASSEMENT PAGE =====
+(function(){
+  function getLeaderboardField(entry, aliases, fallback){
+    if(!entry || typeof entry !== 'object') return fallback;
+    for(const key of aliases){
+      if(entry[key] !== undefined && entry[key] !== null) return entry[key];
+    }
+    return fallback;
+  }
+  function isValidLeaderboardEntry(d){
+    try{
+      const level = Number(d.Niveau || d['Niveau Prépa'] || 0);
+      const score = Number(d.Score_MPSI || 0);
+      if(level > 60) return false;
+      if(score > 5000) return false;
+      return true;
+    }catch(e){ return false; }
+  }
+  function dedupeByPseudo(rows){
+    const byPseudo = new Map();
+    for(const raw of rows || []){
+      const pseudo = String(raw?.Pseudo || '').trim();
+      if(!pseudo) continue;
+      const key = pseudo.toLowerCase();
+      const current = byPseudo.get(key);
+      if(!current){ byPseudo.set(key, { ...(raw || {}) }); continue; }
+      const keep = Number(raw.Score_MPSI || 0) > Number(current.Score_MPSI || 0) ? raw : current;
+      byPseudo.set(key, keep);
+    }
+    return Array.from(byPseudo.values());
+  }
+
+  window.renderClassementPage = async function(){
+    const el = document.getElementById('classementPage');
+    if(!el) return;
+    el.innerHTML = `<div class="rg-wrap">
+      <div class="sp-header" style="position:sticky;top:0;z-index:10;background:var(--bg)">
+        <span class="sp-header-title">Classement</span>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="secondary" id="classementGlobalBtn">Global</button>
+          <button class="secondary" id="classementMonthBtn">Mois</button>
+          <button class="secondary" id="classementRefreshBtn">Actualiser</button>
+        </div>
+      </div>
+      <div class="sp-section">
+        <div class="sp-card" style="overflow:auto">
+          <table class="leaderboard-table" style="width:100%;border-collapse:collapse">
+            <thead><tr><th>Rang</th><th>Pseudo</th><th>Titre</th><th>Niveau</th><th>Score</th><th>Cartes</th><th>Quêtes</th></tr></thead>
+            <tbody id="classementRows"><tr><td colspan="7">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+    const tbody = el.querySelector('#classementRows');
+    const db = window.__fabanki_firestore;
+    const monthId = (new Date().toISOString().slice(0,7));
+    let mode = 'global';
+
+    async function loadRows(){
+      if(!tbody) return;
+      if(!db){ tbody.innerHTML = '<tr><td colspan="7">Classement indisponible (Firebase non configuré)</td></tr>'; return; }
+      try{
+        const snap = await db.collection('Classement').get();
+        const rows = [];
+        snap.forEach(doc => {
+          const d = doc.data() || {};
+          if(!isValidLeaderboardEntry(d)) return;
+          if(mode === 'month' && d.Mois_ID !== monthId) return;
+          rows.push(d);
+        });
+        const unique = dedupeByPseudo(rows);
+        unique.sort((a,b)=> Number((mode === 'month' ? b.Score_MPSI_mois : b.Score_MPSI) || 0) - Number((mode === 'month' ? a.Score_MPSI_mois : a.Score_MPSI) || 0));
+        tbody.innerHTML = '';
+        let rank = 1;
+        unique.forEach(d => {
+          const cards = Number(getLeaderboardField(d, ['Cartes révisées','Cartes rÃ©visÃ©es'], 0) || 0);
+          if(cards <= 0) return;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${rank++}</td>
+            <td>${d.Pseudo || '-'}</td>
+            <td>${d.Selected_Title || '-'}</td>
+            <td>${getLeaderboardField(d, ['Niveau','Niveau Prépa','Niveau PrÃ©pa'], 0)}</td>
+            <td>${mode === 'month' ? Number(d.Score_MPSI_mois || 0) : Number(d.Score_MPSI || 0)}</td>
+            <td>${cards}</td>
+            <td>${getLeaderboardField(d, ['Quêtes_quotidiennes','QuÃªtes_quotidiennes'], 0)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        if(!tbody.children.length) tbody.innerHTML = '<tr><td colspan="7">Aucune donnée</td></tr>';
+      }catch(e){
+        tbody.innerHTML = '<tr><td colspan="7">Erreur de chargement du classement</td></tr>';
+      }
+    }
+    el.querySelector('#classementGlobalBtn')?.addEventListener('click', ()=>{ mode = 'global'; loadRows(); });
+    el.querySelector('#classementMonthBtn')?.addEventListener('click', ()=>{ mode = 'month'; loadRows(); });
+    el.querySelector('#classementRefreshBtn')?.addEventListener('click', ()=> loadRows());
+    await loadRows();
   };
 })();
 
@@ -23526,7 +24653,6 @@
   function saveSessions(arr){ localStorage.setItem('fabanki:sessions',JSON.stringify(arr)); }
 
   async function launchSessionDecks(decks, cardLimit, onlyNow){
-    if(typeof window.__setNavActivePage==='function') window.__setNavActivePage('home');
     const fullPaths = decks.map(d => d.startsWith('./')?d:'./decks/'+d);
     if(fullPaths.length>0 && typeof window.loadMultipleDeckCards==='function'){
       if(typeof window.removeWelcome==='function') await window.removeWelcome();
@@ -23754,6 +24880,14 @@
           </div>
         </div>
       </div>
+      <div class="sp-section"><span class="sp-section-title">Compte</span>
+        <div class="sp-card">
+          <div class="rg-row">
+            <div><div class="rg-row-label">Synchroniser mes progrès</div><div class="rg-row-sub">Connexion cloud et sauvegarde (identique au bouton de l'en-tête)</div></div>
+            <button class="secondary" id="rg-sync-btn">Synchroniser</button>
+          </div>
+        </div>
+      </div>
       <div class="sp-section"><span class="sp-section-title">Données</span>
         <div class="sp-card">
           <div class="rg-row">
@@ -23763,6 +24897,14 @@
           <div class="rg-row">
             <div><div class="rg-row-label" style="color:#d9534f">Réinitialiser les stats</div><div class="rg-row-sub">Efface les compteurs de révision (irréversible)</div></div>
             <button class="secondary" style="color:#d9534f;border-color:rgba(217,83,79,0.4)" id="rg-reset-stats-btn">Reset</button>
+          </div>
+          <div class="rg-row">
+            <div><div class="rg-row-label">Relancer onboarding</div><div class="rg-row-sub">Réaffiche le tutoriel de démarrage</div></div>
+            <button class="secondary" id="rg-onboarding-btn">Relancer</button>
+          </div>
+          <div class="rg-row">
+            <div><div class="rg-row-label">Réinitialiser la personnalisation</div><div class="rg-row-sub">Thème, motifs, polices, animations et couleurs</div></div>
+            <button class="secondary" id="rg-reset-customize-btn">Réinitialiser</button>
           </div>
         </div>
       </div>
@@ -23785,6 +24927,11 @@
     el.querySelector('#rg-daily-goal')?.addEventListener('change',e=>localStorage.setItem('fabanki:daily_goal',e.target.value));
     el.querySelector('#rg-retention')?.addEventListener('change',e=>localStorage.setItem('fabanki:target_retention',e.target.value));
     el.querySelector('#rg-haptic')?.addEventListener('change',e=>localStorage.setItem('fabanki:haptic',e.target.checked?'1':'0'));
+    el.querySelector('#rg-sync-btn')?.addEventListener('click',()=>{
+      try{
+        document.getElementById('syncBtn')?.click();
+      }catch(err){ console.warn('rg-sync-btn', err); }
+    });
     el.querySelector('#rg-export-btn')?.addEventListener('click',()=>{
       const data={};
       for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('fabanki:')) data[k]=localStorage.getItem(k); }
@@ -23797,6 +24944,17 @@
       if(!confirm('Réinitialiser toutes les statistiques ? Cette action est irréversible.')) return;
       ['fabanki:fail_total','fabanki:difficult_total','fabanki:good_total','fabanki:easy_total','fabanki:daily_history','fabanki:time_spent_total_sec','fabanki:max_daily_reviewed','fabanki:max_daily_reviewed_date'].forEach(k=>localStorage.removeItem(k));
       alert('Statistiques réinitialisées.');
+    });
+    el.querySelector('#rg-onboarding-btn')?.addEventListener('click', ()=>{
+      try{
+        localStorage.removeItem('fabanki:onboarding_completed');
+        if(typeof showOnboarding === 'function') showOnboarding();
+      }catch(e){}
+    });
+    el.querySelector('#rg-reset-customize-btn')?.addEventListener('click', ()=>{
+      ['fabanki:bg_color','fabanki:bg_pattern','fabanki:font_stack','fabanki:card_color','fabanki:popup_animation','fabanki:font_size','fabanki:accent_color'].forEach(k=>localStorage.removeItem(k));
+      if(typeof applyCustomization==='function') applyCustomization();
+      window.renderReglagesPage();
     });
   };
 })();
@@ -23817,6 +24975,12 @@
 
   function setActivePage(pageId){
     currentPage = pageId;
+    try{
+      if(pageId !== 'review'){
+        window.__fabanki_detachReviewShellForNav?.();
+      }
+    }catch(e){}
+    try{ document.body.classList.toggle('nav-home-active', pageId === 'home'); }catch(e){}
     document.querySelectorAll('.bn-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === pageId));
     document.querySelectorAll('.sn-item').forEach(t => t.classList.toggle('active', t.dataset.tab === pageId));
 
@@ -23826,7 +24990,7 @@
       if(deckOverlay && deckOverlay.style.display !== 'none'){
         deckOverlay.classList.remove('open'); deckOverlay.style.display = 'none'; deckOverlay.setAttribute('aria-hidden','true');
       }
-      const profileOverlay = document.getElementById('profileOverlay');
+      const profileOverlay = document.getElementById('profileContainer') || document.getElementById('profileOverlay');
       if(profileOverlay) profileOverlay.remove();
       const marketContainer = document.getElementById('marketContainer');
       if(marketContainer) marketContainer.remove();
@@ -23835,14 +24999,20 @@
     const mainEl = document.querySelector('main');
     const statsSection = document.getElementById('stats');
     const statsPage = document.getElementById('statsPage');
+    const classementPage = document.getElementById('classementPage');
     const sessionsPage = document.getElementById('sessionsPage');
     const reglagesPage = document.getElementById('reglagesPage');
     const footerEl = document.querySelector('footer');
 
     // Hide all custom pages first
     if(statsPage) statsPage.classList.remove('sp-active');
+    if(classementPage) classementPage.classList.remove('cl-active');
     if(sessionsPage) sessionsPage.classList.remove('sp-active');
     if(reglagesPage) reglagesPage.classList.remove('rg-active');
+
+    if(pageId !== 'home'){
+      hideWelcomePage();
+    }
 
     if(pageId === 'stats'){
       hideWelcomePage();
@@ -23850,6 +25020,12 @@
       if(statsSection) statsSection.style.display = 'none';
       if(footerEl) footerEl.style.display = 'none';
       if(statsPage){ statsPage.classList.add('sp-active'); if(typeof window.renderStatsPage === 'function') window.renderStatsPage(); }
+    } else if(pageId === 'classement'){
+      hideWelcomePage();
+      if(mainEl) mainEl.style.display = 'none';
+      if(statsSection) statsSection.style.display = 'none';
+      if(footerEl) footerEl.style.display = 'none';
+      if(classementPage){ classementPage.classList.add('cl-active'); if(typeof window.renderClassementPage === 'function') window.renderClassementPage(); }
     } else if(pageId === 'sessions'){
       hideWelcomePage();
       if(mainEl) mainEl.style.display = 'none';
@@ -23863,23 +25039,103 @@
       if(footerEl) footerEl.style.display = 'none';
       if(reglagesPage){ reglagesPage.classList.add('rg-active'); if(typeof window.renderReglagesPage === 'function') window.renderReglagesPage(); }
     } else {
-      if(mainEl) mainEl.style.display = '';
-      if(statsSection) statsSection.style.display = '';
-      if(footerEl) footerEl.style.display = '';
       if(pageId === 'home'){
-        const w = document.getElementById('welcomeDecks');
-        if(w){ w.style.display = ''; }
-        else if(typeof renderWelcomeDecks === 'function'){ renderWelcomeDecks().catch(e => console.warn('[nav] renderWelcomeDecks error:', e)); }
+        if(mainEl) mainEl.style.display = 'none';
+        if(statsSection) statsSection.style.display = 'none';
+        if(footerEl) footerEl.style.display = 'none';
+        const statusNode = document.getElementById('status');
+        if(statusNode) statusNode.style.display = 'none';
+        // Always rebuild the dashboard like at launch (fixes broken layout after multi-review / recap).
+        if(typeof window.renderWelcomeDecks === 'function'){
+          window.renderWelcomeDecks().catch(e => console.warn('[nav] renderWelcomeDecks error:', e));
+        }else{
+          const w = document.getElementById('welcomeDecks');
+          if(w) w.style.display = '';
+        }
+      } else {
+        if(mainEl) mainEl.style.display = '';
+        if(statsSection) statsSection.style.display = '';
+        if(footerEl) footerEl.style.display = '';
+        const statusNode = document.getElementById('status');
+        if(statusNode) statusNode.style.display = '';
       }
     }
   }
 
   async function triggerNowReview(){
-    if(typeof window.__fabanki_startNowReview === 'function'){
-      setActivePage('home');
-      await window.__fabanki_startNowReview();
+    if(typeof window.__fabanki_startNowReview !== 'function'){
+      console.warn('[FabAnki] Réviser: démarrage indisponible (__fabanki_startNowReview manquant)');
+      return;
     }
+    // Use tab id "review" (not "home"): home layout applies nav-home-active and hides <main> with CSS !important,
+    // which blanks the screen after removeWelcome() until multi-deck load finishes.
+    setActivePage('review');
+    await window.__fabanki_startNowReview();
   }
+
+  // ── Bottom nav overflow sheet (“Plus”) ──
+  (function initBnMoreSheet(){
+    const root = document.getElementById('bnMoreRoot');
+    const panel = document.getElementById('bnMorePanel');
+    const btnMore = document.getElementById('bnMore');
+    const btnClose = document.getElementById('bnMoreClose');
+    const backdrop = root?.querySelector('.bn-more-backdrop');
+    if(!root || !panel || !btnMore) return;
+
+    function openSheet(){
+      root.classList.add('is-open');
+      root.setAttribute('aria-hidden', 'false');
+      btnMore.setAttribute('aria-expanded', 'true');
+      try{
+        const focusable = panel.querySelector('button[data-more], .bn-more-close');
+        if(focusable) focusable.focus();
+      }catch(e){}
+    }
+    function closeSheet(){
+      root.classList.remove('is-open');
+      root.setAttribute('aria-hidden', 'true');
+      btnMore.setAttribute('aria-expanded', 'false');
+      try{ btnMore.focus(); }catch(e){}
+    }
+
+    btnMore.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      if(root.classList.contains('is-open')) closeSheet();
+      else openSheet();
+    });
+    btnClose?.addEventListener('click', closeSheet);
+    backdrop?.addEventListener('click', closeSheet);
+
+    panel.querySelectorAll('.bn-more-item[data-more]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const key = el.getAttribute('data-more');
+        closeSheet();
+        if(key === 'sessions') setActivePage('sessions');
+        else if(key === 'classement') setActivePage('classement');
+        else if(key === 'market'){
+          setActivePage('marche');
+          setTimeout(() => { const b = document.getElementById('marketBtn'); if(b) b.click(); }, 10);
+        }
+        else if(key === 'reglages') setActivePage('reglages');
+        else if(key === 'profile'){
+          hideWelcomePage();
+          setActivePage('profile');
+          setTimeout(() => { const btn = document.getElementById('profileBtn'); if(btn) btn.click(); }, 10);
+        }
+        else if(key === 'sync'){
+          const b = document.getElementById('syncBtn');
+          if(b) b.click();
+        }
+      });
+    });
+
+    document.addEventListener('keydown', (ev) => {
+      if(ev.key === 'Escape' && root.classList.contains('is-open')){
+        ev.preventDefault();
+        closeSheet();
+      }
+    });
+  })();
 
   // ── Bottom nav ──
   document.getElementById('bnHome')?.addEventListener('click', () => setActivePage('home'));
@@ -23890,15 +25146,11 @@
     const btn = document.getElementById('browseDecks');
     if(btn) btn.click();
   });
-  document.getElementById('bnProfile')?.addEventListener('click', () => {
-    hideWelcomePage();
-    const btn = document.getElementById('profileBtn');
-    if(btn) btn.click();
-  });
 
   // ── Sidebar ──
   document.getElementById('snHome')?.addEventListener('click', () => setActivePage('home'));
   document.getElementById('snStats')?.addEventListener('click', () => setActivePage('stats'));
+  document.getElementById('snClassement')?.addEventListener('click', () => setActivePage('classement'));
   document.getElementById('snSessions')?.addEventListener('click', () => setActivePage('sessions'));
   document.getElementById('snReglages')?.addEventListener('click', () => setActivePage('reglages'));
   document.getElementById('snReview')?.addEventListener('click', () => triggerNowReview());
@@ -23913,10 +25165,6 @@
   document.getElementById('snProfile')?.addEventListener('click', () => {
     setActivePage('profile');
     setTimeout(()=>{ const btn = document.getElementById('profileBtn'); if(btn) btn.click(); }, 10);
-  });
-  document.getElementById('snSync')?.addEventListener('click', () => {
-    const btn = document.getElementById('syncBtn');
-    if(btn) btn.click();
   });
 
   // ── Badges: observe dueCount ──
