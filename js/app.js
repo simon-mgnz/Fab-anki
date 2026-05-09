@@ -2448,9 +2448,54 @@
       `;
       rightPanel.appendChild(masteryBox);
       
-      // Star rating and progress bar
+      // Clean mastery bar
+      const masterySection = document.createElement('div');
+      masterySection.style.cssText = 'background:var(--card);border-radius:12px;padding:16px;border:1px solid rgba(0,0,0,0.07);margin-bottom:12px;';
+      const masteryLabel = document.createElement('div');
+      masteryLabel.style.cssText = 'font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;font-weight:600;';
+      masteryLabel.textContent = 'Maîtrise';
+      masterySection.appendChild(masteryLabel);
+      const nowCards = counts.now || 0;
+      const masteryPct = reviewed > 0 && total > 0 ? Math.round((1 - nowCards/total)*100) : 0;
+      const masteryBarWrap = document.createElement('div');
+      masteryBarWrap.style.cssText = 'height:8px;background:rgba(0,0,0,0.07);border-radius:4px;overflow:hidden;margin-bottom:8px;';
+      const masteryBarFill = document.createElement('div');
+      const mc = masteryPct > 75 ? '#4caf78' : masteryPct > 50 ? '#5b9bd4' : masteryPct > 25 ? '#d97b3a' : '#e05252';
+      masteryBarFill.style.cssText = `height:100%;width:${masteryPct}%;background:${mc};border-radius:4px;transition:width 0.5s;`;
+      masteryBarWrap.appendChild(masteryBarFill);
+      masterySection.appendChild(masteryBarWrap);
+      const masteryNum = document.createElement('div');
+      masteryNum.style.cssText = `font-size:1.4rem;font-weight:800;color:${mc};`;
+      masteryNum.textContent = masteryPct + '%';
+      masterySection.appendChild(masteryNum);
+      rightPanel.appendChild(masterySection);
+
+      // Stats grid (4 cells)
+      const overviewGrid = document.createElement('div');
+      overviewGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;';
+      const gridItems = [
+        { label:'Total', value:String(total), color:'var(--fg)' },
+        { label:'À revoir', value:String(nowCards), color:'#e05252' },
+        { label:'Révisées', value:String(reviewed), color:'#4caf78' },
+        { label:'Précision', value: reviewed>0 ? Math.round((reviewed-nowCards)/Math.max(reviewed,1)*100)+'%' : 'N/A', color:'var(--accent)' },
+      ];
+      gridItems.forEach(item => {
+        const cell = document.createElement('div');
+        cell.style.cssText = 'background:var(--card);border-radius:10px;padding:12px 14px;border:1px solid rgba(0,0,0,0.07);';
+        const val = document.createElement('div');
+        val.style.cssText = `font-size:1.3rem;font-weight:800;color:${item.color};line-height:1;margin-bottom:3px;`;
+        val.textContent = item.value;
+        const lbl = document.createElement('div');
+        lbl.style.cssText = 'font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;';
+        lbl.textContent = item.label;
+        cell.appendChild(val); cell.appendChild(lbl);
+        overviewGrid.appendChild(cell);
+      });
+      rightPanel.appendChild(overviewGrid);
+
+      // Star rating and progress bar (legacy, kept for reference but hidden)
       const ratingContainer = document.createElement('div');
-      ratingContainer.className = 'deck-overview-rating-block';
+      ratingContainer.style.cssText = 'margin-bottom:16px;';
       
       // Calculate accuracy for star rating
       let accuracyForRating = 0;
@@ -2539,7 +2584,7 @@
       rightPanel.appendChild(ratingContainer);
       
       const stats = document.createElement('div');
-      stats.className = 'deck-overview-stats-card';
+      stats.style.cssText = 'background:linear-gradient(135deg, #1e293b 0%, #334155 100%);color:#fff;padding:16px;border-radius:12px;margin-bottom:16px;font-size:0.9em;line-height:1.8;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
       
       // Accuracy calculation
       let accuracy = 'N/A';
@@ -2564,9 +2609,9 @@
 
       // Retention slider and FSRS toggle
       const retentionBox = document.createElement('div');
-      retentionBox.className = 'deck-overview-retention';
+      retentionBox.style.cssText = 'margin-bottom:16px;padding:12px;border-radius:10px;background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.12);';
       const retentionTitle = document.createElement('div');
-      retentionTitle.className = 'deck-overview-retention-title';
+      retentionTitle.style.cssText = 'font-weight:700;margin-bottom:8px;color:#1e293b;';
       retentionTitle.textContent = 'RÃ©tention ciblÃ©e (FSRS)';
       retentionBox.appendChild(retentionTitle);
 
@@ -2579,7 +2624,7 @@
       slider.min = '50';
       slider.max = '99';
       slider.step = '1';
-      slider.className = 'deck-overview-retention-slider';
+      slider.style.cssText = 'flex:1;min-width:200px;';
       const disableBtn = document.createElement('button');
       disableBtn.className = 'secondary';
       disableBtn.style.minWidth = '150px';
@@ -10825,8 +10870,9 @@
         const searchWrap = document.createElement('div');
         searchWrap.className = 'deck-browser-search';
         const searchIcon = document.createElement('span');
-        searchIcon.textContent = '🔍';
-        searchIcon.style.fontSize = '12px';
+        searchIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+        searchIcon.style.color = 'var(--muted)';
+        searchIcon.style.display = 'flex';
         const searchInput = document.createElement('input');
         searchInput.placeholder = 'Rechercher un deck…';
         searchInput.addEventListener('input', () => {
@@ -11025,9 +11071,11 @@
           // folders with due counts and badge
           Array.from(folders).sort().forEach(folder=>{
             const row = document.createElement('div'); row.className='deck-entry';
-            const folderIconDiv = document.createElement('div'); folderIconDiv.className='deck-folder-icon'; folderIconDiv.textContent = '📁'; row.appendChild(folderIconDiv);
-            const main = document.createElement('div'); main.className = 'deck-entry-main';
-            const nm = document.createElement('div'); nm.className = 'deck-entry-name';
+            row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
+            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
+            row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
+            const folderIconDiv = document.createElement('div'); folderIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; folderIconDiv.textContent = '📁'; row.appendChild(folderIconDiv);
+            const nm = document.createElement('div'); 
             const folderName = decodeURIComponent((prefix+folder).replace(/\+/g,' ')).replace(/\/$/,'');
             nm.textContent = folderName;
             row.dataset.search = folderName.toLowerCase();
@@ -11117,7 +11165,10 @@
           // files (limit to first 10)
           Array.from(files).sort().forEach(file=>{
             const row = document.createElement('div'); row.className='deck-entry';
-            const fileIconDiv = document.createElement('div'); fileIconDiv.className='deck-file-icon'; fileIconDiv.textContent = '📄'; row.appendChild(fileIconDiv);
+            row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
+            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
+            row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
+            const fileIconDiv = document.createElement('div'); fileIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; fileIconDiv.textContent = '📄'; row.appendChild(fileIconDiv);
             const dec = decodeURIComponent((prefix+file).replace(/\+/g,' '));
             // Extract just the deck name (without parent path) if the full path is too long
             const fullDeckName = dec.replace(/\.xml$/i,'');
@@ -11215,8 +11266,8 @@
             const decoded = (()=>{ try{ return decodeURIComponent(e.replace(/\+/g,' ')) }catch(x){ return e } })();
             const isXml = e.endsWith('.xml');
             const iconDiv = document.createElement('div');
-            if(isXml){ iconDiv.className = 'deck-file-icon'; iconDiv.textContent = '📄'; }
-            else { iconDiv.className = 'deck-folder-icon'; iconDiv.textContent = '📁'; }
+            if(isXml){ iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; iconDiv.textContent = '📄'; }
+            else { iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; iconDiv.textContent = '📁'; }
             row.appendChild(iconDiv);
             const main = document.createElement('div'); main.className = 'deck-entry-main';
             const name = document.createElement('div'); name.className = 'deck-entry-name'; name.textContent = decoded.replace(/\.xml$/i,'');
@@ -11677,10 +11728,7 @@
         
         const stats = getProfileStats();
         const clean = fixMojibakeText;
-        const ov = document.createElement('div');
-        ov.id='profileContainer';
-        const _sideW = (typeof window.__getSideNavWidth === 'function') ? window.__getSideNavWidth() : ((window.innerWidth >= 1024 && document.getElementById('sideNav')) ? 220 : 0);
-        ov.style.cssText = `position:fixed;top:0;left:${_sideW}px;right:0;bottom:0;background:var(--bg);overflow-y:auto;z-index:1200;padding:18px;box-sizing:border-box;`;
+        const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay page-overlay'; ov.style.display='flex'; ov.style.zIndex='1200';
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
         const m = document.createElement('div'); m.className='profile-page-shell profile-refonte'; m.style.cssText='padding:0;overflow:visible;min-width:0;max-height:none;background:var(--bg);border-radius:16px;';
         const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.display='none'; m.appendChild(h);
@@ -12518,12 +12566,12 @@
         const clean = fixMojibakeText;
         const stats = getProfileStats();
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
-        const pseudoNode = ov.querySelector('#profilePseudo'); if(pseudoNode) pseudoNode.textContent = `${t('pseudo')}: ${localStorage.getItem('pseudo') || ''}`;
-        const totalNode = ov.querySelector('.profile-total'); if(totalNode) totalNode.innerHTML = clean(`<strong>\uD83D\uDCDA ${t('totalReviewed')}:</strong> ${stats.totalReviewed}`);
-        const todayNode = ov.querySelector('.profile-today'); if(todayNode) todayNode.innerHTML = clean(`<strong>\uD83D\uDCC5 ${t('todayReviewedFull')}:</strong> ${stats.todayReviewed}`);
-        const xpNode = ov.querySelector('.profile-xp'); if(xpNode) xpNode.innerHTML = clean(`<strong>\u2728 ${t('xpLabel')}:</strong> ${stats.xpTotal}`);
-        const streakNode = ov.querySelector('.profile-streak'); if(streakNode) streakNode.innerHTML = clean(`<strong>\uD83D\uDD25 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`);
-        const mpsiNode = ov.querySelector('.profile-mpsi'); if(mpsiNode) mpsiNode.innerHTML = clean(`<strong>\uD83D\uDCCA ${t('mpsiScoreMonthly')}:</strong> ${getLocalNum('fabanki:score_mpsi_mois')}`);
+        const pseudoNode = ov.querySelector('#profilePseudo'); if(pseudoNode && pseudoNode.style.display !== 'flex') pseudoNode.textContent = localStorage.getItem('pseudo') || '';
+        const totalNode = ov.querySelector('.profile-total'); if(totalNode) totalNode.textContent = String(stats.totalReviewed);
+        const todayNode = ov.querySelector('.profile-today'); if(todayNode) todayNode.textContent = String(stats.todayReviewed);
+        const xpNode = ov.querySelector('.profile-xp'); if(xpNode) xpNode.textContent = String(stats.xpTotal);
+        const streakNode = ov.querySelector('.profile-streak'); if(streakNode) streakNode.textContent = Number(localStorage.getItem('fabanki:streak_current')||0) + ' j';
+        const mpsiNode = ov.querySelector('.profile-mpsi'); if(mpsiNode) mpsiNode.textContent = String(getLocalNum('fabanki:score_mpsi_mois'));
         // Update credit count
         const creditNum = ov.querySelector('.credit-count');
         if(creditNum){
@@ -12554,8 +12602,8 @@
           if(remTxt) remTxt.textContent = `${lvl.progress}/${lvl.need} (${Math.round(lvl.pct||0)}%)`;
         }catch(e){}
         // refresh pseudo display (target the specific element, not the first div)
-        try{ const p0 = ov.querySelector('#profilePseudo'); if(p0) p0.textContent = `${t('pseudo')}: ${localStorage.getItem('pseudo') || ''}` }catch(e){}
-        try{ const s = ov.querySelector('.profile-streak'); if(s) s.innerHTML = clean(`<strong>\uD83D\uDD25 ${t('streak')}:</strong> ${Number(localStorage.getItem('fabanki:streak_current')||0)} ${t('streakDays')}`) }catch(e){}
+        try{ const p0 = ov.querySelector('#profilePseudo'); if(p0 && p0.style.display !== 'flex') p0.textContent = localStorage.getItem('pseudo') || ''; }catch(e){}
+        try{ const s = ov.querySelector('.profile-streak'); if(s) s.textContent = Number(localStorage.getItem('fabanki:streak_current')||0) + ' j'; }catch(e){}
       }catch(e){}
     }
 
@@ -20360,637 +20408,230 @@
     async function renderWelcomeDecks(){
       try{
         hideBootSplash();
-        // Restore top bar buttons (swap home back to sync)
         try{
           const syncBtn = document.getElementById('syncBtn');
           const homeBtn = document.getElementById('homeBtn');
-          
-          console.log('renderWelcomeDecks - restoring buttons:', {
-            syncBtn: !!syncBtn,
-            homeBtn: !!homeBtn,
-            homeBtnVisible: homeBtn ? homeBtn.style.display : null,
-            homeBtnParent: homeBtn ? !!homeBtn.parentNode : null
-          });
-          
-          // If home button is visible (in DOM and displayed), swap it with sync
           if(homeBtn && syncBtn && homeBtn.style.display !== 'none' && homeBtn.parentNode){
             const parent = homeBtn.parentNode;
-            const homeBtnNextSibling = homeBtn.nextSibling;
+            const next = homeBtn.nextSibling;
             parent.removeChild(homeBtn);
-            parent.insertBefore(syncBtn, homeBtnNextSibling);
-            console.log('Buttons swapped back successfully');
+            parent.insertBefore(syncBtn, next);
           }
-          
-          // Ensure correct visibility
           if(syncBtn) syncBtn.style.display = 'inline-block';
           if(homeBtn) homeBtn.style.display = 'none';
           setReviewTopBarVisibility(false);
-          try{ window.__fabanki_detachReviewShellForNav?.(); }catch(err){}
         }catch(e){ console.warn('Button swap error:', e); }
         
         // remove any existing welcome first
         await removeWelcome();
-        // Leave multi-review state so the next session / home widgets behave like a cold start
-        try{
-          multiDeckMode = false;
-          onlyNowMode = false;
-        }catch(e){}
-        try{
-          const frontEl = document.getElementById('front');
-          const backEl = document.getElementById('back');
-          if(frontEl){
-            frontEl.innerHTML = '';
-            frontEl.style.display = '';
-            frontEl.style.alignItems = '';
-            frontEl.style.justifyContent = '';
-          }
-          if(backEl){
-            backEl.innerHTML = '';
-            backEl.style.display = 'none';
-          }
-        }catch(e){}
-        updateStatus('');
+        updateStatus(t('welcomeStatus'));
         // hide existing main/stats but keep DOM so handlers remain
         const mainEl = document.querySelector('main'); if(!mainEl) return;
         mainEl.style.display = 'none';
         const stats = document.getElementById('stats'); if(stats) stats.style.display='none';
         const hint = document.getElementById('histHint');
-        const container = document.createElement('div'); container.id = 'welcomeDecks';
+        const container = document.createElement('div'); container.id = 'welcomeDecks'; container.style.padding = '18px';
 
-        // Scroll stays on #app on mobile (fixed body); avoid fighting that layout.
-        try{
-          if(window.matchMedia && window.matchMedia('(min-width:641px)').matches){
-            document.body.style.overflowY = 'auto';
-          }else{
-            document.body.style.removeProperty('overflow-y');
-          }
-        }catch(e){}
+        // allow vertical scrolling on welcome page
+        try{ document.body.style.overflowY = 'auto'; }catch(e){}
 
-        // === HOME V2 (from scratch) ===
-        try{
-          container.className = 'homev2-root';
-          container.innerHTML = '';
-          if(hint) hint.style.display = 'none';
+        // ── helpers ──────────────────────────────────────────────────────────
+        const CARD = 'background:var(--card);border-radius:16px;padding:20px;border:1px solid rgba(0,0,0,0.07);margin-bottom:14px;';
+        const mkCard = () => { const d = document.createElement('div'); d.style.cssText = CARD; return d; };
+        const mkSecTitle = (txt) => {
+          const d = document.createElement('div');
+          d.style.cssText = 'font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:14px;';
+          d.textContent = txt; return d;
+        };
 
-          const entries = await fetchDirectory('./decks/').catch(() => []);
-          const allFiles = (Array.isArray(entries) ? entries : []).filter(e => typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
+        const container = document.createElement('div');
+        container.id = 'welcomeDecks';
+        container.style.cssText = 'padding:16px;max-width:860px;margin:0 auto;';
 
-          const deckRows = [];
-          let dueTotal = 0;
-          for(const f of allFiles){
-            const url = './decks/' + f;
-            const name = decodeURIComponent(f.replace(/\+/g,'')).replace(/\.xml$/i,'');
-            const due = await countDueNowForDeck(url).catch(() => 0);
-            dueTotal += Number(due || 0);
+        // ── PAGE TITLE ────────────────────────────────────────────────────────
+        const pageTitle = document.createElement('div');
+        pageTitle.style.cssText = 'font-size:1.5rem;font-weight:800;color:var(--fg);margin-bottom:16px;padding:0 2px;';
+        pageTitle.textContent = 'Accueil';
+        container.appendChild(pageTitle);
 
-            const deckKey = (typeof normalizeDeckKeyFromURL === 'function') ? normalizeDeckKeyFromURL(url) : null;
-            const prefix = deckKey ? `fabanki:${deckKey}:card:` : null;
-            let reviewed = 0;
-            let lastSeen = 0;
-            if(prefix){
-              for(let i = 0; i < localStorage.length; i++){
-                const k = localStorage.key(i);
-                if(!k || !k.startsWith(prefix)) continue;
-                try{
-                  const st = JSON.parse(localStorage.getItem(k) || '{}');
-                  const reps = Number(st.reps || 0);
-                  if(reps > 0) reviewed += 1;
-                  const ts = st.last ? new Date(st.last).getTime() : 0;
-                  if(Number.isFinite(ts) && ts > lastSeen) lastSeen = ts;
-                }catch(e){}
-              }
-            }
-            deckRows.push({ name, url, due: Number(due || 0), reviewed, lastSeen });
-          }
+        // ── 1. HERO CARD ──────────────────────────────────────────────────────
+        const heroCard = mkCard();
 
-          const recentDecks = deckRows.filter(d => d.lastSeen > 0).sort((a,b) => b.lastSeen - a.lastSeen).slice(0, 6);
-          const mostDueDecks = deckRows.filter(d => d.due > 0).sort((a,b) => b.due - a.due).slice(0, 6);
-          const unseenDecks = deckRows.filter(d => d.reviewed === 0).slice(0, 6);
+        const lvlStats = computeLevelAndProgress(getXpTotal());
+        const circ = 2 * Math.PI * 28;
+        const ringOffset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct)) / 100));
+        const ringColor = getLevelColor(lvlStats.level);
 
-          const lvlStats = computeLevelAndProgress(getXpTotal());
-          const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
-          const creditCount = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
-          const dailyGoal = getDailyGoal();
-          const todayReviewed = getTodayReviewedCount();
-          const goalPct = dailyGoal > 0 ? Math.max(0, Math.min(100, Math.round((todayReviewed / dailyGoal) * 100))) : 0;
+        // Top row: ring + level info
+        const heroTop = document.createElement('div');
+        heroTop.style.cssText = 'display:flex;align-items:center;gap:16px;margin-bottom:16px;';
 
-          const lvlRingR = 38;
-          const lvlRingCirc = 2 * Math.PI * lvlRingR;
-          const lvlPctClamped = Math.max(0, Math.min(100, Number(lvlStats.pct) || 0));
-          const lvlRingOffset = lvlRingCirc * (1 - lvlPctClamped / 100);
-          const lvlRingColor = getLevelColor(lvlStats.level);
+        const ringWrap = document.createElement('div');
+        ringWrap.style.cssText = 'position:relative;width:72px;height:72px;flex-shrink:0;';
+        ringWrap.innerHTML = `<svg width="72" height="72" viewBox="0 0 100 100"><circle cx="50" cy="50" r="28" stroke="rgba(0,0,0,0.07)" stroke-width="8" fill="none"/><circle cx="50" cy="50" r="28" stroke="${ringColor}" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${ringOffset}" transform="rotate(-90 50 50)"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:800;color:var(--fg);">${lvlStats.level}</div>`;
 
-          const homeHero = document.createElement('section');
-          homeHero.className = 'homev2-hero card';
-          homeHero.innerHTML = `
-            <div class="homev2-hero-top">
-              <div>
-                <div class="homev2-kicker">Accueil</div>
-                <div class="homev2-title">Ton tableau de bord</div>
-              </div>
-              <div class="homev2-level-wrap" title="Progression vers le niveau ${lvlStats.level + 1}">
-                <div class="homev2-level-ring" aria-hidden="true">
-                  <svg viewBox="0 0 100 100" width="76" height="76">
-                    <circle class="homev2-level-ring-track" cx="50" cy="50" r="${lvlRingR}" fill="none" stroke-width="10"/>
-                    <circle class="homev2-level-ring-fill" cx="50" cy="50" r="${lvlRingR}" fill="none" stroke="${lvlRingColor}" stroke-width="10" stroke-linecap="round"
-                      stroke-dasharray="${lvlRingCirc}" stroke-dashoffset="${lvlRingOffset}" transform="rotate(-90 50 50)"/>
-                  </svg>
-                  <span class="homev2-level-ring-num">${lvlStats.level}</span>
-                </div>
-                <span class="homev2-level-ring-sub">Niveau · ${Math.round(lvlPctClamped)}%</span>
-              </div>
-            </div>
-            <div class="homev2-hero-grid">
-              <div class="homev2-stat"><span>XP</span><strong>${lvlStats.progress}/${lvlStats.need}</strong></div>
-              <div class="homev2-stat"><span>Streak</span><strong>${streakCount} j</strong></div>
-              <div class="homev2-stat"><span>Crédits</span><strong>${creditCount}</strong></div>
-              <div class="homev2-stat"><span>Objectif du jour</span><strong>${dailyGoal > 0 ? `${todayReviewed}/${dailyGoal}` : `${todayReviewed}/—`}</strong></div>
-            </div>
-            <div class="homev2-goal">
-              <div class="homev2-goal-bar"><i style="width:${goalPct}%;"></i></div>
-              <div class="homev2-goal-meta">${dailyGoal > 0 ? `${goalPct}% de l'objectif` : 'Définis un objectif quotidien'}</div>
-            </div>
-            <div class="homev2-actions">
-              <button class="primary" id="homev2NowBtn">Réviser maintenant</button>
-              <select id="homev2NowLimit" class="homev2-select">
-                <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option><option value="all">Toutes</option>
-              </select>
-            </div>
-          `;
-          container.appendChild(homeHero);
+        const levelInfo = document.createElement('div');
+        levelInfo.style.flex = '1';
+        const levelName = document.createElement('div');
+        levelName.style.cssText = 'font-size:1.1rem;font-weight:800;color:var(--fg);margin-bottom:4px;';
+        levelName.textContent = 'Niveau ' + lvlStats.level;
+        const xpText = document.createElement('div');
+        xpText.style.cssText = 'font-size:0.78rem;color:var(--muted);margin-bottom:8px;';
+        xpText.textContent = lvlStats.progress + ' / ' + lvlStats.need + ' XP';
+        const xpBarWrap = document.createElement('div');
+        xpBarWrap.style.cssText = 'width:100%;height:6px;background:rgba(0,0,0,0.07);border-radius:3px;overflow:hidden;';
+        const xpBarFill = document.createElement('div');
+        xpBarFill.style.cssText = 'width:' + Math.min(100, lvlStats.pct) + '%;height:100%;background:linear-gradient(90deg,' + ringColor + ',' + ringColor + 'cc);border-radius:3px;';
+        xpBarWrap.appendChild(xpBarFill);
+        levelInfo.appendChild(levelName);
+        levelInfo.appendChild(xpText);
+        levelInfo.appendChild(xpBarWrap);
+        heroTop.appendChild(ringWrap);
+        heroTop.appendChild(levelInfo);
+        heroCard.appendChild(heroTop);
 
-          const grid = document.createElement('section');
-          grid.className = 'homev2-grid';
-          container.appendChild(grid);
+        // Stat pills: Credits · Streak · Daily goal
+        const pillsRow = document.createElement('div');
+        pillsRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;';
 
-          const quickStats = document.createElement('article');
-          quickStats.className = 'card homev2-card';
-          quickStats.innerHTML = `
-            <div class="homev2-card-title">Aperçu rapide</div>
-            <div class="homev2-mini-grid">
-              <div><span>Decks</span><strong>${deckRows.length}</strong></div>
-              <div><span>À faire</span><strong>${dueTotal}</strong></div>
-              <div><span>Jamais vus</span><strong>${deckRows.filter(d=>d.reviewed===0).length}</strong></div>
-              <div><span>Aujourd'hui</span><strong>${todayReviewed}</strong></div>
-            </div>
-          `;
-          grid.appendChild(quickStats);
+        const creditCount = typeof getCredits === 'function' ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+        const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
+        const dailyGoal = getDailyGoal();
+        const todayCount = getTodayReviewedCount();
 
-          const statsSummary = document.createElement('article');
-          statsSummary.className = 'card homev2-card homev2-stats-card';
-          const totalReviewedAll = (typeof getTotalReviewedCount === 'function') ? getTotalReviewedCount() : Number(localStorage.getItem('fabanki:cards_total') || 0);
-          const totalFail = Number(localStorage.getItem('fabanki:fail_total') || 0);
-          const totalHard = Number(localStorage.getItem('fabanki:difficult_total') || 0);
-          const totalGood = Number(localStorage.getItem('fabanki:good_total') || 0);
-          const totalEasy = Number(localStorage.getItem('fabanki:easy_total') || 0);
-          const gradeTotal = totalFail + totalHard + totalGood + totalEasy;
-          const successPct = gradeTotal > 0 ? Math.round(((totalGood + totalEasy) / gradeTotal) * 100) : 0;
-          let weeklyBars = [];
+        const mkPill = (iconSvg, value, label, hex) => {
+          const p = document.createElement('div');
+          p.style.cssText = 'background:' + hex + '14;border:1px solid ' + hex + '22;border-radius:12px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;';
+          p.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + hex + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + iconSvg + '</svg>';
+          const v = document.createElement('div');
+          v.style.cssText = 'font-size:1.1rem;font-weight:800;color:var(--fg);line-height:1;';
+          v.textContent = String(value);
+          const l = document.createElement('div');
+          l.style.cssText = 'font-size:0.66rem;color:var(--muted);font-weight:500;text-align:center;';
+          l.textContent = label;
+          p.appendChild(v); p.appendChild(l); return p;
+        };
+
+        const coinSvg = '<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="9" y1="11" x2="15" y2="11"/>';
+        const flameSvg = '<path d="M12 2s-4 4-4 8a4 4 0 0 0 8 0c0-1.5-.5-3-2-4 0 2-1 3-2 3s-2-1.5-2-3c0-1.5 1-3 1-4z"/>';
+        const targetSvg = '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>';
+
+        const goalPct = dailyGoal > 0 ? Math.min(100, Math.round((todayCount / dailyGoal) * 100)) : null;
+        pillsRow.appendChild(mkPill(coinSvg, creditCount, 'Crédits', '#c9a227'));
+        pillsRow.appendChild(mkPill(flameSvg, streakCount + ' j', 'Série', '#e05252'));
+        pillsRow.appendChild(mkPill(targetSvg, goalPct !== null ? goalPct + '%' : '—', 'Objectif', '#4caf78'));
+        heroCard.appendChild(pillsRow);
+
+        // Daily goal bar
+        if(dailyGoal > 0){
+          const goalRow = document.createElement('div');
+          goalRow.style.cssText = 'margin-bottom:14px;';
+          const goalLbl = document.createElement('div');
+          goalLbl.style.cssText = 'font-size:0.76rem;color:var(--muted);font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between;';
+          goalLbl.innerHTML = '<span>Objectif du jour</span><span>' + todayCount + ' / ' + dailyGoal + ' cartes</span>';
+          const goalBarWrap = document.createElement('div');
+          goalBarWrap.style.cssText = 'width:100%;height:8px;background:rgba(0,0,0,0.07);border-radius:4px;overflow:hidden;';
+          const goalBarFill = document.createElement('div');
+          goalBarFill.style.cssText = 'width:' + Math.min(100, (todayCount / dailyGoal) * 100) + '%;height:100%;background:linear-gradient(90deg,var(--accent),#c084fc);border-radius:4px;transition:width 0.3s;';
+          goalBarWrap.appendChild(goalBarFill);
+          goalRow.appendChild(goalLbl);
+          goalRow.appendChild(goalBarWrap);
+          heroCard.appendChild(goalRow);
+        }
+
+        // Maintenant button + limit select
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:8px;';
+        const limitSelect = document.createElement('select');
+        limitSelect.style.cssText = 'padding:10px 12px;border-radius:10px;border:1px solid rgba(0,0,0,0.1);background:var(--bg);color:var(--fg);font-size:0.9rem;cursor:pointer;';
+        for(const [lbl, val] of [['10','10'],['25','25'],['50','50'],['100','100'],['200','200'],['Tout','all']]){
+          const o = document.createElement('option'); o.value = val; o.textContent = lbl;
+          if(val === '50') o.selected = true;
+          limitSelect.appendChild(o);
+        }
+        const maintenantBtn = document.createElement('button');
+        maintenantBtn.style.cssText = 'flex:1;padding:12px;font-size:1rem;font-weight:700;border-radius:10px;background:linear-gradient(135deg,var(--accent),#c084fc);border:none;color:#fff;cursor:pointer;box-shadow:0 4px 14px rgba(155,89,208,0.3);';
+        maintenantBtn.textContent = 'Réviser maintenant';
+        maintenantBtn.addEventListener('click', async () => {
           try{
-            const histObj = normalizeDailyHistObj(localStorage.getItem('fabanki:daily_history'));
-            for(let i = 6; i >= 0; i--){
-              const d = new Date();
-              d.setHours(12, 0, 0, 0);
-              d.setDate(d.getDate() - i);
-              weeklyBars.push(dailyHistCountForLocalDay(histObj, d));
+            const rawLimit = limitSelect.value;
+            const limitCount = rawLimit === 'all' ? null : Number(rawLimit);
+            updateStatus('Recherche des cartes à réviser...');
+            let entries = [];
+            try{ entries = await fetchDirectory('./decks/'); }catch(e){ entries = []; }
+            const xmlFiles = (Array.isArray(entries) ? entries : []).filter(e => typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
+            const decksWithDue = [];
+            for(const f of xmlFiles){
+              const url = './decks/' + f;
+              const cnt = await countDueNowForDeck(url);
+              if(cnt > 0) decksWithDue.push(url);
             }
-          }catch(e){ weeklyBars = []; }
-          while(weeklyBars.length < 7) weeklyBars.unshift(0);
-          if(weeklyBars.length > 7) weeklyBars = weeklyBars.slice(-7);
-          try{
-            const todayStr = new Date().toDateString();
-            const rd = localStorage.getItem('fabanki:daily_reviewed_date');
-            const rc = Number(localStorage.getItem('fabanki:daily_reviewed_count') || 0);
-            if(rd === todayStr && Number.isFinite(rc) && rc > 0){
-              const last = weeklyBars.length - 1;
-              if(last >= 0) weeklyBars[last] = Math.max(Number(weeklyBars[last]) || 0, rc);
-            }
-          }catch(e){}
-          const weeklyMax = Math.max(...weeklyBars, 1);
-          const barPct = (v) => {
-            if(v <= 0) return 4;
-            return Math.max(12, Math.round((v / weeklyMax) * 100));
-          };
-          const barsHtml = weeklyBars.map(v => `<div class="homev2-bar-col"><i style="height:${barPct(v)}%"></i><span>${v}</span></div>`).join('');
-          statsSummary.innerHTML = `
-            <div class="homev2-stats-head">
-              <div class="homev2-card-title">Résumé statistiques</div>
-            </div>
-            <div class="homev2-stats-kpis homev2-stats-kpis--wide">
-              <div><span>Cartes lues</span><strong>${totalReviewedAll}</strong></div>
-              <div><span>Précision</span><strong>${successPct}%</strong></div>
-              <div><span>Bonnes+Faciles</span><strong>${totalGood + totalEasy}</strong></div>
-              <div><span>Ratées</span><strong>${totalFail}</strong></div>
-            </div>
-            <div class="homev2-bars">${barsHtml}</div>
-          `;
-          grid.appendChild(statsSummary);
-
-          const decksCard = document.createElement('article');
-          decksCard.className = 'card homev2-card homev2-decks-card';
-          const deckSources = {
-            recent: { label:'Récents', rows: recentDecks, empty:'Aucun deck récent.' },
-            due: { label:'À faire', rows: mostDueDecks, empty:'Aucune carte due actuellement.' },
-            unseen: { label:'Jamais vus', rows: unseenDecks, empty:'Tous les decks ont déjà été ouverts.' }
-          };
-          let activeDeckFilter = 'due';
-          function renderDeckRows(){
-            const src = deckSources[activeDeckFilter];
-            const rows = src.rows;
-            const body = decksCard.querySelector('.homev2-deck-list');
-            if(!body) return;
-            body.innerHTML = rows.length
-              ? rows.map(r => `<div class="homev2-deck-row" data-url="${r.url}" data-name="${encodeURIComponent(r.name)}"><div class="homev2-deck-name">${r.name}</div><div class="homev2-deck-meta">${r.due>0?`<span class="homev2-badge">${r.due} à faire</span>`:''}${r.reviewed===0?`<span class="homev2-badge homev2-badge-muted">Nouveau</span>`:''}<button class="secondary homev2-open-btn">Ouvrir</button></div></div>`).join('')
-              : `<div class="homev2-empty">${src.empty}</div>`;
-            body.querySelectorAll('.homev2-deck-row').forEach(row => {
-              const openDeckFromRow = async (triggerEl) => {
-                const url = row.getAttribute('data-url');
-                const name = decodeURIComponent(row.getAttribute('data-name') || '');
-                await openDeckWithModeSelection(url, name, triggerEl);
-              };
-              row.querySelector('.homev2-open-btn')?.addEventListener('click', async (ev) => {
-                ev.stopPropagation();
-                await openDeckFromRow(ev.currentTarget);
-              });
-              row.addEventListener('click', async (ev) => {
-                if(ev.target.closest('button')) return;
-                await openDeckFromRow(row.querySelector('.homev2-open-btn'));
-              });
-            });
-            decksCard.querySelectorAll('.homev2-tab').forEach(t => t.classList.toggle('is-active', t.getAttribute('data-type') === activeDeckFilter));
-          }
-          decksCard.innerHTML = `
-            <div class="homev2-card-title">Decks</div>
-            <div class="homev2-tabs">
-              <button class="secondary homev2-tab" data-type="recent">Récents</button>
-              <button class="secondary homev2-tab is-active" data-type="due">Les plus dus</button>
-              <button class="secondary homev2-tab" data-type="unseen">Jamais vus</button>
-            </div>
-            <div class="homev2-deck-list"></div>
-          `;
-          decksCard.querySelectorAll('.homev2-tab').forEach(btn => btn.addEventListener('click', ()=>{
-            activeDeckFilter = btn.getAttribute('data-type') || 'due';
-            renderDeckRows();
-          }));
-          renderDeckRows();
-          grid.appendChild(decksCard);
-
-          const questCard = document.createElement('article');
-          questCard.className = 'card homev2-card homev2-quest-card';
-          const welcomeState = getWelcomeQuestState ? getWelcomeQuestState() : null;
-          const postState = initPostWelcomeQuest ? initPostWelcomeQuest() : null;
-          const parts = [];
-          if(welcomeState && !welcomeState.completed){
-            const p1Done = !!(welcomeState.part1?.onboarding_done && welcomeState.part1?.profile_opened && welcomeState.part1?.market_opened && welcomeState.part1?.goal_set);
-            const p2Done = !!(welcomeState.part2?.deck_opened && welcomeState.part2?.cards_50_reviewed && welcomeState.part2?.session_completed);
-            parts.push({ title: 'Quête bienvenue · Partie 1', lines: [
-              ['Terminer onboarding', !!welcomeState.part1?.onboarding_done],
-              ['Ouvrir profil', !!welcomeState.part1?.profile_opened],
-              ['Ouvrir marché', !!welcomeState.part1?.market_opened],
-              ['Définir un objectif', !!welcomeState.part1?.goal_set]
-            ]});
-            parts.push({ title: 'Quête bienvenue · Partie 2', locked: !p1Done, lines: [
-              ['Ouvrir un deck', !!welcomeState.part2?.deck_opened],
-              ['Réviser 50 cartes', !!welcomeState.part2?.cards_50_reviewed],
-              ['Terminer une session', !!welcomeState.part2?.session_completed]
-            ]});
-            parts.push({ title: 'Quête bienvenue · Partie 3', locked: !p2Done, lines: [
-              ['Objectif du jour', !!welcomeState.part3?.daily_goal_completed],
-              ['Achat au marché', !!welcomeState.part3?.market_purchase],
-              ['Obtenir un titre', !!welcomeState.part3?.first_title],
-              ['3 quêtes quotidiennes', !!welcomeState.part3?.three_daily_quests],
-              ['Lancer mémoire active', !!welcomeState.part3?.active_memory_launched]
-            ]});
-          } else if(postState){
-            const decksCount = new Set((postState.part3_decksReviewedSet || '').split(',').filter(Boolean)).size;
-            parts.push({ title: 'Quête avancée · Partie 1', lines: [
-              ['25 cartes étape', Number(postState.stepCards||0) >= postWelcomeQuestTargets.stepCards],
-              ['25 cartes mémoire active', Number(postState.activeCards||0) >= postWelcomeQuestTargets.activeCards],
-              ['1h sur l’app', Number(postState.timeSec||0) >= postWelcomeQuestTargets.timeSec]
-            ]});
-            parts.push({ title: 'Quête avancée · Partie 2', lines: [
-              ['250 cartes', Number(postState.totalCards||0) >= postWelcomeQuestTargets.totalCards],
-              ['50 cartes revers', Number(postState.reverseCards||0) >= postWelcomeQuestTargets.reverseCards],
-              ['Mode rappel débloqué', !!postState.timerUnlocked]
-            ]});
-            parts.push({ title: 'Quête avancée · Partie 3', lines: [
-              ['3h sur l’app', Number(postState.part3_timeSec||0) >= postWelcomeQuestTargets.part3_timeSec],
-              ['20 decks différents', decksCount >= postWelcomeQuestTargets.part3_decksReviewed],
-              ['50 cartes maîtrisées', Number(postState.part3_masteredCards||0) >= postWelcomeQuestTargets.part3_masteredCards],
-              ['100 cartes aléatoires', Number(postState.part3_randomCards||0) >= postWelcomeQuestTargets.part3_randomCards],
-              ['1 achat marché', Number(postState.part3_marketPurchase||0) >= postWelcomeQuestTargets.part3_marketPurchase]
-            ]});
-          }
-          let questIndex = Math.max(0, parts.findIndex(p => p.lines.some(l => !l[1])));
-          if(questIndex < 0) questIndex = 0;
-          function renderQuestPart(){
-            if(!parts.length){
-              questCard.innerHTML = '<div class="homev2-card-title">Quêtes</div><div class="homev2-empty">Aucune quête active.</div>';
-              return;
-            }
-            const part = parts[questIndex];
-            const doneCount = part.lines.filter(l => !!l[1]).length;
-            const progressPct = part.lines.length ? Math.round((doneCount / part.lines.length) * 100) : 0;
-            const lines = part.lines.map(([label, done]) => `<div class="homev2-quest-line ${done?'is-done':''}"><span class="homev2-quest-check">${done?'✓':'○'}</span><span>${label}</span></div>`).join('');
-            questCard.innerHTML = `<div class="homev2-quest-head"><button class="secondary homev2-quest-nav" id="homev2QuestPrev">←</button><div><div class="homev2-card-title">${part.title}</div><div class="homev2-quest-sub">${questIndex+1}/${parts.length}${part.locked?' · Verrouillée':''} · ${doneCount}/${part.lines.length}</div></div><button class="secondary homev2-quest-nav" id="homev2QuestNext">→</button></div><div class="homev2-quest-progress"><i style="width:${progressPct}%"></i></div><div class="homev2-quest-lines">${lines}</div>`;
-            questCard.querySelector('#homev2QuestPrev')?.addEventListener('click', ()=>{ questIndex = (questIndex - 1 + parts.length) % parts.length; renderQuestPart(); });
-            questCard.querySelector('#homev2QuestNext')?.addEventListener('click', ()=>{ questIndex = (questIndex + 1) % parts.length; renderQuestPart(); });
-          }
-          renderQuestPart();
-          grid.appendChild(questCard);
-
-          homeHero.querySelector('#homev2NowBtn')?.addEventListener('click', async () => {
-            try{
-              const rawLimit = homeHero.querySelector('#homev2NowLimit')?.value || '50';
-              const limitCount = rawLimit === 'all' ? null : Number(rawLimit);
-              const dueDeckUrls = mostDueDecks.length ? mostDueDecks.map(d => d.url) : deckRows.filter(d => d.due > 0).map(d => d.url);
-              if(!dueDeckUrls.length){ updateStatus('Aucune carte à réviser maintenant.'); return; }
-              try{
-                document.body.classList.remove('nav-home-active');
-                const stEl = document.getElementById('status');
-                if(stEl) stEl.style.display = '';
-              }catch(e){}
+            if(decksWithDue.length > 0){
               await removeWelcome();
-              await loadMultipleDeckCards(dueDeckUrls, { onlyNow:true, limitCount:(Number.isFinite(limitCount)?limitCount:null) });
+              await loadMultipleDeckCards(decksWithDue, { onlyNow: true, limitCount: Number.isFinite(limitCount) ? limitCount : null });
               if(typeof showNextCard === 'function') showNextCard();
-            }catch(e){ console.warn('homev2 now review error', e); }
-          });
+            } else {
+              updateStatus('Aucune carte à réviser maintenant 🎉');
+            }
+          }catch(e){ updateStatus('Erreur: ' + e.message); }
+        });
+        btnRow.appendChild(maintenantBtn);
+        btnRow.appendChild(limitSelect);
+        heroCard.appendChild(btnRow);
+        container.appendChild(heroCard);
 
-          try{ syncPostWelcomeQuestTime(); }catch(e){}
-          try{ window.__welcomeDecksContainer = container; }catch(e){}
+        // ── 2. TWO-COLUMN: Quick Stats + Quest ───────────────────────────────
+        const twoCol = document.createElement('div');
+        twoCol.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:14px;';
 
-          const host = document.querySelector('.app') || document.body;
-          const footer = host.querySelector('footer') || document.querySelector('footer') || null;
-          if(footer) host.insertBefore(container, footer); else host.appendChild(container);
-          try{ if(typeof createOnlineIndicator === 'function') createOnlineIndicator(); }catch(e){}
-          return;
-        }catch(e){
-          console.warn('homev2 render failed, fallback to legacy welcome:', e);
-        }
+        // ── 2a. Quick Stats Card ──────────────────────────────────────────────
+        const statsCard = mkCard();
+        statsCard.style.margin = '0';
+        statsCard.appendChild(mkSecTitle('Statistiques rapides'));
 
-        // Level summary card (above the decks list)
+        const totalReviewed = typeof getTotalReviewedCount === 'function' ? getTotalReviewedCount() : 0;
+        const xpTotal = getXpTotal();
+        let masteredCards = 0; let totalCardCount = 0; let correctCards = 0;
         try{
-          // if a hint exists, clone it and place the clone above the level card so it's not overlaying
-          try{
-            if(hint){
-              const clone = hint.cloneNode(true);
-              clone.id = 'histHint_welcome';
-              clone.style.position = 'static';
-              clone.style.top = '';
-              clone.style.left = '';
-              clone.style.right = '';
-              clone.style.zIndex = '';
-              clone.style.marginBottom = '10px';
-              container.appendChild(clone);
-              // hide original to prevent overlap
-              hint.style.display = 'none';
-            }
-          }catch(e){}
-          const lvlStats = computeLevelAndProgress(getXpTotal());
-          const levelCard = document.createElement('div'); levelCard.className = 'card level-summary'; levelCard.style.cssText = 'background:var(--card);border-radius:14px;margin-bottom:12px;padding:16px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 2px 8px rgba(0,0,0,0.04);';
-          const lvlBox = document.createElement('div'); lvlBox.style.cssText='display:grid;grid-template-columns:auto 1fr;align-items:center;gap:14px;padding:14px;border-radius:12px;background:rgba(155,89,208,0.08);border:1px solid rgba(155,89,208,0.12);flex:1;';
-          const circ = 2 * Math.PI * 28;
-          const offset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct))/100));
-          const color = getLevelColor(lvlStats.level);
-          const ringHtml = `<div class="level-ring" style="flex:0 0 64px"><svg viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"28\" stroke=\"#eee\" stroke-width=\"8\" fill=\"none\"></circle><circle class="ring-fill" cx=\"50\" cy=\"50\" r=\"28\" stroke=\"${color}\" stroke-width=\"8\" fill=\"none\" stroke-linecap=\"round\" stroke-dasharray=\"${circ}\" stroke-dashoffset=\"${offset}\"></circle></svg><div class=\"level-num\">${lvlStats.level}</div></div>`;
-          const info = document.createElement('div'); info.style.display='flex'; info.style.flexDirection='column';
-          const t = document.createElement('div'); t.style.fontWeight='700'; t.textContent = `Level ${lvlStats.level}`;
-          const s = document.createElement('div'); s.className='muted small'; s.textContent = `${lvlStats.progress}/${lvlStats.need} XP`;
-          info.appendChild(t); info.appendChild(s);
-          lvlBox.innerHTML = ringHtml; lvlBox.appendChild(info);
-          
-          // Create main content wrapper
-          const levelContent = document.createElement('div'); levelContent.className = 'level-content'; levelContent.style.display='flex'; levelContent.style.gap='12px';
-
-          levelContent.appendChild(lvlBox);
-          
-          // Add streak display
-          const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
-          const streakBox = document.createElement('div'); streakBox.className = 'streak-box';
-          streakBox.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding:10px 14px;background:var(--card);border-radius:10px;gap:2px;border:1px solid rgba(0,0,0,0.07);';
-          const streakFlame = document.createElement('div'); streakFlame.className = 'streak-flame'; streakFlame.textContent = 'ðŸ”¥';
-          const streakLabel = document.createElement('div'); streakLabel.className = 'streak-label'; streakLabel.textContent = 'Streak';
-          const streakNum = document.createElement('div'); streakNum.className = 'streak-count'; streakNum.textContent = streakCount;
-          streakBox.appendChild(streakFlame); streakBox.appendChild(streakLabel); streakBox.appendChild(streakNum);
-          levelContent.appendChild(streakBox);
-          
-          // Add credits box
-          const creditCount = getCredits ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
-          const creditBox = document.createElement('div'); creditBox.className = 'credit-box';
-          creditBox.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding:10px 14px;background:var(--card);border-radius:10px;gap:2px;border:1px solid rgba(0,0,0,0.07);';
-          const creditCoin = document.createElement('div'); creditCoin.className = 'credit-coin'; creditCoin.textContent = 'ðŸ’°';
-          const creditLabel = document.createElement('div'); creditLabel.className = 'credit-label'; creditLabel.textContent = 'Credits';
-          const creditNum = document.createElement('div'); creditNum.className = 'credit-count'; creditNum.textContent = creditCount;
-          creditBox.appendChild(creditCoin); creditBox.appendChild(creditLabel); creditBox.appendChild(creditNum);
-          levelContent.appendChild(creditBox);
-          
-          // Add daily goal progress bar
-          const dailyGoal = getDailyGoal();
-          const todayReviewed = getTodayReviewedCount();
-          const dailyGoalBox = document.createElement('div'); dailyGoalBox.className = 'daily-goal-box'; dailyGoalBox.style.cssText = 'padding:12px;background:var(--card);border-radius:10px;flex:1;border:1px solid rgba(155,89,208,0.1);';
-          const goalLabel = document.createElement('div'); goalLabel.style.cssText = 'font-size:0.8em;color:var(--muted);font-weight:600;margin-bottom:6px;'; goalLabel.textContent = `Objectif: ${todayReviewed} / ${dailyGoal || '---'} cartes`;
-          dailyGoalBox.appendChild(goalLabel);
-          if(dailyGoal > 0){
-            const barContainer = document.createElement('div'); barContainer.style.cssText = 'width:100%;height:8px;background:rgba(0,0,0,0.08);border-radius:4px;overflow:hidden;';
-            barContainer.className = 'goal-bar-container';
-            const barFill = document.createElement('div'); barFill.style.cssText = `width:${Math.min(100, (todayReviewed/dailyGoal)*100)}%;height:100%;background:linear-gradient(90deg,var(--accent),#c084fc);transition:width 0.3s;`;
-            barContainer.appendChild(barFill);
-            dailyGoalBox.appendChild(barContainer);
-            const pctText = document.createElement('div'); pctText.className = 'goal-pct-text'; pctText.style.cssText = 'font-size:0.75em;color:var(--muted);margin-top:4px;text-align:right;'; pctText.textContent = `${Math.round((todayReviewed/dailyGoal)*100)}%`;
-            dailyGoalBox.appendChild(pctText);
-          } else {
-            const noGoalText = document.createElement('div'); noGoalText.className = 'goal-no-goal-text'; noGoalText.style.cssText = 'font-size:0.8em;color:var(--muted);text-align:center;'; noGoalText.textContent = 'Cliquez sur ðŸŽ¯ pour dÃ©finir un objectif';
-            dailyGoalBox.appendChild(noGoalText);
-          }
-          levelContent.appendChild(dailyGoalBox);
-          
-          levelCard.appendChild(levelContent);
-          container.appendChild(levelCard);
-
-          // Sessions du jour mini-card
-          try{
-            const todayCard = document.createElement('div');
-            todayCard.style.cssText = 'background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:12px;border:1px solid rgba(0,0,0,0.07);display:flex;align-items:center;justify-content:space-between;';
-            const todayLeft = document.createElement('div');
-            const todayReviewedNow = getTodayReviewedCount ? getTodayReviewedCount() : 0;
-            const dailyGoalNow = getDailyGoal ? getDailyGoal() : 0;
-            todayLeft.innerHTML = `<div style="font-size:0.85rem;font-weight:700;color:var(--fg)">Aujourd'hui</div><div style="font-size:0.75rem;color:var(--muted);margin-top:2px">${todayReviewedNow} carte${todayReviewedNow!==1?'s':''} révisée${todayReviewedNow!==1?'s':''} ${dailyGoalNow>0?'/ '+dailyGoalNow+' objectif':''}</div>`;
-            const todayRight = document.createElement('div');
-            todayRight.style.cssText = 'font-size:1.5rem;font-weight:800;color:var(--accent);';
-            todayRight.textContent = todayReviewedNow;
-            todayCard.appendChild(todayLeft); todayCard.appendChild(todayRight);
-            container.appendChild(todayCard);
-          }catch(e){ console.warn('todayCard error', e); }
-
-          // Add welcome quest card AFTER level card, BEFORE Maintenant button
-          try{
-            const welcomeQuestCard = renderWelcomeQuestCard();
-            if(welcomeQuestCard){
-              container.appendChild(welcomeQuestCard);
-            }
-          }catch(e){ console.warn('Welcome quest card error:', e); }
-          
-          // Create button container for Maintenant button - place AFTER level card, BEFORE decks card
-          const buttonContainer = document.createElement('div');
-          buttonContainer.style.cssText = 'display:flex;align-items:center;gap:8px;margin:16px 0;width:100%;';
-
-          const maintenantSelect = document.createElement('select');
-          maintenantSelect.style.cssText = 'padding:10px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:var(--card);color:var(--fg);font-size:0.95em;';
-          const selectOptions = [
-            { label: '10', value: '10' },
-            { label: '25', value: '25' },
-            { label: '50', value: '50' },
-            { label: '100', value: '100' },
-            { label: '200', value: '200' },
-            { label: 'toutes', value: 'all' }
-          ];
-          for(const opt of selectOptions){
-            const o = document.createElement('option');
-            o.value = opt.value; o.textContent = opt.label;
-            if(opt.value === '50') o.selected = true;
-            maintenantSelect.appendChild(o);
-          }
-          
-          // Add Maintenant (now) button for quick review
-          const maintenantBtn = document.createElement('button'); maintenantBtn.className = 'maintenant-btn'; maintenantBtn.textContent = 'ðŸ“š Maintenant';
-          maintenantBtn.style.cssText = 'flex:1;padding:13px;font-size:1.05em;font-weight:700;border-radius:10px;background:linear-gradient(135deg,var(--accent),#c084fc);border:none;color:#fff;box-shadow:0 4px 14px rgba(155,89,208,0.35);letter-spacing:0.01em;';
-          maintenantBtn.addEventListener('click', async ()=>{
+          for(const key of Object.keys(localStorage)){
+            if(!key.includes(':card:')) continue;
             try{
-              const rawLimit = maintenantSelect.value;
-              const limitCount = (rawLimit === 'all') ? null : Number(rawLimit);
-              console.log('ðŸ” Maintenant button clicked - loading all decks with cards due now');
-              updateStatus('Recherche des cartes Ã  rÃ©viser maintenant...');
-              
-              // Get all deck files
-              let entries = [];
-              try{ entries = await fetchDirectory('./decks/'); console.log('ðŸ“‚ Found', entries.length, 'files in decks folder'); }catch(e){ console.error('âŒ Error fetching directory:', e); entries = []; }
-              const allFiles = (Array.isArray(entries) ? entries : []).filter(e=> typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
-              console.log('ðŸ“„ XML files found:', allFiles.length);
-              
-              // Collect all decks that have cards due now
-              const decksWithDueCards = [];
-              let totalDueCount = 0;
-              
-              updateStatus('Analyse des decks...');
-              for(const f of allFiles){
-                const url = './decks/' + f;
-                const cnt = await countDueNowForDeck(url);
-                if(cnt > 0){
-                  decksWithDueCards.push(url);
-                  totalDueCount += cnt;
-                  console.log('  âœ“', f, 'â†’', cnt, 'cartes Ã  faire');
-                }
-              }
-              
-              console.log('ðŸ“Š Total:', decksWithDueCards.length, 'decks with', totalDueCount, 'cards due now');
-              
-              if(decksWithDueCards.length > 0){
-                console.log('ðŸ“š Loading', decksWithDueCards.length, 'decks for review');
-                updateStatus(`Chargement de ${totalDueCount} cartes...`);
-                
-                // Remove welcome screen and load all decks with due cards
-                await removeWelcome();
-                console.log('ðŸ—‘ï¸ Welcome screen removed');
-                
-                await loadMultipleDeckCards(decksWithDueCards, { onlyNow: true, limitCount: (Number.isFinite(limitCount) ? limitCount : null) });
-                console.log('âœ… Decks loaded, total cards:', multiDeckCards.length);
-                
-                if(typeof showNextCard === 'function'){
-                  console.log('â–¶ï¸ Showing first card');
-                  showNextCard();
-                } else {
-                  console.error('âŒ showNextCard function not available!');
-                  updateStatus('Erreur: fonction showNextCard introuvable');
-                }
-              } else {
-                console.warn('âš ï¸ No cards due now in any deck');
-                updateStatus('Aucune carte Ã  rÃ©viser maintenant ðŸŽ‰');
-              }
-            }catch(e){
-              console.error('âŒ Error loading Maintenant cards:', e);
-              console.error('Stack trace:', e.stack);
-              updateStatus('Erreur: ' + e.message);
-            }
-          });
-          
-          buttonContainer.appendChild(maintenantBtn);
-          buttonContainer.appendChild(maintenantSelect);
-          container.appendChild(buttonContainer);
-        }catch(e){ /* ignore level rendering on welcome if error */ }
-
-        // Create main decks card first (will be appended after level card)
-        const card = document.createElement('div'); card.className='card';
-        const title = document.createElement('h2'); title.textContent = "Decks disponibles"; title.style.margin='6px 0 12px 0'; title.style.color='var(--muted)';
-        card.appendChild(title);
-        const list = document.createElement('div'); list.style.display='flex'; list.style.flexDirection='column'; list.style.gap='8px';
-        // fetch deck list
-        let entries = [];
-        try{ entries = await fetchDirectory('./decks/'); }catch(e){ entries = []; }
-        if(!entries || entries.length===0){ const msg = document.createElement('div'); msg.textContent='Aucun deck trouvÃ©'; card.appendChild(msg); container.appendChild(card); document.body.appendChild(container); return }
-        // normalize to simple file list
-        const allFiles = (Array.isArray(entries) ? entries : []).filter(e=> typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
-        
-        // compute counts for ALL decks first
-        const rows = [];
-        for(const f of allFiles){
-          const url = './decks/' + f;
-          const name = decodeURIComponent(f.replace(/\+/g,'')).replace(/\.xml$/i,'');
-          const cnt = await countDueNowForDeck(url);
-          rows.push({name, url, cnt});
-        }
-        
-        // sort by due count (descending)
-        rows.sort((a,b)=> (b.cnt||0) - (a.cnt||0));
-        
-        // compute limit: desktop -> 10; mobile -> depends on available vertical space
-        function computeWelcomeLimit(){
-          try{
-            const headerHeight = 66; // fixed header
-            const reserved = headerHeight + 160; // approximate space for title and actions
-            const rowH = 64; // estimated per-row height
-            const avail = Math.max(200, window.innerHeight - reserved);
-            const lim = Math.max(3, Math.floor(avail / rowH));
-            return lim;
-          }catch(e){ return 6 }
-        }
-        const limit = computeWelcomeLimit();
-        
-        // take top decks by due count
-        const topRows = rows.slice(0, limit);
-        
-        // show total due count next to title in red
-        try{ const totalDue = rows.reduce((s,x)=> s + (x.cnt||0), 0); title.innerHTML = `Decks disponibles <span style="color:#d9534f;margin-left:8px">(${totalDue} Ã  faire)</span>`; }catch(e){}
-        
-        for(const r of topRows){
-          const row = document.createElement('div'); row.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;transition:background 0.12s;cursor:default;';
-          row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
-          row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
-          const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='12px';
-          const nm = document.createElement('div'); nm.textContent = r.name; nm.style.fontWeight = '600'; nm.style.color = 'var(--fg)';
-          left.appendChild(nm);
-          const act = document.createElement('div'); act.style.display='flex'; act.style.alignItems='center'; act.style.gap='8px';
-          const badge = document.createElement('span'); badge.className='due-badge'; badge.innerHTML = `<div class="due-num">${r.cnt>0? r.cnt : ''}</div><div class="due-label" style="display:${r.cnt>0?'block':'none'}">Ã  faire</div>`;
-          const b = document.createElement('button'); b.className='secondary';
-          b.textContent = (window.innerWidth <= 640) ? 'ðŸ“‚' : 'Charger';
-          b.addEventListener('click', async (e)=>{ await openDeckWithModeSelection(r.url, r.name, e.currentTarget); });
-          // mirror deck-browser layout: badge to the left of the Charger button
-          act.appendChild(badge); act.appendChild(b);
-          row.appendChild(left); row.appendChild(act); list.appendChild(row);
-        }
-        card.appendChild(list);
-        
-        // Append main decks card right after level card
-        container.appendChild(card);
-
-        // Add daily/weekly missions card AFTER Decks disponibles box
-        try{
-          const missionsCard = renderWelcomeMissionsCard();
-          if(missionsCard){
-            container.appendChild(missionsCard);
+              const d = JSON.parse(localStorage.getItem(key) || '{}');
+              if(!d || !d.last) continue;
+              totalCardCount++;
+              if((d.interval || 0) >= 21) masteredCards++;
+              if((d.interval || 0) > 0) correctCards++;
+            }catch(ex){}
           }
-        }catch(e){ console.warn('Welcome missions card error:', e); }
+        }catch(ex){}
+        const masteryPct = totalCardCount > 0 ? Math.round((masteredCards / totalCardCount) * 100) : 0;
+        const accuracyPct = totalCardCount > 0 ? Math.round((correctCards / totalCardCount) * 100) : 0;
 
-        // Add last recently added deck card (if tagged to display)
+        const statsGrid = document.createElement('div');
+        statsGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;';
+        const mkStatCell = (value, label, color) => {
+          const cell = document.createElement('div');
+          cell.style.cssText = 'background:var(--bg);border-radius:12px;padding:12px 14px;';
+          const v = document.createElement('div');
+          v.style.cssText = 'font-size:1.25rem;font-weight:800;color:' + (color || 'var(--fg)') + ';line-height:1;margin-bottom:3px;';
+          v.textContent = String(value);
+          const l = document.createElement('div');
+          l.style.cssText = 'font-size:0.7rem;color:var(--muted);font-weight:500;';
+          l.textContent = label;
+          cell.appendChild(v); cell.appendChild(l); return cell;
+        };
+        statsGrid.appendChild(mkStatCell(totalReviewed.toLocaleString(), 'Total révisions', 'var(--accent)'));
+        statsGrid.appendChild(mkStatCell(todayCount, "Aujourd'hui", '#4caf78'));
+        statsGrid.appendChild(mkStatCell(xpTotal.toLocaleString(), 'XP total', '#c9a227'));
+        statsGrid.appendChild(mkStatCell(streakCount + ' j', 'Série actuelle', '#e05252'));
+        statsGrid.appendChild(mkStatCell(masteryPct + '%', 'Maîtrise', '#5b9bd4'));
+        statsGrid.appendChild(mkStatCell(accuracyPct + '%', 'Précision', '#d97b3a'));
+        statsCard.appendChild(statsGrid);
+        twoCol.appendChild(statsCard);
+
+        // ── 2b. Quest Card ───────────────────────────────────────────────────
+        const questCard = mkCard();
+        questCard.style.margin = '0';
         try{
           const manifestRes = await fetch('./decks/manifest.json?v=' + Date.now());
           let manifestData = [];
@@ -21653,21 +21294,27 @@
         }catch(e){ console.warn('Stats card error:', e); }
         // === END STATS CARD ===
 
-        // Keep quest progress synced; advanced quest is now rendered in the quest box.
+        // Add post-welcome quest card UNDER the stats card
         try{ syncPostWelcomeQuestTime(); }catch(e){}
+        try{
+          const existingQuestCard = container.querySelector('.post-welcome-quest-card');
+          if(existingQuestCard) existingQuestCard.remove();
+          const postWelcomeQuestCard = renderPostWelcomeQuestCard();
+          if(postWelcomeQuestCard){
+            container.appendChild(postWelcomeQuestCard);
+          }
+        }catch(e){ console.warn('Post-welcome quest card error:', e); }
         
         // Store container reference for later refreshes during deck review
         try{ window.__welcomeDecksContainer = container; }catch(e){}
-        
         const host = document.querySelector('.app') || document.body;
         const footer = host.querySelector('footer') || document.querySelector('footer') || null;
         if(footer) host.insertBefore(container, footer);
         else host.appendChild(container);
-        
-        // Create online indicator after welcome page is added to DOM
         try{ if(typeof createOnlineIndicator === 'function') createOnlineIndicator(); }catch(e){}
       }catch(e){ updateStatus(''); }
     }
+
 
     // Wait for restore before loading deck, but with timeout to avoid indefinite wait
     async function initializeDeckLoader(){
