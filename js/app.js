@@ -2439,12 +2439,12 @@
         rightPanel.appendChild(desc);
       }
 
-      const masteryPct = reviewed > 0 ? Math.round((masteredReviewed / reviewed) * 100) : 0;
+      const masteryReviewPct = reviewed > 0 ? Math.round((masteredReviewed / reviewed) * 100) : 0;
       const masteryBox = document.createElement('div');
       masteryBox.className = 'deck-overview-mastery';
       masteryBox.innerHTML = `
-        <div class="deck-overview-mastery-row"><span>Maîtrise</span><strong>${masteryPct}%</strong></div>
-        <div class="deck-overview-mastery-bar"><i style="width:${Math.max(0, Math.min(100, masteryPct))}%"></i></div>
+        <div class="deck-overview-mastery-row"><span>Maîtrise</span><strong>${masteryReviewPct}%</strong></div>
+        <div class="deck-overview-mastery-bar"><i style="width:${Math.max(0, Math.min(100, masteryReviewPct))}%"></i></div>
       `;
       rightPanel.appendChild(masteryBox);
       
@@ -2456,17 +2456,17 @@
       masteryLabel.textContent = 'Maîtrise';
       masterySection.appendChild(masteryLabel);
       const nowCards = counts.now || 0;
-      const masteryPct = reviewed > 0 && total > 0 ? Math.round((1 - nowCards/total)*100) : 0;
+      const masterySchedulePct = reviewed > 0 && total > 0 ? Math.round((1 - nowCards/total)*100) : 0;
       const masteryBarWrap = document.createElement('div');
       masteryBarWrap.style.cssText = 'height:8px;background:rgba(0,0,0,0.07);border-radius:4px;overflow:hidden;margin-bottom:8px;';
       const masteryBarFill = document.createElement('div');
-      const mc = masteryPct > 75 ? '#4caf78' : masteryPct > 50 ? '#5b9bd4' : masteryPct > 25 ? '#d97b3a' : '#e05252';
-      masteryBarFill.style.cssText = `height:100%;width:${masteryPct}%;background:${mc};border-radius:4px;transition:width 0.5s;`;
+      const mc = masterySchedulePct > 75 ? '#4caf78' : masterySchedulePct > 50 ? '#5b9bd4' : masterySchedulePct > 25 ? '#d97b3a' : '#e05252';
+      masteryBarFill.style.cssText = `height:100%;width:${masterySchedulePct}%;background:${mc};border-radius:4px;transition:width 0.5s;`;
       masteryBarWrap.appendChild(masteryBarFill);
       masterySection.appendChild(masteryBarWrap);
       const masteryNum = document.createElement('div');
       masteryNum.style.cssText = `font-size:1.4rem;font-weight:800;color:${mc};`;
-      masteryNum.textContent = masteryPct + '%';
+      masteryNum.textContent = masterySchedulePct + '%';
       masterySection.appendChild(masteryNum);
       rightPanel.appendChild(masterySection);
 
