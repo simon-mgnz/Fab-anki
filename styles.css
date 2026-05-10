@@ -1017,6 +1017,10 @@ body:has(#marketContainer) #cardStatus{
 
 .modal-overlay[aria-hidden="false"]{opacity:1}
 
+/* Full-page overlays (profil, etc.) must stay visible without relying on a second animation frame */
+.page-overlay.modal-overlay.open,
+.page-overlay.modal-overlay[aria-hidden="false"]{opacity:1 !important}
+
 /* Hint box styling (red) */
 
 .hist-hint-box{background:#ffecec;border-left:4px solid #d9534f;color:#681214;padding:8px;border-radius:6px}
@@ -2583,6 +2587,7 @@ body.in-review.review-mobile-global{
 .deck-entry:hover{background:rgba(155,89,208,0.06)}
 
 /* ===== PROFILE MODAL REDESIGN ===== */
+#profileContainer .modal,
 #profileOverlay .modal { background: var(--bg); }
 .profile-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 12px; }
 .profile-stat-cell { background: var(--card); border-radius: 10px; padding: 12px 14px; border: 1px solid rgba(0,0,0,0.06); display: flex; flex-direction: column; gap: 3px; }
