@@ -256,7 +256,7 @@
   document.addEventListener('visibilitychange', () => {
     if(document.visibilityState !== 'visible') return;
     const now = Date.now();
-    if(now - __lastVisibilitySyncAt < 60000) return; // max once per 60 seconds
+    if(now - __lastVisibilitySyncAt < 300000) return; // max once per 5 minutes (Firestore reads)
     __lastVisibilitySyncAt = now;
     if(localStorage.getItem('fabanki:mode') !== 'synced') return;
     if(!navigator.onLine) return;
@@ -11075,18 +11075,19 @@
             row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
             row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
             const folderIconDiv = document.createElement('div'); folderIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; folderIconDiv.textContent = '📁'; row.appendChild(folderIconDiv);
-            const nm = document.createElement('div'); 
+            const main = document.createElement('div'); main.className = 'deck-entry-main';
+            const nm = document.createElement('div'); nm.className = 'deck-entry-name';
             const folderName = decodeURIComponent((prefix+folder).replace(/\+/g,' ')).replace(/\/$/,'');
             nm.textContent = folderName;
             row.dataset.search = folderName.toLowerCase();
-            const titleLine = document.createElement('div'); titleLine.className = 'deck-entry-titleline';
             const folderKpis = document.createElement('div'); folderKpis.className = 'deck-entry-kpis';
             folderKpis.innerHTML = `<span class="deck-kpi deck-kpi--mastery">Maitrise --</span>`;
             const folderMBar = document.createElement('div'); folderMBar.className = 'deck-mastery deck-mastery--lead';
             folderMBar.innerHTML = '<i style="width:0%"></i>';
-            titleLine.appendChild(folderMBar);
-            titleLine.appendChild(nm);
-            main.appendChild(titleLine);
+            const headRow = document.createElement('div'); headRow.className = 'deck-entry-head';
+            headRow.appendChild(folderMBar);
+            headRow.appendChild(nm);
+            main.appendChild(headRow);
             main.appendChild(folderKpis);
             
             // Calculate folder due count with badge
@@ -11717,7 +11718,7 @@
     function showProfilePopup(){
       try{
         // prevent duplicates
-        if(document.getElementById('profileContainer')) return;
+        if(document.getElementById('profileContainer') || document.getElementById('profileOverlay')) return;
         
         // Show contextual onboarding on first open
         setTimeout(() => {
@@ -11728,7 +11729,8 @@
         
         const stats = getProfileStats();
         const clean = fixMojibakeText;
-        const ov = document.createElement('div'); ov.id='profileOverlay'; ov.className='modal-overlay page-overlay'; ov.style.display='flex'; ov.style.zIndex='1200';
+        const ov = document.createElement('div'); ov.id='profileContainer'; ov.className='modal-overlay page-overlay open'; ov.style.display='flex'; ov.style.zIndex='1200'; ov.style.opacity='1';
+        ov.setAttribute('aria-hidden','false');
         const lang = localStorage.getItem('fabanki:lang') || 'fr';
         const m = document.createElement('div'); m.className='profile-page-shell profile-refonte'; m.style.cssText='padding:0;overflow:visible;min-width:0;max-height:none;background:var(--bg);border-radius:16px;';
         const h = document.createElement('h3'); h.textContent=clean(`\uD83D\uDC64 ${t('profileTitle')}`); h.style.display='none'; m.appendChild(h);
@@ -15897,6 +15899,7 @@
       console.log('Firestore available:', !!window.__fabanki_firestore);
       console.log('---');
       if(typeof autoSync === 'function'){
+        try{ localStorage.setItem('fabanki:force_full_pull_once', '1'); }catch(e){}
         console.log('Running autoSync()...');
         await autoSync();
         console.log('autoSync completed');
@@ -15925,6 +15928,33 @@
     let __lastCloudPushAt = 0;
     let __syncClassementInFlight = false;  // Prevent overlapping leaderboard sync calls
     let __lastSyncClassementAt = 0;
+    /** Short-lived cache of users/{uid} fields to avoid duplicate .get() between restore/autoSync/saveState */
+    let __fabanki_user_doc_cache = { uid: '', xp: 0, credits: 0, lastUpdated: 0, at: 0 };
+    const __FABANKI_USER_DOC_CACHE_MS = 45000;
+    const __FABANKI_AUTO_SYNC_PULL_MS = 90000;
+    const __FABANKI_RESTORE_SESSION_MS = 120000;
+    const __FABANKI_META_REV_SESSION_KEY = 'fabanki:fabanki_sync_meta_rev_cache';
+    const __FABANKI_SESS_RESTORE_KEY = 'fabanki:sess_restore_ok';
+
+    function __fabankiRememberUserDocSnapshot(uid, data){
+      try{
+        if(!uid || !data || typeof data !== 'object') return;
+        __fabanki_user_doc_cache = {
+          uid: String(uid),
+          xp: Number(data.xp || 0),
+          credits: Number(data.credits || 0),
+          lastUpdated: Number(data.lastUpdated || 0),
+          at: Date.now()
+        };
+      }catch(e){}
+    }
+    function __fabankiGetCachedUserDocSnapshot(uid){
+      try{
+        const c = __fabanki_user_doc_cache;
+        if(!uid || String(c.uid) !== String(uid) || (Date.now() - c.at) > __FABANKI_USER_DOC_CACHE_MS) return null;
+        return { xp: c.xp, credits: c.credits, lastUpdated: c.lastUpdated };
+      }catch(e){ return null; }
+    }
     let __cardStatesSubcollectionBlocked = false; // True when Firestore rules deny users/{uid}/cardStates
     let __cardStatesFallbackWarned = false;
     let __lastDeckSnapshotSignature = '';
@@ -15953,6 +15983,83 @@
         if(typeof deckKey !== 'undefined' && deckKey) return String(deckKey);
       }catch(e){}
       return '';
+    }
+
+    /** When `users/{uid}` grew huge (legacy nested `decks`), Firestore rejects any write with "too many index entries". Revision bumps then use a tiny sidecar doc. Rules must allow `users/{uid}/fabankiSyncMeta/{doc}`. */
+    var __fabanki_rev_meta_fallback_logged = false;
+    function __fabankiCardStatesRevisionMetaRef(db, uid){
+      return db.collection('users').doc(uid).collection('fabankiSyncMeta').doc('state');
+    }
+    async function readRemoteCardStatesRevision(db, uid, remoteSt){
+      let r = Number(remoteSt?.cardStatesRevision || 0);
+      const now = Date.now();
+      const META_CACHE_MS = 180000;
+      try{
+        const raw = sessionStorage.getItem(__FABANKI_META_REV_SESSION_KEY);
+        if(raw){
+          const o = JSON.parse(raw);
+          if(o && o.uid === uid && (now - Number(o.t || 0)) < META_CACHE_MS && Number.isFinite(Number(o.metaRev))){
+            const mr = Number(o.metaRev);
+            if(Number.isFinite(mr)) r = Math.max(r, mr);
+            return Number.isFinite(r) ? r : 0;
+          }
+        }
+      }catch(e){}
+      try{
+        const snap = await __fabankiCardStatesRevisionMetaRef(db, uid).get();
+        let metaRevStored = 0;
+        if(snap.exists){
+          const mr = Number((snap.data() || {}).cardStatesRevision || 0);
+          if(Number.isFinite(mr)){
+            r = Math.max(r, mr);
+            metaRevStored = mr;
+          }
+        }
+        try{
+          sessionStorage.setItem(__FABANKI_META_REV_SESSION_KEY, JSON.stringify({ uid, metaRev: metaRevStored, t: now }));
+        }catch(e){}
+      }catch(e){}
+      return Number.isFinite(r) ? r : 0;
+    }
+    async function bumpUserCardStatesRevision(db, uid){
+      const inc = firebase.firestore.FieldValue.increment(1);
+      try{
+        await db.collection('users').doc(uid).set({ cardStatesRevision: inc }, { merge: true });
+        try{ sessionStorage.removeItem(__FABANKI_META_REV_SESSION_KEY); }catch(e){}
+        return true;
+      }catch(err){
+        const msg = String(err?.message || '').toLowerCase();
+        const indexHeavy = msg.includes('too many index entries') || msg.includes('index entries');
+        if(!indexHeavy){
+          console.warn('[bumpUserCardStatesRevision] root doc increment failed:', err);
+        }
+        try{
+          await __fabankiCardStatesRevisionMetaRef(db, uid).set({ cardStatesRevision: inc }, { merge: true });
+          try{ sessionStorage.removeItem(__FABANKI_META_REV_SESSION_KEY); }catch(e){}
+          if(indexHeavy && !__fabanki_rev_meta_fallback_logged){
+            __fabanki_rev_meta_fallback_logged = true;
+            console.warn('[bumpUserCardStatesRevision] Using users/{uid}/fabankiSyncMeta/state for cardStatesRevision (root user document hit Firestore index limits).');
+          }
+          return true;
+        }catch(err2){
+          console.warn('[bumpUserCardStatesRevision] sidecar increment failed:', err2);
+          return false;
+        }
+      }
+    }
+    async function seedCardStatesRevisionMinimum(db, uid){
+      try{
+        await db.collection('users').doc(uid).set({ cardStatesRevision: 1 }, { merge: true });
+        return true;
+      }catch(err){
+        try{
+          await __fabankiCardStatesRevisionMetaRef(db, uid).set({ cardStatesRevision: 1 }, { merge: true });
+          return true;
+        }catch(err2){
+          console.warn('[seedCardStatesRevisionMinimum] failed:', err2);
+          return false;
+        }
+      }
     }
 
     async function syncSingleCardState(deckKeyValue, cardIdValue, cardState){
@@ -16024,10 +16131,10 @@
                 }
               }
             },
-            lastUpdated: Date.now(),
-            cardStatesRevision: firebase.firestore.FieldValue.increment(1)
+            lastUpdated: Date.now()
           };
           await db.collection('users').doc(uid).set(fallbackDeckPatch, { merge: true });
+          await bumpUserCardStatesRevision(db, uid);
           wroteFallbackDeck = true;
           console.log('[syncSingleCardState] Synced card to users/{uid}.decks (fallback):', {
             deckKey: String(deckKeyValue),
@@ -16037,9 +16144,7 @@
 
         if(wroteSubcollection && !wroteFallbackDeck){
           try{
-            await db.collection('users').doc(uid).set({
-              cardStatesRevision: firebase.firestore.FieldValue.increment(1)
-            }, { merge: true });
+            await bumpUserCardStatesRevision(db, uid);
           }catch(err){
             console.warn('[syncSingleCardState] cardStatesRevision increment failed:', err);
           }
@@ -16052,12 +16157,13 @@
       }
     }
 
+    /** Full scan of users/{uid}/cardStates — costly (1 read/doc). Returns decks map + max lastUpdated seen. */
     async function fetchCloudCardStates(db, uid){
       try{
-        if(!db || !uid) return {};
+        if(!db || !uid) return { decks: {}, maxSeen: 0, docCount: 0 };
 
         if(__cardStatesSubcollectionBlocked){
-          return {};
+          return { decks: {}, maxSeen: 0, docCount: 0 };
         }
 
         const snap = await Promise.race([
@@ -16066,6 +16172,7 @@
         ]);
         const decks = {};
         let cardCount = 0;
+        let maxSeen = 0;
         snap.forEach((doc) => {
           try{
             const data = doc.data() || {};
@@ -16076,10 +16183,12 @@
             if(!decks[dk]) decks[dk] = { cards: {} };
             decks[dk].cards[cid] = st;
             cardCount++;
+            const lu = Number(data.lastUpdated || 0);
+            if(Number.isFinite(lu) && lu > maxSeen) maxSeen = lu;
           }catch(e){}
         });
-        console.log('[restoreFromCloud] Loaded cloud cardStates:', { decks: Object.keys(decks).length, cards: cardCount });
-        return decks;
+        console.log('[restoreFromCloud] Loaded cloud cardStates (full):', { decks: Object.keys(decks).length, cards: cardCount, maxSeen });
+        return { decks, maxSeen, docCount: cardCount };
       }catch(e){
         const code = String(e?.code || '');
         const msg = String(e?.message || '').toLowerCase();
@@ -16090,10 +16199,60 @@
             __cardStatesFallbackWarned = true;
             console.warn('[restoreFromCloud] cardStates subcollection blocked by rules; using users/{uid}.decks fallback.');
           }
-          return {};
+          return { decks: {}, maxSeen: 0, docCount: 0 };
         }
         console.warn('[restoreFromCloud] Could not load cardStates subcollection:', e);
-        return {};
+        return { decks: {}, maxSeen: 0, docCount: 0 };
+      }
+    }
+
+    /** Incremental pull: only documents with lastUpdated > watermark (typically a handful per reload). */
+    async function fetchCloudCardStatesIncremental(db, uid, watermarkMs){
+      const empty = { decks: {}, maxSeen: Number(watermarkMs) || 0, docCount: 0 };
+      try{
+        if(!db || !uid) return empty;
+        if(__cardStatesSubcollectionBlocked) return empty;
+
+        const col = db.collection('users').doc(uid).collection('cardStates');
+        const wm = Math.max(0, Number(watermarkMs) || 0);
+        const decks = {};
+        let maxSeen = wm;
+        let total = 0;
+        let lastDoc = null;
+        const pageSize = 400;
+
+        while(true){
+          let q = col.where('lastUpdated', '>', wm).orderBy('lastUpdated', 'asc').limit(pageSize);
+          if(lastDoc) q = q.startAfter(lastDoc);
+          const snap = await Promise.race([
+            q.get(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('fetchCloudCardStatesIncremental timeout (12s)')), 12000))
+          ]);
+          if(snap.empty) break;
+          snap.forEach((doc) => {
+            try{
+              const data = doc.data() || {};
+              const dk = String(data.deckKey || '');
+              const cid = String(data.cardId || '');
+              const st = data.state || null;
+              if(!dk || !cid || !st) return;
+              if(!decks[dk]) decks[dk] = { cards: {} };
+              decks[dk].cards[cid] = st;
+              total++;
+              const lu = Number(data.lastUpdated || 0);
+              if(Number.isFinite(lu) && lu > maxSeen) maxSeen = lu;
+            }catch(e){}
+          });
+          lastDoc = snap.docs[snap.docs.length - 1];
+          if(snap.size < pageSize) break;
+        }
+        if(total > 0){
+          console.log('[fetchCloudCardStatesIncremental] loaded docs:', total, 'maxSeen:', maxSeen, 'watermark was:', wm);
+        }
+        return { decks, maxSeen, docCount: total };
+      }catch(e){
+        console.warn('[fetchCloudCardStatesIncremental] failed:', e);
+        throw e;
       }
     }
 
@@ -16101,12 +16260,19 @@
     const __fabanki_cloud_card_pull_rev_key = 'fabanki:cloud_card_pull_rev';
     function __fabanki_cloud_pull_rev0_ok_key(uid){ return 'fabanki:cloud_pull_rev0_ok:' + uid; }
 
+    function __fabanki_cloud_cs_watermark_key(uid){ return 'fabanki:cloud_cs_wm:' + String(uid || ''); }
+    function __fabanki_cloud_cs_snapshot_key(uid){ return 'fabanki:cloud_cs_snap:' + String(uid || ''); }
+
     function invalidateFabankiCloudCardPullCache(forUid){
       try{
         const u = forUid || localStorage.getItem('fabanki:user_id') || '';
         localStorage.removeItem(__fabanki_cloud_card_pull_uid_key);
         localStorage.removeItem(__fabanki_cloud_card_pull_rev_key);
-        if(u) localStorage.removeItem(__fabanki_cloud_pull_rev0_ok_key(u));
+        if(u){
+          localStorage.removeItem(__fabanki_cloud_pull_rev0_ok_key(u));
+          localStorage.removeItem(__fabanki_cloud_cs_watermark_key(u));
+          localStorage.removeItem(__fabanki_cloud_cs_snapshot_key(u));
+        }
       }catch(e){}
     }
 
@@ -16138,49 +16304,86 @@
       }catch(e){}
     }
 
-    /** Full cardStates collection pull only when cloud revision changed (avoids N reads on every reload). */
+    /** Pull cardStates: no reads if revision unchanged; else incremental by lastUpdated after first baseline (not full 5k docs every reload). */
     async function fetchCloudCardStatesMaybe(db, uid, remoteSt){
       if(!db || !uid) return {};
       try{
         if(localStorage.getItem('fabanki:force_cloud_pull') === '1'){
           localStorage.removeItem('fabanki:force_cloud_pull');
           invalidateFabankiCloudCardPullCache(uid);
-          const forcedDecks = await fetchCloudCardStates(db, uid);
+          const pack = await fetchCloudCardStates(db, uid);
+          const forcedDecks = pack.decks || {};
           try{
             const snap = await db.collection('users').doc(uid).get();
             const d = snap.exists ? (snap.data() || {}) : {};
-            const revAfter = Number(d.cardStatesRevision || 0);
+            if(snap.exists) __fabankiRememberUserDocSnapshot(uid, d);
+            const revAfter = await readRemoteCardStatesRevision(db, uid, d);
             let revCache = revAfter;
             const cc = Object.values(forcedDecks || {}).reduce((sum, x) => sum + Object.keys(x?.cards || {}).length, 0);
             if(revAfter < 1 && cc > 0){
-              await db.collection('users').doc(uid).set({ cardStatesRevision: 1 }, { merge: true });
-              revCache = 1;
+              await seedCardStatesRevisionMinimum(db, uid);
+              revCache = Math.max(revAfter, 1);
             }
             updateFabankiCloudCardPullCache(uid, revCache, { rev0Ok: revCache === 0 && cc === 0 });
+            let nw = Math.max(0, Number(pack.maxSeen || 0));
+            if(cc > 0 && nw <= 0) nw = Date.now();
+            if(nw > 0){
+              localStorage.setItem(__fabanki_cloud_cs_watermark_key(uid), String(nw));
+              localStorage.setItem(__fabanki_cloud_cs_snapshot_key(uid), '1');
+            }
           }catch(e){ console.warn('[fetchCloudCardStatesMaybe] force refresh cache update failed:', e); }
-          return forcedDecks;
+          return mergeDeckStates(collectDeckProgress(), forcedDecks);
         }
       }catch(e){}
 
-      const remoteRevSafe = Number(remoteSt?.cardStatesRevision || 0);
+      const remoteRevSafe = await readRemoteCardStatesRevision(db, uid, remoteSt || {});
       if(shouldSkipFabankiCloudCardStatesPull(uid, remoteRevSafe)){
         syncLog('[fetchCloudCardStates] skip — cardStatesRevision unchanged:', remoteRevSafe);
         return {};
       }
 
-      const decks = await fetchCloudCardStates(db, uid);
+      const wmKey = __fabanki_cloud_cs_watermark_key(uid);
+      const snapKey = __fabanki_cloud_cs_snapshot_key(uid);
+      const hasBaseline = localStorage.getItem(snapKey) === '1';
+      const watermark = Number(localStorage.getItem(wmKey) || 0);
+
+      let pack;
+      try{
+        if(!hasBaseline){
+          syncLog('[fetchCloudCardStates] baseline — full cardStates once for this browser/profile');
+          pack = await fetchCloudCardStates(db, uid);
+        } else {
+          pack = await fetchCloudCardStatesIncremental(db, uid, watermark);
+        }
+      }catch(incErr){
+        console.warn('[fetchCloudCardStates] incremental failed, full snapshot fallback:', incErr);
+        pack = await fetchCloudCardStates(db, uid);
+      }
+
+      const decksPartial = pack.decks || {};
+      try{
+        let newWm = Math.max(watermark, Number(pack.maxSeen || 0));
+        if((pack.docCount || 0) > 0 && newWm <= 0) newWm = Date.now();
+        if(newWm > 0){
+          localStorage.setItem(wmKey, String(newWm));
+          localStorage.setItem(snapKey, '1');
+        }
+      }catch(e){}
+
+      const mergedWithLocal = mergeDeckStates(collectDeckProgress(), decksPartial);
+
       let revForCache = remoteRevSafe;
       try{
-        const cardCount = Object.values(decks || {}).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
+        const cardCount = Object.values(mergedWithLocal || {}).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
         if(remoteRevSafe < 1 && cardCount > 0){
-          await db.collection('users').doc(uid).set({ cardStatesRevision: 1 }, { merge: true });
+          await seedCardStatesRevisionMinimum(db, uid);
           revForCache = 1;
         }
         updateFabankiCloudCardPullCache(uid, revForCache, { rev0Ok: revForCache === 0 && cardCount === 0 });
       }catch(e){
         console.warn('[fetchCloudCardStatesMaybe] bootstrap/cache failed:', e);
       }
-      return decks;
+      return mergedWithLocal;
     }
 
     try{ window.__fabanki_invalidateCloudCardPullCache = invalidateFabankiCloudCardPullCache; }catch(e){}
@@ -16242,9 +16445,18 @@
               } else {
                 // === SAFETY GATE 2: Read cloud BEFORE overwriting to prevent XP destruction ===
                 try{
-                  const existingDoc = await window.__fabanki_firestore.collection('users').doc(uid).get();
-                  if(existingDoc.exists){
-                    const existingData = existingDoc.data();
+                  let existingData = null;
+                  const cachedSnap = __fabankiGetCachedUserDocSnapshot(uid);
+                  if(cachedSnap){
+                    existingData = { xp: cachedSnap.xp, credits: cachedSnap.credits, lastUpdated: cachedSnap.lastUpdated };
+                  } else {
+                    const existingDoc = await window.__fabanki_firestore.collection('users').doc(uid).get();
+                    if(existingDoc.exists){
+                      existingData = existingDoc.data();
+                      __fabankiRememberUserDocSnapshot(uid, existingData);
+                    }
+                  }
+                  if(existingData){
                     const existingCloudXp = Number(existingData.xp || 0);
                     const existingCloudCredits = Number(existingData.credits || 0);
                     const existingCloudLastUpdated = Number(existingData.lastUpdated || 0);
@@ -16300,6 +16512,11 @@
                   console.warn('[saveState] Cloud write failed, retrying xp/credits/lastUpdated only:', writeErr);
                   await window.__fabanki_firestore.collection('users').doc(uid).set(fallbackCloudState, { merge: true });
                 }
+                __fabankiRememberUserDocSnapshot(uid, {
+                  xp: cloudState.xp,
+                  credits: cloudState.credits,
+                  lastUpdated: cloudState.lastUpdated
+                });
                 __lastCloudPushSignature = cloudSig;
                 __lastCloudPushAt = Date.now();
                 console.log('[saveState] Cloud upload successful');
@@ -16351,6 +16568,7 @@
         const docRef = db.collection('users').doc(uid);
         const snap = await docRef.get();
         const remoteSt = snap.exists ? (snap.data() || {}) : {};
+        if(snap.exists) __fabankiRememberUserDocSnapshot(uid, remoteSt);
         const remoteCardDecks = await fetchCloudCardStatesMaybe(db, uid, remoteSt);
         const remoteDecks = mergeDeckStates(remoteSt.decks || {}, remoteCardDecks || {});
         const mergedDecks = mergeDeckStates(localDecks || {}, remoteDecks || {});
@@ -16364,9 +16582,9 @@
           decks: mergedDecks,
           lastUpdated: Date.now(),
           mode: 'synced',
-          userId: uid,
-          cardStatesRevision: firebase.firestore.FieldValue.increment(1)
+          userId: uid
         }, { merge: true });
+        await bumpUserCardStatesRevision(db, uid);
 
         __lastDeckSnapshotSignature = mergedSig;
         __lastDeckSnapshotAt = Date.now();
@@ -16459,15 +16677,29 @@
         
         syncLog('autoSync: starting sync for user', pseudo);
         setSyncStatus('Synchronisation en coursâ€¦', true);
+
+        const forcePullOnce = (localStorage.getItem('fabanki:force_full_pull_once') === '1');
+        if(forcePullOnce){
+          try{ localStorage.removeItem('fabanki:force_full_pull_once'); }catch(e){}
+        }
+        const lastPullAt = Number(localStorage.getItem('fabanki:last_auto_sync_pull_at') || 0);
+        const skipCloudPull = !forcePullOnce && lastPullAt > 0 && (Date.now() - lastPullAt) < __FABANKI_AUTO_SYNC_PULL_MS;
+        if(skipCloudPull){
+          syncLog('autoSync: pull skipped (' + __FABANKI_AUTO_SYNC_PULL_MS + 'ms throttle); set localStorage fabanki:force_full_pull_once=1 to force');
+          cloudTimestampSeen = Number(localStorage.getItem('fabanki:last_seen_remote_lastUpdated') || 0);
+        }
         
         // PULL-BEFORE-PUSH: Check cloud for any newer updates before uploading
         try{
           const db = window.__fabanki_firestore;
           const docRef = db.collection('users').doc(userId);
+          if(!skipCloudPull){
           const snap = await docRef.get();
           
           if(snap.exists){
             const remoteSt = snap.data();
+            __fabankiRememberUserDocSnapshot(userId, remoteSt);
+            localStorage.setItem('fabanki:last_auto_sync_pull_at', String(Date.now()));
             const remoteCardDecks = await fetchCloudCardStatesMaybe(db, userId, remoteSt);
             remoteSt.decks = mergeDeckStates(remoteSt.decks || {}, remoteCardDecks || {});
             pulledRemoteDecks = remoteSt.decks || {};
@@ -16475,6 +16707,7 @@
             const localState = localStateRaw ? JSON.parse(localStateRaw) : null;
             const localLastUpdated = Number(localState?.lastUpdated || 0);
             const remoteLastUpdated = Number(remoteSt.lastUpdated || 0);
+            try{ localStorage.setItem('fabanki:last_seen_remote_lastUpdated', String(remoteLastUpdated)); }catch(e){}
             cloudTimestampSeen = Math.max(cloudTimestampSeen, remoteLastUpdated);
             
             syncLog('autoSync: checking for remote updates', { localTime: localLastUpdated, remoteTime: remoteLastUpdated });
@@ -16524,6 +16757,7 @@
                 syncLog('autoSync: deck merge pull failed', e);
               }
             }
+          }
           }
         }catch(e){
           syncLog('autoSync: error checking remote updates', e);
@@ -16608,6 +16842,21 @@
         }
         
         const uid = user.uid;
+        try{
+          const raw = sessionStorage.getItem(__FABANKI_SESS_RESTORE_KEY);
+          if(raw){
+            const o = JSON.parse(raw);
+            if(o && o.uid === uid && (Date.now() - Number(o.ts || 0)) < __FABANKI_RESTORE_SESSION_MS){
+              const cx = Number(o.cloudXp);
+              if(Number.isFinite(cx)) __lastKnownCloudXp = cx;
+              try{
+                localStorage.setItem('fabanki:last_auto_sync_pull_at', String(Date.now()));
+              }catch(e){}
+              console.log('[restoreFromCloud] Session throttle: skip Firestore (recent restore / reload)');
+              return;
+            }
+          }
+        }catch(e){}
         console.log('[restoreFromCloud] Fetching cloud data for uid=' + uid);
         const docRef = db.collection('users').doc(uid);
         const snap = await Promise.race([
@@ -16621,12 +16870,18 @@
         }
         
         const remoteSt = snap.data();
+        __fabankiRememberUserDocSnapshot(uid, remoteSt);
         const remoteCardDecks = await fetchCloudCardStatesMaybe(db, uid, remoteSt);
         // Compose deck data from both legacy location (users/{uid}.decks) and new cardStates subcollection
         remoteSt.decks = mergeDeckStates(remoteSt.decks || {}, remoteCardDecks || {});
         // Cache the cloud XP immediately for safety checks
         __lastKnownCloudXp = Number(remoteSt.xp || 0);
         console.log('[restoreFromCloud] Cloud XP cached: ' + __lastKnownCloudXp);
+        try{
+          sessionStorage.setItem(__FABANKI_SESS_RESTORE_KEY, JSON.stringify({ uid, ts: Date.now(), cloudXp: __lastKnownCloudXp }));
+          localStorage.setItem('fabanki:last_auto_sync_pull_at', String(Date.now()));
+          localStorage.setItem('fabanki:last_seen_remote_lastUpdated', String(Number(remoteSt.lastUpdated || 0)));
+        }catch(e){}
         
         const localStateRaw = localStorage.getItem('fabanki:user_state');
         const localState = localStateRaw ? JSON.parse(localStateRaw) : null;
@@ -17004,6 +17259,10 @@
         const password = passwordArg ?? prompt('Mot de passe'); if(!password) return;
         const { user } = await auth.signInWithEmailAndPassword(email, password);
         const uid = user.uid;
+        try{
+          sessionStorage.removeItem(__FABANKI_SESS_RESTORE_KEY);
+          sessionStorage.removeItem(__FABANKI_META_REV_SESSION_KEY);
+        }catch(e){}
 
         // Avoid destructive duplicate-merge here: most clients do not have delete rights.
 
@@ -17021,6 +17280,7 @@
         const docRef = db.collection('users').doc(uid);
         const snap = await docRef.get();
         const remoteSt = snap.exists ? (snap.data() || null) : null;
+        if(remoteSt) __fabankiRememberUserDocSnapshot(uid, remoteSt);
 
         const localSum = getStateSummary(localSt || {});
         const remoteSum = getStateSummary(remoteSt || {});
@@ -17220,6 +17480,9 @@
         try{
           const uidOut = localStorage.getItem('fabanki:user_id') || localStorage.getItem('userId');
           invalidateFabankiCloudCardPullCache(uidOut);
+          sessionStorage.removeItem(__FABANKI_SESS_RESTORE_KEY);
+          sessionStorage.removeItem(__FABANKI_META_REV_SESSION_KEY);
+          localStorage.removeItem('fabanki:last_auto_sync_pull_at');
         }catch(e){}
         await auth.signOut();
         const st = defaultUserState();
@@ -20439,885 +20702,375 @@
           }
         }catch(e){}
 
-        // ── helpers ──────────────────────────────────────────────────────────
-        const CARD = 'background:var(--card);border-radius:16px;padding:20px;border:1px solid rgba(0,0,0,0.07);margin-bottom:14px;';
-        const mkCard = () => { const d = document.createElement('div'); d.style.cssText = CARD; return d; };
-        const mkSecTitle = (txt) => {
-          const d = document.createElement('div');
-          d.style.cssText = 'font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:14px;';
-          d.textContent = txt; return d;
-        };
+        try{ window.__fabanki_detachReviewShellForNav?.(); }catch(e){}
 
         const container = document.createElement('div');
         container.id = 'welcomeDecks';
         container.className = 'homev2-root';
-        container.style.cssText = 'padding:16px;max-width:860px;margin:0 auto;box-sizing:border-box;width:100%;';
 
-        // ── PAGE TITLE ────────────────────────────────────────────────────────
-        const pageTitle = document.createElement('div');
-        pageTitle.style.cssText = 'font-size:1.5rem;font-weight:800;color:var(--fg);margin-bottom:16px;padding:0 2px;';
-        pageTitle.textContent = 'Accueil';
-        container.appendChild(pageTitle);
+        try{
+          if(hint) hint.style.display = 'none';
 
-        // ── 1. HERO CARD ──────────────────────────────────────────────────────
-        const heroCard = mkCard();
+          const entries = await fetchDirectory('./decks/').catch(() => []);
+          const allFiles = (Array.isArray(entries) ? entries : []).filter(e => typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
 
-        const lvlStats = computeLevelAndProgress(getXpTotal());
-        const circ = 2 * Math.PI * 28;
-        const ringOffset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct)) / 100));
-        const ringColor = getLevelColor(lvlStats.level);
+          const deckRows = [];
+          for(const f of allFiles){
+            const url = './decks/' + f;
+            const name = decodeURIComponent(f.replace(/\+/g,'')).replace(/\.xml$/i,'');
+            const due = await countDueNowForDeck(url).catch(() => 0);
 
-        // Top row: ring + level info
-        const heroTop = document.createElement('div');
-        heroTop.style.cssText = 'display:flex;align-items:center;gap:16px;margin-bottom:16px;';
+            const deckKey = (typeof normalizeDeckKeyFromURL === 'function') ? normalizeDeckKeyFromURL(url) : null;
+            const prefix = deckKey ? ('fabanki:' + deckKey + ':card:') : null;
+            let reviewed = 0;
+            let lastSeen = 0;
+            if(prefix){
+              for(let i = 0; i < localStorage.length; i++){
+                const k = localStorage.key(i);
+                if(!k || !k.startsWith(prefix)) continue;
+                try{
+                  const st = JSON.parse(localStorage.getItem(k) || '{}');
+                  const reps = Number(st.reps || 0);
+                  if(reps > 0) reviewed += 1;
+                  const ts = st.last ? new Date(st.last).getTime() : 0;
+                  if(Number.isFinite(ts) && ts > lastSeen) lastSeen = ts;
+                }catch(err){}
+              }
+            }
+            deckRows.push({ name, url, due: Number(due || 0), reviewed, lastSeen });
+          }
 
-        const ringWrap = document.createElement('div');
-        ringWrap.style.cssText = 'position:relative;width:72px;height:72px;flex-shrink:0;';
-        ringWrap.innerHTML = `<svg width="72" height="72" viewBox="0 0 100 100"><circle cx="50" cy="50" r="28" stroke="rgba(0,0,0,0.07)" stroke-width="8" fill="none"/><circle cx="50" cy="50" r="28" stroke="${ringColor}" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${ringOffset}" transform="rotate(-90 50 50)"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:800;color:var(--fg);">${lvlStats.level}</div>`;
+          const recentDecks = deckRows.filter(d => d.lastSeen > 0).sort((a,b) => b.lastSeen - a.lastSeen).slice(0, 8);
+          const mostDueDecks = deckRows.filter(d => d.due > 0).sort((a,b) => b.due - a.due).slice(0, 8);
+          const unseenDecks = deckRows.filter(d => d.reviewed === 0).slice(0, 8);
 
-        const levelInfo = document.createElement('div');
-        levelInfo.style.flex = '1';
-        const levelName = document.createElement('div');
-        levelName.style.cssText = 'font-size:1.1rem;font-weight:800;color:var(--fg);margin-bottom:4px;';
-        levelName.textContent = 'Niveau ' + lvlStats.level;
-        const xpText = document.createElement('div');
-        xpText.style.cssText = 'font-size:0.78rem;color:var(--muted);margin-bottom:8px;';
-        xpText.textContent = lvlStats.progress + ' / ' + lvlStats.need + ' XP';
-        const xpBarWrap = document.createElement('div');
-        xpBarWrap.style.cssText = 'width:100%;height:6px;background:rgba(0,0,0,0.07);border-radius:3px;overflow:hidden;';
-        const xpBarFill = document.createElement('div');
-        xpBarFill.style.cssText = 'width:' + Math.min(100, lvlStats.pct) + '%;height:100%;background:linear-gradient(90deg,' + ringColor + ',' + ringColor + 'cc);border-radius:3px;';
-        xpBarWrap.appendChild(xpBarFill);
-        levelInfo.appendChild(levelName);
-        levelInfo.appendChild(xpText);
-        levelInfo.appendChild(xpBarWrap);
-        heroTop.appendChild(ringWrap);
-        heroTop.appendChild(levelInfo);
-        heroCard.appendChild(heroTop);
+          const lvlStats = computeLevelAndProgress(getXpTotal());
+          const ringColor = getLevelColor(lvlStats.level);
+          const circ = 2 * Math.PI * 28;
+          const ringOffset = Math.round(circ * (1 - Math.max(0, Math.min(100, lvlStats.pct)) / 100));
 
-        // Stat pills: Credits · Streak · Daily goal
-        const pillsRow = document.createElement('div');
-        pillsRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;';
+          const creditCount = typeof getCredits === 'function' ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
+          const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
+          const dailyGoal = getDailyGoal();
+          const todayCount = getTodayReviewedCount();
+          const goalPct = dailyGoal > 0 ? Math.min(100, Math.round((todayCount / dailyGoal) * 100)) : null;
 
-        const creditCount = typeof getCredits === 'function' ? getCredits() : Number(localStorage.getItem('fabanki:credits') || 0);
-        const streakCount = Number(localStorage.getItem('fabanki:streak_current') || 0);
-        const dailyGoal = getDailyGoal();
-        const todayCount = getTodayReviewedCount();
-
-        const mkPill = (iconSvg, value, label, hex) => {
-          const p = document.createElement('div');
-          p.style.cssText = 'background:' + hex + '14;border:1px solid ' + hex + '22;border-radius:12px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;';
-          p.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + hex + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + iconSvg + '</svg>';
-          const v = document.createElement('div');
-          v.style.cssText = 'font-size:1.1rem;font-weight:800;color:var(--fg);line-height:1;';
-          v.textContent = String(value);
-          const l = document.createElement('div');
-          l.style.cssText = 'font-size:0.66rem;color:var(--muted);font-weight:500;text-align:center;';
-          l.textContent = label;
-          p.appendChild(v); p.appendChild(l); return p;
-        };
-
-        const coinSvg = '<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="9" y1="11" x2="15" y2="11"/>';
-        const flameSvg = '<path d="M12 2s-4 4-4 8a4 4 0 0 0 8 0c0-1.5-.5-3-2-4 0 2-1 3-2 3s-2-1.5-2-3c0-1.5 1-3 1-4z"/>';
-        const targetSvg = '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>';
-
-        const goalPct = dailyGoal > 0 ? Math.min(100, Math.round((todayCount / dailyGoal) * 100)) : null;
-        pillsRow.appendChild(mkPill(coinSvg, creditCount, 'Crédits', '#c9a227'));
-        pillsRow.appendChild(mkPill(flameSvg, streakCount + ' j', 'Série', '#e05252'));
-        pillsRow.appendChild(mkPill(targetSvg, goalPct !== null ? goalPct + '%' : '—', 'Objectif', '#4caf78'));
-        heroCard.appendChild(pillsRow);
-
-        // Daily goal bar
-        if(dailyGoal > 0){
-          const goalRow = document.createElement('div');
-          goalRow.style.cssText = 'margin-bottom:14px;';
-          const goalLbl = document.createElement('div');
-          goalLbl.style.cssText = 'font-size:0.76rem;color:var(--muted);font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between;';
-          goalLbl.innerHTML = '<span>Objectif du jour</span><span>' + todayCount + ' / ' + dailyGoal + ' cartes</span>';
-          const goalBarWrap = document.createElement('div');
-          goalBarWrap.style.cssText = 'width:100%;height:8px;background:rgba(0,0,0,0.07);border-radius:4px;overflow:hidden;';
-          const goalBarFill = document.createElement('div');
-          goalBarFill.style.cssText = 'width:' + Math.min(100, (todayCount / dailyGoal) * 100) + '%;height:100%;background:linear-gradient(90deg,var(--accent),#c084fc);border-radius:4px;transition:width 0.3s;';
-          goalBarWrap.appendChild(goalBarFill);
-          goalRow.appendChild(goalLbl);
-          goalRow.appendChild(goalBarWrap);
-          heroCard.appendChild(goalRow);
-        }
-
-        // Maintenant button + limit select
-        const btnRow = document.createElement('div');
-        btnRow.style.cssText = 'display:flex;gap:8px;';
-        const limitSelect = document.createElement('select');
-        limitSelect.style.cssText = 'padding:10px 12px;border-radius:10px;border:1px solid rgba(0,0,0,0.1);background:var(--bg);color:var(--fg);font-size:0.9rem;cursor:pointer;';
-        for(const [lbl, val] of [['10','10'],['25','25'],['50','50'],['100','100'],['200','200'],['Tout','all']]){
-          const o = document.createElement('option'); o.value = val; o.textContent = lbl;
-          if(val === '50') o.selected = true;
-          limitSelect.appendChild(o);
-        }
-        const maintenantBtn = document.createElement('button');
-        maintenantBtn.style.cssText = 'flex:1;padding:12px;font-size:1rem;font-weight:700;border-radius:10px;background:linear-gradient(135deg,var(--accent),#c084fc);border:none;color:#fff;cursor:pointer;box-shadow:0 4px 14px rgba(155,89,208,0.3);';
-        maintenantBtn.textContent = 'Réviser maintenant';
-        maintenantBtn.addEventListener('click', async () => {
+          let masteredCards = 0, totalCardCount = 0, correctCards = 0;
           try{
-            const rawLimit = limitSelect.value;
-            const limitCount = rawLimit === 'all' ? null : Number(rawLimit);
-            updateStatus('Recherche des cartes à réviser...');
-            let entries = [];
-            try{ entries = await fetchDirectory('./decks/'); }catch(e){ entries = []; }
-            const xmlFiles = (Array.isArray(entries) ? entries : []).filter(e => typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
-            const decksWithDue = [];
-            for(const f of xmlFiles){
-              const url = './decks/' + f;
-              const cnt = await countDueNowForDeck(url);
-              if(cnt > 0) decksWithDue.push(url);
+            for(const key of Object.keys(localStorage)){
+              if(!key.includes(':card:')) continue;
+              try{
+                const d = JSON.parse(localStorage.getItem(key) || '{}');
+                if(!d || !d.last) continue;
+                totalCardCount++;
+                if((d.interval || 0) >= 21) masteredCards++;
+                if((d.interval || 0) > 0) correctCards++;
+              }catch(ex){}
             }
-            if(decksWithDue.length > 0){
-              await removeWelcome();
-              await loadMultipleDeckCards(decksWithDue, { onlyNow: true, limitCount: Number.isFinite(limitCount) ? limitCount : null });
-              if(typeof showNextCard === 'function') showNextCard();
-            } else {
-              updateStatus('Aucune carte à réviser maintenant 🎉');
-            }
-          }catch(e){ updateStatus('Erreur: ' + e.message); }
-        });
-        btnRow.appendChild(maintenantBtn);
-        btnRow.appendChild(limitSelect);
-        heroCard.appendChild(btnRow);
-        container.appendChild(heroCard);
+          }catch(ex){}
+          const masteryPct = totalCardCount > 0 ? Math.round((masteredCards / totalCardCount) * 100) : 0;
+          const accuracyPct = totalCardCount > 0 ? Math.round((correctCards / totalCardCount) * 100) : 0;
 
-        // ── 2. TWO-COLUMN: Quick Stats + Quest ───────────────────────────────
-        const twoCol = document.createElement('div');
-        twoCol.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:14px;';
+          const totalReviewed = typeof getTotalReviewedCount === 'function' ? getTotalReviewedCount() : 0;
+          const xpTotal = getXpTotal();
 
-        // ── 2a. Quick Stats Card ──────────────────────────────────────────────
-        const statsCard = mkCard();
-        statsCard.style.margin = '0';
-        statsCard.appendChild(mkSecTitle('Statistiques rapides'));
-
-        const totalReviewed = typeof getTotalReviewedCount === 'function' ? getTotalReviewedCount() : 0;
-        const xpTotal = getXpTotal();
-        let masteredCards = 0; let totalCardCount = 0; let correctCards = 0;
-        try{
-          for(const key of Object.keys(localStorage)){
-            if(!key.includes(':card:')) continue;
-            try{
-              const d = JSON.parse(localStorage.getItem(key) || '{}');
-              if(!d || !d.last) continue;
-              totalCardCount++;
-              if((d.interval || 0) >= 21) masteredCards++;
-              if((d.interval || 0) > 0) correctCards++;
-            }catch(ex){}
-          }
-        }catch(ex){}
-        const masteryPct = totalCardCount > 0 ? Math.round((masteredCards / totalCardCount) * 100) : 0;
-        const accuracyPct = totalCardCount > 0 ? Math.round((correctCards / totalCardCount) * 100) : 0;
-
-        const statsGrid = document.createElement('div');
-        statsGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;';
-        const mkStatCell = (value, label, color) => {
-          const cell = document.createElement('div');
-          cell.style.cssText = 'background:var(--bg);border-radius:12px;padding:12px 14px;';
-          const v = document.createElement('div');
-          v.style.cssText = 'font-size:1.25rem;font-weight:800;color:' + (color || 'var(--fg)') + ';line-height:1;margin-bottom:3px;';
-          v.textContent = String(value);
-          const l = document.createElement('div');
-          l.style.cssText = 'font-size:0.7rem;color:var(--muted);font-weight:500;';
-          l.textContent = label;
-          cell.appendChild(v); cell.appendChild(l); return cell;
-        };
-        statsGrid.appendChild(mkStatCell(totalReviewed.toLocaleString(), 'Total révisions', 'var(--accent)'));
-        statsGrid.appendChild(mkStatCell(todayCount, "Aujourd'hui", '#4caf78'));
-        statsGrid.appendChild(mkStatCell(xpTotal.toLocaleString(), 'XP total', '#c9a227'));
-        statsGrid.appendChild(mkStatCell(streakCount + ' j', 'Série actuelle', '#e05252'));
-        statsGrid.appendChild(mkStatCell(masteryPct + '%', 'Maîtrise', '#5b9bd4'));
-        statsGrid.appendChild(mkStatCell(accuracyPct + '%', 'Précision', '#d97b3a'));
-        statsCard.appendChild(statsGrid);
-        twoCol.appendChild(statsCard);
-
-        // ── 2b. Quest Card ───────────────────────────────────────────────────
-        const questCard = mkCard();
-        questCard.style.margin = '0';
-        try{
-          const manifestRes = await fetch('./decks/manifest.json?v=' + Date.now());
-          let manifestData = [];
-          if(manifestRes && manifestRes.ok){
-            manifestData = await manifestRes.json();
-          }
-          
-          // Find all decks with "featured" or "last" tag to display
-          const decksToDisplay = [];
-          for(const item of manifestData){
-            const itemPath = typeof item === 'string' ? item : item.path;
-            const itemTags = typeof item === 'string' ? [] : (item.tags || []);
-            if(itemTags.includes('featured') || itemTags.includes('last')){
-              decksToDisplay.push(itemPath);
-            }
-          }
-          
-          if(decksToDisplay.length > 0){
-            const lastCard = document.createElement('div');
-            lastCard.className = 'card';
-            lastCard.id = 'featuredDeckCard';
-            lastCard.style.marginBottom = '12px';
-            lastCard.style.padding = '16px';
-            lastCard.style.display = 'flex';
-            lastCard.style.flexDirection = 'column';
-            lastCard.style.height = 'auto';
-            
-            const lastTitle = document.createElement('h2');
-            lastTitle.textContent = 'âœ¨ Nouveaux decks ajoutÃ©s';
-            lastTitle.style.margin = '6px 0 12px 0';
-            lastTitle.style.color = 'var(--muted)';
-            lastCard.appendChild(lastTitle);
-            
-            // Create a responsive container for all decks with "last" tag
-            const decksContainer = document.createElement('div');
-            decksContainer.style.display = 'grid';
-            // Responsive grid: at least 250px per deck, but adapt to number of decks
-            const deckWidth = Math.max(240, Math.floor((window.innerWidth - 48) / Math.min(3, decksToDisplay.length)));
-            decksContainer.style.gridTemplateColumns = `repeat(auto-fit, minmax(${deckWidth}px, 1fr))`;
-            decksContainer.style.gap = '12px';
-            
-            // Add each deck to the container
-            for(const deckToDisplay of decksToDisplay){
-              const lastDeckFile = deckToDisplay;
-              const lastDeckName = decodeURIComponent(lastDeckFile.replace(/\+/g,'')).replace(/\.xml$/i,'');
-              const lastDeckUrl = './decks/' + lastDeckFile;
-              const lastDeckCount = await countDueNowForDeck(lastDeckUrl);
-              
-              const deckRow = document.createElement('div');
-              deckRow.style.display = 'flex';
-              deckRow.style.justifyContent = 'space-between';
-              deckRow.style.alignItems = 'center';
-              deckRow.style.gap = '8px';
-              deckRow.style.padding = '12px';
-              deckRow.style.background = 'rgba(155, 89, 208, 0.04)';
-              deckRow.style.borderRadius = '8px';
-              deckRow.style.border = '1px solid rgba(155, 89, 208, 0.1)';
-              
-              const deckLeft = document.createElement('div');
-              deckLeft.style.display = 'flex';
-              deckLeft.style.alignItems = 'center';
-              deckLeft.style.gap = '8px';
-              deckLeft.style.flex = '1';
-              deckLeft.style.minWidth = '0';
-              
-              const deckNm = document.createElement('div');
-              deckNm.textContent = lastDeckName;
-              deckNm.style.fontWeight = '600';
-              deckNm.style.fontSize = '0.95rem';
-              deckNm.style.overflow = 'hidden';
-              deckNm.style.textOverflow = 'ellipsis';
-              deckNm.style.whiteSpace = 'nowrap';
-              deckLeft.appendChild(deckNm);
-              
-              const deckAct = document.createElement('div');
-              deckAct.style.display = 'flex';
-              deckAct.style.alignItems = 'center';
-              deckAct.style.gap = '6px';
-              deckAct.style.flexShrink = '0';
-              
-              const deckBadge = document.createElement('span');
-              deckBadge.className = 'due-badge';
-              deckBadge.innerHTML = `<div class="due-num">${lastDeckCount>0? lastDeckCount : ''}</div><div class="due-label" style="display:${lastDeckCount>0?'block':'none'}">Ã  faire</div>`;
-              
-              const deckBtn = document.createElement('button');
-              deckBtn.className = 'secondary';
-              deckBtn.textContent = (window.innerWidth <= 640) ? 'ðŸ“‚' : 'Charger';
-              deckBtn.style.fontSize = '0.9rem';
-              deckBtn.style.padding = '6px 10px';
-              deckBtn.addEventListener('click', async (e)=>{ await openDeckWithModeSelection(lastDeckUrl, lastDeckName, e.currentTarget); });
-              
-              deckAct.appendChild(deckBadge);
-              deckAct.appendChild(deckBtn);
-              deckRow.appendChild(deckLeft);
-              deckRow.appendChild(deckAct);
-              decksContainer.appendChild(deckRow);
-            }
-            
-            lastCard.appendChild(decksContainer);
-            container.appendChild(lastCard);
-          }
-        }catch(e){ console.warn('featured deck card error:', e) }
-        
-        // Helper function to update chart when stat is clicked
-        const updateChartForStat = (statId) => {
-          window.__currentStatFilter = statId;
-          // Redraw chart based on selected stat
-          if(typeof window.__redrawChart === 'function'){
-            window.__redrawChart();
-          }
-        };
-        
-        // === COMPREHENSIVE STATS CARD WITH BLUR/UNLOCK SYSTEM ===
-        try{
-          const statsCard = document.createElement('div');
-          statsCard.className = 'card stats-card';
-          statsCard.style.cssText = 'margin-top:16px;';
-          
-          const statsTitle = document.createElement('h2');
-          statsTitle.textContent = 'Statistiques';
-          statsTitle.style.margin = '6px 0 16px 0';
-          statsTitle.style.color = 'var(--muted)';
-          statsCard.appendChild(statsTitle);
-          
-          // Helper to check if a stat is unlocked
-          const unlockedStats = JSON.parse(localStorage.getItem('fabanki:unlocked_stats') || '[]');
-          const isUnlocked = (statId) => unlockedStats.includes(statId);
-          const unlockStat = (statId, cost) => {
-            const credits = Number(localStorage.getItem('fabanki:credits') || 0);
-            if(credits < cost){
-              alert(`Pas assez de crÃ©dits! Il vous faut ${cost} crÃ©dits.`);
-              return false;
-            }
-            const confirmed = confirm(`DÃ©bloquer cette statistique pour ${cost} crÃ©dits?`);
-            if(!confirmed) return false;
-            
-            localStorage.setItem('fabanki:credits', String(credits - cost));
-            unlockedStats.push(statId);
-            localStorage.setItem('fabanki:unlocked_stats', JSON.stringify(unlockedStats));
-            return true;
-          };
-          
-          // Calculate comprehensive stats
-          const now = new Date();
-          const oneWeekAgo = new Date(now - 7*24*60*60*1000);
-          const oneMonthAgo = new Date(now - 30*24*60*60*1000);
-          
-          const stats = {
-            forever: {reviewed: 0, newCards: 0, dailyData: []},
-            week: {reviewed: 0, newCards: 0, dailyData: []},
-            month: {reviewed: 0, newCards: 0, dailyData: []}
-          };
-          
-          // Initialize daily data arrays with multiple metrics
+          const histObj = normalizeDailyHistObj(localStorage.getItem('fabanki:daily_history'));
+          const barCounts = [];
+          const barLabels = [];
+          const dowShort = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
           for(let i = 6; i >= 0; i--){
-            const d = new Date(now);
+            const d = new Date();
+            d.setHours(0,0,0,0);
             d.setDate(d.getDate() - i);
-            d.setHours(0, 0, 0, 0);
-            stats.week.dailyData.push({date: d, reviewed: 0, newCards: 0, correct: 0, total: 0, timeSpent: 0});
+            barCounts.push(dailyHistCountForLocalDay(histObj, d));
+            barLabels.push(dowShort[d.getDay()]);
           }
-          for(let i = 29; i >= 0; i--){
-            const d = new Date(now);
-            d.setDate(d.getDate() - i);
-            d.setHours(0, 0, 0, 0);
-            stats.month.dailyData.push({date: d, reviewed: 0, newCards: 0, correct: 0, total: 0, timeSpent: 0});
+          const barMax = Math.max(1, ...barCounts);
+
+          const hero = document.createElement('div');
+          hero.className = 'card homev2-hero';
+
+          const heroTop = document.createElement('div');
+          heroTop.className = 'homev2-hero-top';
+          const heroLeft = document.createElement('div');
+          const kicker = document.createElement('div');
+          kicker.className = 'homev2-kicker';
+          kicker.textContent = t('home');
+          const title = document.createElement('div');
+          title.className = 'homev2-title';
+          title.textContent = "Bienvenue sur Fab'Anki";
+          heroLeft.appendChild(kicker);
+          heroLeft.appendChild(title);
+
+          const levelWrap = document.createElement('div');
+          levelWrap.className = 'homev2-level-wrap';
+          const ringOuter = document.createElement('div');
+          ringOuter.className = 'homev2-level-ring';
+          ringOuter.innerHTML = '<svg width="76" height="76" viewBox="0 0 100 100"><circle class="homev2-level-ring-track" cx="50" cy="50" r="28" stroke-width="8"/><circle cx="50" cy="50" r="28" stroke="' + ringColor + '" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="' + circ + '" stroke-dashoffset="' + ringOffset + '" transform="rotate(-90 50 50)"/></svg><div class="homev2-level-ring-num">' + lvlStats.level + '</div>';
+          const ringSub = document.createElement('div');
+          ringSub.className = 'homev2-level-ring-sub';
+          ringSub.textContent = lvlStats.progress + ' / ' + lvlStats.need + ' XP';
+          levelWrap.appendChild(ringOuter);
+          levelWrap.appendChild(ringSub);
+          heroTop.appendChild(heroLeft);
+          heroTop.appendChild(levelWrap);
+          hero.appendChild(heroTop);
+
+          const heroGrid = document.createElement('div');
+          heroGrid.className = 'homev2-hero-grid';
+          function addHeroStat(label, val){
+            const st = document.createElement('div');
+            st.className = 'homev2-stat';
+            const sp = document.createElement('span');
+            sp.textContent = label;
+            const strong = document.createElement('strong');
+            strong.textContent = String(val);
+            st.appendChild(sp);
+            st.appendChild(strong);
+            heroGrid.appendChild(st);
           }
-          
-          // Scan all card data from localStorage
-          const allKeys = Object.keys(localStorage);
-          for(const key of allKeys){
-            if(!key.includes(':card:')) continue;
+          addHeroStat('Crédits', creditCount);
+          addHeroStat('Série', streakCount + ' j');
+          addHeroStat('Objectif', goalPct !== null ? goalPct + '%' : '—');
+          addHeroStat('XP', xpTotal.toLocaleString());
+          hero.appendChild(heroGrid);
+
+          if(dailyGoal > 0){
+            const gb = document.createElement('div');
+            gb.className = 'homev2-goal-bar';
+            const gi = document.createElement('i');
+            gi.style.width = Math.min(100, (todayCount / dailyGoal) * 100) + '%';
+            gb.appendChild(gi);
+            hero.appendChild(gb);
+            const gm = document.createElement('div');
+            gm.className = 'homev2-goal-meta';
+            gm.textContent = 'Objectif du jour · ' + todayCount + ' / ' + dailyGoal + ' cartes';
+            hero.appendChild(gm);
+          }
+
+          const actions = document.createElement('div');
+          actions.className = 'homev2-actions';
+          const limitSelect = document.createElement('select');
+          limitSelect.className = 'homev2-select';
+          for(const [lbl, val] of [['10','10'],['25','25'],['50','50'],['100','100'],['200','200'],['Tout','all']]){
+            const o = document.createElement('option'); o.value = val; o.textContent = lbl;
+            if(val === '50') o.selected = true;
+            limitSelect.appendChild(o);
+          }
+          const nowBtn = document.createElement('button');
+          nowBtn.className = 'primary';
+          nowBtn.id = 'homev2NowBtn';
+          nowBtn.textContent = 'Réviser maintenant';
+          nowBtn.addEventListener('click', async () => {
             try{
-              const data = JSON.parse(localStorage.getItem(key) || '{}');
-              if(!data || !data.last) continue;
-              
-              const lastReview = new Date(data.last);
-              const lastReviewDate = new Date(lastReview);
-              lastReviewDate.setHours(0, 0, 0, 0);
-              
-              const reps = data.reps || 0;
-              const interval = data.interval || 0;
-              
-              // Count for forever
-              stats.forever.reviewed++;
-              if(reps === 1) stats.forever.newCards++;
-              
-              // Count for week
-              if(lastReview >= oneWeekAgo){
-                stats.week.reviewed++;
-                if(reps === 1) stats.week.newCards++;
-                // Add to daily data
-                const weekDay = stats.week.dailyData.find(d => {
-                  const dDate = new Date(d.date);
-                  return dDate.getTime() === lastReviewDate.getTime();
-                });
-                if(weekDay){
-                  weekDay.reviewed++;
-                  if(reps === 1) weekDay.newCards++;
-                  // Card with interval > 0 means user rated it positively (correct)
-                  if(interval > 0) weekDay.correct++;
-                  weekDay.total++;
-                  weekDay.timeSpent += Math.random() * 120 + 30; // Random time 30-150 seconds for demo
-                }
+              const rawLimit = limitSelect.value;
+              const limitCount = rawLimit === 'all' ? null : Number(rawLimit);
+              updateStatus('Recherche des cartes à réviser...');
+              let xmlFiles = [];
+              try{
+                const dirEntries = await fetchDirectory('./decks/');
+                xmlFiles = (Array.isArray(dirEntries) ? dirEntries : []).filter(e => typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
+              }catch(err){ xmlFiles = []; }
+              const decksWithDue = [];
+              for(const f of xmlFiles){
+                const deckUrl = './decks/' + f;
+                const cnt = await countDueNowForDeck(deckUrl);
+                if(cnt > 0) decksWithDue.push(deckUrl);
               }
-              
-              // Count for month
-              if(lastReview >= oneMonthAgo){
-                stats.month.reviewed++;
-                if(reps === 1) stats.month.newCards++;
-                // Add to daily data
-                const monthDay = stats.month.dailyData.find(d => {
-                  const dDate = new Date(d.date);
-                  return dDate.getTime() === lastReviewDate.getTime();
-                });
-                if(monthDay){
-                  monthDay.reviewed++;
-                  if(reps === 1) monthDay.newCards++;
-                  if(interval > 0) monthDay.correct++;
-                  monthDay.total++;
-                  monthDay.timeSpent += Math.random() * 120 + 30;
-                }
-              }
-            }catch(e){ continue; }
-          }
-
-          try{
-            const totalReviewedEver = getTotalReviewedCount();
-            if(totalReviewedEver > 0){
-              stats.forever.reviewed = totalReviewedEver;
-            }
-          }catch(e){}
-          
-          // Create tabs for time periods
-          const tabContainer = document.createElement('div');
-          tabContainer.style.cssText = 'display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--border, #ddd);';
-          
-          const tabs = ['week', 'month', 'forever'];
-          const tabLabels = {week: 'Semaine', month: 'Mois', forever: 'Total'};
-          let activeTab = 'week';
-          
-          const tabButtons = {};
-          for(const tab of tabs){
-            const btn = document.createElement('button');
-            btn.textContent = tabLabels[tab];
-            btn.className = 'secondary';
-            btn.style.cssText = 'flex:1;padding:8px;border:none;background:transparent;cursor:pointer;font-weight:500;color:var(--muted);transition:all 0.2s;';
-            btn.addEventListener('click', () => {
-              activeTab = tab;
-              Object.values(tabButtons).forEach(b => {
-                b.style.borderBottom = 'none';
-                b.style.color = 'var(--muted)';
-              });
-              btn.style.borderBottom = '3px solid var(--accent, #667eea)';
-              btn.style.color = 'var(--fg)';
-              renderStatsContent();
-            });
-            tabButtons[tab] = btn;
-            tabContainer.appendChild(btn);
-          }
-          
-          tabButtons[activeTab].style.borderBottom = '3px solid var(--accent, #667eea)';
-          tabButtons[activeTab].style.color = 'var(--fg)';
-          
-          statsCard.appendChild(tabContainer);
-          
-          const statsContent = document.createElement('div');
-          statsContent.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;';
-          
-          const renderStatsContent = () => {
-            statsContent.innerHTML = '';
-            const currentStats = stats[activeTab];
-            
-            // Calculate total time and average based on actual data
-            let totalCorrect = 0;
-            let totalReviews = 0;
-            let totalTimeSeconds = 0;
-            let longTermCards = 0; // Cards with interval > 7 days for retention
-            
-            if(activeTab === 'forever'){
-              // For forever tab, scan all cards directly since dailyData is empty
-              const allKeys = Object.keys(localStorage);
-              for(const key of allKeys){
-                if(!key.includes(':card:')) continue;
-                try{
-                  const data = JSON.parse(localStorage.getItem(key) || '{}');
-                  if(!data || !data.last) continue;
-                  
-                  const interval = data.interval || 0;
-                  const reps = data.reps || 0;
-                  
-                  totalReviews++;
-                  if(interval > 0) totalCorrect++;
-                  if(interval > 7) longTermCards++;
-                  // Estimate time: average 60 seconds per card reviewed
-                  totalTimeSeconds += 60;
-                }catch(e){ continue; }
-              }
-            } else {
-              // For week/month tabs, use dailyData
-              for(const day of stats[activeTab].dailyData){
-                totalCorrect += day.correct || 0;
-                totalReviews += day.total || 0;
-                totalTimeSeconds += day.timeSpent || 0;
-                // Count long-term cards in daily data
-                // Note: dailyData doesn't track interval, so we'll calculate from localStorage for consistency
-              }
-              
-              // Calculate long-term cards from localStorage for the current period
-              const allKeys = Object.keys(localStorage);
-              const now = new Date();
-              const cutoffDate = activeTab === 'week' ? new Date(now - 7*24*60*60*1000) : new Date(now - 30*24*60*60*1000);
-              
-              for(const key of allKeys){
-                if(!key.includes(':card:')) continue;
-                try{
-                  const data = JSON.parse(localStorage.getItem(key) || '{}');
-                  if(!data || !data.last) continue;
-                  
-                  const lastReview = new Date(data.last);
-                  if(lastReview >= cutoffDate){
-                    const interval = data.interval || 0;
-                    if(interval > 7) longTermCards++;
-                  }
-                }catch(e){ continue; }
-              }
-            }
-            
-            const accuracy = totalReviews > 0 ? Math.round((totalCorrect / totalReviews) * 100) : null;
-            const retention = totalReviews > 0 ? Math.round((longTermCards / totalReviews) * 100) : null;
-            const avgTimeSeconds = totalReviews > 0 ? Math.round(totalTimeSeconds / totalReviews) : 0;
-            const avgTimeMinutes = (avgTimeSeconds / 60).toFixed(1);
-            
-            const totalHours = Math.floor(totalTimeSeconds / 3600);
-            const totalMinutes = Math.round((totalTimeSeconds % 3600) / 60);
-            const timeSpentDisplay = totalHours > 0 ? `${totalHours}h ${totalMinutes}min` : `${totalMinutes}min`;
-            
-            // Create stat boxes with blur/unlock system
-            const statBoxes = [
-              {id: 'reviewed', label: 'Cartes rÃ©visÃ©es', value: currentStats.reviewed, icon: 'ðŸ“š', cost: 0, unlocked: true, description: 'Nombre total de cartes rÃ©visÃ©es'},
-              {id: 'newCards', label: 'Nouvelles cartes', value: currentStats.newCards, icon: 'âœ¨', cost: 50, unlocked: isUnlocked('newCards'), description: 'Nombre de cartes vues pour la premiÃ¨re fois'},
-              {id: 'accuracy', label: 'PrÃ©cision', value: accuracy !== null ? `${accuracy}%` : 'N/A', icon: 'ðŸŽ¯', cost: 75, unlocked: isUnlocked('accuracy'), description: 'Pourcentage de rÃ©ponses correctes'},
-              {id: 'timeSpent', label: 'Temps passÃ©', value: timeSpentDisplay, icon: 'â±ï¸', cost: 100, unlocked: isUnlocked('timeSpent'), description: 'Temps total consacrÃ© aux rÃ©visions'},
-              {id: 'avgTime', label: 'Temps moyen', value: `${avgTimeMinutes}min`, icon: 'â³', cost: 125, unlocked: isUnlocked('avgTime'), description: 'Temps moyen par carte'},
-              {id: 'retention', label: 'RÃ©tention', value: retention !== null ? `${retention}%` : 'N/A', icon: 'ðŸ§ ', cost: 150, unlocked: isUnlocked('retention'), description: 'Taux de cartes bien mÃ©morisÃ©es'}
-            ];
-            
-            for(const statBox of statBoxes){
-              const box = document.createElement('div');
-              box.style.cssText = `
-                background:linear-gradient(135deg, var(--accent) 0%, #c084fc 100%);
-                color:white;
-                padding:16px;
-                border-radius:12px;
-                position:relative;
-                overflow:${statBox.unlocked ? 'visible' : 'hidden'};
-                cursor:pointer;
-                transition:transform 0.2s, box-shadow 0.2s;
-              `;
-              
-              const contentWrapper = document.createElement('div');
-              
-              const iconDiv = document.createElement('div');
-              iconDiv.textContent = statBox.icon;
-              iconDiv.style.cssText = 'font-size:2em;margin-bottom:8px;';
-              contentWrapper.appendChild(iconDiv);
-              
-              const valueDiv = document.createElement('div');
-              valueDiv.textContent = statBox.value;
-              valueDiv.style.cssText = 'font-size:1.8em;font-weight:bold;margin-bottom:4px;';
-              contentWrapper.appendChild(valueDiv);
-              
-              const labelDiv = document.createElement('div');
-              labelDiv.textContent = statBox.label;
-              labelDiv.style.cssText = 'font-size:0.85em;opacity:0.9;margin-bottom:4px;';
-              contentWrapper.appendChild(labelDiv);
-              
-              const descDiv = document.createElement('div');
-              descDiv.textContent = statBox.description;
-              descDiv.style.cssText = 'font-size:0.75em;opacity:0.7;line-height:1.3;';
-              contentWrapper.appendChild(descDiv);
-              
-              if(statBox.unlocked){
-                box.appendChild(contentWrapper);
-                // Add click handler to filter chart
-                box.addEventListener('click', () => {
-                  updateChartForStat(statBox.id);
-                  // Highlight the selected stat box
-                  document.querySelectorAll('.stats-box').forEach(b => b.style.opacity = '0.7');
-                  box.style.opacity = '1';
-                });
-                box.classList.add('stats-box');
-                box.addEventListener('mouseenter', () => box.style.boxShadow = '0 0 20px rgba(255,255,255,0.3)');
-                box.addEventListener('mouseleave', () => box.style.boxShadow = '');
+              if(decksWithDue.length > 0){
+                await removeWelcome();
+                await loadMultipleDeckCards(decksWithDue, { onlyNow: true, limitCount: Number.isFinite(limitCount) ? limitCount : null });
+                if(typeof showNextCard === 'function') showNextCard();
               } else {
-                // Apply blur only to content, not the cost overlay
-                contentWrapper.style.filter = 'blur(8px)';
-                contentWrapper.style.pointerEvents = 'none';
-                box.appendChild(contentWrapper);
-                box.classList.add('stats-box');
-                
-                // Add clickable cost overlay below the blur
-                const costOverlay = document.createElement('div');
-                costOverlay.style.cssText = `
-                  position:absolute;
-                  top:0;
-                  left:0;
-                  right:0;
-                  bottom:0;
-                  display:flex;
-                  align-items:center;
-                  justify-content:center;
-                  background:rgba(0,0,0,0);
-                  cursor:pointer;
-                `;
-                costOverlay.addEventListener('mouseenter', () => box.style.transform = 'scale(1.05)');
-                costOverlay.addEventListener('mouseleave', () => box.style.transform = 'scale(1)');
-                costOverlay.addEventListener('click', () => {
-                  if(unlockStat(statBox.id, statBox.cost)){
-                    renderStatsContent();
-                  }
-                });
-                
-                const costText = document.createElement('div');
-                costText.style.cssText = 'background:rgba(0,0,0,0.8);color:white;padding:12px 20px;border-radius:8px;font-weight:bold;font-size:1.1em;text-align:center;';
-                costText.innerHTML = `ðŸ”’<br>${statBox.cost} crÃ©dits`;
-                costOverlay.appendChild(costText);
-                
-                box.appendChild(costOverlay);
+                updateStatus('Aucune carte à réviser maintenant 🎉');
               }
-              
-              statsContent.appendChild(box);
-            }
-            
-            // Add interactive chart (if week or month)
-            if(activeTab !== 'forever'){
-              const chartBox = document.createElement('div');
-              chartBox.style.cssText = 'grid-column:1/-1;background:var(--card);padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);position:relative;';
-              chartBox.className = 'stats-chart';
-              
-              const chartTitle = document.createElement('h3');
-              chartTitle.textContent = 'Progression quotidienne';
-              chartTitle.style.margin = '0 0 16px 0';
-              chartBox.appendChild(chartTitle);
-              
-              const tooltipDiv = document.createElement('div');
-              tooltipDiv.style.cssText = 'position:fixed;background:rgba(0,0,0,0.9);color:white;padding:8px 12px;border-radius:6px;font-size:0.85em;pointer-events:none;display:none;z-index:1000;white-space:nowrap;';
-              document.body.appendChild(tooltipDiv);
-              
-              const canvas = document.createElement('canvas');
-              canvas.height = 200;
-              canvas.style.cursor = 'crosshair';
-              chartBox.appendChild(canvas);
-              
-              const redrawChart = () => {
-                setTimeout(() => {
-                  const drawCanvas = chartBox.querySelector('canvas') || canvas;
-                  const ctx = drawCanvas.getContext('2d');
-                  const days = activeTab === 'week' ? 7 : 30;
-                  const width = drawCanvas.width = chartBox.clientWidth - 40;
-                  const height = 200;
-                  
-                  // Clear canvas
-                  ctx.clearRect(0, 0, width, height);
-                  
-                  const padding = 40;
-                  const graphWidth = width - padding * 2;
-                  const graphHeight = height - padding * 2;
-                  const pointSpacing = graphWidth / (days - 1 || 1);
-                  
-                  let dayData = stats[activeTab].dailyData;
-                  let dataKey = 'reviewed'; // default
-                  let maxValue = 0;
-                  let yAxisLabel = 'Cartes';
-                  
-                  // Determine which metric to display based on selected stat
-                  if(window.__currentStatFilter === 'newCards'){
-                    dataKey = 'newCards';
-                    yAxisLabel = 'Nouvelles';
-                  } else if(window.__currentStatFilter === 'accuracy'){
-                    dataKey = 'accuracy'; // calculated field
-                    yAxisLabel = 'PrÃ©cision %';
-                  } else if(window.__currentStatFilter === 'timeSpent'){
-                    dataKey = 'timeSpent';
-                    yAxisLabel = 'Temps (min)';
-                  } else if(window.__currentStatFilter === 'avgTime'){
-                    dataKey = 'avgTime'; // calculated field
-                    yAxisLabel = 'Moy (sec)';
-                  } else if(window.__currentStatFilter === 'retention'){
-                    dataKey = 'retention'; // calculated field
-                    yAxisLabel = 'RÃ©tention %';
-                  } else {
-                    dataKey = 'reviewed';
-                    yAxisLabel = 'Cartes';
-                  }
-                  
-                  // Calculate values based on dataKey
-                  const points = [];
-                  for(let i = 0; i < days; i++){
-                    const day = dayData[i];
-                    let value = 0;
-                    
-                    if(dataKey === 'reviewed'){
-                      value = day.reviewed || 0;
-                    } else if(dataKey === 'newCards'){
-                      value = day.newCards || 0;
-                    } else if(dataKey === 'accuracy'){
-                      value = day.total > 0 ? Math.round((day.correct / day.total) * 100) : 0;
-                    } else if(dataKey === 'timeSpent'){
-                      value = Math.round((day.timeSpent || 0) / 60); // convert to minutes
-                    } else if(dataKey === 'avgTime'){
-                      value = day.total > 0 ? Math.round((day.timeSpent || 0) / day.total) : 0; // seconds
-                    } else if(dataKey === 'retention'){
-                      value = day.total > 0 ? Math.round((day.correct / day.total) * 100) : 0;
-                    }
-                    
-                    maxValue = Math.max(maxValue, value);
-                    
-                    const x = padding + (i * pointSpacing);
-                    const y = height - padding; // placeholder, will calculate below
-                    points.push({x, y, value, day: i, date: day.date});
-                  }
-                  
-                  // Calculate Y scale
-                  const yMax = Math.max(maxValue + 2, 5);
-                  for(let i = 0; i < points.length; i++){
-                    const pt = points[i];
-                    pt.y = height - padding - (pt.value / yMax) * graphHeight;
-                  }
-                  
-                  // Draw background gradient
-                  const bgGradient = ctx.createLinearGradient(0, padding, 0, height - padding);
-                  bgGradient.addColorStop(0, 'rgba(155, 89, 208, 0.3)');
-                  bgGradient.addColorStop(1, 'rgba(155, 89, 208, 0)');
-                  
-                  // Draw grid lines
-                  ctx.strokeStyle = 'rgba(200, 200, 200, 0.2)';
-                  ctx.lineWidth = 1;
-                  for(let i = 0; i <= 5; i++){
-                    const y = padding + (graphHeight / 5) * i;
-                    ctx.beginPath();
-                    ctx.moveTo(padding, y);
-                    ctx.lineTo(width - padding, y);
-                    ctx.stroke();
-                  }
-                  
-                  // Draw filled area under line
-                  ctx.fillStyle = bgGradient;
-                  ctx.beginPath();
-                  ctx.moveTo(points[0].x, points[0].y);
-                  for(let i = 1; i < points.length; i++){
-                    ctx.lineTo(points[i].x, points[i].y);
-                  }
-                  ctx.lineTo(points[points.length - 1].x, height - padding);
-                  ctx.lineTo(points[0].x, height - padding);
-                  ctx.closePath();
-                  ctx.fill();
-                  
-                  // Draw line chart
-                  ctx.strokeStyle = '#9b59d0';
-                  ctx.lineWidth = 3;
-                  ctx.lineJoin = 'round';
-                  ctx.lineCap = 'round';
-                  ctx.beginPath();
-                  ctx.moveTo(points[0].x, points[0].y);
-                  for(let i = 1; i < points.length; i++){
-                    ctx.lineTo(points[i].x, points[i].y);
-                  }
-                  ctx.stroke();
+            }catch(err){ updateStatus('Erreur: ' + err.message); }
+          });
+          actions.appendChild(nowBtn);
+          actions.appendChild(limitSelect);
+          hero.appendChild(actions);
+          container.appendChild(hero);
 
-                  // Draw data points
-                  ctx.fillStyle = '#9b59d0';
-                  for(const p of points){
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
-                    ctx.fill();
-                    ctx.strokeStyle = 'white';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                  }
-                  
-                  // Draw Y-axis labels
-                  ctx.fillStyle = '#666';
-                  ctx.font = '11px sans-serif';
-                  ctx.textAlign = 'right';
-                  for(let i = 0; i <= 5; i++){
-                    const value = Math.round(yMax * (i / 5));
-                    const y = padding + (graphHeight / 5) * i;
-                    ctx.fillText(value, padding - 10, y + 4);
-                  }
-                  
-                  // Draw X-axis labels
-                  ctx.textAlign = 'center';
-                  for(let i = 0; i < days; i++){
-                    if(i % Math.ceil(days / 7) === 0 || days === 7){
-                      const label = days === 7 ? ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'][i] : `J-${days - i}`;
-                      ctx.fillText(label, points[i].x, height - 15);
-                    }
-                  }
-                  
-                  // Mouse tracking for tooltip
-                  const handleMouseMove = (e) => {
-                    const rect = canvas.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    
-                    let nearest = null;
-                    let minDist = Infinity;
-                    
-                    for(const p of points){
-                      const dist = Math.abs(p.x - x);
-                      if(dist < minDist && dist < 30){
-                        minDist = dist;
-                        nearest = p;
-                      }
-                    }
-                    
-                    if(nearest){
-                      tooltipDiv.style.display = 'block';
-                      const displayValue = dataKey === 'timeSpent'
-                        ? `${nearest.value} min`
-                        : dataKey === 'avgTime'
-                        ? `${nearest.value} sec`
-                        : dataKey === 'accuracy' || dataKey === 'retention'
-                        ? `${nearest.value}%`
-                        : `${nearest.value} cartes`;
-                      tooltipDiv.textContent = displayValue;
-                      
-                      // Position tooltip above and centered on the point
-                      const tooltipWidth = tooltipDiv.offsetWidth;
-                      const tooltipHeight = tooltipDiv.offsetHeight;
-                      tooltipDiv.style.left = (e.clientX - tooltipWidth / 2) + 'px';
-                      tooltipDiv.style.top = (rect.top + nearest.y - tooltipHeight - 12) + 'px';
-                    } else {
-                      tooltipDiv.style.display = 'none';
-                    }
-                  };
-                  
-                  const handleMouseLeave = () => {
-                    tooltipDiv.style.display = 'none';
-                  };
-                  
-                  // Attach event listeners
-                  const eventCanvas = chartBox.querySelector('canvas') || canvas;
-                  eventCanvas.onmousemove = handleMouseMove;
-                  eventCanvas.onmouseleave = handleMouseLeave;
-                }, 50);
-              };
-              
-              redrawChart();
-              
-              // Store redraw function globally for stat clicks
-              window.__redrawChart = redrawChart;
-              
-              statsContent.appendChild(chartBox);
-            }
-          };
-          
-          renderStatsContent();
-          statsCard.appendChild(statsContent);
-          container.appendChild(statsCard);
-        }catch(e){ console.warn('Stats card error:', e); }
-        // === END STATS CARD ===
+          const grid = document.createElement('div');
+          grid.className = 'homev2-grid';
 
-        // Add post-welcome quest card UNDER the stats card
-        try{ syncPostWelcomeQuestTime(); }catch(e){}
-        try{
-          const existingQuestCard = container.querySelector('.post-welcome-quest-card');
-          if(existingQuestCard) existingQuestCard.remove();
-          const postWelcomeQuestCard = renderPostWelcomeQuestCard();
-          if(postWelcomeQuestCard){
-            container.appendChild(postWelcomeQuestCard);
+          const cardQuick = document.createElement('div');
+          cardQuick.className = 'card homev2-card';
+          const cqTitle = document.createElement('div');
+          cqTitle.className = 'homev2-card-title';
+          cqTitle.textContent = 'Vue rapide';
+          cardQuick.appendChild(cqTitle);
+          const mini = document.createElement('div');
+          mini.className = 'homev2-mini-grid';
+          function miniCell(lbl, v){
+            const cell = document.createElement('div');
+            const sp = document.createElement('span');
+            sp.textContent = lbl;
+            const strong = document.createElement('strong');
+            strong.textContent = String(v);
+            cell.appendChild(sp);
+            cell.appendChild(strong);
+            mini.appendChild(cell);
           }
-        }catch(e){ console.warn('Post-welcome quest card error:', e); }
-        
-        // Store container reference for later refreshes during deck review
-        try{ window.__welcomeDecksContainer = container; }catch(e){}
-        const host = document.querySelector('.app') || document.body;
-        const footer = host.querySelector('footer') || document.querySelector('footer') || null;
-        if(footer) host.insertBefore(container, footer);
-        else host.appendChild(container);
+          miniCell('Révisions (total)', totalReviewed.toLocaleString());
+          miniCell("Aujourd'hui", todayCount);
+          miniCell('Maîtrise', masteryPct + '%');
+          miniCell('Précision', accuracyPct + '%');
+          cardQuick.appendChild(mini);
+          grid.appendChild(cardQuick);
+
+          const cardHist = document.createElement('div');
+          cardHist.className = 'card homev2-card';
+          const histHead = document.createElement('div');
+          histHead.className = 'homev2-stats-head';
+          const histHeadTxt = document.createElement('div');
+          const ht = document.createElement('div');
+          ht.className = 'homev2-card-title';
+          ht.style.marginBottom = '2px';
+          ht.textContent = '7 derniers jours';
+          const hsub = document.createElement('div');
+          hsub.style.fontSize = '.78rem';
+          hsub.style.color = 'var(--muted)';
+          hsub.textContent = 'Révisions enregistrées · max ' + Math.max(...barCounts) + ' / jour';
+          histHeadTxt.appendChild(ht);
+          histHeadTxt.appendChild(hsub);
+          const masteryRing = document.createElement('div');
+          masteryRing.className = 'homev2-ring';
+          masteryRing.style.setProperty('--p', String(masteryPct));
+          const masteryRingInner = document.createElement('b');
+          masteryRingInner.textContent = masteryPct + '%';
+          masteryRing.appendChild(masteryRingInner);
+          histHead.appendChild(histHeadTxt);
+          histHead.appendChild(masteryRing);
+          cardHist.appendChild(histHead);
+
+          const kpis = document.createElement('div');
+          kpis.className = 'homev2-stats-kpis homev2-stats-kpis--wide';
+          function addKpi(lbl, val){
+            const d = document.createElement('div');
+            const sp = document.createElement('span');
+            sp.textContent = lbl;
+            const st = document.createElement('strong');
+            st.textContent = String(val);
+            d.appendChild(sp);
+            d.appendChild(st);
+            kpis.appendChild(d);
+          }
+          addKpi('Maîtrise', masteredCards + ' cartes');
+          addKpi('Suivies', totalCardCount + ' cartes');
+          addKpi('Série', streakCount + ' j');
+          addKpi('XP', xpTotal.toLocaleString());
+          cardHist.appendChild(kpis);
+
+          const bars = document.createElement('div');
+          bars.className = 'homev2-bars';
+          for(let i = 0; i < 7; i++){
+            const col = document.createElement('div');
+            col.className = 'homev2-bar-col';
+            const ih = document.createElement('i');
+            ih.style.height = Math.max(8, Math.round((barCounts[i] / barMax) * 56)) + 'px';
+            col.appendChild(ih);
+            const sp = document.createElement('span');
+            sp.textContent = barLabels[i];
+            col.appendChild(sp);
+            bars.appendChild(col);
+          }
+          cardHist.appendChild(bars);
+          grid.appendChild(cardHist);
+
+          const cardDecks = document.createElement('div');
+          cardDecks.className = 'card homev2-card';
+          const deckTitle = document.createElement('div');
+          deckTitle.className = 'homev2-card-title';
+          deckTitle.textContent = 'Decks';
+          cardDecks.appendChild(deckTitle);
+          const tabs = document.createElement('div');
+          tabs.className = 'homev2-tabs';
+          const listEl = document.createElement('div');
+          listEl.className = 'homev2-deck-list';
+
+          function renderDeckList(rows){
+            listEl.innerHTML = '';
+            if(!rows.length){
+              const em = document.createElement('div');
+              em.className = 'homev2-empty';
+              em.textContent = 'Aucun deck dans cette liste.';
+              listEl.appendChild(em);
+              return;
+            }
+            for(const d of rows){
+              const row = document.createElement('div');
+              row.className = 'homev2-deck-row';
+              row.addEventListener('click', (ev) => {
+                if(ev.target.closest('button')) return;
+                openDeckWithModeSelection(d.url, d.name, ev.currentTarget);
+              });
+              const nm = document.createElement('div');
+              nm.className = 'homev2-deck-name';
+              nm.textContent = d.name;
+              const meta = document.createElement('div');
+              meta.className = 'homev2-deck-meta';
+              const badge = document.createElement('span');
+              badge.className = 'homev2-badge' + (d.due ? '' : ' homev2-badge-muted');
+              badge.textContent = d.due ? String(d.due) : '—';
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'secondary homev2-open-btn';
+              btn.textContent = 'Ouvrir';
+              btn.addEventListener('click', (e) => { e.stopPropagation(); openDeckWithModeSelection(d.url, d.name, btn); });
+              meta.appendChild(badge);
+              meta.appendChild(btn);
+              row.appendChild(nm);
+              row.appendChild(meta);
+              listEl.appendChild(row);
+            }
+          }
+
+          function mkTab(label, rows){
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'secondary homev2-tab';
+            b.textContent = label;
+            b.addEventListener('click', () => {
+              tabs.querySelectorAll('.homev2-tab').forEach(x => x.classList.remove('is-active'));
+              b.classList.add('is-active');
+              renderDeckList(rows);
+            });
+            tabs.appendChild(b);
+            return b;
+          }
+          const tabRecent = mkTab('Récents', recentDecks);
+          mkTab('Priorité dues', mostDueDecks);
+          mkTab('Jamais vues', unseenDecks);
+          tabRecent.classList.add('is-active');
+          cardDecks.appendChild(tabs);
+          cardDecks.appendChild(listEl);
+          renderDeckList(recentDecks);
+          grid.appendChild(cardDecks);
+
+          container.appendChild(grid);
+
+          try{ syncPostWelcomeQuestTime(); }catch(e){}
+          try{
+            const existingQuestCard = container.querySelector('.post-welcome-quest-card');
+            if(existingQuestCard) existingQuestCard.remove();
+            const postWelcomeQuestCard = renderPostWelcomeQuestCard();
+            if(postWelcomeQuestCard){
+              postWelcomeQuestCard.style.marginTop = '12px';
+              container.appendChild(postWelcomeQuestCard);
+            }
+          }catch(e){ console.warn('Post-welcome quest card error:', e); }
+
+          try{ window.__welcomeDecksContainer = container; }catch(e){}
+          const host = document.querySelector('.app') || document.body;
+          const footer = host.querySelector('footer') || document.querySelector('footer') || null;
+          if(footer) host.insertBefore(container, footer);
+          else host.appendChild(container);
+        }catch(e){ console.warn('renderWelcomeDecks build error:', e); }
+
+
         try{ if(typeof createOnlineIndicator === 'function') createOnlineIndicator(); }catch(e){}
-      }catch(e){ updateStatus(''); }
+      }catch(e){ console.warn('renderWelcomeDecks:', e); updateStatus(''); }
     }
 
 
@@ -24248,11 +24001,25 @@
     const db = window.__fabanki_firestore;
     const monthId = (new Date().toISOString().slice(0,7));
     let mode = 'global';
+    const CL_LB_CACHE_TTL_MS = 600000;
 
-    async function loadRows(){
+    async function loadRows(forceRefresh){
       if(!tbody) return;
       if(!db){ tbody.innerHTML = '<tr><td colspan="7">Classement indisponible (Firebase non configuré)</td></tr>'; return; }
       try{
+        const cacheKey = 'fabanki:cl_lb_html:' + monthId + ':' + mode;
+        if(!forceRefresh){
+          try{
+            const raw = sessionStorage.getItem(cacheKey);
+            if(raw){
+              const o = JSON.parse(raw);
+              if(o && typeof o.html === 'string' && (Date.now() - Number(o.t || 0)) < CL_LB_CACHE_TTL_MS){
+                tbody.innerHTML = o.html;
+                return;
+              }
+            }
+          }catch(e){}
+        }
         const snap = await db.collection('Classement').get();
         const rows = [];
         snap.forEach(doc => {
@@ -24281,13 +24048,16 @@
           tbody.appendChild(tr);
         });
         if(!tbody.children.length) tbody.innerHTML = '<tr><td colspan="7">Aucune donnée</td></tr>';
+        try{
+          sessionStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), html: tbody.innerHTML }));
+        }catch(e){}
       }catch(e){
         tbody.innerHTML = '<tr><td colspan="7">Erreur de chargement du classement</td></tr>';
       }
     }
     el.querySelector('#classementGlobalBtn')?.addEventListener('click', ()=>{ mode = 'global'; loadRows(); });
     el.querySelector('#classementMonthBtn')?.addEventListener('click', ()=>{ mode = 'month'; loadRows(); });
-    el.querySelector('#classementRefreshBtn')?.addEventListener('click', ()=> loadRows());
+    el.querySelector('#classementRefreshBtn')?.addEventListener('click', ()=> loadRows(true));
     await loadRows();
   };
 })();
