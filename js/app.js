@@ -15985,6 +15985,27 @@
       return '';
     }
 
+    /** Firestore rules match `request.auth.uid` to `users/{userId}`. Prefer Auth UID when signed in — localStorage may still hold a legacy generated id after login. */
+    function fabankiFirestoreUid(){
+      try{
+        const auth = firebase?.auth?.();
+        const cu = auth?.currentUser;
+        if(cu && cu.uid){
+          const id = String(cu.uid);
+          try{
+            if(localStorage.getItem('fabanki:user_id') !== id){
+              localStorage.setItem('fabanki:user_id', id);
+              localStorage.setItem('userId', id);
+            }
+          }catch(e){}
+          return id;
+        }
+      }catch(e){}
+      try{
+        return localStorage.getItem('fabanki:user_id') || localStorage.getItem('userId') || '';
+      }catch(e){ return ''; }
+    }
+
     /** When `users/{uid}` grew huge (legacy nested `decks`), Firestore rejects any write with "too many index entries". Revision bumps then use a tiny sidecar doc. Rules must allow `users/{uid}/fabankiSyncMeta/{doc}`. */
     var __fabanki_rev_meta_fallback_logged = false;
     function __fabankiCardStatesRevisionMetaRef(db, uid){
@@ -16052,11 +16073,19 @@
         await db.collection('users').doc(uid).set({ cardStatesRevision: 1 }, { merge: true });
         return true;
       }catch(err){
+        const msg = String(err?.message || '').toLowerCase();
+        const indexHeavy = msg.includes('too many index entries') || msg.includes('index entries');
+        if(!indexHeavy){
+          console.warn('[seedCardStatesRevisionMinimum] root users/{uid} set failed:', err);
+        }
         try{
           await __fabankiCardStatesRevisionMetaRef(db, uid).set({ cardStatesRevision: 1 }, { merge: true });
+          if(indexHeavy){
+            syncLog('[seedCardStatesRevisionMinimum] wrote cardStatesRevision to fabankiSyncMeta/state (root doc hit index limits)');
+          }
           return true;
         }catch(err2){
-          console.warn('[seedCardStatesRevisionMinimum] failed:', err2);
+          console.warn('[seedCardStatesRevisionMinimum] failed (needs Firestore rule users/{uid}/fabankiSyncMeta/{doc}):', err2);
           return false;
         }
       }
@@ -16073,7 +16102,7 @@
           console.warn('[syncSingleCardState] Skip: firestore unavailable');
           return false;
         }
-        const uid = localStorage.getItem('fabanki:user_id') || localStorage.getItem('userId');
+        const uid = fabankiFirestoreUid();
         if(!uid || !deckKeyValue || !cardIdValue || !cardState){
           console.warn('[syncSingleCardState] Skip: missing required values', {
             hasUid: !!uid,
@@ -16265,7 +16294,7 @@
 
     function invalidateFabankiCloudCardPullCache(forUid){
       try{
-        const u = forUid || localStorage.getItem('fabanki:user_id') || '';
+        const u = forUid || fabankiFirestoreUid() || '';
         localStorage.removeItem(__fabanki_cloud_card_pull_uid_key);
         localStorage.removeItem(__fabanki_cloud_card_pull_rev_key);
         if(u){
@@ -16325,12 +16354,11 @@
               revCache = Math.max(revAfter, 1);
             }
             updateFabankiCloudCardPullCache(uid, revCache, { rev0Ok: revCache === 0 && cc === 0 });
-            let nw = Math.max(0, Number(pack.maxSeen || 0));
-            if(cc > 0 && nw <= 0) nw = Date.now();
-            if(nw > 0){
+            const nw = Math.max(0, Number(pack.maxSeen || 0));
+            try{
               localStorage.setItem(__fabanki_cloud_cs_watermark_key(uid), String(nw));
               localStorage.setItem(__fabanki_cloud_cs_snapshot_key(uid), '1');
-            }
+            }catch(e){}
           }catch(e){ console.warn('[fetchCloudCardStatesMaybe] force refresh cache update failed:', e); }
           return mergeDeckStates(collectDeckProgress(), forcedDecks);
         }
@@ -16345,12 +16373,20 @@
       const wmKey = __fabanki_cloud_cs_watermark_key(uid);
       const snapKey = __fabanki_cloud_cs_snapshot_key(uid);
       const hasBaseline = localStorage.getItem(snapKey) === '1';
-      const watermark = Number(localStorage.getItem(wmKey) || 0);
+      let watermark = Number(localStorage.getItem(wmKey) || 0);
+      if(watermark > Date.now() + 60000){
+        watermark = 0;
+        try{ localStorage.setItem(wmKey, '0'); }catch(e){}
+        syncLog('[fetchCloudCardStates] reset invalid future watermark');
+      }
 
       let pack;
       try{
         if(!hasBaseline){
           syncLog('[fetchCloudCardStates] baseline — full cardStates once for this browser/profile');
+          pack = await fetchCloudCardStates(db, uid);
+        } else if(!(watermark > 0)){
+          syncLog('[fetchCloudCardStates] watermark missing/0 — full snapshot (cross-device safe)');
           pack = await fetchCloudCardStates(db, uid);
         } else {
           pack = await fetchCloudCardStatesIncremental(db, uid, watermark);
@@ -16362,12 +16398,9 @@
 
       const decksPartial = pack.decks || {};
       try{
-        let newWm = Math.max(watermark, Number(pack.maxSeen || 0));
-        if((pack.docCount || 0) > 0 && newWm <= 0) newWm = Date.now();
-        if(newWm > 0){
-          localStorage.setItem(wmKey, String(newWm));
-          localStorage.setItem(snapKey, '1');
-        }
+        const newWm = Math.max(watermark, Number(pack.maxSeen || 0));
+        localStorage.setItem(wmKey, String(newWm));
+        localStorage.setItem(snapKey, '1');
       }catch(e){}
 
       const mergedWithLocal = mergeDeckStates(collectDeckProgress(), decksPartial);
@@ -16405,7 +16438,7 @@
         // Cloud push (optional) - ULTRA-LEAN version to avoid Firestore indexing issues
         if((toSave.mode === 'synced') && window.__fabanki_firestore){
           try{
-            const uid = toSave.userId;
+            const uid = fabankiFirestoreUid() || toSave.userId;
             if(uid){
               // === SAFETY GATE 1: Block cloud push until first restore is complete ===
               if(!__cloudRestoreCompleted){
@@ -16662,7 +16695,7 @@
           return;
         }
         
-        const userId = localStorage.getItem('fabanki:user_id');
+        const userId = fabankiFirestoreUid();
         syncLog('autoSync: userId =', userId, 'firestore available =', !!window.__fabanki_firestore);
         if(!userId || !window.__fabanki_firestore) {
           syncLog('autoSync: skipping - missing userId or firestore');
@@ -17478,7 +17511,7 @@
         const auth = firebase?.auth?.();
         if(!auth) return;
         try{
-          const uidOut = localStorage.getItem('fabanki:user_id') || localStorage.getItem('userId');
+          const uidOut = fabankiFirestoreUid() || localStorage.getItem('fabanki:user_id') || localStorage.getItem('userId');
           invalidateFabankiCloudCardPullCache(uidOut);
           sessionStorage.removeItem(__FABANKI_SESS_RESTORE_KEY);
           sessionStorage.removeItem(__FABANKI_META_REV_SESSION_KEY);
