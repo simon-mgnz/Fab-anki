@@ -20430,10 +20430,14 @@
         mainEl.style.display = 'none';
         const stats = document.getElementById('stats'); if(stats) stats.style.display='none';
         const hint = document.getElementById('histHint');
-        const container = document.createElement('div'); container.id = 'welcomeDecks'; container.style.padding = '18px';
 
-        // allow vertical scrolling on welcome page
-        try{ document.body.style.overflowY = 'auto'; }catch(e){}
+        try{
+          if(window.matchMedia && window.matchMedia('(min-width:641px)').matches){
+            document.body.style.overflowY = 'auto';
+          }else{
+            document.body.style.removeProperty('overflow-y');
+          }
+        }catch(e){}
 
         // ── helpers ──────────────────────────────────────────────────────────
         const CARD = 'background:var(--card);border-radius:16px;padding:20px;border:1px solid rgba(0,0,0,0.07);margin-bottom:14px;';
@@ -20446,7 +20450,8 @@
 
         const container = document.createElement('div');
         container.id = 'welcomeDecks';
-        container.style.cssText = 'padding:16px;max-width:860px;margin:0 auto;';
+        container.className = 'homev2-root';
+        container.style.cssText = 'padding:16px;max-width:860px;margin:0 auto;box-sizing:border-box;width:100%;';
 
         // ── PAGE TITLE ────────────────────────────────────────────────────────
         const pageTitle = document.createElement('div');
