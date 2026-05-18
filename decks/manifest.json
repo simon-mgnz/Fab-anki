@@ -14,9 +14,11 @@
 	{ "path": "Anglais/Connecteurs logiques.xml", "tags": ["text","timer"], "level": 10, "cost": 30, "description": "Connecteurs logiques anglais, pour structurer idees et arguments clairement ecrits." },
 	{ "path": "Anglais/Synthèse de document.xml", "tags": ["text","timer"], "level": 15, "description": "Vocabulaire de synthese, reformulation et prise de notes efficaces en anglais." },
 	{ "path": "Anglais/Idiomatiques en anglais (ajout perso).xml", "tags": ["text","timer"], "description": "Expressions idiomatiques anglaises, sens, contexte et exemples personnels courants d'usage." },
+	
 	{ "path": "Français/Vingt mille lieues sous les mers.xml", "tags": ["original","timer"], "description": "Vocabulaire et questions sur le roman, themes et personnages cles." },
 	{ "path": "Français/Citations philosophiques.xml", "tags": ["original","timer"], "cost":50, "description": "Citations philosophiques de terminale, en texte à trou, pas mal pour un peu de culture" },
 	{ "path": "Français/Figures de style.xml", "tags": ["original","timer"], "cost":30, "description": "Toutes les figures de style, definitions et exemples cles." },
+	
 	{ "path": "Informatique/Java (Perso)/", "password": "JFL", "description": "Dossier verrouillé - mot de passe requis." },
 	{ "path": "Informatique/Java (Perso)/01 Bases Java.xml", "tags": ["text","timer"], "description": "Bases Java: syntaxe, types et structures de base." },
 	{ "path": "Informatique/Java (Perso)/02 POO.xml", "tags": ["text","timer"], "description": "Programmation orientée objet en Java: classes, héritage, interfaces." },
@@ -35,6 +37,7 @@
 	{ "path": "Informatique/Chapitre 1 - Programmation.xml", "tags": ["timer"], "description": "Programmation: structures, variables, boucles et pratiques fondamentales de base courantes." },
 	{ "path": "Informatique/Chapitre 2 - Analyse des algorithmes.xml", "tags": ["timer"], "description": "Analyse des algorithmes: complexité, notation asymptotique et methodes d'evaluation." },
 	{ "path": "Informatique/Chapitre 3 - Représentation des nombres en machine.xml", "tags": ["timer"], "description": "Représentation des nombres en machine: formats, conversions et operations de base." },
+	
 	{ "path": "Maths/Dérivées et primitives.xml", "tags": ["timer","calcul"], "level": 10, "description": "Derivees et primitives, formules, methodes de calcul et exercices types." },
 	{ "path": "Maths/LCI et caractéristiques.xml", "tags": ["timer"], "level": 20, "cost": 10, "description": "LCI et caracteristiques, definitions, proprietes et applications classiques utiles exemples." },
 	{ "path": "Maths/Cours/Chapitre 01 - Raisonner, rédiger.xml", "tags": ["timer"], "description": "Methodes pour raisonner et rediger, preuves et rigueur mathematique claire." },
@@ -62,6 +65,7 @@
 	{ "path": "Maths/Calcul mental/Fractions - Calcul mental.xml", "tags": ["timer","calcul"], "level": 5, "cost": 20, "description": "Calcul mental sur fractions, simplifications et operations rapides frequentes utiles." },
 	{ "path": "Maths/Calcul mental/Dérivées et primitives - Calcul mental.xml", "tags": ["timer","calcul"], "level": 5, "cost": 20, "description": "Calcul mental derivees et primitives, automatismes et vitesse progressive utile." },
 	{ "path": "Maths/Développements Limités usuels.xml", "tags": ["timer"], "description": "Developpements limites usuels, formules et applications rapides classiques exemples types." },
+	
 	{ "path": "Physique/Unité (SI).xml", "tags": ["timer"], "level": 20, "cost": 20, "description": "Unites SI, symboles, conversions et grandeurs fondamentales principales utiles courantes." },
 	{ "path": "Physique/Formulaire.xml", "tags": ["timer"], "description": "Formulaire de physique, constantes, equations et rappels rapides essentiels clairs." },
 	{ "path": "Physique/Prérequis Physique-Chimie pour MPSI.xml", "tags": ["last","timer"], "level": 5, "description": "Prerequis physique-chimie pour MPSI, bases et notions essentielles claires utiles." },
@@ -82,8 +86,12 @@
 	{ "path": "Physique/Cours/Chapitre 14 - Relations structure microscopique - propriétés macroscropiques.xml", "tags": ["timer"], "description": "Structure microscopique, proprietes macroscopiques, materiaux et liens importants." },
 	{ "path": "Physique/Cours/Chapitre 15 - Moment cinétique d'un point matériel.xml", "tags": ["timer"], "description": "Moment cinetique d'un point, conservation et applications classiques." },
 	{ "path": "Physique/Cours/Chapitre 16 - Mouvements dans un champ de force central conservatif.xml", "tags": ["timer"], "description": "Mouvements dans un champ de force central conservatif, lois et applications classiques." },
-	{ "path": "Physique/Cours/Chapitre 17 - Mouvement d'un solide.xml", "tags": ["last","timer"], "description": "Mouvement d'un solide, pendule pesant et applications classiques." },
-	{ "path": "Physique/Cours/Chapitre 18 - Transformations chimiques en solution aqueuse.xml", "tags": ["last","timer"], "description": "Transformations chimiques en solution aqueuse, reactions, pH et applications classiques." },
+	{ "path": "Physique/Cours/Chapitre 17 - Mouvement d'un solide.xml", "tags": ["timer"], "description": "Mouvement d'un solide, pendule pesant et applications classiques." },
+	{ "path": "Physique/Cours/Chapitre 18 - Transformations chimiques en solution aqueuse.xml", "tags": ["timer"], "description": "Transformations chimiques en solution aqueuse, reactions, pH et applications classiques." },
+	{ "path": "Physique/Cours/Chapitre 19 - Description d'un système à l'équilibre.xml", "tags": ["last","timer"], "description": "Transformations chimiques en solution aqueuse, reactions, pH et applications classiques." },
+	{ "path": "Physique/Cours/Chapitre 20 - Le premier principe de la thermodynamique.xml", "tags": ["last","timer"], "description": "Transformations chimiques en solution aqueuse, reactions, pH et applications classiques." },
+	{ "path": "Physique/Cours/Chapitre 21 - Le deuxième principe de la thermodynamique.xml", "tags": ["last","timer"], "description": "Transformations chimiques en solution aqueuse, reactions, pH et applications classiques." },
+	{ "path": "Physique/Cours/Chapitre 22 - Machines thermiques.xml", "tags": ["last","timer"], "description": "Transformations chimiques en solution aqueuse, reactions, pH et applications classiques." },
 	{ "path": "Physique/Contrôle de cours/Chapitre 13 - Particules chargées dans un champ électromagnétique.xml", "tags": ["timer"], "description": "Controle de cours sur particules chargees, champs et trajectoires cles." },
 	{ "path": "Physique/Contrôle de cours/Chapitre 14 - Relations structure microscoptique - propriétés macroscopiques.xml", "tags": ["timer"], "description": "Controle de cours sur structure microscopique et proprietes macroscopiques cles." },
 	{ "path": "Physique/Contrôle de cours/Chapitre 15 - Moment cinétique d'un point matériel.xml", "tags": ["timer"], "description": "Controle de cours sur moment cinetique et conservation." },
@@ -92,6 +100,7 @@
 	{ "path": "Physique/Contrôle de cours/Chapitre 18 - Transformations chimiques en solution aqueuse.xml", "tags": ["timer"], "description": "Controle de cours sur les transformations chimiques en solution aqueuse." },
 	{ "path": "Physique/Contrôle de cours/Chapitre 19 - Thermodynamique et diagrammes de phases.xml", "tags": ["timer"], "description": "Controle de cours sur la thermodynamique et les diagrammes de phases." },
 	{ "path": "Physique/Contrôle de cours/Chapitre 20 - Transformations thermodynamiques.xml", "tags": ["timer"], "description": "Controle de cours sur les transformations thermodynamiques." },
+	
 	{ "path": "Sciences industrielles/Chapitre 1 - SysML et blabla de SI.xml", "tags": ["timer"], "description": "SysML et bases de SI, modelisation et vocabulaire utile pratique." },
 	{ "path": "Sciences industrielles/Chapitre 2 - Vecteurs, Référentiels, changement de bases, liaisons, et la totale.xml", "tags": ["timer"], "description": "Vecteurs, referentiels, changement de bases, liaisons et outils cles utiles." },
 	{ "path": "Sciences industrielles/Chapitre 3 - Simuler la vie avec un modèle de connaissance.xml", "tags": ["timer"], "description": "Simulation et modeles de connaissance, principes et applications simples utiles." }
