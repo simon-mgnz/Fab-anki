@@ -231,6 +231,51 @@ async function queueOfflineRequest(request) {
   }
 }
 
+// ===== WEB PUSH NOTIFICATIONS =====
+
+// Receive a push from the server → show notification
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch(e) {}
+
+  const title = data.title || 'Fab\'Anki';
+  const options = {
+    body:    data.body    || 'Des cartes t\'attendent !',
+    icon:    data.icon    || '/fabankiapp.png',
+    badge:   data.badge   || '/fabankiapp.png',
+    tag:     data.tag     || 'fabanki-push',
+    renotify: !!data.renotify,
+    data:    { url: data.url || '/', deckUrl: data.deckUrl || null },
+    actions: data.actions || [],
+    vibrate: [200, 100, 200],
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// User taps notification → open app (or specific deck)
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.deckUrl
+    ? ('/?deck=' + encodeURIComponent(event.notification.data.deckUrl))
+    : (event.notification.data?.url || '/');
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      // If app already open, focus it and navigate
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.focus();
+          client.postMessage({ type: 'PUSH_NAVIGATE', url: targetUrl });
+          return;
+        }
+      }
+      // Otherwise open a new window
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+    })
+  );
+});
+
 // Handle messages from clients
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {

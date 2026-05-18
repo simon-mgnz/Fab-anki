@@ -1,3 +1,12 @@
+// ============================================================
+// WEB PUSH — VAPID public key
+// Pour générer une paire de clés VAPID :
+//   npx web-push generate-vapid-keys
+// Mettez la clé PUBLIQUE ici, la clé PRIVÉE dans Firebase Functions :
+//   firebase functions:config:set vapid.private_key="..." vapid.email="mailto:toi@example.com"
+// ============================================================
+window.__fabanki_vapidPublicKey = 'BFnPq2aWftMWMLXAGP6wYGIm7XFYnct6EOmRxoV3OtL6PZZG6qrkxxhcG8y6-rTczVbQW0D6jMYXoFumtK89BA8';
+
 // Firebase project configuration
 // Replace with your Firebase project's config from Firebase Console
 // To disable cloud sync, set this to {}

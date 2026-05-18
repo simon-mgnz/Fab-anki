@@ -2310,7 +2310,10 @@
             due,
             last: validLastReview,
             reps,
-            sortName: (plainFirstField || '').toLowerCase()
+            sortName: (plainFirstField || '').toLowerCase(),
+            cardNode,
+            favorite: st ? !!st.favorite : false,
+            deckKey: deckKeyForStats
           });
         }catch(e){ console.warn('Error processing card in overview:', e); continue; }
       }
@@ -3111,11 +3114,61 @@
         startBtn.disabled = true;
         startBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;opacity:0.6;cursor:not-allowed;';
       } else {
+        // ── Estimation du temps de révision ──────────────────────────────
+        const totalTimeSec   = Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0);
+        const totalReviewed  = Number(localStorage.getItem('fabanki:fail_total')      || 0)
+                             + Number(localStorage.getItem('fabanki:difficult_total') || 0)
+                             + Number(localStorage.getItem('fabanki:good_total')      || 0)
+                             + Number(localStorage.getItem('fabanki:easy_total')      || 0);
+        // Average seconds per card — use real data as soon as 1 review exists, else 90s fallback
+        const avgSec = (totalReviewed >= 1 && totalTimeSec >= 1) ? Math.round(totalTimeSec / totalReviewed) : 90;
+
+        // How many cards will be reviewed: due now + new cards (capped by remaining daily quota)
+        const dailyGoal = Number(localStorage.getItem('fabanki:daily_goal') || 20);
+        let todayReviewed = 0;
+        try{
+          const hist = JSON.parse(localStorage.getItem('fabanki:daily_history') || '{}');
+          const today = new Date().toISOString().slice(0, 10);
+          todayReviewed = Number(hist[today] || 0);
+        }catch(e){}
+        const remainingQuota = Math.max(0, dailyGoal - todayReviewed);
+        const newToShow  = Math.min(counts.new, remainingQuota);
+        const totalToReview = counts.now + newToShow;
+
+        // Format duration
+        const estimateSec = totalToReview * avgSec;
+        let timeLabel = '';
+        if(totalToReview > 0){
+          const h = Math.floor(estimateSec / 3600);
+          const m = Math.floor((estimateSec % 3600) / 60);
+          if(h > 0 && m > 0)      timeLabel = `~${h}h ${String(m).padStart(2,'0')}min`;
+          else if(h > 0)          timeLabel = `~${h}h`;
+          else if(m >= 1)         timeLabel = `~${m} min`;
+          else                    timeLabel = '< 1 min';
+        }
+
         // Show start button (deck is unlocked)
-        startBtn.textContent = 'DÃ©marrer';
         startBtn.className = 'primary';
-        startBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;';
-        startBtn.addEventListener('click', ()=>{ 
+        startBtn.style.cssText = 'width:100%;padding:10px 12px;font-size:1em;display:flex;flex-direction:column;align-items:center;gap:2px;';
+
+        const startLabel = document.createElement('span');
+        startLabel.textContent = 'Démarrer';
+        startLabel.style.fontWeight = '600';
+        startBtn.appendChild(startLabel);
+
+        if(totalToReview > 0){
+          const estLine = document.createElement('span');
+          estLine.style.cssText = 'font-size:0.78em;opacity:0.82;font-weight:400;';
+          estLine.textContent = `${timeLabel} · ${totalToReview} carte${totalToReview > 1 ? 's' : ''}`;
+          startBtn.appendChild(estLine);
+        } else {
+          const doneLabel = document.createElement('span');
+          doneLabel.style.cssText = 'font-size:0.78em;opacity:0.82;font-weight:400;';
+          doneLabel.textContent = 'Tout est à jour ✓';
+          startBtn.appendChild(doneLabel);
+        }
+
+        startBtn.addEventListener('click', ()=>{
           console.log('DÃ©marrer clicked - starting review');
         
         // Replace sync button with home button during review
@@ -3198,6 +3251,34 @@
       gridHeader.appendChild(sortWrap);
       container.appendChild(gridHeader);
 
+      // Filter bar
+      let activeFilter = 'all';
+      const filterBar = document.createElement('div');
+      filterBar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:0 4px;';
+      const filterDefs = [
+        {key:'all', label:'Toutes'},
+        {key:'favorite', label:'⭐ Favoris'},
+        {key:'new', label:'Nouveau'},
+        {key:'now', label:'En retard'},
+        {key:'week', label:'Cette semaine'},
+      ];
+      filterDefs.forEach(fd => {
+        const btn = document.createElement('button');
+        btn.textContent = fd.label;
+        btn.className = fd.key === 'all' ? 'primary' : 'secondary';
+        btn.style.cssText = 'padding:4px 12px;font-size:0.8em;border-radius:20px;';
+        btn.dataset.filterKey = fd.key;
+        btn.addEventListener('click', () => {
+          activeFilter = fd.key;
+          filterBar.querySelectorAll('button').forEach(b => {
+            b.className = b.dataset.filterKey === fd.key ? 'primary' : 'secondary';
+          });
+          renderOverviewGrid();
+        });
+        filterBar.appendChild(btn);
+      });
+      container.appendChild(filterBar);
+
       const grid = document.createElement('div');
       grid.className = 'deck-overview-card-grid';
 
@@ -3235,7 +3316,24 @@
         grid.innerHTML = '';
         sortCardsForOverview();
 
-        for(const card of cardsList){
+        const visibleCards = cardsList.filter(card => {
+          if(activeFilter === 'all') return true;
+          if(activeFilter === 'favorite') return card.favorite;
+          if(activeFilter === 'new') return card.category === 'new';
+          if(activeFilter === 'now') return card.category === 'now' || card.category === 'h12';
+          if(activeFilter === 'week') return card.category === 'tomorrow' || card.category === 'week';
+          return true;
+        });
+
+        if(visibleCards.length === 0){
+          const empty = document.createElement('div');
+          empty.style.cssText = 'grid-column:1/-1;text-align:center;padding:32px;color:var(--muted);font-size:0.9em;';
+          empty.textContent = 'Aucune carte dans cette catégorie.';
+          grid.appendChild(empty);
+          return;
+        }
+
+        for(const card of visibleCards){
         const cardEl = document.createElement('div');
         cardEl.style.cssText = `
           background:${colors[card.category]};
@@ -3355,21 +3453,36 @@
           }catch(e){}
         });
 
+        // Favorite star indicator
+        if(card.favorite){
+          const star = document.createElement('span');
+          star.textContent = '⭐';
+          star.style.cssText = 'position:absolute;top:4px;right:4px;font-size:0.9em;';
+          cardEl.appendChild(star);
+        }
+
+        // Edit button (always visible in corner)
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '✏️';
+        editBtn.title = 'Modifier cette carte';
+        editBtn.style.cssText = 'position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.3);border:none;color:white;border-radius:6px;padding:2px 6px;font-size:0.75em;cursor:pointer;opacity:0;transition:opacity 0.2s;';
+        editBtn.addEventListener('click', ev => {
+          ev.stopPropagation();
+          if(typeof window.openCardOverrideEditor === 'function') window.openCardOverrideEditor(card, url);
+        });
+        cardEl.addEventListener('mouseenter', () => { editBtn.style.opacity = '1'; tooltip.style.opacity = '1'; setTimeout(() => tooltip.style.opacity = '0', 3000); });
+        cardEl.addEventListener('mouseleave', () => { editBtn.style.opacity = '0'; tooltip.style.opacity = '0'; });
+        cardEl.appendChild(editBtn);
+
         tooltip.appendChild(tooltipInfo);
         tooltip.appendChild(resetGradeBtn);
         cardEl.appendChild(tooltip);
-        
-        // Show tooltip on hover
-        cardEl.addEventListener('mouseenter', () => {
-          tooltip.style.opacity = '1';
-          // Auto-hide after 3 seconds
-          setTimeout(() => { tooltip.style.opacity = '0'; }, 3000);
+
+        // Click anywhere on card → open viewer/editor
+        cardEl.addEventListener('click', () => {
+          if(typeof window.openCardOverrideEditor === 'function') window.openCardOverrideEditor(card, url);
         });
-        cardEl.addEventListener('mouseleave', () => {
-          tooltip.style.opacity = '0';
-        });
-        
-        
+
         grid.appendChild(cardEl);
       }
       };
@@ -4137,16 +4250,22 @@
     return null;
   }
 
+  function getFsrsCustomProfile(profileKey){
+    try{ const s = localStorage.getItem('fabanki:fsrs_custom:' + profileKey); return s ? JSON.parse(s) : {}; }catch(e){ return {}; }
+  }
+
   function ensureFsrsState(st, profileKey){
     const prof = fsrsProfiles[profileKey] || fsrsProfiles.maths;
-    if(st.stability == null || Number.isNaN(st.stability)) st.stability = prof.initStability;
-    if(st.difficulty == null || Number.isNaN(st.difficulty)) st.difficulty = prof.initDifficulty;
+    const custom = getFsrsCustomProfile(profileKey);
+    if(st.stability == null || Number.isNaN(st.stability)) st.stability = custom.initStability || prof.initStability;
+    if(st.difficulty == null || Number.isNaN(st.difficulty)) st.difficulty = custom.initDifficulty || prof.initDifficulty;
   }
 
   function fsrsScheduleGeneric(st, quality, profileKey){
     const prof = fsrsProfiles[profileKey];
     if(!prof) return st;
-    const weights = prof.weights;
+    const custom = getFsrsCustomProfile(profileKey);
+    const weights = custom.weights ? Object.assign({}, prof.weights, custom.weights) : prof.weights;
     const targetRetention = getDeckRetentionTarget();
     const now = new Date();
     ensureFsrsState(st, profileKey);
@@ -15462,6 +15581,22 @@
       }catch(e){ return {} }
     }
 
+    function collectStats(){
+      try{
+        return {
+          failTotal:       Number(localStorage.getItem('fabanki:fail_total')       || 0),
+          difficultTotal:  Number(localStorage.getItem('fabanki:difficult_total')  || 0),
+          goodTotal:       Number(localStorage.getItem('fabanki:good_total')       || 0),
+          easyTotal:       Number(localStorage.getItem('fabanki:easy_total')       || 0),
+          timeSpentTotalSec: Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0),
+          masteredTotal:   Number(localStorage.getItem('fabanki:mastered_total')   || 0),
+          maxDailyReviewed: Number(localStorage.getItem('fabanki:max_daily_reviewed') || 0),
+          maxDailyReviewedDate: localStorage.getItem('fabanki:max_daily_reviewed_date') || null,
+          dailyHistory:    JSON.parse(localStorage.getItem('fabanki:daily_history') || '{}'),
+        };
+      }catch(e){ return {}; }
+    }
+
     function applyStateToLocalStorage(state, options = {}){
       try{
         const clearDeckCards = options?.clearDeckCards === true;
@@ -15526,6 +15661,37 @@
               const k = `fabanki:${dKey}:card:${cardId}`;
               localStorage.setItem(k, JSON.stringify(cards[cardId]));
             }
+          }
+        }
+        // Stats — merge strategy: take max for counters, merge dates for daily history
+        if(state.stats){
+          const s = state.stats;
+          const mergeMax = (key, val) => {
+            if(!Number.isFinite(val) || val <= 0) return;
+            const cur = Number(localStorage.getItem(key) || 0);
+            if(val > cur) localStorage.setItem(key, String(val));
+          };
+          mergeMax('fabanki:fail_total',           s.failTotal);
+          mergeMax('fabanki:difficult_total',       s.difficultTotal);
+          mergeMax('fabanki:good_total',            s.goodTotal);
+          mergeMax('fabanki:easy_total',            s.easyTotal);
+          mergeMax('fabanki:time_spent_total_sec',  s.timeSpentTotalSec);
+          mergeMax('fabanki:mastered_total',        s.masteredTotal);
+          mergeMax('fabanki:max_daily_reviewed',    s.maxDailyReviewed);
+          if(s.maxDailyReviewedDate){
+            const curMax = Number(localStorage.getItem('fabanki:max_daily_reviewed') || 0);
+            const remMax = s.maxDailyReviewed || 0;
+            if(remMax >= curMax) localStorage.setItem('fabanki:max_daily_reviewed_date', s.maxDailyReviewedDate);
+          }
+          if(s.dailyHistory && typeof s.dailyHistory === 'object'){
+            try{
+              const local = JSON.parse(localStorage.getItem('fabanki:daily_history') || '{}');
+              const merged = { ...local };
+              for(const [date, cnt] of Object.entries(s.dailyHistory)){
+                merged[date] = Math.max(merged[date] || 0, Number(cnt) || 0);
+              }
+              localStorage.setItem('fabanki:daily_history', JSON.stringify(merged));
+            }catch(e){}
           }
         }
       }catch(e){ console.warn('applyStateToLocalStorage', e) }
@@ -16810,9 +16976,10 @@
         st.decks = mergeDeckStates(collectDeckProgress(), pulledRemoteDecks || {});
         st.inventory = collectInventory();
         st.dailyProgress = collectDailyProgress();
-        
+        st.stats = collectStats();
+
         syncLog('autoSync: collected state', { xp: st.xp, credits: st.credits, decks: Object.keys(st.decks || {}).length });
-        
+
         await saveState(st);
         await syncRecentCardsSinceTimestamp(userId, cloudTimestampSeen, 120);
         lastSyncCardId = currentCardId;
@@ -17274,10 +17441,9 @@
         st.decks = collectDeckProgress();
         st.inventory = collectInventory();
         st.dailyProgress = collectDailyProgress();
-        
-        // Upload to cloud
+        st.stats = collectStats();
+
         await saveState(st);
-        alert('âœ… Compte crÃ©Ã© et progrÃ¨s synchronisÃ©s.');
       }catch(e){ 
         alert('âŒ Ã‰chec crÃ©ation:\n\n' + (e?.message || e));
       }
@@ -17462,6 +17628,7 @@
         // Ensure we save the latest local collections
         chosen.inventory = collectInventory();
         chosen.dailyProgress = collectDailyProgress();
+        chosen.stats = collectStats();
         chosen.quests = collectQuestState();
         chosen.welcomeQuest = collectWelcomeQuestState();
         chosen.postWelcomeQuest = collectPostWelcomeQuestState();
@@ -17528,255 +17695,286 @@
       }
     }
 
+    async function signInWithGoogleAndSync(){
+      try{
+        const auth = firebase?.auth?.();
+        if(!auth) return;
+        const provider = new firebase.auth.GoogleAuthProvider();
+        const { user } = await auth.signInWithPopup(provider);
+
+        const db = window.__fabanki_firestore;
+        const uid = user.uid;
+        try{ localStorage.setItem('userId', uid); localStorage.setItem('fabanki:user_id', uid); localStorage.setItem('fabanki:classement_auth_uid', uid); }catch(e){}
+
+        const localSt = loadState() || defaultUserState();
+        const snap = await db.collection('users').doc(uid).get();
+        const remoteSt = snap.exists ? snap.data() : null;
+
+        let chosen;
+        if(remoteSt && !isStateEmpty(remoteSt)){
+          chosen = mergeUserStates(localSt, remoteSt, uid);
+        } else {
+          chosen = { ...localSt };
+        }
+        chosen.mode = 'synced'; chosen.userId = uid;
+        chosen.pseudo = user.displayName || chosen.pseudo || 'Anonyme';
+        chosen.inventory = collectInventory();
+        chosen.dailyProgress = collectDailyProgress();
+        chosen.stats = collectStats();
+
+        try{ applyStateToLocalStorage(chosen); }catch(e){}
+        await saveState(chosen);
+        localStorage.setItem('fabanki:mode', 'synced');
+        return user;
+      }catch(e){
+        if(e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return null;
+        throw e;
+      }
+    }
+
     function showSyncPopup(){
       try{
         if(document.getElementById('syncOverlay')) return;
-        
+
         const db = window.__fabanki_firestore;
         const auth = firebase?.auth?.();
 
-        // Check if Firebase is configured
         if(!db || !auth){
-          alert('âŒ La synchronisation n\'est pas disponible.\n\nLa configuration Firebase est manquante ou invalide.');
+          const t = document.createElement('div');
+          t.textContent = 'Synchronisation non disponible (Firebase non configure)';
+          t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:8px;z-index:9999;font-size:.9rem;box-shadow:0 4px 12px rgba(0,0,0,.3)';
+          document.body.appendChild(t);
+          setTimeout(()=> t.remove(), 4000);
           return;
         }
 
         const ov = document.createElement('div');
         ov.id = 'syncOverlay';
         ov.className = 'modal-overlay open';
-        ov.style.display = 'flex';
-        ov.style.alignItems = 'center';
-        ov.style.justifyContent = 'center';
-        ov.style.zIndex = '2500';
+        ov.style.cssText = 'display:flex;align-items:center;justify-content:center;z-index:2500;';
 
         const m = document.createElement('div');
         m.className = 'modal open';
         m.setAttribute('role', 'dialog');
         m.setAttribute('aria-modal', 'true');
-        m.style.maxWidth = '480px';
-        m.style.padding = '24px';
+        m.style.cssText = 'max-width:420px;width:92%;padding:28px 24px 24px;position:relative;';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'secondary';
+        closeBtn.textContent = '×';
+        closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;padding:2px 10px;font-size:1.4em;line-height:1;min-width:auto;border-radius:4px;';
+        closeBtn.addEventListener('click', ()=> ov.remove());
+        m.appendChild(closeBtn);
 
         const h = document.createElement('h3');
-        h.textContent = 'â˜ï¸ Synchronisation';
-        h.style.marginTop = '0';
-        h.style.marginBottom = '12px';
-        h.style.fontSize = '1.5rem';
+        h.textContent = '☁️ Synchronisation';
+        h.style.cssText = 'margin:0 0 20px;font-size:1.3rem;';
         m.appendChild(h);
 
-        // Check if user is already logged in
         const currentUser = auth.currentUser;
-        
+
         if(currentUser){
-          // User is logged in - show logged in state
-          const loggedInfo = document.createElement('div');
-          loggedInfo.style.padding = '16px';
-          loggedInfo.style.background = 'linear-gradient(135deg, #1e293b 0%, #334155 100%)';
-          loggedInfo.style.color = 'white';
-          loggedInfo.style.borderRadius = '8px';
-          loggedInfo.style.marginBottom = '16px';
-          loggedInfo.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-          
-          const emailLabel = document.createElement('div');
-          emailLabel.style.fontSize = '0.85rem';
-          emailLabel.style.opacity = '0.8';
-          emailLabel.textContent = 'ConnectÃ© en tant que';
-          emailLabel.style.marginBottom = '4px';
-          loggedInfo.appendChild(emailLabel);
-          
-          const emailText = document.createElement('div');
-          emailText.textContent = currentUser.email || 'Utilisateur connectÃ©';
-          emailText.style.fontWeight = 'bold';
-          emailText.style.fontSize = '1.1rem';
-          emailText.style.color = '#60a5fa';
-          loggedInfo.appendChild(emailText);
-          
-          m.appendChild(loggedInfo);
-          
-          const syncInfo = document.createElement('div');
-          syncInfo.className = 'muted small';
-          syncInfo.style.marginBottom = '20px';
-          syncInfo.style.lineHeight = '1.5';
-          syncInfo.innerHTML = 'âœ… Vos progrÃ¨s sont automatiquement synchronisÃ©s.<br>Connectez-vous sur un autre appareil pour retrouver vos donnÃ©es.';
-          m.appendChild(syncInfo);
+          const initial = (currentUser.displayName || currentUser.email || '?')[0].toUpperCase();
+          const photoURL = currentUser.photoURL;
+          const avatar = document.createElement('div');
+          if(photoURL){
+            const img = document.createElement('img');
+            img.src = photoURL;
+            img.style.cssText = 'width:56px;height:56px;border-radius:50%;object-fit:cover;';
+            avatar.appendChild(img);
+          } else {
+            avatar.textContent = initial;
+            avatar.style.cssText = 'width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;font-size:1.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;';
+          }
 
-          const closeBtn = document.createElement('button');
-          closeBtn.className = 'secondary';
-          closeBtn.textContent = 'Ã—';
-          closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;';
-          closeBtn.addEventListener('click', ()=> ov.remove());
-          m.appendChild(closeBtn);
+          const userCard = document.createElement('div');
+          userCard.style.cssText = 'display:flex;align-items:center;gap:14px;padding:16px;background:var(--surface2,#f1f5f9);border-radius:12px;margin-bottom:16px;';
+          userCard.appendChild(avatar);
 
-          const actions = document.createElement('div');
-          actions.style.display = 'flex';
-          actions.style.gap = '8px';
-          actions.style.justifyContent = 'flex-end';
+          const userInfo = document.createElement('div');
+          if(currentUser.displayName){
+            const nameEl = document.createElement('div');
+            nameEl.textContent = currentUser.displayName;
+            nameEl.style.cssText = 'font-weight:600;font-size:1rem;';
+            userInfo.appendChild(nameEl);
+          }
+          const emailEl = document.createElement('div');
+          emailEl.textContent = currentUser.email || '';
+          emailEl.style.cssText = 'font-size:.85rem;opacity:.7;';
+          userInfo.appendChild(emailEl);
+          const syncBadge = document.createElement('div');
+          syncBadge.textContent = '✅ Synchronisation active';
+          syncBadge.style.cssText = 'font-size:.8rem;color:#16a34a;margin-top:4px;font-weight:500;';
+          userInfo.appendChild(syncBadge);
+          userCard.appendChild(userInfo);
+          m.appendChild(userCard);
+
+          const hint = document.createElement('p');
+          hint.style.cssText = 'font-size:.85rem;opacity:.65;margin:0 0 20px;line-height:1.5;';
+          hint.textContent = 'Vos progrès se synchronisent automatiquement. Connectez-vous sur un autre appareil pour les retrouver.';
+          m.appendChild(hint);
+
+          const logoutWrap = document.createElement('div');
+          logoutWrap.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
 
           const logoutBtn = document.createElement('button');
-          logoutBtn.textContent = 'Se dÃ©connecter';
+          logoutBtn.textContent = 'Se déconnecter';
           logoutBtn.style.background = 'var(--danger, #dc3545)';
-          logoutBtn.addEventListener('click', async ()=>{
-            if(confirm('ÃŠtes-vous sÃ»r de vouloir vous dÃ©connecter ?')){
+          logoutBtn.addEventListener('click', ()=>{
+            logoutWrap.innerHTML = '';
+            const confirmMsg = document.createElement('span');
+            confirmMsg.style.cssText = 'font-size:.9rem;align-self:center;opacity:.8;';
+            confirmMsg.textContent = 'Confirmer la déconnexion ?';
+            const yesBtn = document.createElement('button');
+            yesBtn.textContent = 'Oui';
+            yesBtn.style.background = 'var(--danger,#dc3545)';
+            const noBtn = document.createElement('button');
+            noBtn.className = 'secondary';
+            noBtn.textContent = 'Non';
+            noBtn.addEventListener('click', ()=>{
+              logoutWrap.innerHTML = '';
+              logoutWrap.appendChild(logoutBtn);
+            });
+            yesBtn.addEventListener('click', async ()=>{
+              yesBtn.disabled = true; noBtn.disabled = true;
+              yesBtn.textContent = '…';
               await logoutAndSync();
               ov.remove();
-            }
+            });
+            logoutWrap.appendChild(confirmMsg);
+            logoutWrap.appendChild(noBtn);
+            logoutWrap.appendChild(yesBtn);
           });
+          logoutWrap.appendChild(logoutBtn);
+          m.appendChild(logoutWrap);
 
-          actions.appendChild(logoutBtn);
-          m.appendChild(actions);
         } else {
-          // User is not logged in - show login form
-          const info = document.createElement('div');
-          info.className = 'muted small';
-          info.style.marginBottom = '16px';
-          info.style.lineHeight = '1.5';
-          info.textContent = 'Connectez-vous ou crÃ©ez un compte pour synchroniser vos progrÃ¨s sur tous vos appareils.';
+          const info = document.createElement('p');
+          info.style.cssText = 'font-size:.9rem;opacity:.7;margin:0 0 18px;line-height:1.5;';
+          info.textContent = 'Connectez-vous pour synchroniser vos progrès sur tous vos appareils.';
           m.appendChild(info);
 
-          const form = document.createElement('div');
-          form.style.display = 'grid';
-          form.style.gridTemplateColumns = '1fr';
-          form.style.gap = '12px';
+          const googleBtn = document.createElement('button');
+          googleBtn.style.cssText = 'width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px 16px;border-radius:8px;border:1px solid var(--border,#ddd);background:#fff;color:#3c4043;font-size:.95rem;font-weight:500;cursor:pointer;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.12);transition:box-shadow .15s;';
+          googleBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 29.8 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 5.1 29.6 3 24 3 12.9 3 4 11.9 4 23s8.9 20 20 20 20-8.9 20-20c0-1-.1-1.7-.2-3z"/><path fill="#34A853" d="M6.3 14.7l7 5.1C15 16.1 19.2 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 5.1 29.6 3 24 3c-7.6 0-14.2 4.6-17.7 11.7z"/><path fill="#FBBC05" d="M24 43c5.6 0 10.6-1.9 14.4-5.1l-6.7-5.5C29.8 34.2 27 35 24 35c-5.7 0-10.6-3.1-13.2-7.6l-7 5.3C7.6 39.2 15.3 43 24 43z"/><path fill="#EA4335" d="M44.5 20H24v8.5h11.8c-.8 2.4-2.4 4.5-4.4 6l6.7 5.5C41.6 36.3 44.5 30 44.5 23c0-1-.1-1.7-.2-3z"/></svg>Continuer avec Google';
+          googleBtn.addEventListener('mouseenter', ()=> googleBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,.2)');
+          googleBtn.addEventListener('mouseleave', ()=> googleBtn.style.boxShadow = '0 1px 3px rgba(0,0,0,.12)');
 
-          const email = document.createElement('input');
-          email.id = 'syncEmail';
-          email.name = 'email';
-          email.type = 'email';
-          email.placeholder = 'Email';
-          email.style.padding = '12px';
-          email.style.fontSize = '1rem';
-          email.style.borderRadius = '8px';
-          email.style.border = '1px solid var(--border, #ddd)';
-          email.required = true;
-          email.autocomplete = 'email';
-          form.appendChild(email);
+          const gStatus = document.createElement('div');
+          gStatus.style.cssText = 'font-size:.85rem;min-height:18px;text-align:center;margin-bottom:10px;';
+
+          googleBtn.addEventListener('click', async ()=>{
+            googleBtn.disabled = true;
+            gStatus.textContent = '⏳ Connexion Google…';
+            gStatus.style.color = 'var(--muted)';
+            try{
+              await signInWithGoogleAndSync();
+              ov.remove();
+            }catch(e){
+              gStatus.textContent = '❌ ' + (e?.message || String(e));
+              gStatus.style.color = 'var(--danger,#dc3545)';
+              googleBtn.disabled = false;
+            }
+          });
+          m.appendChild(googleBtn);
+          m.appendChild(gStatus);
+
+          const divider = document.createElement('div');
+          divider.style.cssText = 'display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:.8rem;opacity:.5;';
+          const line1 = document.createElement('div'); line1.style.cssText = 'flex:1;height:1px;background:var(--border,#ddd);';
+          const line2 = document.createElement('div'); line2.style.cssText = 'flex:1;height:1px;background:var(--border,#ddd);';
+          divider.appendChild(line1);
+          divider.appendChild(document.createTextNode('ou par email'));
+          divider.appendChild(line2);
+          m.appendChild(divider);
+
+          const emailIn = document.createElement('input');
+          emailIn.type = 'email'; emailIn.placeholder = 'Email';
+          emailIn.autocomplete = 'email';
+          emailIn.style.cssText = 'width:100%;padding:11px 12px;font-size:.95rem;border-radius:8px;border:1px solid var(--border,#ddd);box-sizing:border-box;margin-bottom:8px;';
 
           const passWrap = document.createElement('div');
-          passWrap.style.display = 'flex';
-          passWrap.style.gap = '8px';
+          passWrap.style.cssText = 'display:flex;gap:6px;margin-bottom:8px;';
+          const passIn = document.createElement('input');
+          passIn.type = 'password'; passIn.placeholder = 'Mot de passe (min 6 caractères)';
+          passIn.autocomplete = 'current-password';
+          passIn.style.cssText = 'flex:1;padding:11px 12px;font-size:.95rem;border-radius:8px;border:1px solid var(--border,#ddd);';
+          const eyeBtn = document.createElement('button');
+          eyeBtn.className = 'secondary'; eyeBtn.textContent = '👁️';
+          eyeBtn.style.padding = '11px 14px';
+          eyeBtn.addEventListener('click', (e)=>{ e.preventDefault(); passIn.type = passIn.type==='password'?'text':'password'; });
+          passWrap.appendChild(passIn);
+          passWrap.appendChild(eyeBtn);
 
-          const password = document.createElement('input');
-          password.id = 'syncPassword';
-          password.name = 'password';
-          password.type = 'password';
-          password.placeholder = 'Mot de passe (min 6 caractÃ¨res)';
-          password.style.padding = '12px';
-          password.style.fontSize = '1rem';
-          password.style.flex = '1';
-          password.style.borderRadius = '8px';
-          password.style.border = '1px solid var(--border, #ddd)';
-          password.required = true;
-          password.autocomplete = 'current-password';
-          passWrap.appendChild(password);
+          const statusEl = document.createElement('div');
+          statusEl.style.cssText = 'font-size:.85rem;min-height:18px;font-weight:500;margin-bottom:10px;';
 
-          const toggle = document.createElement('button');
-          toggle.className = 'secondary';
-          toggle.textContent = 'ðŸ‘ï¸';
-          toggle.title = 'Afficher/Masquer';
-          toggle.style.padding = '12px 16px';
-          toggle.addEventListener('click', (e)=>{ e.preventDefault(); password.type = (password.type==='password'?'text':'password'); });
-          passWrap.appendChild(toggle);
+          m.appendChild(emailIn);
+          m.appendChild(passWrap);
+          m.appendChild(statusEl);
 
-          form.appendChild(passWrap);
-
-          const status = document.createElement('div');
-          status.className = 'muted small';
-          status.style.minHeight = '20px';
-          status.style.color = 'var(--danger, #dc3545)';
-          status.style.fontWeight = '500';
-          form.appendChild(status);
-
-          m.appendChild(form);
-
-          const closeBtn = document.createElement('button');
-          closeBtn.className = 'secondary';
-          closeBtn.textContent = 'Ã—';
-          closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;';
-          closeBtn.addEventListener('click', ()=> ov.remove());
-          m.appendChild(closeBtn);
-
-          const actions = document.createElement('div');
-          actions.style.display = 'flex';
-          actions.style.gap = '8px';
-          actions.style.justifyContent = 'flex-end';
-          actions.style.marginTop = '20px';
-
-          const btnGroup = document.createElement('div');
-          btnGroup.style.display = 'flex';
-          btnGroup.style.gap = '8px';
+          function setStatus(msg, isError){
+            statusEl.textContent = msg;
+            statusEl.style.color = isError ? 'var(--danger,#dc3545)' : 'var(--muted)';
+          }
 
           const createBtn = document.createElement('button');
           createBtn.className = 'secondary';
-          createBtn.textContent = 'CrÃ©er un compte';
-          
+          createBtn.textContent = 'Créer un compte';
+
           const loginBtn = document.createElement('button');
           loginBtn.textContent = 'Se connecter';
 
-          function setBusy(b){ 
-            createBtn.disabled=b; 
-            loginBtn.disabled=b; 
-            email.disabled=b; 
-            password.disabled=b; 
-            toggle.disabled=b;
-            closeBtn.disabled=b;
-          }
-          
           function validate(){
-            const em = (email.value||'').trim();
-            const pw = (password.value||'').trim();
-            if(!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { status.textContent = 'âš ï¸ Email invalide'; return null; }
-            if(!pw || pw.length < 6){ status.textContent = 'âš ï¸ Mot de passe trop court (min 6 caractÃ¨res)'; return null; }
-            status.textContent = '';
+            const em = emailIn.value.trim();
+            const pw = passIn.value;
+            if(!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){ setStatus('⚠️ Email invalide', true); return null; }
+            if(!pw || pw.length < 6){ setStatus('⚠️ Mot de passe trop court (min 6 caractères)', true); return null; }
+            setStatus('', false);
             return { em, pw };
           }
 
+          function setBusy(b){
+            [emailIn, passIn, eyeBtn, loginBtn, createBtn, googleBtn, closeBtn].forEach(el => { el.disabled = b; });
+          }
+
           createBtn.addEventListener('click', async ()=>{
-            const v = validate(); if(!v) return; 
-            setBusy(true); 
-            status.textContent = 'â³ CrÃ©ation du compte...';
-            status.style.color = 'var(--muted)';
+            const v = validate(); if(!v) return;
+            setBusy(true); setStatus('⏳ Création du compte…', false);
             try{
               await createAccountAndSync(v.em, v.pw);
               ov.remove();
-            }catch(e){ 
-              status.textContent = 'âŒ ' + (e?.message||e);
-              status.style.color = 'var(--danger, #dc3545)';
-            } finally { 
-              setBusy(false);
-            }
+            }catch(e){
+              setStatus('❌ ' + (e?.message || String(e)), true);
+            } finally { setBusy(false); }
           });
 
           loginBtn.addEventListener('click', async ()=>{
-            const v = validate(); if(!v) return; 
-            setBusy(true); 
-            status.textContent = 'â³ Connexion...';
-            status.style.color = 'var(--muted)';
+            const v = validate(); if(!v) return;
+            setBusy(true); setStatus('⏳ Connexion…', false);
             try{
               await loginAndSync(v.em, v.pw);
               ov.remove();
-            }catch(e){ 
-              status.textContent = 'âŒ ' + (e?.message||e);
-              status.style.color = 'var(--danger, #dc3545)';
-            } finally { 
-              setBusy(false);
-            }
+            }catch(e){
+              setStatus('❌ ' + (e?.message || String(e)), true);
+            } finally { setBusy(false); }
           });
 
-          closeBtn.addEventListener('click', ()=> ov.remove());
           ov.addEventListener('click', (ev)=>{ if(ev.target === ov) ov.remove(); });
 
-          btnGroup.appendChild(createBtn);
-          btnGroup.appendChild(loginBtn);
-          actions.appendChild(btnGroup);
-          m.appendChild(actions);
+          const btnRow = document.createElement('div');
+          btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+          btnRow.appendChild(createBtn);
+          btnRow.appendChild(loginBtn);
+          m.appendChild(btnRow);
 
-          // Focus email by default
-          setTimeout(()=> email.focus(), 50);
+          setTimeout(()=> emailIn.focus(), 50);
         }
 
         ov.appendChild(m);
         document.body.appendChild(ov);
-      }catch(e){ 
-        alert('âŒ Erreur lors de l\'affichage du formulaire:\n\n' + (e?.message || String(e)));
+      }catch(e){
+        console.error('showSyncPopup error:', e);
       }
     }
 
@@ -21177,12 +21375,8 @@
     // Start deck loader initialization
     initializeDeckLoader().catch(e => console.warn('Deck loader error:', e));
     
-    // Show onboarding for first-time users
-    setTimeout(() => {
-      if(!localStorage.getItem('fabanki:onboarding_completed')){
-        showOnboarding();
-      }
-    }, 500);
+    // Onboarding auto-launch désactivé — disponible via Réglages → "Relancer onboarding"
+    localStorage.setItem('fabanki:onboarding_completed', 'true');
   });
   
   // --- RECAP ONBOARDING SYSTEM ---
@@ -24330,6 +24524,14 @@
             <input type="number" min="0.70" max="0.99" step="0.01" value="${ret}" id="rg-retention" class="rg-input">
           </div>
           <div class="rg-row">
+            <div><div class="rg-row-label">Paramètres FSRS avancés</div><div class="rg-row-sub">Personnaliser les poids et profils par matière</div></div>
+            <button class="secondary" id="rg-fsrs-tuning-btn">Tuning FSRS</button>
+          </div>
+          <div class="rg-row">
+            <div><div class="rg-row-label">Notifications push</div><div class="rg-row-sub">Rappels même navigateur fermé — fonctionne comme une vraie app</div></div>
+            <button class="secondary" id="rg-push-notif-btn" style="white-space:nowrap;">${localStorage.getItem('fabanki:push_subscribed')==='1'?'⚙️ Gérer':'🔔 Activer'}</button>
+          </div>
+          <div class="rg-row">
             <div><div class="rg-row-label">Retour haptique</div><div class="rg-row-sub">Vibration légère sur les boutons de notation</div></div>
             <label class="rg-toggle"><input type="checkbox" id="rg-haptic" ${haptic?'checked':''}><span class="rg-toggle-slider"></span></label>
           </div>
@@ -24347,7 +24549,11 @@
         <div class="sp-card">
           <div class="rg-row">
             <div><div class="rg-row-label">Exporter mes données</div><div class="rg-row-sub">Télécharger toutes les données Fab'Anki (JSON)</div></div>
-            <button class="secondary" id="rg-export-btn">Exporter</button>
+            <button class="secondary" id="rg-export-btn">JSON</button>
+          </div>
+          <div class="rg-row">
+            <div><div class="rg-row-label">Exporter la progression (CSV)</div><div class="rg-row-sub">Statistiques par carte pour analyse externe</div></div>
+            <button class="secondary" id="rg-export-csv-btn">CSV</button>
           </div>
           <div class="rg-row">
             <div><div class="rg-row-label" style="color:#d9534f">Réinitialiser les stats</div><div class="rg-row-sub">Efface les compteurs de révision (irréversible)</div></div>
@@ -24381,6 +24587,9 @@
     fsInput?.addEventListener('input',()=>{ const v=fsInput.value; if(fsVal) fsVal.textContent=v+'px'; document.documentElement.style.fontSize=v+'px'; localStorage.setItem('fabanki:font_size',v); });
     el.querySelector('#rg-daily-goal')?.addEventListener('change',e=>localStorage.setItem('fabanki:daily_goal',e.target.value));
     el.querySelector('#rg-retention')?.addEventListener('change',e=>localStorage.setItem('fabanki:target_retention',e.target.value));
+    el.querySelector('#rg-fsrs-tuning-btn')?.addEventListener('click', () => { if(typeof window.showFsrsTuningModal === 'function') window.showFsrsTuningModal(); });
+    el.querySelector('#rg-push-notif-btn')?.addEventListener('click', () => { if(typeof window.showPushNotifModal === 'function') window.showPushNotifModal(); });
+    el.querySelector('#rg-export-csv-btn')?.addEventListener('click', () => { if(typeof window.exportProgressCSV === 'function') window.exportProgressCSV(); });
     el.querySelector('#rg-haptic')?.addEventListener('change',e=>localStorage.setItem('fabanki:haptic',e.target.checked?'1':'0'));
     el.querySelector('#rg-sync-btn')?.addEventListener('click',()=>{
       try{
@@ -24670,3 +24879,773 @@
 })();
 
 // Fab'Anki, open-source spaced repetition software made with Copilot.
+
+// ===== FSRS TUNING MODAL =====
+(function(){
+  const PROFILE_LABELS = {maths:'Maths', physique:'Physique', anglais:'Anglais', francais:'Français', si:'Sciences Ind.', info:'Informatique'};
+  const DEFAULT_PROFILES = {
+    maths:    {targetRetention:0.92, initStability:1.5, initDifficulty:7.5, weights:{w0:0.35,w1:1.40,w2:2.45,w3:6.30,w4:0.40,w5:1.60,w6:0.20,w7:1.25,w8:0.78,w9:1.00,w10:1.22,w11:0.60,w12:0.35,w13:1.15,w14:0.18,w15:0.12,w16:1.05,w17:0.10}},
+    physique: {targetRetention:0.86, initStability:1.4, initDifficulty:6.3, weights:{w0:0.32,w1:1.20,w2:2.60,w3:6.80,w4:0.38,w5:1.40,w6:0.18,w7:1.22,w8:0.82,w9:1.00,w10:1.25,w11:0.75,w12:0.30,w13:1.12,w14:0.17,w15:0.11,w16:1.08,w17:0.10}},
+    anglais:  {targetRetention:0.84, initStability:1.2, initDifficulty:5.5, weights:{w0:0.28,w1:1.05,w2:2.90,w3:7.30,w4:0.36,w5:1.20,w6:0.16,w7:1.20,w8:0.74,w9:1.00,w10:1.32,w11:0.85,w12:0.25,w13:1.10,w14:0.16,w15:0.10,w16:1.05,w17:0.10}},
+    francais: {targetRetention:0.85, initStability:1.3, initDifficulty:6.0, weights:{w0:0.30,w1:1.10,w2:2.60,w3:7.10,w4:0.37,w5:1.30,w6:0.17,w7:1.18,w8:0.80,w9:1.00,w10:1.24,w11:0.78,w12:0.28,w13:1.11,w14:0.17,w15:0.10,w16:1.06,w17:0.10}},
+    si:       {targetRetention:0.89, initStability:1.4, initDifficulty:6.5, weights:{w0:0.33,w1:1.25,w2:2.55,w3:7.00,w4:0.42,w5:1.45,w6:0.19,w7:1.22,w8:0.82,w9:1.00,w10:1.20,w11:0.68,w12:0.32,w13:1.12,w14:0.17,w15:0.11,w16:1.08,w17:0.10}},
+    info:     {targetRetention:0.85, initStability:1.3, initDifficulty:6.0, weights:{w0:0.30,w1:1.10,w2:2.70,w3:7.10,w4:0.38,w5:1.30,w6:0.18,w7:1.20,w8:0.80,w9:1.00,w10:1.25,w11:0.80,w12:0.28,w13:1.11,w14:0.17,w15:0.10,w16:1.07,w17:0.10}}
+  };
+
+  const WEIGHT_DESCS = {
+    w0:'Stabilité initiale (Raté)', w1:'Stabilité initiale (Difficile)', w2:'Stabilité initiale (Bon)',
+    w3:'Stabilité initiale (Facile)', w4:'Déclin stabilité', w5:'Δ difficulté',
+    w6:'Seuil récupération', w7:'Multiplicateur stabilité global', w8:'Mult. (Difficile)',
+    w9:'Mult. (Bon)', w10:'Mult. (Facile)', w11:'Mult. oubli',
+    w12:'Exposant diff.', w13:'Exposant stab.', w14:'Coeff. récupérab.',
+    w15:'Coeff. stab. courte', w16:'Bonus récupération', w17:'Bruit aléatoire'
+  };
+
+  function loadCustom(profileKey){
+    try{ const s = localStorage.getItem('fabanki:fsrs_custom:' + profileKey); return s ? JSON.parse(s) : {}; }catch(e){ return {}; }
+  }
+  function saveCustom(profileKey, data){
+    try{ localStorage.setItem('fabanki:fsrs_custom:' + profileKey, JSON.stringify(data)); }catch(e){}
+  }
+
+  window.showFsrsTuningModal = function(){
+    if(document.getElementById('fsrsTuningOverlay')) { document.getElementById('fsrsTuningOverlay').style.display='flex'; return; }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'fsrsTuningOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px;width:min(780px,96vw);max-height:90vh;overflow-y:auto;padding:24px;position:relative;';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+    header.innerHTML = '<h2 style="margin:0;">Tuning FSRS avancé</h2>';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.className = 'secondary';
+    closeBtn.style.cssText = 'padding:4px 12px;font-size:1.2em;';
+    closeBtn.onclick = () => overlay.style.display = 'none';
+    header.appendChild(closeBtn);
+    modal.appendChild(header);
+
+    const desc = document.createElement('p');
+    desc.style.cssText = 'font-size:0.85em;color:var(--muted);margin-bottom:16px;';
+    desc.textContent = 'Personnalise les paramètres FSRS par matière. Les changements s\'appliquent aux prochaines révisions. Laisse vide pour utiliser les valeurs par défaut.';
+    modal.appendChild(desc);
+
+    // Tabs
+    const tabBar = document.createElement('div');
+    tabBar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;border-bottom:2px solid var(--border-color,#eee);padding-bottom:10px;';
+    const panels = {};
+    let activeTab = null;
+
+    Object.keys(DEFAULT_PROFILES).forEach((pKey, i) => {
+      const btn = document.createElement('button');
+      btn.textContent = PROFILE_LABELS[pKey] || pKey;
+      btn.className = 'secondary';
+      btn.style.cssText = 'border-radius:20px;padding:4px 14px;font-size:0.85em;';
+      btn.dataset.pkey = pKey;
+
+      const panel = document.createElement('div');
+      panel.style.display = 'none';
+      panel.dataset.panel = pKey;
+      panels[pKey] = panel;
+
+      const def = DEFAULT_PROFILES[pKey];
+      const custom = loadCustom(pKey);
+
+      // Core params
+      const coreGrid = document.createElement('div');
+      coreGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:20px;';
+
+      [
+        {key:'targetRetention', label:'Rétention cible', min:0.5, max:0.99, step:0.01, defVal: def.targetRetention},
+        {key:'initStability',   label:'Stabilité initiale (jours)', min:0.1, max:10, step:0.1, defVal: def.initStability},
+        {key:'initDifficulty',  label:'Difficulté initiale', min:1.5, max:9.5, step:0.1, defVal: def.initDifficulty},
+      ].forEach(param => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+        const lbl = document.createElement('label');
+        lbl.style.cssText = 'font-size:0.8em;font-weight:600;';
+        lbl.textContent = param.label;
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        const inp = document.createElement('input');
+        inp.type = 'range';
+        inp.min = param.min; inp.max = param.max; inp.step = param.step;
+        inp.value = custom[param.key] != null ? custom[param.key] : param.defVal;
+        inp.dataset.param = param.key;
+        inp.dataset.pkey = pKey;
+        inp.style.cssText = 'flex:1;accent-color:var(--accent,#9b59d0);';
+        const val = document.createElement('span');
+        val.style.cssText = 'font-size:0.8em;min-width:40px;text-align:right;color:var(--muted);';
+        val.textContent = parseFloat(inp.value).toFixed(2);
+        inp.oninput = () => { val.textContent = parseFloat(inp.value).toFixed(2); };
+        row.appendChild(inp); row.appendChild(val);
+        wrap.appendChild(lbl); wrap.appendChild(row);
+        coreGrid.appendChild(wrap);
+      });
+      panel.appendChild(coreGrid);
+
+      // Weights
+      const wLabel = document.createElement('h4');
+      wLabel.style.cssText = 'margin:0 0 12px;font-size:0.9em;color:var(--muted);';
+      wLabel.textContent = 'Poids w0–w17';
+      panel.appendChild(wLabel);
+
+      const wGrid = document.createElement('div');
+      wGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;';
+      for(let wi = 0; wi <= 17; wi++){
+        const wk = 'w' + wi;
+        const defW = def.weights[wk];
+        const customW = custom.weights && custom.weights[wk] != null ? custom.weights[wk] : defW;
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:2px;';
+        const lbl = document.createElement('label');
+        lbl.style.cssText = 'font-size:0.72em;font-weight:600;';
+        lbl.textContent = wk + ' — ' + (WEIGHT_DESCS[wk] || '');
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:6px;';
+        const inp = document.createElement('input');
+        inp.type = 'range';
+        inp.min = 0.01; inp.max = parseFloat((defW * 4).toFixed(2)); inp.step = 0.01;
+        inp.value = customW;
+        inp.dataset.weight = wk;
+        inp.dataset.pkey = pKey;
+        inp.style.cssText = 'flex:1;accent-color:var(--accent,#9b59d0);';
+        const val = document.createElement('span');
+        val.style.cssText = 'font-size:0.75em;min-width:42px;text-align:right;color:var(--muted);';
+        val.textContent = parseFloat(inp.value).toFixed(3);
+        const defSpan = document.createElement('span');
+        defSpan.style.cssText = 'font-size:0.68em;color:#aaa;min-width:42px;';
+        defSpan.textContent = '(déf: ' + defW + ')';
+        inp.oninput = () => { val.textContent = parseFloat(inp.value).toFixed(3); };
+        row.appendChild(inp); row.appendChild(val); row.appendChild(defSpan);
+        wrap.appendChild(lbl); wrap.appendChild(row);
+        wGrid.appendChild(wrap);
+      }
+      panel.appendChild(wGrid);
+
+      // Action buttons
+      const actions = document.createElement('div');
+      actions.style.cssText = 'display:flex;gap:8px;margin-top:20px;justify-content:flex-end;';
+      const resetBtn = document.createElement('button');
+      resetBtn.textContent = 'Réinitialiser';
+      resetBtn.className = 'secondary';
+      resetBtn.style.cssText = 'color:#d9534f;border-color:rgba(217,83,79,0.4);';
+      resetBtn.onclick = () => {
+        localStorage.removeItem('fabanki:fsrs_custom:' + pKey);
+        overlay.style.display = 'none';
+        document.getElementById('fsrsTuningOverlay')?.remove();
+        window.showFsrsTuningModal();
+      };
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = '✓ Enregistrer';
+      saveBtn.className = 'primary';
+      saveBtn.onclick = () => {
+        const customData = {};
+        panel.querySelectorAll('input[data-param]').forEach(inp => {
+          customData[inp.dataset.param] = parseFloat(inp.value);
+        });
+        const weights = {};
+        panel.querySelectorAll('input[data-weight]').forEach(inp => {
+          weights[inp.dataset.weight] = parseFloat(inp.value);
+        });
+        customData.weights = weights;
+        saveCustom(pKey, customData);
+        const notice = document.createElement('span');
+        notice.textContent = '✓ Sauvegardé';
+        notice.style.cssText = 'color:#28a745;font-size:0.85em;';
+        actions.insertBefore(notice, resetBtn);
+        setTimeout(() => notice.remove(), 2000);
+      };
+      actions.appendChild(resetBtn);
+      actions.appendChild(saveBtn);
+      panel.appendChild(actions);
+
+      btn.onclick = () => {
+        tabBar.querySelectorAll('button').forEach(b => b.className = 'secondary');
+        btn.className = 'primary';
+        Object.values(panels).forEach(p => p.style.display = 'none');
+        panel.style.display = '';
+        activeTab = pKey;
+      };
+
+      tabBar.appendChild(btn);
+      modal.appendChild(panel);
+
+      if(i === 0){ btn.click(); }
+    });
+
+    modal.insertBefore(tabBar, modal.children[2]);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+  };
+})();
+
+// ===== CARD OVERRIDE EDITOR (édition collaborative depuis l'overview) =====
+(function(){
+  function getCardOverride(deckKey, cardId){
+    try{ const s = localStorage.getItem('fabanki:card_override:' + deckKey + ':' + cardId); return s ? JSON.parse(s) : null; }catch(e){ return null; }
+  }
+  function saveCardOverride(deckKey, cardId, data){
+    try{ localStorage.setItem('fabanki:card_override:' + deckKey + ':' + cardId, JSON.stringify(data)); }catch(e){}
+    // Firebase sync if authenticated
+    try{
+      const db = window.firebase?.firestore?.();
+      const auth = window.firebase?.auth?.();
+      const user = auth?.currentUser;
+      if(db && user){
+        db.collection('deck_overrides').doc(deckKey).collection('cards').doc(cardId).set({
+          ...data,
+          editedBy: user.uid,
+          editedAt: new Date().toISOString(),
+        }).catch(e => console.warn('Firestore sync failed:', e));
+      }
+    }catch(e){}
+  }
+
+  // Extract fields from an XML cardNode
+  function extractCardFields(cardNode){
+    const fields = [];
+    const children = Array.from(cardNode.children || []);
+    if(children.length === 0){
+      fields.push({name:'Contenu', type:'richtext', content: cardNode.innerHTML || cardNode.textContent || ''});
+    } else {
+      children.forEach(child => {
+        const name = child.getAttribute('name') || child.tagName || 'Champ';
+        const type = (child.tagName || '').toLowerCase() === 'tex' ? 'katex' : 'richtext';
+        fields.push({name, type, content: child.innerHTML || child.textContent || ''});
+      });
+    }
+    return fields;
+  }
+
+  // Record review history for evolution chart
+  window.recordCardReviewHistory = function(deckKey, cardId, quality, interval){
+    try{
+      const key = 'fabanki:card_history:' + deckKey + ':' + cardId;
+      const hist = JSON.parse(localStorage.getItem(key) || '[]');
+      hist.push({date: new Date().toISOString(), quality, interval});
+      if(hist.length > 50) hist.splice(0, hist.length - 50);
+      localStorage.setItem(key, JSON.stringify(hist));
+    }catch(e){}
+  };
+
+  function drawEvolutionChart(canvas, history){
+    if(!history || history.length === 0){ canvas.style.display = 'none'; return; }
+    canvas.style.display = '';
+    const W = canvas.width = canvas.offsetWidth || 400;
+    const H = canvas.height = 100;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    const maxInterval = Math.max(...history.map(h => h.interval || 1), 1);
+    const qualityColors = {1:'#ef4444', 2:'#f97316', 3:'#22c55e', 4:'#3b82f6'};
+    const N = history.length;
+    const step = W / Math.max(N - 1, 1);
+
+    // Draw interval line
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(155,89,208,0.6)';
+    ctx.lineWidth = 2;
+    history.forEach((h, i) => {
+      const x = i * step;
+      const y = H - 8 - ((h.interval || 0) / maxInterval) * (H - 20);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Draw quality dots
+    history.forEach((h, i) => {
+      const x = i * step;
+      const y = H - 8 - ((h.interval || 0) / maxInterval) * (H - 20);
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = qualityColors[h.quality] || '#888';
+      ctx.fill();
+    });
+
+    // X-axis labels (last 5 dates)
+    ctx.fillStyle = 'rgba(128,128,128,0.8)';
+    ctx.font = '9px sans-serif';
+    const showEvery = Math.max(1, Math.floor(N / 5));
+    history.forEach((h, i) => {
+      if(i % showEvery !== 0 && i !== N-1) return;
+      const x = i * step;
+      const d = new Date(h.date);
+      ctx.fillText(d.getMonth()+1 + '/' + d.getDate(), Math.min(x, W - 24), H - 1);
+    });
+  }
+
+  window.openCardOverrideEditor = function(card, deckUrl){
+    const existingOverlay = document.getElementById('cardOverrideEditorOverlay');
+    if(existingOverlay) existingOverlay.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'cardOverrideEditorOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10000;display:flex;align-items:center;justify-content:center;';
+
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px;width:min(700px,96vw);max-height:92vh;overflow-y:auto;padding:24px;';
+
+    // Header
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+    const hdrTitle = document.createElement('h3');
+    hdrTitle.style.cssText = 'margin:0;flex:1;text-align:center;';
+    hdrTitle.textContent = 'Modifier la carte';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.className = 'secondary';
+    closeBtn.style.cssText = 'padding:4px 12px;font-size:1.2em;';
+    closeBtn.onclick = () => overlay.remove();
+    const backBtn = document.createElement('button');
+    backBtn.textContent = '← Retour';
+    backBtn.className = 'secondary';
+    backBtn.style.cssText = 'background:none;border:none;color:#007AFF;cursor:pointer;';
+    backBtn.onclick = () => overlay.remove();
+    hdr.appendChild(backBtn);
+    hdr.appendChild(hdrTitle);
+    hdr.appendChild(closeBtn);
+    modal.appendChild(hdr);
+
+    // Author info badge
+    const override = getCardOverride(card.deckKey, card.id);
+    if(override && override.editedAt){
+      const badge = document.createElement('div');
+      badge.style.cssText = 'background:rgba(155,89,208,0.1);border-radius:8px;padding:8px 12px;font-size:0.8em;margin-bottom:12px;color:var(--muted);';
+      const d = new Date(override.editedAt);
+      badge.textContent = `Dernière modification : ${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}${override.editedByName ? ' par ' + override.editedByName : ''}`;
+      modal.appendChild(badge);
+    }
+
+    // Evolution chart
+    const chartSection = document.createElement('div');
+    chartSection.style.cssText = 'margin-bottom:16px;';
+    const chartLabel = document.createElement('div');
+    chartLabel.style.cssText = 'font-size:0.8em;font-weight:600;color:var(--muted);margin-bottom:6px;';
+    chartLabel.textContent = 'Évolution des révisions';
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'width:100%;border-radius:8px;background:rgba(0,0,0,0.03);';
+    chartSection.appendChild(chartLabel);
+    chartSection.appendChild(canvas);
+    modal.appendChild(chartSection);
+
+    const histKey = 'fabanki:card_history:' + card.deckKey + ':' + card.id;
+    const history = JSON.parse(localStorage.getItem(histKey) || '[]');
+    if(history.length > 0){
+      requestAnimationFrame(() => drawEvolutionChart(canvas, history));
+    } else {
+      chartLabel.textContent = 'Évolution des révisions — aucune révision enregistrée';
+      canvas.style.display = 'none';
+    }
+
+    // Card stats
+    const statsRow = document.createElement('div');
+    statsRow.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;';
+    const statItems = [
+      {label:'Répétitions', val: card.reps || 0},
+      {label:'Statut', val: card.category || '—'},
+      {label:'Favori', val: card.favorite ? '⭐ Oui' : 'Non'},
+    ];
+    if(card.due){
+      const diff = Math.round((card.due - new Date()) / (1000*60*60*24));
+      statItems.push({label:'Échéance', val: diff <= 0 ? 'Maintenant' : 'dans ' + diff + 'j'});
+    }
+    statItems.forEach(s => {
+      const chip = document.createElement('div');
+      chip.style.cssText = 'background:rgba(155,89,208,0.1);border-radius:8px;padding:6px 12px;font-size:0.8em;';
+      chip.innerHTML = `<span style="color:var(--muted)">${s.label}</span><br><strong>${s.val}</strong>`;
+      statsRow.appendChild(chip);
+    });
+    modal.appendChild(statsRow);
+
+    // Fields
+    const fields = override ? override.fields : extractCardFields(card.cardNode);
+    const fieldsContainer = document.createElement('div');
+    fieldsContainer.style.cssText = 'display:flex;flex-direction:column;gap:16px;margin-bottom:20px;';
+
+    fields.forEach((field, fi) => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'border:1px solid var(--border-color,#eee);border-radius:10px;padding:14px;';
+      const lbl = document.createElement('div');
+      lbl.style.cssText = 'font-weight:600;font-size:0.85em;margin-bottom:8px;color:var(--muted);';
+      lbl.textContent = field.name + (field.type === 'katex' ? ' (LaTeX)' : '');
+      wrap.appendChild(lbl);
+
+      if(field.type === 'katex'){
+        const ta = document.createElement('textarea');
+        ta.value = field.content;
+        ta.dataset.fieldIndex = fi;
+        ta.style.cssText = 'width:100%;min-height:80px;font-family:monospace;font-size:0.85em;padding:8px;border-radius:6px;border:1px solid var(--border-color,#ddd);resize:vertical;';
+        const preview = document.createElement('div');
+        preview.style.cssText = 'margin-top:8px;padding:8px;background:rgba(0,0,0,0.03);border-radius:6px;min-height:32px;';
+        const renderKatex = () => {
+          try{
+            if(window.katex) preview.innerHTML = window.katex.renderToString(ta.value, {throwOnError:false,displayMode:true});
+          }catch(e){ preview.textContent = ta.value; }
+        };
+        ta.oninput = renderKatex;
+        renderKatex();
+        wrap.appendChild(ta);
+        wrap.appendChild(preview);
+      } else {
+        const div = document.createElement('div');
+        div.contentEditable = 'true';
+        div.innerHTML = field.content;
+        div.dataset.fieldIndex = fi;
+        div.style.cssText = 'min-height:60px;padding:8px;border:1px solid var(--border-color,#ddd);border-radius:6px;font-size:0.9em;outline:none;';
+        div.onfocus = () => div.style.borderColor = 'var(--accent,#9b59d0)';
+        div.onblur = () => div.style.borderColor = 'var(--border-color,#ddd)';
+        wrap.appendChild(div);
+      }
+
+      fieldsContainer.appendChild(wrap);
+    });
+    modal.appendChild(fieldsContainer);
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;align-items:center;';
+
+    if(override){
+      const revertBtn = document.createElement('button');
+      revertBtn.textContent = 'Revenir à l\'original';
+      revertBtn.className = 'secondary';
+      revertBtn.style.cssText = 'color:#d9534f;border-color:rgba(217,83,79,0.4);';
+      revertBtn.onclick = () => {
+        if(!confirm('Supprimer les modifications et revenir au contenu original ?')) return;
+        localStorage.removeItem('fabanki:card_override:' + card.deckKey + ':' + card.id);
+        overlay.remove();
+      };
+      actions.appendChild(revertBtn);
+    }
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = '✓ Enregistrer';
+    saveBtn.className = 'primary';
+    saveBtn.onclick = () => {
+      const updatedFields = fields.map((field, fi) => {
+        const inp = fieldsContainer.querySelector('[data-field-index="' + fi + '"]');
+        return { ...field, content: inp ? (inp.tagName === 'TEXTAREA' ? inp.value : inp.innerHTML) : field.content };
+      });
+      const authUser = window.firebase?.auth?.()?.currentUser;
+      const overrideData = {
+        fields: updatedFields,
+        editedAt: new Date().toISOString(),
+        editedByName: authUser?.displayName || authUser?.email || null,
+      };
+      saveCardOverride(card.deckKey, card.id, overrideData);
+      saveBtn.textContent = '✓ Enregistré !';
+      saveBtn.disabled = true;
+      setTimeout(() => overlay.remove(), 800);
+    };
+    actions.appendChild(saveBtn);
+    modal.appendChild(actions);
+
+    overlay.appendChild(modal);
+    overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+  };
+})();
+
+// ===== EXPORT CSV PROGRESSION =====
+window.exportProgressCSV = function(){
+  const rows = [['deckKey','cardId','reps','interval','stability','difficulty','due','last','favorite']];
+  const keys = Object.keys(localStorage).filter(k => k.match(/^fabanki:.+:card:.+/));
+  keys.forEach(k => {
+    try{
+      const parts = k.replace('fabanki:','').split(':card:');
+      const deckKey = parts[0];
+      const cardId = parts[1];
+      const st = JSON.parse(localStorage.getItem(k) || '{}');
+      rows.push([
+        deckKey, cardId,
+        st.reps || 0, st.interval || 0, st.stability || '', st.difficulty || '',
+        st.due || '', st.last || '', st.favorite ? '1' : '0'
+      ]);
+    }catch(e){}
+  });
+  const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'fabanki-progression-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+// ===== WEB PUSH NOTIFICATIONS — SOUSCRIPTION + MODAL DE PRÉFÉRENCES =====
+(function(){
+
+  // ── Utilitaires ──────────────────────────────────────────────────────────
+
+  function urlBase64ToUint8Array(base64String){
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
+  function getDueCount(){
+    try{ const n = parseInt(document.getElementById('dueCount')?.textContent || '0', 10); return isNaN(n) ? 0 : n; }
+    catch(e){ return 0; }
+  }
+
+  function getPrefs(){
+    try{ return JSON.parse(localStorage.getItem('fabanki:push_prefs') || '{}'); }
+    catch(e){ return {}; }
+  }
+  function savePrefs(p){ try{ localStorage.setItem('fabanki:push_prefs', JSON.stringify(p)); }catch(e){} }
+
+  function getDb(){ return window.__fabanki_firestore || window.firebase?.firestore?.() || null; }
+  function getUser(){ return window.__fabanki_auth?.currentUser || window.firebase?.auth?.()?.currentUser || null; }
+
+  // ── Souscription / Désinscription ─────────────────────────────────────────
+
+  async function subscribeToPush(){
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)){
+      throw new Error('Push non supporté par ce navigateur.');
+    }
+    const vapidKey = window.__fabanki_vapidPublicKey;
+    if(!vapidKey || vapidKey.startsWith('REMPLACER')){
+      throw new Error('Clé VAPID non configurée. Voir config.js pour les instructions.');
+    }
+    const permission = await Notification.requestPermission();
+    if(permission !== 'granted') throw new Error('Permission refusée.');
+
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    });
+    await saveSubscriptionToFirestore(sub);
+    localStorage.setItem('fabanki:push_subscribed', '1');
+    return sub;
+  }
+
+  async function unsubscribeFromPush(){
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if(sub) await sub.unsubscribe();
+    await removeSubscriptionFromFirestore();
+    localStorage.setItem('fabanki:push_subscribed', '0');
+  }
+
+  async function saveSubscriptionToFirestore(sub){
+    const db = getDb(); const user = getUser();
+    if(!db || !user) return;
+    const prefs = getPrefs();
+    await db.collection('push_subscriptions').doc(user.uid).set({
+      subscription: sub.toJSON(),
+      preferences: prefs,
+      dueCount: getDueCount(),
+      uid: user.uid,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+  }
+
+  async function removeSubscriptionFromFirestore(){
+    const db = getDb(); const user = getUser();
+    if(!db || !user) return;
+    await db.collection('push_subscriptions').doc(user.uid).delete().catch(()=>{});
+  }
+
+  // Sync due count to Firestore so Cloud Functions can read it
+  window.__fabanki_syncDueCountForPush = async function(){
+    if(localStorage.getItem('fabanki:push_subscribed') !== '1') return;
+    const db = getDb(); const user = getUser();
+    if(!db || !user) return;
+    try{
+      await db.collection('push_subscriptions').doc(user.uid).set({
+        dueCount: getDueCount(),
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+    }catch(e){}
+  };
+
+  // ── Handle navigation from push tap ──────────────────────────────────────
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('message', e => {
+      if(e.data?.type === 'PUSH_NAVIGATE' && e.data.url){
+        const url = new URL(e.data.url, location.origin);
+        const deckParam = url.searchParams.get('deck');
+        if(deckParam && typeof window.loadDeckFromUrl === 'function'){
+          window.loadDeckFromUrl(decodeURIComponent(deckParam));
+        }
+      }
+    });
+  }
+
+  // ── Modal de préférences ──────────────────────────────────────────────────
+
+  window.showPushNotifModal = async function(){
+    const existing = document.getElementById('pushNotifModalOverlay');
+    if(existing){ existing.style.display = 'flex'; return; }
+
+    const isSubscribed = localStorage.getItem('fabanki:push_subscribed') === '1';
+    const prefs = getPrefs();
+    const vapidOk = window.__fabanki_vapidPublicKey && !window.__fabanki_vapidPublicKey.startsWith('REMPLACER');
+
+    const overlay = document.createElement('div');
+    overlay.id = 'pushNotifModalOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px;width:min(600px,96vw);max-height:90vh;overflow-y:auto;padding:24px;';
+
+    // Header
+    modal.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <h2 style="margin:0;">🔔 Notifications push</h2>
+        <button id="pnClose" class="secondary" style="padding:4px 12px;font-size:1.2em;">✕</button>
+      </div>
+    `;
+
+    // Status banner
+    const statusBanner = document.createElement('div');
+    statusBanner.style.cssText = `padding:12px 16px;border-radius:10px;margin-bottom:20px;font-size:0.9em;background:${isSubscribed?'rgba(40,167,69,0.1)':'rgba(155,89,208,0.1)'};border:1px solid ${isSubscribed?'rgba(40,167,69,0.3)':'rgba(155,89,208,0.3)'};`;
+    statusBanner.innerHTML = isSubscribed
+      ? '<strong style="color:#28a745;">✓ Notifications activées</strong> — Tu reçois des rappels même navigateur fermé.'
+      : !vapidOk
+        ? '<strong style="color:#f97316;">⚠️ Configuration requise</strong> — La clé VAPID n\'est pas encore configurée dans <code>config.js</code>. Génère-la avec <code>npx web-push generate-vapid-keys</code>.'
+        : '<strong>Notifications désactivées</strong> — Active-les pour recevoir des rappels comme une vraie application.';
+    modal.appendChild(statusBanner);
+
+    // Preferences section
+    const section = document.createElement('div');
+    section.style.cssText = 'display:flex;flex-direction:column;gap:0;border:1px solid var(--border-color,#eee);border-radius:12px;overflow:hidden;margin-bottom:20px;';
+
+    const prefDefs = [
+      { key:'dailyReminder',   label:'Rappel quotidien',          sub:'Ex : "Il te reste 47 cartes à faire (~1h 34min) !"',    defaultVal:true  },
+      { key:'reminderHour',    label:'Heure du rappel',           sub:'Heure locale à laquelle le rappel est envoyé',           type:'hour', defaultVal:18 },
+      { key:'newDecks',        label:'Nouveau deck disponible',   sub:'Ex : "Nouveau deck : Chapitre 22 - Variables aléatoires"',defaultVal:true  },
+      { key:'streakWarning',   label:'Alerte streak en danger',   sub:'Si tu n\'as pas révisé depuis plus de 20h',              defaultVal:true  },
+      { key:'showTimeEstimate',label:'Estimation du temps',       sub:'Calcule une durée approximative basée sur tes habitudes',defaultVal:true  },
+    ];
+
+    prefDefs.forEach((pd, i) => {
+      const row = document.createElement('div');
+      row.style.cssText = `display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;${i>0?'border-top:1px solid var(--border-color,#eee);':''}`;
+
+      const left = document.createElement('div');
+      left.innerHTML = `<div style="font-weight:600;font-size:0.9em;">${pd.label}</div><div style="font-size:0.78em;color:var(--muted);margin-top:2px;">${pd.sub}</div>`;
+
+      const cur = prefs[pd.key] != null ? prefs[pd.key] : pd.defaultVal;
+
+      if(pd.type === 'hour'){
+        const sel = document.createElement('select');
+        sel.style.cssText = 'padding:6px 10px;border-radius:8px;border:1px solid var(--border-color,#ddd);font-size:0.9em;min-width:90px;';
+        for(let h = 6; h <= 23; h++){
+          const opt = document.createElement('option');
+          opt.value = h;
+          opt.textContent = String(h).padStart(2,'0') + ':00';
+          if(h === cur) opt.selected = true;
+          sel.appendChild(opt);
+        }
+        sel.dataset.prefKey = pd.key;
+        row.appendChild(left);
+        row.appendChild(sel);
+      } else {
+        const lbl = document.createElement('label');
+        lbl.className = 'rg-toggle';
+        lbl.innerHTML = `<input type="checkbox" data-pref-key="${pd.key}" ${cur?'checked':''}><span class="rg-toggle-slider"></span>`;
+        row.appendChild(left);
+        row.appendChild(lbl);
+      }
+
+      section.appendChild(row);
+    });
+    modal.appendChild(section);
+
+    // Test notification button
+    const testBtn = document.createElement('button');
+    testBtn.className = 'secondary';
+    testBtn.style.cssText = 'width:100%;margin-bottom:12px;';
+    testBtn.textContent = '🧪 Envoyer une notification test';
+    testBtn.disabled = !isSubscribed;
+    testBtn.onclick = () => {
+      if(Notification.permission === 'granted'){
+        new Notification('Fab\'Anki — Test', {
+          body: `Il te reste ${getDueCount()} carte${getDueCount()>1?'s':''} à faire. Rappel quotidien fonctionnel !`,
+          icon: './fabankiapp.png',
+          tag: 'fabanki-test',
+        });
+      }
+    };
+    modal.appendChild(testBtn);
+
+    // Subscribe / Unsubscribe button
+    const subBtn = document.createElement('button');
+    subBtn.className = isSubscribed ? 'secondary' : 'primary';
+    subBtn.style.cssText = 'width:100%;margin-bottom:12px;';
+    subBtn.style.cssText += isSubscribed ? 'color:#d9534f;border-color:rgba(217,83,79,0.4);' : '';
+    subBtn.textContent = isSubscribed ? '🔕 Désactiver les notifications' : '🔔 Activer les notifications push';
+    subBtn.disabled = !vapidOk;
+
+    subBtn.onclick = async () => {
+      subBtn.disabled = true;
+      subBtn.textContent = 'En cours...';
+      try{
+        if(isSubscribed){
+          await unsubscribeFromPush();
+          overlay.remove();
+          window.renderReglagesPage?.();
+        } else {
+          // Save prefs first
+          const newPrefs = {};
+          modal.querySelectorAll('[data-pref-key]').forEach(el => {
+            newPrefs[el.dataset.prefKey] = el.type === 'checkbox' ? el.checked : parseInt(el.value);
+          });
+          savePrefs(newPrefs);
+          await subscribeToPush();
+          overlay.remove();
+          window.renderReglagesPage?.();
+        }
+      }catch(err){
+        alert('Erreur : ' + err.message);
+        subBtn.disabled = false;
+        subBtn.textContent = isSubscribed ? '🔕 Désactiver les notifications' : '🔔 Activer les notifications push';
+      }
+    };
+    modal.appendChild(subBtn);
+
+    // Save preferences (if already subscribed)
+    if(isSubscribed){
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'primary';
+      saveBtn.style.cssText = 'width:100%;';
+      saveBtn.textContent = '✓ Enregistrer les préférences';
+      saveBtn.onclick = async () => {
+        const newPrefs = {};
+        modal.querySelectorAll('[data-pref-key]').forEach(el => {
+          newPrefs[el.dataset.prefKey] = el.type === 'checkbox' ? el.checked : parseInt(el.value);
+        });
+        savePrefs(newPrefs);
+        await saveSubscriptionToFirestore(await (await navigator.serviceWorker.ready).pushManager.getSubscription());
+        saveBtn.textContent = '✓ Enregistré !';
+        setTimeout(() => overlay.remove(), 800);
+      };
+      modal.appendChild(saveBtn);
+    }
+
+    // Close
+    overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
+    modal.querySelector('#pnClose').onclick = () => overlay.remove();
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+  };
+
+  // Sync due count whenever the due count element changes
+  const dueEl = document.getElementById('dueCount');
+  if(dueEl){
+    new MutationObserver(() => {
+      if(localStorage.getItem('fabanki:push_subscribed') === '1'){
+        clearTimeout(window.__fabanki_dueCountSyncTimer);
+        window.__fabanki_dueCountSyncTimer = setTimeout(window.__fabanki_syncDueCountForPush, 3000);
+      }
+    }).observe(dueEl, {childList:true, characterData:true, subtree:true});
+  }
+})();
