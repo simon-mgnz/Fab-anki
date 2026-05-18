@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /Classement/{userId} {
+      allow read: if true;
+      allow write: if request.resource.id == userId;
+    }
+
+    // Users document: users/{userId}
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /cardStates/{cardDocId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /fabankiSyncMeta/{metaDocId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Push notifications — chaque utilisateur gère sa propre souscription
+    match /push_subscriptions/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /modification_requests/{requestId} {
+      allow create: if true;
+      allow read: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    match /deck_submissions/{docId} {
+      allow create: if
+        request.resource.data.keys().hasOnly([
+          'title','path','cost','level','modes',
+          'xmlContent','cardCount','submittedBy',
+          'submittedAt','status'
+        ]) &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() > 0 &&
+        request.resource.data.title.size() <= 120 &&
+        request.resource.data.path is string &&
+        request.resource.data.xmlContent is string &&
+        request.resource.data.xmlContent.size() > 0 &&
+        request.resource.data.xmlContent.size() <= 700000 &&
+        request.resource.data.cardCount is int &&
+        request.resource.data.cardCount > 0 &&
+        request.resource.data.cost is int &&
+        request.resource.data.level is int &&
+        request.resource.data.modes is list &&
+        request.resource.data.status == 'pending';
+      allow read, update, delete: if false;
+    }
+  }
+}
