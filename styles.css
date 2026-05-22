@@ -916,7 +916,7 @@ footer{margin-top:12px;display:flex;justify-content:space-between;gap:8px;align-
 
 /* Truncate long folder/file names in deck browser */
 
-.deck-entry > .deck-entry-main{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:480px}
+.deck-entry > .deck-entry-main{flex:1;min-width:0;max-width:none}
 
 /* Multi-deck name display on card area (matching deck browser style) */
 
@@ -3195,37 +3195,69 @@ body.in-review.review-mobile-global{
   margin-bottom:8px
 }
 [data-theme='dark'] .deck-entry{border-color:rgba(255,255,255,0.08)}
-.deck-entry-main{flex:1;min-width:0}
+.deck-entry-text{
+  flex:0 1 auto;min-width:0;max-width:34%;
+  display:flex;flex-direction:column;gap:2px;justify-content:center
+}
+.deck-entry-bar-slot{
+  flex:1 1 auto;min-width:48px;max-width:none;
+  display:flex;align-items:center;justify-content:stretch;
+  padding:0 10px;box-sizing:border-box
+}
+.deck-entry-stats{
+  display:flex;align-items:stretch;gap:6px;flex-shrink:0
+}
 .deck-entry-name{
   font-size:.88rem;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
 }
-.deck-entry-titleline{display:flex;align-items:center;gap:10px;min-width:0;width:100%}
-.deck-entry-titleline .deck-entry-name{flex:1;min-width:0}
+.deck-entry-titleline{
+  display:flex;align-items:center;gap:8px;min-width:0;width:100%;flex-wrap:wrap
+}
+.deck-entry-titleline .deck-entry-name{
+  flex:1 1 auto;min-width:0;max-width:100%
+}
 .deck-entry-head{
   display:flex;align-items:center;gap:10px;min-width:0;width:100%
 }
 .deck-entry-head .deck-entry-name{flex:1;min-width:0}
-.deck-entry-sub{font-size:.72rem;color:var(--muted);margin-top:4px}
+.deck-entry-sub{font-size:.72rem;color:var(--muted);margin-top:0;line-height:1.3}
 .deck-entry-kpis{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.deck-entry-kpis--inline{
+  margin-top:0;flex:0 1 auto;justify-content:flex-end;align-items:center
+}
 .deck-kpi{
-  font-size:.66rem;
-  font-weight:700;
-  padding:3px 7px;
-  border-radius:999px;
-  background:rgba(0,0,0,0.06)
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-width:54px;padding:6px 10px 5px;
+  border-radius:10px;
+  background:rgba(0,0,0,0.06);
+  text-align:center;line-height:1.15
+}
+.deck-kpi-label{
+  font-size:.62rem;font-weight:600;letter-spacing:.02em;
+  opacity:.88;margin-bottom:4px;white-space:nowrap
+}
+.deck-kpi-value{
+  font-size:1.08rem;font-weight:800;line-height:1
 }
 [data-theme='dark'] .deck-kpi{background:rgba(255,255,255,0.09)}
-.deck-kpi--new{color:#8b5cf6}
-.deck-kpi--due{color:#d9534f}
-.deck-kpi--mastery{color:#16a34a}
+.deck-kpi--new .deck-kpi-label,.deck-kpi--new .deck-kpi-value{color:#8b5cf6}
+.deck-kpi--due .deck-kpi-label,.deck-kpi--due .deck-kpi-value{color:#d9534f}
+.deck-kpi--mastery .deck-kpi-label,.deck-kpi--mastery .deck-kpi-value{color:#16a34a}
 .deck-mastery{
   margin-top:7px;height:6px;border-radius:999px;background:rgba(0,0,0,0.1);overflow:hidden
 }
 .deck-mastery i{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#4ade80)}
-/* Barre de maîtrise à gauche du titre (deck + dossier) */
+/* Barre de maîtrise compacte (legacy) */
 .deck-mastery--lead{
   flex:0 0 56px;width:56px;min-width:56px;max-width:72px;margin-top:0 !important;height:6px;align-self:center
 }
+/* Barre de maîtrise — uniquement dans la colonne centrale (pas sous le titre ni les stats) */
+.deck-entry-bar-slot .deck-mastery--wide{
+  width:100%;max-width:100%;
+  height:5px;min-height:5px;max-height:5px;
+  margin:0 !important;flex:0 0 auto;border-radius:999px
+}
+.deck-mastery--wide.deck-mastery--empty i{opacity:0.35}
 [data-theme='dark'] .deck-mastery{background:rgba(255,255,255,.12)}
 .deck-entry-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .deck-folder-icon,.deck-file-icon{
@@ -3238,12 +3270,22 @@ body.in-review.review-mobile-global{
   min-height:0;
   padding:8px 10px;
   gap:8px;
+  align-items:center;
 }
 .deck-entry-name{font-size:.83rem}
-.deck-entry-sub{font-size:.68rem;margin-top:2px}
-.deck-entry-kpis{margin-top:4px}
-.deck-mastery{margin-top:4px;height:4px}
-.deck-mastery.deck-mastery--lead{margin-top:0 !important;height:6px}
+.deck-entry-sub{font-size:.68rem}
+@media (max-width:640px){
+  .deck-entry{align-items:center;padding:8px 10px;flex-wrap:nowrap}
+  .deck-entry-text{max-width:38%;min-width:64px}
+  .deck-entry-bar-slot{min-width:24px;padding:0 6px}
+  .deck-entry-stats{gap:4px}
+  .deck-kpi{min-width:46px;padding:5px 7px 4px}
+  .deck-kpi-label{font-size:.56rem;margin-bottom:3px}
+  .deck-kpi-value{font-size:.95rem}
+  .deck-entry-name{font-size:.84rem}
+  .deck-entry-sub{font-size:.64rem}
+  .deck-entry-bar-slot .deck-mastery--wide{height:4px;min-height:4px;max-height:4px}
+}
 
 body.nav-home-active main,
 body.nav-home-active #stats{

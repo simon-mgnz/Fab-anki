@@ -1,0 +1,919 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<deck name="La connaissance de la vie — Canguilhem">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STRUCTURE :
+       - <meta> : thème + source (Chapitre N ou Intro)
+       - <question id="0" mode="classique"> : contexte en premier
+         (absent si source générique –)
+       - <question id="N" mode="texte_a_trous">
+       ═══════════════════════════════════════════════════════════ -->
+
+  <!-- ─── CARTE 1 : Date de publication ─── -->
+  <card>
+    <meta>
+      <topic>Date de publication</topic>
+      <source>–</source>
+    </meta>
+
+    <question id="1" mode="classique">
+      <front><p>Quand La connaissance de la vie a-t-elle été publiée, et quand a-t-elle été rédigée ?</p></front>
+      <back><p>Publiée pour la première fois en 1952, rédigée entre 1945 et 1951.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 2 : Les trois unités de sens ─── -->
+  <card>
+    <meta>
+      <topic>Les trois unités de sens du livre</topic>
+      <source>–</source>
+    </meta>
+
+    <question id="1" mode="classique">
+      <front><p>Quelles sont les trois grandes unités de sens qui structurent La connaissance de la vie ?</p></front>
+      <back>
+        <p>I. La connaissance de la nature ne doit pas aboutir à une domination de la nature, mais à l'inscription de l'humain dans la nature.</p>
+        <p>II. Seul un rationalisme raisonnable permet de comprendre l'individu et le milieu dans lequel il évolue.</p>
+        <p>III. La différence entre la nature, objet de culture, et la nature, objet de la science du vivant.</p>
+      </back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 3 : Connaître c'est analyser ─── -->
+  <card>
+    <meta>
+      <topic>Point de départ : « Connaître c'est analyser »</topic>
+      <source>Intro — « La pensée et le vivant »</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quelle section du livre Canguilhem pose-t-il le point de départ « Connaître c'est analyser » ?</p></front>
+      <back><p>Dans l'introduction — « La pensée et le vivant ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« ___ c'est analyser. » — affirmation d'ouverture de Canguilhem.</p></front>
+      <back><p>Connaître.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Que signifie « connaître c'est analyser » selon Canguilhem ?</p></front>
+      <back><p>La connaissance est à la fois l'action d'apprendre et le résultat obtenu ; elle peut se faire par théorie mais aussi par pratique. L'analyse est le mode dominant de la pensée scientifique.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 4 : Cartésianisme exorbitant ─── -->
+  <card>
+    <meta>
+      <topic>Critique du « cartésianisme exorbitant »</topic>
+      <source>Chapitre 3</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem critique-t-il la démarche scientifique comme « cartésianisme exorbitant » ?</p></front>
+      <back><p>Chapitre 3.</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Quelle critique Canguilhem formule-t-il contre la démarche scientifique cartésienne ?</p></front>
+      <back><p>Il pense qu'elle mène à un « cartésianisme exorbitant » : à force de décomposer et mesurer, on ne voit plus que des objets, des déplacements, des machines — et on perd le vivant de vue.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Nous voyons bien des individus, mais ce sont des ___ ; nous voyons des gestes, mais ce sont des ___ ; des centres, mais ce sont des ___ ; des machinistes, mais ce sont des ___ . »</p></front>
+      <back><p>objets ; déplacements ; environnements ; machines.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 5 : Vie et connaissance — tension ─── -->
+  <card>
+    <meta>
+      <topic>Tension entre vie et connaissance</topic>
+      <source>Intro (p11-16)</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quelle section du livre Canguilhem aborde-t-il la tension entre vie et connaissance ?</p></front>
+      <back><p>Dans l'introduction, pages 11–16.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« On admet trop facilement l'existence entre la connaissance et la vie d'un ___ fondamental, et tel que leur ___ réciproque ne puisse conduire qu'à la ___ de la vie par la connaissance ou à la ___ de la connaissance de la vie. »</p></front>
+      <back><p>conflit ; aversion ; destruction ; dérision.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quelle doxa Canguilhem refuse-t-il concernant vie et connaissance ?</p></front>
+      <back><p>L'idée que vie et connaissance s'opposent nécessairement : soit la connaissance détruit la vie, soit la vie se moque de la connaissance. Pour lui, cette opposition est fausse.</p></back>
+    </question>
+
+    <question id="3" mode="texte_a_trous">
+      <front><p>« La pensée n'est rien d'autre que le ___ de l'homme et du monde. »</p></front>
+      <back><p>décollement.</p></back>
+    </question>
+
+    <question id="4" mode="texte_a_trous">
+      <front><p>« Savoir pour savoir ce n'est guère plus sensé que ___ pour ___ ou ___ pour ___ ou ___ pour ___ . »</p></front>
+      <back><p>manger ; manger ; tuer ; tuer ; rire ; rire.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 6 : Rationalisme raisonnable ─── -->
+  <card>
+    <meta>
+      <topic>Rationalisme raisonnable</topic>
+      <source>Intro — « La pensée et le vivant »</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quelle section Canguilhem défend-il l'idée d'un « rationalisme raisonnable » ?</p></front>
+      <back><p>Dans l'introduction — « La pensée et le vivant ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Nous pensons, quant à nous, qu'un rationalisme raisonnable doit savoir reconnaître ses ___ et intégrer ses conditions d'___ . »</p></front>
+      <back><p>limites ; exercice.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Que signifie pour Canguilhem un « rationalisme raisonnable » ?</p></front>
+      <back><p>Un rationalisme qui accepte ses propres limites et n'écrase pas le vivant sous des lois abstraites — à l'opposé du cartésianisme exorbitant qui réduit tout à des équations.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 7 : Abstraire par l'analyse (mécanisme cartésien) ─── -->
+  <card>
+    <meta>
+      <topic>Abstraire par l'analyse — mécanisme cartésien</topic>
+      <source>Intro</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quelle section du livre trouve-t-on le vocabulaire cartésien de l'analyse (« décomposer, réduire… ») ?</p></front>
+      <back><p>Dans l'introduction.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>La méthode cartésienne consiste à « ___ par l'analyse » : « décomposer, réduire, expliquer, identifier, mesurer, mettre en ___ ». </p></front>
+      <back><p>abstraire ; équations.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Car diviser c'est, à la limite, selon l'étymologie, faire ___, et une forme, n'étant que comme un ___ ne saurait être ___ de rien. »</p></front>
+      <back><p>vide ; tout ; vidée.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 8 : Vie = formation de formes / maths vs biologie ─── -->
+  <card>
+    <meta>
+      <topic>Vie = formation de formes / maths vs biologie</topic>
+      <source>Intro</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quelle section Canguilhem oppose-t-il « formation de formes » et « analyse » ?</p></front>
+      <back><p>Dans l'introduction.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« La vie est ___ de ___, la connaissance est ___ » — et « une analyse ne puisse jamais rendre compte d'une ___ ». »</p></front>
+      <back><p>formation ; formes ; analyse ; formation.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Pour faire des mathématiques, il nous suffirait d'être ___, mais pour faire de la biologie, même avec l'aide de l'intelligence, nous avons besoin parfois de nous sentir ___ . »</p></front>
+      <back><p>anges ; bêtes.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Que signifie « se sentir bêtes » pour faire de la biologie selon Canguilhem ?</p></front>
+      <back><p>Revenir au niveau des animaux qui vivent par instinct — retrouver le corps, le vécu, l'expérience sensible — plutôt que de s'élever dans l'abstraction des lois et des normes.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 9 : Spécificité du vivant ─── -->
+  <card>
+    <meta>
+      <topic>Spécificité du vivant — impossibilité de généraliser</topic>
+      <source>Intro</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quelle section Canguilhem affirme-t-il qu'aucune acquisition expérimentale ne peut être généralisée sans réserves ?</p></front>
+      <back><p>Dans l'introduction.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Aucune acquisition de caractère expérimental ne peut être ___ sans d'expresses réserves, qu'il s'agisse de structures, de fonctions, de comportements, soit d'une variété à une autre dans une même ___, soit d'une espèce à une autre, soit de l'animal à l'___ . »</p></front>
+      <back><p>généralisée ; espèce ; homme.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quels exemples illustrent cette impossibilité de généraliser entre espèces ?</p></front>
+      <back><p>La réaction d'une fracture chez le chien vs l'humain ; la réaction des muscles de grenouilles rousses vs vertes à la caféine ; la démarche du chat, plus proche du triton que du lapin.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 10 : Biologie — risques et méthode expérimentale ─── -->
+  <card>
+    <meta>
+      <topic>Biologie — « entreprise pleine de risques » / méthode expérimentale</topic>
+      <source>Intro</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quelle section Canguilhem reprend-il de Claude Bernard l'idée que la biologie est une « entreprise pleine de risques » ?</p></front>
+      <back><p>Dans l'introduction, repris de L'Étude de la médecine expérimentale de Claude Bernard.</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Pourquoi la biologie est-elle une « entreprise pleine de risques et de périls » selon Canguilhem ?</p></front>
+      <back><p>On ne peut pas approcher la nature par théorie seule : il faut la pratique et l'expérimentation. Le biologiste doit tracer sa propre route dans le monde du vivant, avec des méthodes qu'il invente lui-même.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Le biologiste doit inventer sa technique expérimentale ___ . »</p></front>
+      <back><p>propre (renvoyant à sa singularité).</p></back>
+    </question>
+
+    <question id="3" mode="texte_a_trous">
+      <front><p>« La connaissance de la vie doit s'accomplir par ___ imprévisibles, s'efforçant de saisir un ___ dont le sens ne se révèle jamais si nettement à notre entendement que lorsqu'il le ___ . »</p></front>
+      <back><p>conversions ; devenir ; déconcerte.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 11 : Exemple Harvey — circulation sanguine ─── -->
+  <card>
+    <meta>
+      <topic>Exemple de Harvey et la circulation sanguine</topic>
+      <source>Intro (pp26-27)</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quelle section du livre l'exemple de Harvey sur la circulation sanguine est-il développé ?</p></front>
+      <back><p>Dans l'introduction, pages 26–27.</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Comment Harvey a-t-il découvert la circulation sanguine et le rôle du cœur ?</p></front>
+      <back><p>En ligaturant une veine, il a dépassé l'idée que le sang irriguait tout l'organisme librement, et découvert l'existence d'un circuit veineux. La découverte du rôle du cœur s'est faite en partie par hasard — l'expérience a précédé la théorie.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quel principe méthodologique Canguilhem tire-t-il de l'exemple de Harvey ?</p></front>
+      <back><p>Les difficultés de l'expérimentation biologique ne sont pas des obstacles absolus mais des stimulants de l'invention. L'expérience précède et corrige la théorie.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 12 : Point de vue anthropocentrique / méthode dualiste ─── -->
+  <card>
+    <meta>
+      <topic>Anthropocentrisme et méthode dualiste du biologiste</topic>
+      <source>Intro</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quelle section Canguilhem décrit-il la méthode expérimentale comme une route tracée dans le milieu des autres espèces ?</p></front>
+      <back><p>Dans l'introduction.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« La méthode expérimentale — comme l'indique l'étymologie du mot méthode — c'est aussi une sorte de ___ que l'homme biologiste ___ dans le monde du hérisson, de la grenouille, de la drosophile, de la paramécie et du streptocoque. »</p></front>
+      <back><p>route ; trace.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Pourquoi l'homme adopte-t-il une position dualiste pour étudier la nature ?</p></front>
+      <back><p>Pour pouvoir observer la nature, il se place mentalement en dehors d'elle — c'est la volonté de comprendre qui impose ce point de vue anthropocentrique, même involontairement.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 13 : Limites de l'expérimentation — milieu artificiel ─── -->
+  <card>
+    <meta>
+      <topic>Limites de l'expérimentation — imposer un milieu au vivant</topic>
+      <source>Intro ; Chapitre 3</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quelles sections Canguilhem soulève-t-il le problème de l'artificialité du milieu expérimental ?</p></front>
+      <back><p>Dans l'introduction et au chapitre 3.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Étudier un vivant dans des conditions expérimentalement construites, c'est lui ___ un milieu. Or, le propre du vivant c'est de se ___ son milieu, de se ___ son milieu. »</p></front>
+      <back><p>faire / imposer ; faire ; composer.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quel problème épistémologique pose l'expérimentation biologique en laboratoire ?</p></front>
+      <back><p>On ne sait pas dans quelle mesure des procédés artificiels permettent de conclure que les phénomènes naturels sont adéquatement représentés. De plus, les mots ne décrivent jamais suffisamment le réel vivant.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 14 : Question éthique — l'homme objet de son propre savoir ─── -->
+  <card>
+    <meta>
+      <topic>Éthique : l'homme objet de son propre savoir</topic>
+      <source>Intro</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quelle section Canguilhem pose-t-il la question éthique de l'homme devenant objet de son propre savoir ?</p></front>
+      <back><p>Dans l'introduction.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Dès que la biologie concerne l'homme non plus simplement comme ___, mais comme ___ de la recherche de solutions le concernant, la question se pose de décider si le prix du savoir est tel que le sujet du savoir puisse consentir à devenir ___ de son propre savoir. »</p></front>
+      <back><p>problème ; instrument ; objet.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quels exemples concrets Canguilhem donne-t-il d'instrumentalisation éthiquement douteuse ?</p></front>
+      <back><p>Des prisonniers américains ayant accepté d'être cobayes en échange de réhabilitation ; une patiente devant avoir des rapports sexuels avant une ablation de l'utérus pour que les œufs fécondés puissent être examinés après l'opération.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 15 : Question rhétorique sur l'animal ─── -->
+  <card>
+    <meta>
+      <topic>Question rhétorique — supériorité de l'homme sur l'animal ?</topic>
+      <source>Intro (p11-16)</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quelle section du livre Canguilhem pose-t-il la question rhétorique sur les yeux de l'homme ?</p></front>
+      <back><p>Dans l'introduction, pages 11–16.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Quelle lumière sommes-nous donc assurés de ___ pour déclarer ___ tous autres yeux que ceux de l'homme ? »</p></front>
+      <back><p>contempler ; aveugles.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quel argument Canguilhem avance-t-il pour défendre les capacités des animaux face à l'homme ?</p></front>
+      <back><p>Si l'animal ne résout pas les problèmes que l'homme lui pose, c'est parce que ce sont les problèmes de l'homme, pas les siens. L'homme ferait-il mieux que l'oiseau son nid ou l'araignée sa toile ?</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Quelle conclusion Canguilhem tire-t-il de cette réflexion sur la science et la vie ?</p></front>
+      <back><p>La science doit être un outil au service de la vie — et surtout pas l'inverse. L'espèce la plus puissante doit prendre en compte les autres.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 16 : Historique de la Nature / mécanisme (Antiquité → XXe s.) ─── -->
+  <card>
+    <meta>
+      <topic>Historique de la pensée mécaniste — Aristote, Descartes, industrialisation</topic>
+      <source>Chapitre 2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem retrace-t-il l'histoire de la pensée mécaniste de l'Antiquité au XXe siècle ?</p></front>
+      <back><p>Chapitre 2.</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Quelles sont les quatre grandes étapes de l'histoire de la pensée mécaniste selon Canguilhem ?</p></front>
+      <back>
+        <p>1. Antiquité — Aristote : parallèle entre mouvements mécaniques (catapultes) et mouvements des animaux.</p>
+        <p>2. XIXe siècle — Père Laberthonnière : l'homme, conçu comme transcendant à la nature, est valorisé pour que la nature soit dévalorisée.</p>
+        <p>3. Descartes — l'animal-machine : dévaloriser l'animal pour justifier son exploitation comme instrument.</p>
+        <p>4. XXe siècle — Franz Borkenau : industrialisation.</p>
+      </back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>Laberthonnière : « Il fallait d'abord que l'homme fût conçu comme un être ___ à la nature et à la matière pour que son droit et son devoir d'___ la matière, sans égards pour elle, fût affirmé. »</p></front>
+      <back><p>transcendant ; exploiter.</p></back>
+    </question>
+
+    <question id="3" mode="texte_a_trous">
+      <front><p>« Descartes fait pour l'animal ce qu'Aristote avait fait pour l'___ , il le ___ afin de justifier que l'homme de l'utiliser comme ___ . »</p></front>
+      <back><p>esclave ; dévalorise ; instrument.</p></back>
+    </question>
+
+    <question id="4" mode="texte_a_trous">
+      <front><p>« L'homme ne peut se rendre ___ et ___ de la nature que s'il nie toute ___ naturelle et s'il peut tenir toute la nature, y compris la nature apparemment animée, hors lui-même, pour un ___ . »</p></front>
+      <back><p>maître ; possesseur ; finalité ; moyen.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 17 : Définition d'un mécanisme ─── -->
+  <card>
+    <meta>
+      <topic>Définition d'un mécanisme</topic>
+      <source>Chapitre 2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem définit-il précisément ce qu'est un mécanisme ?</p></front>
+      <back><p>Chapitre 2.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Un mécanisme, c'est une configuration de solides en mouvement telle que le mouvement n'___ pas la ___. Le mécanisme est donc un assemblage de parties ___ avec restauration périodique des mêmes rapports entre parties. »</p></front>
+      <back><p>abolit ; configuration ; déformables.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Le mécanisme ___ un mouvement dont l'impulsion lui est ___ . Mécanisme n'est pas ___ . »</p></front>
+      <back><p>règle ; communiquée ; moteur.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 18 : Organisme vs machine ─── -->
+  <card>
+    <meta>
+      <topic>Organisme vs machine — le préfixe « auto »</topic>
+      <source>Chapitre 2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem oppose-t-il l'organisme à la machine par le préfixe « auto » ?</p></front>
+      <back><p>Chapitre 2.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>Dans un organisme on observe « des phénomènes d'___, d'___, d'___, d'___ » — ce que la machine ne peut pas faire sans intervention humaine.</p></front>
+      <back><p>auto-construction ; auto-conservation ; auto-régulation ; auto-réparation.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Que révèle la répétition du préfixe « auto » pour caractériser l'organisme ?</p></front>
+      <back><p>L'organisme persiste tout seul dans l'existence : il a une autonomie que la machine n'a pas. La machine dépend de l'ingéniosité et de la surveillance humaine pour chacune de ses fonctions.</p></back>
+    </question>
+
+    <question id="3" mode="texte_a_trous">
+      <front><p>« On dirait volontiers qu'il y a plus de ___ dans la machine que dans l'organisme, parce que la finalité y est ___ et ___ . » Au contraire, l'organisme présente « une ___ des fonctions, une ___ des organes ». »</p></front>
+      <back><p>finalité ; rigide ; univoque ; vicariance ; polyvalence.</p></back>
+    </question>
+
+    <question id="4" mode="texte_a_trous">
+      <front><p>« La vie est expérience, c'est à dire ___, utilisation des ___ : elle est tentative dans tous les sens. »</p></front>
+      <back><p>improvisation ; occurrences.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 19 : Technique comme phénomène biologique universel ─── -->
+  <card>
+    <meta>
+      <topic>La technique comme phénomène biologique universel</topic>
+      <source>Chapitre 2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem définit-il la technique comme un « phénomène biologique universel » ?</p></front>
+      <back><p>Chapitre 2.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Les premiers outils ne sont que le ___ des organes humains en mouvement. Le silex, la massue, le levier prolongent et étendent le mouvement organique de ___ du bras. » (Leroy-Gourhan)</p></front>
+      <back><p>prolongement ; percussion.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Comment Canguilhem définit-il la technique et son rapport à la nature ?</p></front>
+      <back><p>La technique est un phénomène biologique universel : elle prolonge par tâtonnement ce que la nature nous a donné. Comme la nature, elle procède par essais — succès ou échec — et possède une forme d'autonomie créatrice.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 20 : Origine du mot « milieu » ─── -->
+  <card>
+    <meta>
+      <topic>Origine du terme « milieu »</topic>
+      <source>Chapitre 3</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem retrace-t-il l'origine du terme « milieu » ?</p></front>
+      <back><p>Chapitre 3.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Les mécaniciens français du XVIIIe siècle ont appelé ___ ce que Newton entendait par ___, et dont le type est, dans la physique de Newton, l'___ . »</p></front>
+      <back><p>milieu ; fluide ; éther.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quelle citation de Louis Roule illustre un milieu qui gouverne entièrement le vivant ?</p></front>
+      <back><p>« Les poissons ne mènent pas leur vie d'eux-mêmes, c'est la rivière qui la leur fait mener, ils sont des personnes sans personnalité. »</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 21 : Umwelt / Umgebung — Uexküll ─── -->
+  <card>
+    <meta>
+      <topic>Umwelt et Umgebung — Uexküll</topic>
+      <source>Chapitre 3</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem présente-t-il la distinction d'Uexküll entre Umgebung et Umwelt ?</p></front>
+      <back><p>Chapitre 3.</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Quelle distinction Uexküll fait-il entre l'environnement (Umgebung) et le milieu (Umwelt) ?</p></front>
+      <back><p>L'Umgebung est tout ce qui existe autour du vivant, y compris ce qu'il ne perçoit pas. L'Umwelt est ce que l'individu perçoit et qui l'intéresse — chaque être vivant construit subjectivement son milieu.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Le milieu de comportement propre (Umwelt), pour le vivant, c'est un ensemble d'excitations ayant valeur et signification de ___ […]. Si le vivant ne ___, il ne reçoit rien. »</p></front>
+      <back><p>signaux ; cherche.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Quel exemple de la tique illustre la notion d'Umwelt focalisé ?</p></front>
+      <back><p>La tique n'est sensible qu'au sang d'animaux à sang chaud — son Umwelt est extrêmement restreint par rapport à l'Umgebung qui l'entoure (riche et varié). Elle ignore tout ce qui ne relève pas de ce signal unique.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 22 : Milieu du hérisson (Giraudoux) ─── -->
+  <card>
+    <meta>
+      <topic>Milieu propre de chaque espèce — exemple du hérisson</topic>
+      <source>Intro</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quelle section Canguilhem utilise-t-il l'Électre de Giraudoux pour illustrer le milieu propre à chaque espèce ?</p></front>
+      <back><p>Dans l'introduction.</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Qu'illustre l'exemple de l'Électre de Giraudoux sur la notion de milieu propre ?</p></front>
+      <back><p>Une route est un élément du milieu humain mais n'a aucune valeur biologique pour un hérisson. Les routes de l'homme traversent le milieu du hérisson, du lapin ou de la libellule — elles ne sont pas dans leur Umwelt, elles l'interrompent.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 23 : Milieu personnel (intérieur / extérieur) ─── -->
+  <card>
+    <meta>
+      <topic>Milieu personnel — intérieur et extérieur</topic>
+      <source>Chapitre 4 ; Chapitre 3</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quels chapitres Canguilhem développe-t-il la notion de milieu personnel (intérieur et extérieur) ?</p></front>
+      <back><p>Chapitre 4 pour le milieu personnel et l'adaptation ; Chapitre 3 pour le milieu extérieur et l'Umwelt.</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Qu'est-ce que le milieu intérieur selon Canguilhem ?</p></front>
+      <back><p>L'ensemble des organes et tissus du vivant, tous en déséquilibre permanent (manger, boire, respirer changent sans cesse l'équilibre). Trouver un équilibre permet à la vie d'exister.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Qu'est-ce que le milieu extérieur selon Canguilhem ?</p></front>
+      <back><p>L'environnement autour du vivant, incluant les autres personnes — une gifle peut perturber l'équilibre du milieu intérieur.</p></back>
+    </question>
+
+    <question id="3" mode="texte_a_trous">
+      <front><p>« L'adaptation à un ___ personnel est une des présuppositions fondamentales de la ___ . »</p></front>
+      <back><p>milieu ; santé.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 24 : Déterminisme biologique / Loeb / Ritter / Humboldt ─── -->
+  <card>
+    <meta>
+      <topic>Déterminisme biologique — Loeb, Ritter, Humboldt</topic>
+      <source>Chapitre 3</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem présente-t-il les théories du déterminisme biologique (Loeb, Ritter, Humboldt) ?</p></front>
+      <back><p>Chapitre 3.</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Quelle est la thèse de Loeb sur le vivant et le milieu ?</p></front>
+      <back><p>Loeb considère tout mouvement de l'organisme comme un mouvement auquel il est forcé par le milieu — la biologie se réduirait à une « physique déductive ».</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quelle est la position de Canguilhem sur ce déterminisme ?</p></front>
+      <back><p>Il le présente mais s'y oppose : réduire le vivant à un conditionnement mécanique par le milieu efface l'autonomie et la normativité propre à chaque organisme.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 25 : La végétation et l'équilibre des espèces ─── -->
+  <card>
+    <meta>
+      <topic>Équilibre des espèces végétales — le biologique comme tout</topic>
+      <source>Chapitre 3</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem évoque-t-il l'exemple des vents alizés et de la végétation comme équilibre autorégulé ?</p></front>
+      <back><p>Chapitre 3.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« La végétation est répartie en ensembles naturels où des espèces diverses se ___ réciproquement et où, par conséquent, chacune contribue à créer pour les autres un ___. L'ensemble de ces espèces végétales finit par constituer son propre ___ . »</p></front>
+      <back><p>limitent ; équilibre ; milieu.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Quel lien Canguilhem fait-il entre l'équilibre des espèces et l'action humaine (en référence à 20 000 lieues sous les mers) ?</p></front>
+      <back><p>Quand les humains tuent des baleines ou des phoques, ils déséquilibrent la mer et détruisent un équilibre qui s'était auto-constitué — la chasse de Nemo est ici un écho.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 26 : Lamarck et Darwin ─── -->
+  <card>
+    <meta>
+      <topic>Lamarck et Darwin — deux visions complémentaires</topic>
+      <source>Chapitre 3</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem compare-t-il Lamarck et Darwin ?</p></front>
+      <back><p>Chapitre 3.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Les changements dans les ___ entraînent des changements dans les ___, les changements dans les besoins entraînent des changements dans les ___ . » (Lamarck)</p></front>
+      <back><p>circonstances ; besoins ; actions.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Pour Darwin, vivre c'est soumettre au jugement de l'ensemble des vivants une ___ individuelle. Ce jugement ne comporte que deux sanctions : ou ___ ou bien faire à son tour, pour quelque temps, partie du ___ . »</p></front>
+      <back><p>différence ; mourir ; jury.</p></back>
+    </question>
+
+    <question id="3" mode="texte_a_trous">
+      <front><p>Selon Canguilhem : « Lamarck pense la vie selon la ___, et Darwin plutôt selon l'___ . »</p></front>
+      <back><p>durée ; interdépendance.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 27 : Enjeux politiques du milieu — Lyssenko ─── -->
+  <card>
+    <meta>
+      <topic>Portée politique du milieu — débat Mendel / Lyssenko en URSS</topic>
+      <source>Chapitre 3</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem montre-t-il les enjeux politiques du concept de milieu, à travers le débat Mendel/Lyssenko ?</p></front>
+      <back><p>Chapitre 3.</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Quel est le débat entre Mendel et Lyssenko en URSS selon Canguilhem ?</p></front>
+      <back><p>Mendel met en lumière l'influence des chromosomes sur l'hérédité (génétique). Lyssenko défend que l'hérédité est acquise par le milieu, via des expériences de vernalisation — une théorie cohérente avec la dialectique marxiste-léniniste.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>La théorie de Lyssenko : « ___ et ___ sont indissociables, comme il convient à la dialectique marxiste-léniniste. »</p></front>
+      <back><p>Théorie ; praxis.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Quel danger Canguilhem pointe-t-il derrière cette affaire ?</p></front>
+      <back><p>La science devient un outil politique — la vérité biologique est instrumentalisée par l'idéologie, ce qui pervertit à la fois la science et la vie.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 28 : L'homme et la sélection naturelle ─── -->
+  <card>
+    <meta>
+      <topic>L'homme — seule espèce hors sélection naturelle</topic>
+      <source>Chapitre 2</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem affirme-t-il que l'homme est la seule espèce hors sélection naturelle ?</p></front>
+      <back><p>Chapitre 2.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« En un sens, il n'y a pas de ___ dans l'espèce humaine dans la mesure où l'homme peut créer de nouveaux ___ au lieu de supporter passivement les changements de l'ancien. »</p></front>
+      <back><p>sélection ; milieux.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Comment l'homme compense-t-il son inaptitude biologique face aux changements de milieu ?</p></front>
+      <back><p>Par des médicaments, des opérations, des aménagements du milieu extérieur, et le social (RSA si perte d'emploi, culture — musique, télé — pour maintenir l'équilibre mental).</p></back>
+    </question>
+
+    <question id="3" mode="texte_a_trous">
+      <front><p>L'Umwelt de l'homme : « La Umgebung, cet environnement géographique, extérieur à l'animal est, en un sens, centré, ordonné, orienté par un sujet humain — c'est-à-dire un ___ de techniques, un ___ de valeurs. »</p></front>
+      <back><p>créateur ; créateur.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 29 : Liberté et norme psychique ─── -->
+  <card>
+    <meta>
+      <topic>Liberté et norme psychique humaine</topic>
+      <source>Chapitre 4</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem traite-t-il de la liberté comme norme du psychisme humain ?</p></front>
+      <back><p>Chapitre 4.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« La norme en matière de psychisme humain, c'est la ___ et l'usage de la ___ comme pouvoir de ___ et d'institution des normes. »</p></front>
+      <back><p>revendication ; liberté ; révision.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Qu'est-ce qu'être sain pour un être humain selon Canguilhem ?</p></front>
+      <back><p>Être libre, capable de comprendre la culture et de la faire évoluer. Quelqu'un n'est pas anormal parce qu'il dévie des normes — il peut l'être parce qu'il leur obéit trop.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 30 : Normal et pathologique ─── -->
+  <card>
+    <meta>
+      <topic>Normal et pathologique — anomalie et norme</topic>
+      <source>Chapitre 4 — « Le normal et le pathologique »</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre et quelle section Canguilhem développe-t-il la distinction entre normal et pathologique ?</p></front>
+      <back><p>Chapitre 4 — « Le normal et le pathologique ».</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Le concept de "pathologique" n'est pas le ___ logique du concept de "normal", car la vie à l'état pathologique n'est pas absence de ___ mais présence d'___ normes. En toute rigueur, "pathologique" est le contraire ___ de "sain". »</p></front>
+      <back><p>contradictoire ; normes ; autres ; vital.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Dans une telle perspective, l'irrégularité, l'anomalie ne sont pas conçues comme des ___ affectant l'individu mais comme son ___ même. »</p></front>
+      <back><p>accidents ; existence.</p></back>
+    </question>
+
+    <question id="3" mode="texte_a_trous">
+      <front><p>« Une anomalie, c'est étymologiquement une ___, une différence de niveau, l'anomal c'est simplement le ___ . »</p></front>
+      <back><p>inégalité ; différent.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 31 : La santé — latitude et luxe ─── -->
+  <card>
+    <meta>
+      <topic>La santé — latitude, luxe, tomber malade et s'en relever</topic>
+      <source>Chapitre 4</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem définit-il la santé comme « luxe » et « latitude » ?</p></front>
+      <back><p>Chapitre 4.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« La santé est précisément, et principalement chez l'homme, une certaine ___, un certain jeu des normales de la vie et du comportement. »</p></front>
+      <back><p>latitude.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« La santé, c'est le ___ de pouvoir tomber malade et de s'en ___. »</p></front>
+      <back><p>luxe ; relever.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Quand la maladie devient-elle pathologie au sens strict pour Canguilhem ?</p></front>
+      <back><p>Quand l'organisme n'arrive plus jamais à retrouver son état antérieur — comme lors du vieillissement ou d'un accident grave. « Toute maladie est la réduction du pouvoir d'en surmonter d'autres. »</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 32 : Bichât — instabilité du vivant ─── -->
+  <card>
+    <meta>
+      <topic>Bichât — instabilité et irrégularité des forces vitales</topic>
+      <source>Chapitre 4</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem cite-t-il Bichât sur l'instabilité des forces vitales ?</p></front>
+      <back><p>Chapitre 4.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>Bichât : « le caractère distinctif des organismes » repose dans « l'___ des forces vitales (…) l'___ des phénomènes vitaux en opposition avec l'___ des phénomènes physiques. »</p></front>
+      <back><p>instabilité ; irrégularité ; uniformité.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Que signifie l'opposition entre irrégularité des phénomènes vitaux et uniformité des phénomènes physiques ?</p></front>
+      <back><p>La vie est fondamentalement imprévisible — chaque individu est irrégulier par rapport à une moyenne ou un type. Plus on vieillit, plus cette irrégularité s'accentue. Cela rend impossible un modèle cartésien pour le vivant.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 33 : Vitalisme ─── -->
+  <card>
+    <meta>
+      <topic>Le vitalisme et ses limites</topic>
+      <source>Chapitre 4</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem traite-t-il du vitalisme ?</p></front>
+      <back><p>Chapitre 4.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Le vitalisme, c'est la simple ___ de l'originalité du fait ___ . »</p></front>
+      <back><p>reconnaissance ; vital.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Pourquoi le vitalisme ne convient-il pas non plus à Canguilhem ?</p></front>
+      <back><p>Parce que les philosophes vitalistes font appel à un « élan vital » ou au spirituel — des notions trop vagues. Canguilhem cherche un équilibre et s'intéresse surtout au concept concret de milieu.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 34A : Le monstre en biologie — nature sans jugement ─── -->
+  <card>
+    <meta>
+      <topic>Le monstre en biologie — la nature ne juge pas</topic>
+      <source>Chapitre 5</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem traite-t-il de la monstruosité biologique ?</p></front>
+      <back><p>Chapitre 5.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« La vie est ___ en monstres alors que le fantastique est un ___ . »</p></front>
+      <back><p>pauvre ; monde.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Les organismes ne sont capables d'excentricités de structure qu'à un ___ moment du ___ de leur développement. »</p></front>
+      <back><p>court ; début.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Pourquoi la nature ne porte-t-elle pas de jugement sur le monstre ?</p></front>
+      <back><p>La nature ne juge ni moralement ni esthétiquement — si un jugement de valeur existe sur le monstre, il est humain, pas naturel. Le monstre implique seulement l'absence d'équilibre du milieu personnel.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 34B : Monstruosité au Moyen Âge et naturalisation par la médecine ─── -->
+  <card>
+    <meta>
+      <topic>Monstruosité — du Moyen Âge à la naturalisation médicale</topic>
+      <source>Chapitre 5</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem retrace-t-il l'histoire de la monstruosité du Moyen Âge à la médecine moderne ?</p></front>
+      <back><p>Chapitre 5.</p></back>
+    </question>
+
+    <question id="1" mode="classique">
+      <front><p>Comment la monstruosité était-elle interprétée au Moyen Âge ?</p></front>
+      <back><p>Elle était punissable et considérée comme le signe d'une infraction à la règle de ségrégation sexuelle et d'une perversion de l'ordre des créatures. Monstruosité et monstrueux relevaient des jugements médicaux et juridiques.</p></back>
+    </question>
+
+    <question id="2" mode="texte_a_trous">
+      <front><p>« Quand la monstruosité est devenue un concept ___ quand les monstruosités sont réparties en classes selon des rapports constants (…), alors le monstre est ___ . »</p></front>
+      <back><p>biologique ; naturalisé.</p></back>
+    </question>
+
+    <question id="3" mode="classique">
+      <front><p>Quel paradoxe Canguilhem soulève-t-il sur la médecine et la monstruosité ?</p></front>
+      <back><p>La médecine, en prétendant expulser le monstrueux de la nature, l'a en réalité installé au cœur de l'univers scientifique : elle classe les êtres en monstres / non-monstres et peut en créer elle-même.</p></back>
+    </question>
+  </card>
+
+  <!-- ─── CARTE 35 : Le merveilleux / fantastique — poésie et biologie ─── -->
+  <card>
+    <meta>
+      <topic>Merveilleux, fantastique — poésie vs biologie</topic>
+      <source>Chapitre 5</source>
+    </meta>
+
+    <question id="0" mode="classique">
+      <front><p>Dans quel chapitre Canguilhem oppose-t-il son rapport au monstrueux en littérature et en biologie ?</p></front>
+      <back><p>Chapitre 5.</p></back>
+    </question>
+
+    <question id="1" mode="texte_a_trous">
+      <front><p>« Le monstrueux est du ___ à rebours, mais c'est du merveilleux ___ tout. D'une part, il ___ : la vie est moins sûre d'elle-même qu'on n'avait pu le penser. D'autre part il ___ : puisque la vie est capable d'échecs, toutes ses réussites sont des échecs évités. »</p></front>
+      <back><p>merveilleux ; malgré ; inquiète ; valorise.</p></back>
+    </question>
+
+    <question id="2" mode="classique">
+      <front><p>Pourquoi Canguilhem aime-t-il le monstrueux en littérature mais le rejette en biologie ?</p></front>
+      <back><p>En littérature (Baudelaire, Rimbaud, Lautréamont, surréalisme), le monstrueux enrichit l'imagination et révèle la vitalité créatrice. En biologie, fabriquer des monstres (poulets cyclopes, tritons siamois…) relève d'un « projet diabolique » qui transgresse les limites éthiques du vivant.</p></back>
+    </question>
+
+    <question id="3" mode="texte_a_trous">
+      <front><p>« Jouons donc à fabriquer des poulets ___, des grenouilles à ___ pattes, des tritons ___, en attendant, pensent certains, de pouvoir jouer à fabriquer (…) un homme des bois. »</p></front>
+      <back><p>cyclopes ; cinq ; siamois.</p></back>
+    </question>
+  </card>
+
+</deck>
