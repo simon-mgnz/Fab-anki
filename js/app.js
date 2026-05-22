@@ -256,10 +256,17 @@
   document.addEventListener('visibilitychange', () => {
     if(document.visibilityState !== 'visible') return;
     const now = Date.now();
-    if(now - __lastVisibilitySyncAt < 300000) return; // max once per 5 minutes (Firestore reads)
+    if(now - __lastVisibilitySyncAt < 60000) return; // max once per minute (cardStates incremental is cheap)
     __lastVisibilitySyncAt = now;
     if(localStorage.getItem('fabanki:mode') !== 'synced') return;
     if(!navigator.onLine) return;
+    try{
+      sessionStorage.removeItem('fabanki:sess_restore_ok');
+      sessionStorage.removeItem('fabanki:fabanki_sync_meta_rev_cache');
+    }catch(e){}
+    if(typeof window.__fabanki_invalidateCloudCardPullCache === 'function'){
+      try{ window.__fabanki_invalidateCloudCardPullCache(); }catch(e){}
+    }
     if(typeof window.restoreFromCloud === 'function'){
       window.restoreFromCloud().catch(e => console.warn('[visibilitychange] restoreFromCloud failed:', e));
     }
@@ -1585,6 +1592,50 @@
   let multiDeckCards = []; // array of {card, deckURL, deckName}
   let cardFieldDefsMap = new Map(); // Map of deckKey::cardId -> fieldDefs for multi-deck
   let onlyNowMode = false; // when true, sessions show only due-now cards
+  let multiDeckBaseReviewMode = 'default'; // review mode for non-original decks in multi-deck sessions
+
+  function deckHasOriginalTagFromUrl(url){
+    const deckEntry = getManifestEntryForPath(url);
+    const deckTags = (typeof deckEntry === 'object' && deckEntry.tags) ? deckEntry.tags : [];
+    return Array.isArray(deckTags) && deckTags.includes('original');
+  }
+
+  function getEffectiveReviewMode(cardData){
+    if(multiDeckMode && cardData && cardData.hasOriginalTag) return 'original';
+    if(multiDeckMode) return multiDeckBaseReviewMode;
+    return reviewMode;
+  }
+
+  function parseMultiDeckOriginalCardFromNode(node, idxRef){
+    const questionElements = Array.from(node.querySelectorAll(':scope > question'));
+    if(questionElements.length === 0) return null;
+    const id = node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idxRef.value++));
+    const cardObj = { id, fields: {} };
+    cardObj._originalQuestions = questionElements.map(q => {
+      const qid = q.getAttribute('id') || '';
+      const mode = q.getAttribute('mode') || 'classique';
+      const frontEl = q.querySelector(':scope > front');
+      const backEl = q.querySelector(':scope > back');
+      return {
+        id: qid,
+        mode,
+        front: frontEl ? (frontEl.innerHTML || '').trim() : '',
+        back: backEl ? (backEl.innerHTML || '').trim() : ''
+      };
+    });
+    cardObj.fields.Front = {
+      html: cardObj._originalQuestions[0]?.front || '',
+      type: 'rich-text',
+      sides: { front: true, back: false, always: false }
+    };
+    cardObj.fields.Back = {
+      html: cardObj._originalQuestions[0]?.back || '',
+      type: 'rich-text',
+      sides: { front: false, back: true, always: false }
+    };
+    cardObj._fieldOrder = ['Front', 'Back'];
+    return cardObj;
+  }
 
   function getMultiDeckCardMapKey(deckKeyValue, cardIdValue){
     return String(deckKeyValue || '') + '::' + String(cardIdValue || '');
@@ -1653,10 +1704,28 @@
       const limitCount = Number.isFinite(options.limitCount) ? options.limitCount : null;
       onlyNowMode = onlyNow;
       multiDeckMode = true;
+      multiDeckBaseReviewMode = reviewMode;
       multiDeckURLs = deckURLs;
       multiDeckCards = [];
       cardFieldDefsMap = new Map(); // Reset the map for new load
       const allCards = [];
+
+      // Ensure manifest is loaded so Original deck tags are available
+      try{
+        if(Object.keys(manifestMeta || {}).length === 0){
+          const manifestRes = await fetch('./decks/manifest.json?v=' + Date.now());
+          if(manifestRes && manifestRes.ok){
+            const list = await manifestRes.json();
+            if(Array.isArray(list)){
+              manifestMeta = {};
+              list.forEach(item => {
+                if(typeof item === 'string') manifestMeta[item] = { path: item };
+                else if(item && item.path) manifestMeta[item.path] = item;
+              });
+            }
+          }
+        }
+      }catch(e){ console.warn('Manifest load error (multi-deck):', e); }
       
       // Load all decks and collect cards
       for(const url of deckURLs){
@@ -1685,76 +1754,98 @@
           const titleEl = xml.querySelector('title') || xml.querySelector('name') || xml.documentElement.getAttribute('name');
           if(titleEl) tempDeck.title = titleEl.textContent ? titleEl.textContent.trim() : (xml.documentElement.getAttribute('name')||'');
           const deckName = tempDeck.title || decodeURIComponent(url.split('/').pop()).replace(/\.xml$/i,'');
-          
-          // Parse field definitions
-          const fieldsContainer = xml.querySelector('fields');
-          if(fieldsContainer){
-            const defs = Array.from(fieldsContainer.children || []);
-            console.log('Loading field definitions for', deckName, '- found', defs.length, 'definitions');
-            for(let i = 0; i < defs.length; i++){
-              const f = defs[i];
-              const type = (f.localName || f.tagName || '').toLowerCase();
-              const name = f.getAttribute('name') || type;
-              const sidesAttr = f.getAttribute('sides') || (f.textContent || '');
-              let sides = interpretSides(sidesAttr);
-              // Keep parity with parseXMLDeck: when no sides metadata exists,
-              // first field is front-only, others back-only.
-              if(!sidesAttr || !String(sidesAttr).trim()){
-                sides = i === 0 ? {front:true,back:false,always:false} : {front:false,back:true,always:false};
-              }
-              console.log('  Field def:', {name, type, sides});
-              tempDeck.fieldDefs.push({name, type, sides});
+          const hasOriginalTag = deckHasOriginalTagFromUrl(url);
+          const firstCardNode = xml.querySelector('card');
+          const isOriginalModeDeck = hasOriginalTag || !!(firstCardNode && firstCardNode.querySelector('question'));
+          const cardNodes = Array.from(xml.getElementsByTagName('card')).length
+            ? Array.from(xml.getElementsByTagName('card'))
+            : Array.from(xml.querySelectorAll('card, note, item, entry, record'));
+
+          if(isOriginalModeDeck){
+            tempDeck.fieldDefs = [
+              { name: 'Front', type: 'rich-text', sides: { front: true, back: false, always: false } },
+              { name: 'Back', type: 'rich-text', sides: { front: false, back: true, always: false } }
+            ];
+            const idxRef = { value: 0 };
+            for(const node of cardNodes){
+              try{
+                const cardObj = parseMultiDeckOriginalCardFromNode(node, idxRef);
+                if(cardObj){
+                  cardObj.__deckKey = deckKey;
+                  tempDeck.cards.push(cardObj);
+                }
+              }catch(e){ continue; }
             }
           } else {
-            console.log('No field definitions container found for', deckName);
-          }
-          
-          // Parse cards with proper field mapping
-          const cardNodes = Array.from(xml.getElementsByTagName('card')).length ? Array.from(xml.getElementsByTagName('card')) : Array.from(xml.querySelectorAll('card, note, item, entry, record'));
-          let idx = 0;
-          for(const node of cardNodes){
-            try{
-              const id = node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idx++));
-              let fields = {};
-              let _fieldOrder = [];
-              if(tempDeck.fieldDefs.length > 0){
-                const extracted = extractMultiDeckCardFieldsFromNode(node, tempDeck.fieldDefs);
-                fields = extracted.fields;
-                _fieldOrder = extracted._fieldOrder;
-              } else {
-                // No field definitions - look for rich-text or tex tags first (like parseXMLDeck does)
-                let richTexTags = Array.from(node.querySelectorAll('rich-text, tex, katex'));
-                let fieldEls = richTexTags.length > 0 ? richTexTags : Array.from(node.children || []);
-                
-                // Filter to only element nodes (no text nodes, comments, etc)
-                const elementsOnly = fieldEls.filter(el => el.nodeType === 1 && (el.localName || el.tagName)); // nodeType 1 = ELEMENT_NODE
-                
-                // If we only got 1 element, try getting ALL children as fallback (some XMLs might wrap fields in containers)
-                let fieldsToProcess = elementsOnly;
-                if(elementsOnly.length <= 1){
-                  // Fallback: get all child elements, not just rich-text/tex
-                  fieldsToProcess = Array.from(node.children || []).filter(el => el.nodeType === 1 && (el.localName || el.tagName));
+            // Parse field definitions
+            const fieldsContainer = xml.querySelector('fields');
+            if(fieldsContainer){
+              const defs = Array.from(fieldsContainer.children || []);
+              console.log('Loading field definitions for', deckName, '- found', defs.length, 'definitions');
+              for(let i = 0; i < defs.length; i++){
+                const f = defs[i];
+                const type = (f.localName || f.tagName || '').toLowerCase();
+                const name = f.getAttribute('name') || type;
+                const sidesAttr = f.getAttribute('sides') || (f.textContent || '');
+                let sides = interpretSides(sidesAttr);
+                // Keep parity with parseXMLDeck: when no sides metadata exists,
+                // first field is front-only, others back-only.
+                if(!sidesAttr || !String(sidesAttr).trim()){
+                  sides = i === 0 ? {front:true,back:false,always:false} : {front:false,back:true,always:false};
                 }
-                
-                for(let fi = 0; fi < fieldsToProcess.length; fi++){
-                  const f = fieldsToProcess[fi];
-                  const tag = (f.getAttribute && f.getAttribute('name')) || (f.localName || f.tagName || '').toLowerCase();
-                  // Keep all fields, don't skip any - we need the full structure
-                  if(!tag) continue;
-                  
-                  // First field is front, rest are back
-                  const isFront = (fi === 0);
-                  fields[tag] = {
-                    html: f.innerHTML || '',
-                    type: (f.localName || f.tagName || '').toLowerCase(),
-                    sides: {front: isFront, back: !isFront, always: false}
-                  };
-                  _fieldOrder.push(tag);
-                }
+                console.log('  Field def:', {name, type, sides});
+                tempDeck.fieldDefs.push({name, type, sides});
               }
-              // Always create the card with _fieldOrder, even if empty
-              tempDeck.cards.push({id, fields, __deckKey: deckKey, _fieldOrder: _fieldOrder.length > 0 ? _fieldOrder : Object.keys(fields)});
-            }catch(e){ continue }
+            } else {
+              console.log('No field definitions container found for', deckName);
+            }
+
+            // Parse cards with proper field mapping
+            let idx = 0;
+            for(const node of cardNodes){
+              try{
+                const id = node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idx++));
+                let fields = {};
+                let _fieldOrder = [];
+                if(tempDeck.fieldDefs.length > 0){
+                  const extracted = extractMultiDeckCardFieldsFromNode(node, tempDeck.fieldDefs);
+                  fields = extracted.fields;
+                  _fieldOrder = extracted._fieldOrder;
+                } else {
+                  // No field definitions - look for rich-text or tex tags first (like parseXMLDeck does)
+                  let richTexTags = Array.from(node.querySelectorAll('rich-text, tex, katex'));
+                  let fieldEls = richTexTags.length > 0 ? richTexTags : Array.from(node.children || []);
+
+                  // Filter to only element nodes (no text nodes, comments, etc)
+                  const elementsOnly = fieldEls.filter(el => el.nodeType === 1 && (el.localName || el.tagName)); // nodeType 1 = ELEMENT_NODE
+
+                  // If we only got 1 element, try getting ALL children as fallback (some XMLs might wrap fields in containers)
+                  let fieldsToProcess = elementsOnly;
+                  if(elementsOnly.length <= 1){
+                    // Fallback: get all child elements, not just rich-text/tex
+                    fieldsToProcess = Array.from(node.children || []).filter(el => el.nodeType === 1 && (el.localName || el.tagName));
+                  }
+
+                  for(let fi = 0; fi < fieldsToProcess.length; fi++){
+                    const f = fieldsToProcess[fi];
+                    const tag = (f.getAttribute && f.getAttribute('name')) || (f.localName || f.tagName || '').toLowerCase();
+                    // Keep all fields, don't skip any - we need the full structure
+                    if(!tag) continue;
+
+                    // First field is front, rest are back
+                    const isFront = (fi === 0);
+                    fields[tag] = {
+                      html: f.innerHTML || '',
+                      type: (f.localName || f.tagName || '').toLowerCase(),
+                      sides: {front: isFront, back: !isFront, always: false}
+                    };
+                    _fieldOrder.push(tag);
+                  }
+                }
+                // Always create the card with _fieldOrder, even if empty
+                tempDeck.cards.push({id, fields, __deckKey: deckKey, _fieldOrder: _fieldOrder.length > 0 ? _fieldOrder : Object.keys(fields)});
+              }catch(e){ continue }
+            }
           }
           
           // Store total card count for deck mastery tracking
@@ -1784,7 +1875,7 @@
             // Store field definitions in map so renderBack can access them
             cardFieldDefsMap.set(getMultiDeckCardMapKey(deckKey, c.id), tempDeck.fieldDefs);
             // Add all cards to allCards - filtering will happen later
-            allCards.push({card: c, deckURL: url, deckName, deckKey, deckPath, isNew});
+            allCards.push({card: c, deckURL: url, deckName, deckKey, deckPath, isNew, hasOriginalTag: isOriginalModeDeck});
           }
         }catch(e){ console.warn('Error loading deck:', url, e); }
       }
@@ -2231,6 +2322,8 @@
       const cardsList = [];
       let reviewed = 0;
       let masteredReviewed = 0;
+      let precisionGraded = 0;
+      let precisionCorrect = 0;
       
       console.log('Overview: deckKeyForStats=', deckKeyForStats, 'Looking for keys like: fabanki:' + deckKeyForStats + ':card:*');
       
@@ -2275,6 +2368,10 @@
             const stability = Number(st?.stability || 0);
             const repsNum = Number(st?.reps || 0);
             if(interval >= 7 || stability >= 14 || repsNum >= 5) masteredReviewed++;
+            if(st && st.lastQuality !== undefined && st.lastQuality !== null){
+              precisionGraded++;
+              if(Number(st.lastQuality) >= 3) precisionCorrect++;
+            }
           }
           
           // Get first field for card display
@@ -2450,28 +2547,9 @@
         <div class="deck-overview-mastery-bar"><i style="width:${Math.max(0, Math.min(100, masteryReviewPct))}%"></i></div>
       `;
       rightPanel.appendChild(masteryBox);
-      
-      // Clean mastery bar
-      const masterySection = document.createElement('div');
-      masterySection.style.cssText = 'background:var(--card);border-radius:12px;padding:16px;border:1px solid rgba(0,0,0,0.07);margin-bottom:12px;';
-      const masteryLabel = document.createElement('div');
-      masteryLabel.style.cssText = 'font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;font-weight:600;';
-      masteryLabel.textContent = 'Maîtrise';
-      masterySection.appendChild(masteryLabel);
+
       const nowCards = counts.now || 0;
-      const masterySchedulePct = reviewed > 0 && total > 0 ? Math.round((1 - nowCards/total)*100) : 0;
-      const masteryBarWrap = document.createElement('div');
-      masteryBarWrap.style.cssText = 'height:8px;background:rgba(0,0,0,0.07);border-radius:4px;overflow:hidden;margin-bottom:8px;';
-      const masteryBarFill = document.createElement('div');
-      const mc = masterySchedulePct > 75 ? '#4caf78' : masterySchedulePct > 50 ? '#5b9bd4' : masterySchedulePct > 25 ? '#d97b3a' : '#e05252';
-      masteryBarFill.style.cssText = `height:100%;width:${masterySchedulePct}%;background:${mc};border-radius:4px;transition:width 0.5s;`;
-      masteryBarWrap.appendChild(masteryBarFill);
-      masterySection.appendChild(masteryBarWrap);
-      const masteryNum = document.createElement('div');
-      masteryNum.style.cssText = `font-size:1.4rem;font-weight:800;color:${mc};`;
-      masteryNum.textContent = masterySchedulePct + '%';
-      masterySection.appendChild(masteryNum);
-      rightPanel.appendChild(masterySection);
+      const precisionPct = precisionGraded > 0 ? Math.round((precisionCorrect / precisionGraded) * 100) : null;
 
       // Stats grid (4 cells)
       const overviewGrid = document.createElement('div');
@@ -2480,7 +2558,7 @@
         { label:'Total', value:String(total), color:'var(--fg)' },
         { label:'À revoir', value:String(nowCards), color:'#e05252' },
         { label:'Révisées', value:String(reviewed), color:'#4caf78' },
-        { label:'Précision', value: reviewed>0 ? Math.round((reviewed-nowCards)/Math.max(reviewed,1)*100)+'%' : 'N/A', color:'var(--accent)' },
+        { label:'Précision', value: precisionPct !== null ? precisionPct + '%' : 'N/A', color:'var(--accent)' },
       ];
       gridItems.forEach(item => {
         const cell = document.createElement('div');
@@ -2496,117 +2574,13 @@
       });
       rightPanel.appendChild(overviewGrid);
 
-      // Star rating and progress bar (legacy, kept for reference but hidden)
-      const ratingContainer = document.createElement('div');
-      ratingContainer.style.cssText = 'margin-bottom:16px;';
-      
-      // Calculate accuracy for star rating
-      let accuracyForRating = 0;
-      if(!fsrsDisabledForStats && reviewed > 0) {
-        let accuracySum = 0, reviewedTotal = 0;
-        for(const c of cardsList){
-          if(c.category === 'now') { accuracySum += 0; reviewedTotal++; }
-          else if(c.category === 'h12') { accuracySum += 5; reviewedTotal++; }
-          else if(c.category === 'tomorrow') { accuracySum += 10; reviewedTotal++; }
-          else if(c.category === 'week') { accuracySum += 15; reviewedTotal++; }
-          else if(c.category === 'long') { accuracySum += 20; reviewedTotal++; }
-        }
-        accuracyForRating = reviewedTotal > 0 ? (accuracySum / reviewedTotal) / 20 : 0; // 0-1 scale
-      }
-      
-      // Determine star count (0-3 stars based on accuracy tiers)
-      let starCount = 0;
-      if(accuracyForRating >= 0.9) starCount = 3;      // 90%+
-      else if(accuracyForRating >= 0.8) starCount = 2.5; // 80-90%
-      else if(accuracyForRating >= 0.6) starCount = 2;  // 60-80%
-      else if(accuracyForRating >= 0.2) starCount = 1;  // 20-60%
-      
-      // Star rating display
-      const starDiv = document.createElement('div');
-      starDiv.className = 'deck-overview-stars';
-      
-      for(let i = 0; i < 3; i++) {
-        const star = document.createElement('span');
-        star.className = 'deck-overview-star';
-        if(i < Math.floor(starCount)) {
-          star.textContent = 'â˜…';
-          star.classList.add('deck-overview-star--on');
-        } else if(i === Math.floor(starCount) && starCount % 1 !== 0) {
-          star.textContent = 'âœ¦'; // Half star
-          star.classList.add('deck-overview-star--half');
-        } else {
-          star.textContent = 'â˜†';
-          star.classList.add('deck-overview-star--off');
-        }
-        starDiv.appendChild(star);
-      }
-      
-      const ratingText = document.createElement('span');
-      ratingText.textContent = `${(accuracyForRating * 100).toFixed(0)}%`;
-      ratingText.className = 'deck-overview-rating-pct';
-      starDiv.appendChild(ratingText);
-      ratingContainer.appendChild(starDiv);
-      
-      // Progress bar with tier markers
-      const progressWrapper = document.createElement('div');
-      progressWrapper.className = 'deck-overview-accuracy-track';
-      
-      const progressBar = document.createElement('div');
-      progressBar.className = 'deck-overview-accuracy-bar';
-      progressWrapper.appendChild(progressBar);
-      
-      // Progress fill
-      const progressFill = document.createElement('div');
-      progressFill.className = 'deck-overview-accuracy-fill';
-      progressFill.style.width = `${accuracyForRating * 100}%`;
-      progressWrapper.appendChild(progressFill);
-      
-      // Tier markers at 60%, 80%, 90%
-      const tiers = [
-        {percent: 60, label: '60%'},
-        {percent: 80, label: '80%'},
-        {percent: 90, label: '90%'}
-      ];
-      
-      tiers.forEach(tier => {
-        const marker = document.createElement('div');
-        marker.className = 'deck-overview-tier-label';
-        marker.style.left = `calc(${tier.percent}% - 8px)`;
-        marker.textContent = tier.label;
-        progressWrapper.appendChild(marker);
-      });
-      
-      // Current position indicator on progress bar
-      const positionIndicator = document.createElement('div');
-      const currentPercent = accuracyForRating * 100;
-      positionIndicator.className = 'deck-overview-tier-marker';
-      positionIndicator.style.left = `calc(${currentPercent}% - 6px)`;
-      progressWrapper.appendChild(positionIndicator);
-      
-      ratingContainer.appendChild(progressWrapper);
-      rightPanel.appendChild(ratingContainer);
-      
       const stats = document.createElement('div');
       stats.style.cssText = 'background:linear-gradient(135deg, #1e293b 0%, #334155 100%);color:#fff;padding:16px;border-radius:12px;margin-bottom:16px;font-size:0.9em;line-height:1.8;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
-      
-      // Accuracy calculation
-      let accuracy = 'N/A';
-      if(!fsrsDisabledForStats){
-        let accuracySum = 0, reviewedTotal = 0;
-        for(const c of cardsList){
-          if(c.category === 'now') { accuracySum += 0; reviewedTotal++; }
-          else if(c.category === 'h12') { accuracySum += 5; reviewedTotal++; }
-          else if(c.category === 'tomorrow') { accuracySum += 10; reviewedTotal++; }
-          else if(c.category === 'week') { accuracySum += 15; reviewedTotal++; }
-          else if(c.category === 'long') { accuracySum += 20; reviewedTotal++; }
-        }
-        accuracy = reviewedTotal > 0 ? (accuracySum / reviewedTotal).toFixed(2) : 'N/A';
-      }
-      
+      const precisionLabel = precisionPct !== null ? precisionPct + '%' : 'N/A';
       stats.innerHTML = `
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Cartes rÃ©visÃ©es</span><strong>${reviewed}</strong></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Total</span><strong>${total}</strong></div>
-        <div style="display:flex;justify-content:space-between;"><span>PrÃ©cision</span><strong>${accuracy}</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span>PrÃ©cision</span><strong>${precisionLabel}</strong></div>
       `;
       rightPanel.appendChild(stats);
 
@@ -2720,7 +2694,14 @@
       const isActiveMemoryUnlocked = true; // Active Memory mode is free and always available
       const isStepModeUnlocked = localStorage.getItem('fabanki:mode_step_unlocked') === 'true';
       
-      if((deckHasTextTag || deckHasTimerTag) && !lockState.locked){
+      if(deckHasOriginalTag && !lockState.locked){
+        reviewMode = 'original';
+        localStorage.setItem(`fabanki:review_mode:${deckKey}`, 'original');
+        const modeHint = document.createElement('div');
+        modeHint.className = 'deck-overview-mode-hint';
+        modeHint.innerHTML = 'Ce deck utilise uniquement le <strong>mode Original</strong>. Les autres modes sont desactives.';
+        rightPanel.appendChild(modeHint);
+      } else if((deckHasTextTag || deckHasTimerTag) && !lockState.locked){
         const modeContainer = document.createElement('div');
         modeContainer.className = 'deck-overview-mode-wrap';
         
@@ -2944,7 +2925,7 @@
         modeHint.className = 'deck-overview-mode-hint';
         modeHint.innerHTML = 'ðŸ’¡ SÃ©lectionnez votre mode d\'Ã©tude, puis cliquez sur le deck pour commencer. Chaque mode offre une expÃ©rience diffÃ©rente!';
         rightPanel.appendChild(modeHint);
-      } else if(isActiveMemoryUnlocked && !lockState.locked){
+      } else if(isActiveMemoryUnlocked && !lockState.locked && !deckHasOriginalTag){
         // Show mode buttons even if no other modes are available
         const modeContainer = document.createElement('div');
         modeContainer.className = 'deck-overview-mode-wrap';
@@ -5303,6 +5284,11 @@
       renderEmpty(); 
       return;
     }
+
+    const cardData = multiDeckMode ? dueCards[currentIndex] : null;
+    if(multiDeckMode){
+      reviewMode = getEffectiveReviewMode(cardData);
+    }
     
     // Show timer settings dialog on first card if timer mode is active
     // But don't proceed with card display - wait for confirmation
@@ -5362,7 +5348,6 @@
     
     if(currentIndex >= dueCards.length) currentIndex = 0;
     const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
-    const cardData = multiDeckMode ? dueCards[currentIndex] : null;
     updateReviewMobileHeader(cardData);
     updateReviewFavoriteMenuLabel();
     const fsrsDisabled = isFsrsDisabledForDeck();
@@ -5379,7 +5364,14 @@
         localStorage.setItem(_sk, JSON.stringify(st));
       }catch(e){}
     }
-    const sa = $('#showAnswer'); if(sa) sa.style.display = (reviewMode === 'fillblank' || reviewMode === 'step' || reviewMode === 'hold') ? 'none' : 'inline-block';
+    const sa = $('#showAnswer');
+    if(sa){
+      const origQ = (reviewMode === 'original' && c && c._originalQuestions && c._originalQuestions.length)
+        ? c._originalQuestions[(originalModeState && originalModeState.cardId === c.id) ? originalModeState.currentIndex : 0]
+        : null;
+      const hideForOriginalTextFill = origQ && origQ.mode === 'texte_a_trous';
+      sa.style.display = (reviewMode === 'fillblank' || reviewMode === 'step' || reviewMode === 'hold' || hideForOriginalTextFill) ? 'none' : 'inline-block';
+    }
     const nextStepBtn = document.getElementById('nextStepBtn');
     if(nextStepBtn) nextStepBtn.style.display = 'none';
     const resp = $('#respButtons'); if(resp) resp.style.display = 'none';
@@ -7426,12 +7418,74 @@
     const backEl = $('#back');
     const respButtons = $('#respButtons');
     const showAnswerBtn = $('#showAnswer');
-    
-    if(showAnswerBtn) showAnswerBtn.style.display = 'none';
+    const firstQ = card._originalQuestions[0];
+    const usesTextFill = firstQ && firstQ.mode === 'texte_a_trous';
+
+    if(backEl){
+      backEl.innerHTML = '';
+      backEl.classList.remove('back-preloaded', 'back-visible');
+      backEl.style.display = 'none';
+      backEl.setAttribute('aria-hidden', 'true');
+    }
     if(respButtons) respButtons.style.display = 'none';
-    if(backEl) backEl.style.display = 'none';
-    
+    if(showAnswerBtn) showAnswerBtn.style.display = usesTextFill ? 'none' : 'inline-block';
+
     displayOriginalQuestion(card);
+  }
+
+  function resetOriginalQuestionReveal(){
+    const backEl = $('#back');
+    const respButtons = $('#respButtons');
+    const showAnswerBtn = $('#showAnswer');
+    const state = originalModeState;
+    const q = state && state.questions[state.currentIndex];
+    const usesTextFill = q && q.mode === 'texte_a_trous';
+    if(backEl){
+      backEl.innerHTML = '';
+      backEl.classList.remove('back-preloaded', 'back-visible');
+      backEl.style.display = 'none';
+      backEl.setAttribute('aria-hidden', 'true');
+    }
+    if(respButtons) respButtons.style.display = 'none';
+    if(showAnswerBtn) showAnswerBtn.style.display = usesTextFill ? 'none' : 'inline-block';
+    answerLocked = false;
+  }
+
+  function appendOriginalQuestionNav(card, frontEl){
+    if(!originalModeState || !frontEl) return;
+    const state = originalModeState;
+    const navContainer = document.createElement('div');
+    navContainer.className = 'original-question-nav';
+    navContainer.style.cssText = 'display:flex;gap:8px;margin-top:16px;justify-content:center;width:100%;max-width:520px;';
+
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.textContent = '← Précédent';
+    prevBtn.className = 'secondary';
+    prevBtn.disabled = state.currentIndex === 0;
+    prevBtn.addEventListener('click', () => {
+      if(state.currentIndex <= 0) return;
+      state.currentIndex--;
+      displayOriginalQuestion(card);
+    });
+    navContainer.appendChild(prevBtn);
+
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'secondary';
+    const isLast = state.currentIndex >= state.questions.length - 1;
+    nextBtn.textContent = isLast ? 'Terminer' : 'Suivant →';
+    if(isLast) nextBtn.classList.add('primary');
+    nextBtn.addEventListener('click', () => {
+      if(state.currentIndex < state.questions.length - 1){
+        state.currentIndex++;
+        displayOriginalQuestion(card);
+      } else {
+        finishOriginalMode(card);
+      }
+    });
+    navContainer.appendChild(nextBtn);
+    frontEl.appendChild(navContainer);
   }
   
   function displayOriginalQuestion(card){
@@ -7443,62 +7497,33 @@
     
     const frontEl = $('#front');
     if(!frontEl) return;
-    
+
+    resetOriginalQuestionReveal();
+
     frontEl.innerHTML = '';
     frontEl.style.display = 'flex';
     frontEl.style.flexDirection = 'column';
-    
-    // Question header showing progress
+    frontEl.style.alignItems = 'center';
+    frontEl.style.justifyContent = 'center';
+
     const header = document.createElement('div');
-    header.style.cssText = 'font-size:0.85em;color:#666;margin-bottom:12px;padding:8px;background:#f0f0f0;border-radius:4px;';
-    header.innerHTML = `Question ${state.currentIndex + 1} / ${state.questions.length}`;
+    header.className = 'muted small';
+    header.style.cssText = 'margin-bottom:12px;text-align:center;';
+    header.textContent = `Question ${state.currentIndex + 1} / ${state.questions.length}`;
     frontEl.appendChild(header);
-    
-    // Input/Answer UI based on question mode
+
     if(q.mode === 'texte_a_trous'){
       displayTextFill(q, card);
     } else {
-      // Question content for non-texte_a_trous modes
       const questionDiv = document.createElement('div');
-      questionDiv.style.cssText = 'flex:1;padding:12px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;margin-bottom:16px;';
+      questionDiv.className = 'field';
+      questionDiv.style.cssText = 'width:100%;max-width:760px;text-align:center;';
       questionDiv.innerHTML = q.front;
+      try{ renderKaTeX(questionDiv); }catch(e){}
       frontEl.appendChild(questionDiv);
-      displayClassicQuestion(q, card);
     }
-    
-    // Navigation container
-    const navContainer = document.createElement('div');
-    navContainer.style.cssText = 'display:flex;gap:8px;margin-top:16px;justify-content:space-between;';
-    frontEl.appendChild(navContainer);
-    
-    // Previous button
-    const prevBtn = document.createElement('button');
-    prevBtn.textContent = 'â† PrÃ©cÃ©dent';
-    prevBtn.style.cssText = 'padding:10px 16px;background:#6b7280;color:white;border:none;border-radius:6px;cursor:pointer;';
-    prevBtn.disabled = state.currentIndex === 0;
-    prevBtn.addEventListener('click', () => {
-      state.currentIndex--;
-      displayOriginalQuestion(card);
-    });
-    navContainer.appendChild(prevBtn);
-    
-    // Next button
-    const nextBtn = document.createElement('button');
-    nextBtn.textContent = 'Suivant â†’';
-    nextBtn.style.cssText = 'padding:10px 16px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;';
-    if(state.currentIndex === state.questions.length - 1){
-      nextBtn.textContent = 'Terminer';
-      nextBtn.style.background = '#16a34a';
-    }
-    nextBtn.addEventListener('click', () => {
-      if(state.currentIndex < state.questions.length - 1){
-        state.currentIndex++;
-        displayOriginalQuestion(card);
-      } else {
-        finishOriginalMode(card);
-      }
-    });
-    navContainer.appendChild(nextBtn);
+
+    appendOriginalQuestionNav(card, frontEl);
   }
   
   function displayTextFill(q, card){
@@ -7557,51 +7582,33 @@
     }
   }
   
-  function displayClassicQuestion(q, card){
+  function revealOriginalClassicAnswer(q){
+    const backEl = $('#back');
     const frontEl = $('#front');
-    
-    // Create button container with grading options
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;';
-    
-    // Show answer first
-    const showAnswerBtn = document.createElement('button');
-    showAnswerBtn.textContent = 'Voir la rÃ©ponse';
-    showAnswerBtn.style.cssText = 'padding:10px 16px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;margin-bottom:12px;width:100%;font-weight:600;';
-    showAnswerBtn.addEventListener('click', () => {
-      const backEl = $('#back');
-      if(backEl){
-        backEl.innerHTML = q.back;
-        backEl.style.display = 'block';
-        showAnswerBtn.style.display = 'none';
-        // Show grading buttons
-        gradeContainer.style.display = 'flex';
-      }
-    });
-    frontEl.appendChild(showAnswerBtn);
-    
-    // Create grade buttons container (initially hidden)
-    const gradeContainer = document.createElement('div');
-    gradeContainer.style.cssText = 'display:none;gap:8px;flex-wrap:wrap;margin-top:12px;';
-    
-    const gradeButtons = [
-      {label: 'RatÃ©', quality: 0, color: '#ef4444'},
-      {label: 'Difficile', quality: 3, color: '#f97316'},
-      {label: 'Bon', quality: 4, color: '#3b82f6'},
-      {label: 'Facile', quality: 5, color: '#22c55e'}
-    ];
-    
-    gradeButtons.forEach(({label, quality, color}) => {
-      const btn = document.createElement('button');
-      btn.textContent = label;
-      btn.style.cssText = `padding:10px 16px;background:${color};color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;flex:1;min-width:100px;`;
-      btn.addEventListener('click', () => {
-        handleOriginalGrade(q, card, quality);
-      });
-      gradeContainer.appendChild(btn);
-    });
-    
-    frontEl.appendChild(gradeContainer);
+    const respButtons = $('#respButtons');
+    const showAnswerBtn = $('#showAnswer');
+    if(!backEl || !q) return;
+    backEl.innerHTML = q.back;
+    try{ renderKaTeX(backEl); }catch(e){}
+    if(window.innerWidth <= 640){
+      if(frontEl){ frontEl.style.display = 'block'; frontEl.style.flex = '0 0 auto'; }
+      backEl.style.display = 'block';
+      backEl.style.flex = '0 0 auto';
+      backEl.style.visibility = 'visible';
+      backEl.style.pointerEvents = 'auto';
+      backEl.classList.add('back-visible');
+      backEl.setAttribute('aria-hidden', 'false');
+    } else {
+      if(frontEl){ frontEl.style.display = 'none'; }
+      backEl.style.display = 'block';
+      backEl.style.flex = '1 1 auto';
+      backEl.style.visibility = 'visible';
+      backEl.style.pointerEvents = 'auto';
+      backEl.classList.add('back-visible');
+      backEl.setAttribute('aria-hidden', 'false');
+    }
+    if(respButtons) respButtons.style.display = 'inline-flex';
+    if(showAnswerBtn) showAnswerBtn.style.display = 'none';
   }
   
   function validateOriginalTextFill(q, card, userAnswers){
@@ -7701,9 +7708,19 @@
     
     // Calculate mean score across all questions
     const state = originalModeState;
-    const meanScore = state.scores.length > 0 
-      ? Math.floor(state.scores.reduce((a, b) => a + b, 0) / state.scores.length)
+    const gradedScores = state.scores.filter(s => s !== undefined && s !== null && !Number.isNaN(Number(s)));
+    const meanScore = gradedScores.length > 0
+      ? Math.floor(gradedScores.reduce((a, b) => a + Number(b), 0) / gradedScores.length)
       : 0;
+
+    const backEl = $('#back');
+    const showAnswerBtn = $('#showAnswer');
+    if(backEl){
+      backEl.innerHTML = '';
+      backEl.style.display = 'none';
+      backEl.setAttribute('aria-hidden', 'true');
+    }
+    if(showAnswerBtn) showAnswerBtn.style.display = 'none';
     
     // Show summary
     const frontEl = $('#front');
@@ -9434,6 +9451,13 @@
     showAnswerBtn.addEventListener('click', ()=>{
       const c = multiDeckMode ? dueCards[currentIndex].card : dueCards[currentIndex];
       try{
+        if(reviewMode === 'original' && originalModeState){
+          const q = originalModeState.questions[originalModeState.currentIndex];
+          if(q && q.mode !== 'texte_a_trous'){
+            revealOriginalClassicAnswer(q);
+            return;
+          }
+        }
         const backEl = $('#back');
         const hasPreloadedBack = !!(backEl && backEl.classList.contains('back-preloaded'));
         if(reviewMode === 'multiple'){
@@ -10074,6 +10098,17 @@
     const c = cardData ? cardData.card : dueCards[currentIndex];
     if(answerLocked && !options.skipLock) return;
     if(!c) return;
+
+    // Original mode: per-question grades advance within the card, not the whole deck
+    if(reviewMode === 'original' && originalModeState && !options.suppressNext){
+      const qItem = originalModeState.questions[originalModeState.currentIndex];
+      if(qItem){
+        handleOriginalGrade(qItem, c, q);
+        answerLocked = false;
+        return;
+      }
+    }
+
     if(!options.skipLock) answerLocked = true;
     const origStorageKey = storageKey; // save original
     
@@ -11010,37 +11045,17 @@
           try{
             const entries = await fetchDirectory('./decks/');
             const xmlFiles = (Array.isArray(entries)?entries:[]).filter(e=>typeof e==='string'&&e.toLowerCase().endsWith('.xml'));
-            const rootFolders = new Set();
-            (Array.isArray(entries)?entries:[]).forEach(e => {
-              if(typeof e !== 'string') return;
-              const top = e.split('/')[0];
-              if(top && !e.toLowerCase().endsWith('.xml')) rootFolders.add(top);
-            });
             let totalCards = 0, totalDue = 0, totalNew = 0;
             for(const f of xmlFiles){
               try{
                 const deckUrl = './decks/' + f;
-                const deckKeyStat = (typeof getDeckKeyFromUrl === 'function') ? getDeckKeyFromUrl(deckUrl) : null;
-                const knownCardCount = deckKeyStat
-                  ? Number(localStorage.getItem(`fabanki:deck_card_count:${deckKeyStat}`) || 0)
-                  : 0;
-                const legacyCardCount = Number(localStorage.getItem('fabanki:deck_cards_' + f) || 0);
-                const cardCount = knownCardCount > 0 ? knownCardCount : legacyCardCount;
-                const dueCnt = await countDueNowForDeck(deckUrl);
-                totalDue += Number(dueCnt || 0);
-                totalCards += cardCount > 0 ? cardCount : 0;
-                if(deckKeyStat){
-                  const pfx = `fabanki:${deckKeyStat}:card:`;
-                  let reviewed = 0;
-                  for(let i=0;i<localStorage.length;i++){
-                    const k = localStorage.key(i);
-                    if(k && k.startsWith(pfx)) reviewed++;
-                  }
-                  const freshEstimate = Math.max(0, (cardCount || 0) - reviewed);
-                  totalNew += freshEstimate;
-                }
+                const counts = await computeDeckCounts(deckUrl);
+                totalDue += Number(counts.due || 0);
+                totalNew += Number(counts.fresh || 0);
+                totalCards += Number(counts.total || 0);
               }catch(e){ /* ignore */ }
             }
+            const folderCount = countDeckBrowserFolders(xmlFiles);
             const el0 = document.getElementById('deckStatCell_0');
             const el1 = document.getElementById('deckStatCell_1');
             const el2 = document.getElementById('deckStatCell_2');
@@ -11048,7 +11063,7 @@
             if(el0) el0.textContent = totalCards > 0 ? totalCards.toLocaleString() : xmlFiles.length;
             if(el1) el1.textContent = totalDue.toLocaleString();
             if(el2) el2.textContent = totalNew.toLocaleString();
-            if(el3) el3.textContent = rootFolders.size || xmlFiles.length;
+            if(el3) el3.textContent = String(folderCount);
           }catch(e){ console.warn('stats bar error', e); }
         }, 100);
       }
@@ -11085,12 +11100,9 @@
             return reviewed;
           }catch(e){ return 0; }
         }
-        function getDeckUiMeta(deckUrl){
-          if(deckUiMetaCache.has(deckUrl)) return deckUiMetaCache.get(deckUrl);
-          const due = Number(localStorage.getItem('fabanki:deck_due_' + normalizeDeckPath(deckUrl)) || 0);
-          const fallbackNew = Number(localStorage.getItem('fabanki:deck_new_' + normalizeDeckPath(deckUrl)) || 0);
-          const reviewed = getReviewedCountForDeck(deckUrl);
+        function computeDeckMasteryPct(deckUrl, reviewedHint){
           let mastered = Number(localStorage.getItem('fabanki:deck_mastery_' + normalizeDeckPath(deckUrl).replace(/\//g,'_')) || 0);
+          const reviewed = Number(reviewedHint || 0) || getReviewedCountForDeck(deckUrl);
           if(!(mastered > 0) && reviewed > 0){
             try{
               const canonical = (typeof getDeckKeyFromUrl === 'function') ? getDeckKeyFromUrl(deckUrl) : null;
@@ -11124,10 +11136,142 @@
               }
             }catch(e){}
           }
-          const data = { due, reviewed, mastered, fresh: fallbackNew };
+          return mastered;
+        }
+
+        async function computeDeckUiMeta(deckUrl, force){
+          if(!force && deckUiMetaCache.has(deckUrl)) return deckUiMetaCache.get(deckUrl);
+          const counts = await computeDeckCounts(deckUrl);
+          const mastered = computeDeckMasteryPct(deckUrl, counts.reviewed);
+          const data = {
+            due: counts.due,
+            fresh: counts.fresh,
+            reviewed: counts.reviewed,
+            mastered,
+            total: counts.total
+          };
           deckUiMetaCache.set(deckUrl, data);
           return data;
         }
+
+        function deckKpiStack(label, value, mod){
+          return `<div class="deck-kpi deck-kpi--${mod}"><span class="deck-kpi-label">${label}</span><span class="deck-kpi-value">${value}</span></div>`;
+        }
+
+        function deckKpisHtml(meta){
+          return [
+            deckKpiStack('À faire', meta.due, 'due'),
+            deckKpiStack('Nouv.', meta.fresh, 'new'),
+            deckKpiStack('Maitrise', meta.mastered + '%', 'mastery')
+          ].join('');
+        }
+
+        function refreshDeckEntryCounts(statsEl, mBar, deckUrl){
+          computeDeckUiMeta(deckUrl, true).then(meta => {
+            if(statsEl) statsEl.innerHTML = deckKpisHtml(meta);
+            if(mBar){
+              mBar.classList.toggle('deck-mastery--empty', !(meta.mastered > 0));
+              mBar.innerHTML = `<i style="width:${Math.max(0, Math.min(100, meta.mastered))}%"></i>`;
+            }
+          }).catch(() => {});
+        }
+
+        function appendDeckEntryLayout(row, built, act){
+          row.appendChild(built.textCol);
+          row.appendChild(built.barSlot);
+          row.appendChild(built.statsCol);
+          if(act) row.appendChild(act);
+        }
+
+        function isDeckBrowserMobile(){
+          return window.innerWidth <= 640;
+        }
+
+        function parseChapitreDeckTitle(leaf){
+          const s = String(leaf || '').trim();
+          const m = s.match(/^Chapitre\s+(.+?)\s*-\s*(.+)$/i);
+          if(m){
+            return {
+              isChapitre: true,
+              chapitreLabel: `Chapitre ${m[1].trim()}`,
+              title: m[2].trim()
+            };
+          }
+          return { isChapitre: false, title: s };
+        }
+
+        function formatDeckEntryLabels(fullPath, opts = {}){
+          const mobile = opts.mobile != null ? opts.mobile : isDeckBrowserMobile();
+          const clean = String(fullPath || '').replace(/\.xml$/i, '').trim();
+          const parts = clean.split('/').filter(Boolean);
+          const leaf = parts.length ? parts[parts.length - 1] : clean;
+          const parent = parts.length > 1 ? parts.slice(0, -1).join(' / ') : '';
+          const ch = parseChapitreDeckTitle(leaf);
+          let primary, secondary;
+
+          if(ch.isChapitre){
+            primary = ch.title;
+            secondary = mobile
+              ? ch.chapitreLabel
+              : (parent ? `${parent} · ${ch.chapitreLabel}` : ch.chapitreLabel);
+          } else if(mobile){
+            primary = leaf;
+            secondary = parent || opts.altSub || '';
+          } else if(clean.length > 48){
+            primary = leaf;
+            secondary = parent || opts.altSub || '';
+          } else {
+            primary = clean;
+            secondary = (parent && primary !== parent) ? parent : (opts.altSub || '');
+          }
+
+          if(opts.isFolder && !secondary){
+            secondary = opts.altSub || 'Dossier';
+          }
+          return { primary, secondary: secondary || '', full: clean, leaf };
+        }
+
+        function buildDeckEntryMain(opts = {}){
+          const labels = formatDeckEntryLabels(opts.fullPath || '', {
+            mobile: opts.mobile,
+            isFolder: opts.isFolder,
+            altSub: opts.altSub,
+            parentPrefix: opts.parentPrefix
+          });
+
+          const textCol = document.createElement('div');
+          textCol.className = 'deck-entry-text';
+
+          const nm = document.createElement('div');
+          nm.className = 'deck-entry-name';
+          nm.textContent = labels.primary;
+          if(labels.full) nm.title = labels.full;
+          textCol.appendChild(nm);
+
+          if(labels.secondary){
+            const sub = document.createElement('div');
+            sub.className = 'deck-entry-sub';
+            sub.textContent = labels.secondary;
+            textCol.appendChild(sub);
+          }
+
+          const barSlot = document.createElement('div');
+          barSlot.className = 'deck-entry-bar-slot';
+          const mBar = document.createElement('div');
+          mBar.className = 'deck-mastery deck-mastery--wide';
+          const hasPct = opts.masteryPct !== null && opts.masteryPct !== undefined && !Number.isNaN(Number(opts.masteryPct));
+          const pct = hasPct ? Math.max(0, Math.min(100, Number(opts.masteryPct))) : 0;
+          mBar.innerHTML = `<i style="width:${hasPct ? pct : 0}%"></i>`;
+          if(!hasPct) mBar.classList.add('deck-mastery--empty');
+          barSlot.appendChild(mBar);
+
+          const statsCol = document.createElement('div');
+          statsCol.className = 'deck-entry-stats';
+          if(opts.kpisHtml) statsCol.innerHTML = opts.kpisHtml;
+
+          return { textCol, barSlot, statsCol, nameEl: nm, mBar, labels };
+        }
+
         function renderPath(path){
           const prefix = path;
           deckList.innerHTML = '';
@@ -11194,20 +11338,21 @@
             row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
             row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
             const folderIconDiv = document.createElement('div'); folderIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; folderIconDiv.textContent = '📁'; row.appendChild(folderIconDiv);
-            const main = document.createElement('div'); main.className = 'deck-entry-main';
-            const nm = document.createElement('div'); nm.className = 'deck-entry-name';
             const folderName = decodeURIComponent((prefix+folder).replace(/\+/g,' ')).replace(/\/$/,'');
-            nm.textContent = folderName;
             row.dataset.search = folderName.toLowerCase();
-            const folderKpis = document.createElement('div'); folderKpis.className = 'deck-entry-kpis';
-            folderKpis.innerHTML = `<span class="deck-kpi deck-kpi--mastery">Maitrise --</span>`;
-            const folderMBar = document.createElement('div'); folderMBar.className = 'deck-mastery deck-mastery--lead';
-            folderMBar.innerHTML = '<i style="width:0%"></i>';
-            const headRow = document.createElement('div'); headRow.className = 'deck-entry-head';
-            headRow.appendChild(folderMBar);
-            headRow.appendChild(nm);
-            main.appendChild(headRow);
-            main.appendChild(folderKpis);
+            const folderBuilt = buildDeckEntryMain({
+              fullPath: folderName,
+              isFolder: true,
+              altSub: 'Dossier',
+              kpisHtml: [
+                deckKpiStack('À faire', '…', 'due'),
+                deckKpiStack('Nouv.', '…', 'new'),
+                deckKpiStack('Maitrise', '--', 'mastery')
+              ].join(''),
+              masteryPct: null
+            });
+            const nm = folderBuilt.nameEl;
+            const folderMBar = folderBuilt.mBar;
             
             // Calculate folder due count with badge
             const folderPath = prefix + folder;
@@ -11217,10 +11362,6 @@
               nm.style.color = '#888';
               nm.title = 'Dossier verrouillé';
             }
-            const badge = document.createElement('span');
-            badge.className = 'due-badge';
-            badge.innerHTML = `<div class="due-num"></div><div class="due-label">Ã  faire</div>`;
-
             const act = document.createElement('div'); act.className = 'deck-entry-actions';
             const b = document.createElement('button'); b.className='secondary';
             b.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
@@ -11241,42 +11382,41 @@
               b.textContent='Ouvrir';
               b.addEventListener('click', ()=>{ renderPath(folderPath); currentFolderPath = folderPath; });
             }
-            act.appendChild(badge);
-            act.appendChild(b); 
-            row.appendChild(main); 
-            row.appendChild(act); 
+            act.appendChild(b);
+            appendDeckEntryLayout(row, folderBuilt, act);
             deckList.appendChild(row);
             
             // Asynchronously calculate total dues for all files in this folder
             (async ()=>{
               try{
                 let totalDue = 0;
+                let totalFresh = 0;
                 let weightedMastery = 0;
                 let totalReviewedDeckCards = 0;
                 for(const p of entries){
                   if(!p.startsWith(folderPath) || !p.toLowerCase().endsWith('.xml')) continue;
                   const deckUrl = './decks/'+p;
-                  const n = await countDueNowForDeck(deckUrl);
-                  if(typeof n === 'number') totalDue += n;
-                  const meta = getDeckUiMeta(deckUrl);
+                  const meta = await computeDeckUiMeta(deckUrl, true);
+                  totalDue += Number(meta.due || 0);
+                  totalFresh += Number(meta.fresh || 0);
                   if(meta.reviewed > 0){
                     weightedMastery += Number(meta.mastered || 0) * Number(meta.reviewed || 0);
                     totalReviewedDeckCards += Number(meta.reviewed || 0);
                   }
                 }
-                if(totalDue > 0){
-                  badge.querySelector('.due-num').textContent = totalDue;
-                  badge.querySelector('.due-label').style.display = 'block';
-                } else {
-                  badge.querySelector('.due-num').textContent = '';
-                  badge.querySelector('.due-label').style.display = 'none';
-                }
+                const masteryFolderPct = totalReviewedDeckCards > 0
+                  ? Math.round(weightedMastery / totalReviewedDeckCards)
+                  : 0;
+                folderBuilt.statsCol.innerHTML = [
+                  deckKpiStack('À faire', totalDue, 'due'),
+                  deckKpiStack('Nouv.', totalFresh, 'new'),
+                  deckKpiStack('Maitrise', totalReviewedDeckCards > 0 ? masteryFolderPct + '%' : '--', 'mastery')
+                ].join('');
                 if(totalReviewedDeckCards > 0){
-                  const masteryFolderPct = Math.round(weightedMastery / totalReviewedDeckCards);
-                  folderKpis.innerHTML = `<span class="deck-kpi deck-kpi--mastery">Maitrise ${masteryFolderPct}%</span>`;
+                  folderMBar.classList.remove('deck-mastery--empty');
                   folderMBar.innerHTML = `<i style="width:${Math.max(0, Math.min(100, masteryFolderPct))}%"></i>`;
                 } else {
-                  folderKpis.innerHTML = `<span class="deck-kpi deck-kpi--mastery">Maitrise --</span>`;
+                  folderMBar.classList.add('deck-mastery--empty');
                   folderMBar.innerHTML = '<i style="width:0%"></i>';
                 }
               }catch(e){ /* ignore */ }
@@ -11290,33 +11430,26 @@
             row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
             const fileIconDiv = document.createElement('div'); fileIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; fileIconDiv.textContent = '📄'; row.appendChild(fileIconDiv);
             const dec = decodeURIComponent((prefix+file).replace(/\+/g,' '));
-            // Extract just the deck name (without parent path) if the full path is too long
             const fullDeckName = dec.replace(/\.xml$/i,'');
-            const shortDeckName = fullDeckName.split('/').pop(); // Just the filename
-            // Use short name if full path is longer than 40 characters
-            const displayName = fullDeckName.length > 40 ? shortDeckName : fullDeckName;
-            const main = document.createElement('div'); main.className = 'deck-entry-main';
-            const nm = document.createElement('div'); nm.className = 'deck-entry-name';
-            nm.textContent = displayName;
-            row.dataset.search = `${displayName} ${fullDeckName} ${prefix}`.toLowerCase();
-            nm.title = fullDeckName;
-            const sub = document.createElement('div'); sub.className = 'deck-entry-sub';
-            sub.textContent = prefix ? prefix.replace(/\/$/,'') : 'Racine';
-            const kpis = document.createElement('div'); kpis.className = 'deck-entry-kpis';
             const deckUrlForMeta = './decks/'+prefix+file;
-            const meta = getDeckUiMeta(deckUrlForMeta);
-            kpis.innerHTML = `<span class="deck-kpi deck-kpi--due">Due ${meta.due}</span><span class="deck-kpi deck-kpi--new">Nouv. ${meta.fresh}</span><span class="deck-kpi deck-kpi--mastery">Maitrise ${meta.mastered}%</span>`;
-            const mBar = document.createElement('div'); mBar.className = 'deck-mastery deck-mastery--lead';
-            mBar.innerHTML = `<i style="width:${Math.max(0, Math.min(100, meta.mastered))}%"></i>`;
-            const headRow = document.createElement('div'); headRow.className = 'deck-entry-head';
-            headRow.appendChild(mBar);
-            headRow.appendChild(nm);
-            main.appendChild(headRow); main.appendChild(sub); main.appendChild(kpis);
+            const fileBuilt = buildDeckEntryMain({
+              fullPath: fullDeckName,
+              parentPrefix: prefix,
+              altSub: prefix ? prefix.replace(/\/$/,'') : 'Racine',
+              kpisHtml: [
+                deckKpiStack('À faire', '…', 'due'),
+                deckKpiStack('Nouv.', '…', 'new'),
+                deckKpiStack('Maitrise', '…', 'mastery')
+              ].join(''),
+              masteryPct: 0
+            });
+            const nm = fileBuilt.nameEl;
+            row.dataset.search = `${fileBuilt.labels.primary} ${fullDeckName} ${prefix}`.toLowerCase();
             const act = document.createElement('div'); act.className = 'deck-entry-actions';
-              if(file.toLowerCase().endsWith('.xml')){ const dueBadge = document.createElement('span'); dueBadge.className = 'due-badge'; dueBadge.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
+              if(file.toLowerCase().endsWith('.xml')){
                 const b=document.createElement('button'); b.className='secondary';
                 b.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
-                b.textContent = (window.innerWidth <= 640) ? 'â–¶ï¸' : 'AccÃ©der';
+                b.textContent = (window.innerWidth <= 640) ? '▶' : 'Accéder';
                 b.addEventListener('click', async ()=>{ 
                   const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
                   if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
@@ -11328,21 +11461,13 @@
                     showDeckLoading(false);
                   }
                 });
-                act.appendChild(dueBadge); act.appendChild(b);
-                // asynchronously compute number of cards due now for this deck and display
-                (async ()=>{
-                  try{
-                    const url = './decks/'+prefix+file;
-                    const n = await countDueNowForDeck(url);
-                    if(typeof n === 'number' && n>=0){
-                      dueBadge.querySelector('.due-num').textContent = n>0? n : '';
-                      // hide label when zero
-                      dueBadge.querySelector('.due-label').style.display = n>0? 'block' : 'none';
-                    } else { dueBadge.querySelector('.due-num').textContent = ''; dueBadge.querySelector('.due-label').style.display = 'none' }
-                  }catch(e){ /* ignore */ }
-                })();
+                act.appendChild(b);
+                appendDeckEntryLayout(row, fileBuilt, act);
+                refreshDeckEntryCounts(fileBuilt.statsCol, fileBuilt.mBar, deckUrlForMeta);
+              } else {
+                appendDeckEntryLayout(row, fileBuilt, act);
               }
-            row.appendChild(main); row.appendChild(act); deckList.appendChild(row);
+            deckList.appendChild(row);
           });
           
           // Add "Review all decks in this folder" button if there are any XML files
@@ -11389,22 +11514,30 @@
             if(isXml){ iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; iconDiv.textContent = '📄'; }
             else { iconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; iconDiv.textContent = '📁'; }
             row.appendChild(iconDiv);
-            const main = document.createElement('div'); main.className = 'deck-entry-main';
-            const name = document.createElement('div'); name.className = 'deck-entry-name'; name.textContent = decoded.replace(/\.xml$/i,'');
+            const fullLabel = decoded.replace(/\.xml$/i,'');
             row.dataset.search = decoded.toLowerCase();
-            const sub = document.createElement('div'); sub.className = 'deck-entry-sub'; sub.textContent = isXml ? 'Deck' : 'Dossier';
-            let deckMBarLead = null;
+            let built;
             if(isXml){
-              const headRow = document.createElement('div'); headRow.className = 'deck-entry-head';
-              deckMBarLead = document.createElement('div'); deckMBarLead.className = 'deck-mastery deck-mastery--lead'; deckMBarLead.innerHTML = '<i style="width:0%"></i>';
-              headRow.appendChild(deckMBarLead); headRow.appendChild(name);
-              main.appendChild(headRow);
-            }else{
-              main.appendChild(name);
+              built = buildDeckEntryMain({
+                fullPath: fullLabel,
+                altSub: 'Deck',
+                kpisHtml: [
+                  deckKpiStack('À faire', '…', 'due'),
+                  deckKpiStack('Nouv.', '…', 'new'),
+                  deckKpiStack('Maitrise', '…', 'mastery')
+                ].join(''),
+                masteryPct: 0
+              });
+            } else {
+              built = buildDeckEntryMain({
+                fullPath: fullLabel,
+                isFolder: true,
+                altSub: 'Dossier',
+                masteryPct: null
+              });
             }
-            main.appendChild(sub);
             const actions = document.createElement('div'); actions.className = 'deck-entry-actions';
-            if(e.endsWith('.xml')){ const dueBadge2 = document.createElement('span'); dueBadge2.className = 'due-badge'; dueBadge2.innerHTML = '<div class="due-num"></div><div class="due-label">Ã  faire</div>';
+            if(e.endsWith('.xml')){
               const btn = document.createElement('button'); btn.className='secondary';
               btn.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
               try{
@@ -11472,32 +11605,32 @@
                   }
                 });
               }
-              actions.appendChild(dueBadge2); actions.appendChild(btn);
-                (async ()=>{ try{ const n = await countDueNowForDeck(base+e); if(typeof n === 'number' && n>=0){ dueBadge2.querySelector('.due-num').textContent = n>0? n : ''; dueBadge2.querySelector('.due-label').style.display = n>0? 'block' : 'none'; }else{ dueBadge2.querySelector('.due-num').textContent=''; dueBadge2.querySelector('.due-label').style.display='none'; } }catch(err){} })();
-                // Mastery pill: count reviewed cards from localStorage (no network)
-                (async ()=>{ try{
-                  const dk = (typeof getDeckKeyFromUrl==='function')?getDeckKeyFromUrl(base+e):null;
-                  if(!dk) return;
-                  const pfx='fabanki:'+dk+':card:';
-                  let reviewed=0;
-                  for(let _i=0;_i<localStorage.length;_i++){ const _k=localStorage.key(_i); if(_k&&_k.startsWith(pfx)) reviewed++; }
-                  if(reviewed>0){
-                    const pill=document.createElement('span');
-                    pill.className='deck-mastery-pill';
-                    pill.title=reviewed+' cartes révisées';
-                    pill.textContent='✓ '+reviewed;
-                    const kpis = document.createElement('div');
-                    kpis.className = 'deck-entry-kpis';
-                    const masteryPct = Number(localStorage.getItem('fabanki:deck_mastery_' + normalizeDeckPath(base+e).replace(/\//g,'_')) || 0);
-                    kpis.innerHTML = `<span class="deck-kpi deck-kpi--mastery">Maitrise ${masteryPct}%</span>`;
-                    if(deckMBarLead) deckMBarLead.innerHTML = `<i style="width:${Math.max(0, Math.min(100, masteryPct))}%"></i>`;
-                    main.appendChild(kpis);
-                    main.appendChild(pill);
-                  }
-                }catch(_e){} })();
+              actions.appendChild(btn);
+              refreshDeckEntryCounts(built.statsCol, built.mBar, base+e);
+              (async ()=>{ try{
+                const dk = (typeof getDeckKeyFromUrl==='function')?getDeckKeyFromUrl(base+e):null;
+                if(!dk) return;
+                const pfx='fabanki:'+dk+':card:';
+                let reviewed=0;
+                for(let _i=0;_i<localStorage.length;_i++){ const _k=localStorage.key(_i); if(_k&&_k.startsWith(pfx)) reviewed++; }
+                if(reviewed>0){
+                  const pill=document.createElement('span');
+                  pill.className='deck-mastery-pill';
+                  pill.title=reviewed+' cartes révisées';
+                  pill.textContent='✓ '+reviewed;
+                  built.textCol.appendChild(pill);
+                }
+              }catch(_e){} })();
             }
             else { const btn = document.createElement('button'); btn.className='secondary'; btn.style.cssText='background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;'; btn.textContent='Ouvrir'; btn.addEventListener('click', async ()=>{ deckMsg.textContent = 'Exploration de '+base+e+' ...'; try{ const sub = await fetchDirectory(base+e); renderList(sub, base+e); }catch(err){ deckMsg.textContent = 'Impossible d\'explorer le dossier: '+err.message } }); actions.appendChild(btn); }
-            row.appendChild(main); row.appendChild(actions); deckList.appendChild(row);
+            if(isXml){
+              appendDeckEntryLayout(row, built, actions);
+            } else {
+              row.appendChild(built.textCol);
+              row.appendChild(built.barSlot);
+              row.appendChild(actions);
+            }
+            deckList.appendChild(row);
           }
         }
       }catch(err){
@@ -11568,61 +11701,68 @@
       return ids;
     }
 
-    // Count number of cards due now for a deck URL (considers localStorage state for that deck)
-    async function countDueNowForDeck(url){
+    function countDeckBrowserFolders(xmlFiles){
+      const topFolders = new Set();
+      const allFolders = new Set();
+      for(const f of (xmlFiles || [])){
+        const parts = String(f).split('/').filter(Boolean);
+        if(parts.length > 1) topFolders.add(parts[0]);
+        for(let i = 1; i < parts.length; i++){
+          allFolders.add(parts.slice(0, i).join('/'));
+        }
+      }
+      return topFolders.size || allFolders.size;
+    }
+
+    function resolveCanonicalCardsForDeck(url, deckKeyForCount){
+      let canonicalCards = null;
+      let selectedDeckKey = deckKeyForCount;
+      try{
+        const stateRaw = localStorage.getItem('fabanki:user_state');
+        const stateObj = stateRaw ? JSON.parse(stateRaw) : null;
+        const allDecks = stateObj?.decks || {};
+        const targetPath = normalizeDeckPath(url).replace(/\.xml$/i, '');
+        const targetPathNorm = targetPath.toLowerCase();
+        let pathMatchedDeckKey = '';
+        for(const dk of Object.keys(allDecks)){
+          const savedPath = localStorage.getItem(`fabanki:deck_path:${dk}`) || '';
+          const savedPathNorm = String(savedPath).replace(/\.xml$/i, '').toLowerCase();
+          if(savedPathNorm === targetPathNorm || savedPathNorm.endsWith('/' + targetPathNorm) || targetPathNorm.endsWith('/' + savedPathNorm)){
+            pathMatchedDeckKey = dk;
+            break;
+          }
+        }
+        if(pathMatchedDeckKey && allDecks[pathMatchedDeckKey]?.cards){
+          selectedDeckKey = pathMatchedDeckKey;
+          canonicalCards = allDecks[pathMatchedDeckKey].cards || {};
+        } else if(allDecks[deckKeyForCount]?.cards){
+          selectedDeckKey = deckKeyForCount;
+          canonicalCards = allDecks[deckKeyForCount].cards || {};
+        }
+      }catch(e){}
+      return { canonicalCards, selectedDeckKey };
+    }
+
+    async function computeDeckCounts(url){
+      const empty = { due: 0, fresh: 0, reviewed: 0, total: 0 };
       try{
         const deckKeyForCount = getDeckKeyFromUrl(url);
-        if(isFsrsDisabledForDeckKey(deckKeyForCount)) return 0;
+        const fsrsOff = isFsrsDisabledForDeckKey(deckKeyForCount);
         const res = await fetch(url);
-        if(!res.ok) return 0;
+        if(!res.ok) return empty;
         const text = await res.text();
         const parser = new DOMParser();
         let xml = parser.parseFromString(text,'application/xml');
         if(xml.querySelector && xml.querySelector('parsererror')) xml = parser.parseFromString(text,'text/html');
         const ids = parseCardIdsFromXML(xml);
         try{ migrateLegacyDeckCardStates(url, ids); }catch(e){}
-        const now = new Date();
-        let cnt = 0;
-        let debugInfo = {total: ids.length, new: 0, reviewed: 0, dueNow: 0, dueLater: 0};
-
-        // Prefer canonical synced state from fabanki:user_state.
-        // IMPORTANT: resolve deck key by normalized path first to avoid cross-deck
-        // mis-association when many decks use generic IDs like card-0/card-1.
-        let canonicalCards = null;
-        let selectedDeckKey = '';
         try{
-          const stateRaw = localStorage.getItem('fabanki:user_state');
-          const stateObj = stateRaw ? JSON.parse(stateRaw) : null;
-          const allDecks = stateObj?.decks || {};
-
-          const targetPath = normalizeDeckPath(url).replace(/\.xml$/i, '');
-          const targetPathNorm = targetPath.toLowerCase();
-          let pathMatchedDeckKey = '';
-          for(const dk of Object.keys(allDecks)){
-            const savedPath = localStorage.getItem(`fabanki:deck_path:${dk}`) || '';
-            const savedPathNorm = String(savedPath).replace(/\.xml$/i, '').toLowerCase();
-            if(savedPathNorm === targetPathNorm || savedPathNorm.endsWith('/' + targetPathNorm) || targetPathNorm.endsWith('/' + savedPathNorm)){
-              pathMatchedDeckKey = dk;
-              break;
-            }
-          }
-
-          if(pathMatchedDeckKey && allDecks[pathMatchedDeckKey]?.cards){
-            selectedDeckKey = pathMatchedDeckKey;
-            canonicalCards = allDecks[pathMatchedDeckKey].cards || {};
-          } else if(allDecks[deckKeyForCount]?.cards){
-            selectedDeckKey = deckKeyForCount;
-            canonicalCards = allDecks[deckKeyForCount].cards || {};
-          } else {
-            // No confident mapping found: use localStorage hash-key path only.
-            canonicalCards = null;
-            selectedDeckKey = deckKeyForCount;
-          }
-        }catch(e){
-          canonicalCards = null;
-          selectedDeckKey = deckKeyForCount;
-        }
-
+          const dk = getDeckKeyFromUrl(url);
+          if(dk) localStorage.setItem(`fabanki:deck_card_count:${dk}`, String(ids.length));
+        }catch(e){}
+        const now = new Date();
+        let due = 0, fresh = 0, reviewed = 0;
+        const { canonicalCards, selectedDeckKey } = resolveCanonicalCardsForDeck(url, deckKeyForCount);
         const keyPrefix = 'fabanki:' + deckKeyForCount + ':';
         for(const id of ids){
           try{
@@ -11631,25 +11771,30 @@
             const lastTs = new Date(st?.last || 0).getTime();
             const hasValidLast = Number.isFinite(lastTs) && lastTs > 0;
             const isReviewed = !!(hasValidLast && reps > 0 && st?.never !== true);
-
-            // Do NOT count new/unreviewed cards as due.
-            if(!isReviewed) {
-              debugInfo.new++;
+            if(!isReviewed){
+              fresh++;
               continue;
             }
-            debugInfo.reviewed++;
-            const dueTs = new Date(st?.due || 0).getTime();
-            if(Number.isFinite(dueTs) && dueTs > 0 && dueTs <= now.getTime()) {
-              cnt++;
-              debugInfo.dueNow++;
-            } else {
-              debugInfo.dueLater++;
+            reviewed++;
+            if(!fsrsOff){
+              const dueTs = new Date(st?.due || 0).getTime();
+              if(Number.isFinite(dueTs) && dueTs > 0 && dueTs <= now.getTime()) due++;
             }
-          }catch(e){ continue }
+          }catch(e){ continue; }
         }
-        console.log('countDueNowForDeck:', url.split('/').pop(), 'result:', cnt, 'deckKeyUsed:', selectedDeckKey, 'breakdown:', debugInfo);
-        return cnt;
-      }catch(e){ console.error('countDueNowForDeck error:', e); return 0 }
+        return { due, fresh, reviewed, total: ids.length, deckKey: selectedDeckKey };
+      }catch(e){
+        console.error('computeDeckCounts error:', e);
+        return empty;
+      }
+    }
+
+    // Count number of cards due now for a deck URL (considers localStorage state for that deck)
+    async function countDueNowForDeck(url){
+      try{
+        const counts = await computeDeckCounts(url);
+        return counts.due;
+      }catch(e){ console.error('countDueNowForDeck error:', e); return 0; }
     }
     // toggle histogram button (mobile: overlay, desktop: scroll)
     const toggleStatsBtn = document.getElementById('toggleStats');
@@ -15755,6 +15900,33 @@
       return merged;
     }
 
+    function countCardsInDeckMap(decks){
+      try{
+        return Object.values(decks || {}).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
+      }catch(e){ return 0; }
+    }
+
+    /** cardStates subcollection wins on conflict; legacy users/{uid}.decks only fills missing cards. */
+    function composeCloudDeckSources(cardStatesDecks, legacyNestedDecks){
+      const merged = {};
+      const legacy = legacyNestedDecks || {};
+      const cardStates = cardStatesDecks || {};
+      for(const dKey of Object.keys(legacy)){
+        const cards = legacy[dKey]?.cards || {};
+        if(!Object.keys(cards).length) continue;
+        merged[dKey] = { cards: { ...cards } };
+      }
+      for(const dKey of Object.keys(cardStates)){
+        const cards = cardStates[dKey]?.cards || {};
+        if(!Object.keys(cards).length) continue;
+        if(!merged[dKey]) merged[dKey] = { cards: {} };
+        for(const cId of Object.keys(cards)){
+          merged[dKey].cards[cId] = cards[cId];
+        }
+      }
+      return merged;
+    }
+
     function mergeWelcomeQuestState(localState, remoteState){
       if(!localState && !remoteState) return null;
       if(!localState) return remoteState;
@@ -16177,26 +16349,17 @@
     function __fabankiCardStatesRevisionMetaRef(db, uid){
       return db.collection('users').doc(uid).collection('fabankiSyncMeta').doc('state');
     }
+    function __fabanki_cloud_cards_change_key(uid){ return 'fabanki:cloud_cs_change:' + String(uid || ''); }
+
     async function readRemoteCardStatesRevision(db, uid, remoteSt){
       let r = Number(remoteSt?.cardStatesRevision || 0);
       const now = Date.now();
-      const META_CACHE_MS = 180000;
-      try{
-        const raw = sessionStorage.getItem(__FABANKI_META_REV_SESSION_KEY);
-        if(raw){
-          const o = JSON.parse(raw);
-          if(o && o.uid === uid && (now - Number(o.t || 0)) < META_CACHE_MS && Number.isFinite(Number(o.metaRev))){
-            const mr = Number(o.metaRev);
-            if(Number.isFinite(mr)) r = Math.max(r, mr);
-            return Number.isFinite(r) ? r : 0;
-          }
-        }
-      }catch(e){}
       try{
         const snap = await __fabankiCardStatesRevisionMetaRef(db, uid).get();
         let metaRevStored = 0;
         if(snap.exists){
-          const mr = Number((snap.data() || {}).cardStatesRevision || 0);
+          const d = snap.data() || {};
+          const mr = Number(d.cardStatesRevision || 0);
           if(Number.isFinite(mr)){
             r = Math.max(r, mr);
             metaRevStored = mr;
@@ -16205,14 +16368,44 @@
         try{
           sessionStorage.setItem(__FABANKI_META_REV_SESSION_KEY, JSON.stringify({ uid, metaRev: metaRevStored, t: now }));
         }catch(e){}
-      }catch(e){}
+      }catch(e){
+        console.warn('[readRemoteCardStatesRevision] fabankiSyncMeta/state read failed:', e);
+      }
       return Number.isFinite(r) ? r : 0;
     }
+
+    async function readRemoteCardStatesChangeAt(db, uid){
+      try{
+        const snap = await __fabankiCardStatesRevisionMetaRef(db, uid).get();
+        if(snap.exists){
+          const t = Number((snap.data() || {}).lastCardStatesChangeAt || 0);
+          if(Number.isFinite(t) && t > 0) return t;
+        }
+      }catch(e){
+        console.warn('[readRemoteCardStatesChangeAt] failed:', e);
+      }
+      return 0;
+    }
+
+    async function touchCloudCardStatesChangeMarker(db, uid){
+      const now = Date.now();
+      try{
+        await __fabankiCardStatesRevisionMetaRef(db, uid).set({ lastCardStatesChangeAt: now }, { merge: true });
+        try{ sessionStorage.removeItem(__FABANKI_META_REV_SESSION_KEY); }catch(e){}
+        return now;
+      }catch(e){
+        console.warn('[touchCloudCardStatesChangeMarker] failed:', e);
+        return 0;
+      }
+    }
+
     async function bumpUserCardStatesRevision(db, uid){
       const inc = firebase.firestore.FieldValue.increment(1);
+      const now = Date.now();
       try{
         await db.collection('users').doc(uid).set({ cardStatesRevision: inc }, { merge: true });
         try{ sessionStorage.removeItem(__FABANKI_META_REV_SESSION_KEY); }catch(e){}
+        await touchCloudCardStatesChangeMarker(db, uid);
         return true;
       }catch(err){
         const msg = String(err?.message || '').toLowerCase();
@@ -16221,7 +16414,10 @@
           console.warn('[bumpUserCardStatesRevision] root doc increment failed:', err);
         }
         try{
-          await __fabankiCardStatesRevisionMetaRef(db, uid).set({ cardStatesRevision: inc }, { merge: true });
+          await __fabankiCardStatesRevisionMetaRef(db, uid).set({
+            cardStatesRevision: inc,
+            lastCardStatesChangeAt: now
+          }, { merge: true });
           try{ sessionStorage.removeItem(__FABANKI_META_REV_SESSION_KEY); }catch(e){}
           if(indexHeavy && !__fabanki_rev_meta_fallback_logged){
             __fabanki_rev_meta_fallback_logged = true;
@@ -16245,7 +16441,10 @@
           console.warn('[seedCardStatesRevisionMinimum] root users/{uid} set failed:', err);
         }
         try{
-          await __fabankiCardStatesRevisionMetaRef(db, uid).set({ cardStatesRevision: 1 }, { merge: true });
+          await __fabankiCardStatesRevisionMetaRef(db, uid).set({
+            cardStatesRevision: 1,
+            lastCardStatesChangeAt: Date.now()
+          }, { merge: true });
           if(indexHeavy){
             syncLog('[seedCardStatesRevisionMinimum] wrote cardStatesRevision to fabankiSyncMeta/state (root doc hit index limits)');
           }
@@ -16298,6 +16497,13 @@
               .collection('cardStates').doc(docId)
               .set(payload, { merge: true });
             wroteSubcollection = true;
+            try{
+              const wmKey = __fabanki_cloud_cs_watermark_key(uid);
+              const prevWm = Number(localStorage.getItem(wmKey) || 0);
+              if(payload.lastUpdated > prevWm){
+                localStorage.setItem(wmKey, String(payload.lastUpdated));
+              }
+            }catch(e){}
           }catch(e){
             const code = String(e?.code || '');
             const msg = String(e?.message || '').toLowerCase();
@@ -16339,10 +16545,14 @@
 
         if(wroteSubcollection && !wroteFallbackDeck){
           try{
-            await bumpUserCardStatesRevision(db, uid);
+            const bumped = await bumpUserCardStatesRevision(db, uid);
+            if(!bumped) await touchCloudCardStatesChangeMarker(db, uid);
           }catch(err){
             console.warn('[syncSingleCardState] cardStatesRevision increment failed:', err);
+            try{ await touchCloudCardStatesChangeMarker(db, uid); }catch(e2){}
           }
+        } else if(wroteFallbackDeck){
+          try{ await touchCloudCardStatesChangeMarker(db, uid); }catch(e){}
         }
 
         return true;
@@ -16363,7 +16573,7 @@
 
         const snap = await Promise.race([
           db.collection('users').doc(uid).collection('cardStates').get(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('fetchCloudCardStates timeout (12s)')), 12000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('fetchCloudCardStates timeout (45s)')), 45000))
         ]);
         const decks = {};
         let cardCount = 0;
@@ -16467,22 +16677,23 @@
           localStorage.removeItem(__fabanki_cloud_pull_rev0_ok_key(u));
           localStorage.removeItem(__fabanki_cloud_cs_watermark_key(u));
           localStorage.removeItem(__fabanki_cloud_cs_snapshot_key(u));
+          localStorage.removeItem(__fabanki_cloud_cards_change_key(u));
         }
       }catch(e){}
     }
 
-    function shouldSkipFabankiCloudCardStatesPull(uid, remoteRev){
+    /** @deprecated Revision-only skip caused missed cross-browser pulls; use lastCardStatesChangeAt instead. */
+    function shouldSkipFabankiCloudCardStatesPull(uid, remoteRev, remoteChangeAt){
       try{
+        const localChange = Number(localStorage.getItem(__fabanki_cloud_cards_change_key(uid)) || 0);
+        const remoteChange = Number(remoteChangeAt || 0);
+        if(remoteChange > localChange) return false;
         const cachedUid = localStorage.getItem(__fabanki_cloud_card_pull_uid_key);
         const cachedRev = Number(localStorage.getItem(__fabanki_cloud_card_pull_rev_key) || '');
         if(cachedUid !== uid || !Number.isFinite(cachedRev)) return false;
         const r = Number(remoteRev || 0);
-        if(!Number.isFinite(r)) return false;
-        if(r >= 1) return cachedRev === r;
-        if(r === 0 && cachedRev === 0){
-          return localStorage.getItem(__fabanki_cloud_pull_rev0_ok_key(uid)) === '1';
-        }
-        return false;
+        if(!Number.isFinite(r) || r < 1) return false;
+        return cachedRev === r;
       }catch(e){ return false; }
     }
 
@@ -16526,15 +16737,13 @@
               localStorage.setItem(__fabanki_cloud_cs_snapshot_key(uid), '1');
             }catch(e){}
           }catch(e){ console.warn('[fetchCloudCardStatesMaybe] force refresh cache update failed:', e); }
-          return mergeDeckStates(collectDeckProgress(), forcedDecks);
+          return forcedDecks;
         }
       }catch(e){}
 
       const remoteRevSafe = await readRemoteCardStatesRevision(db, uid, remoteSt || {});
-      if(shouldSkipFabankiCloudCardStatesPull(uid, remoteRevSafe)){
-        syncLog('[fetchCloudCardStates] skip — cardStatesRevision unchanged:', remoteRevSafe);
-        return {};
-      }
+      const remoteChangeAt = await readRemoteCardStatesChangeAt(db, uid);
+      const localChangeSeen = Number(localStorage.getItem(__fabanki_cloud_cards_change_key(uid)) || 0);
 
       const wmKey = __fabanki_cloud_cs_watermark_key(uid);
       const snapKey = __fabanki_cloud_cs_snapshot_key(uid);
@@ -16546,20 +16755,31 @@
         syncLog('[fetchCloudCardStates] reset invalid future watermark');
       }
 
-      let pack;
-      try{
-        if(!hasBaseline){
-          syncLog('[fetchCloudCardStates] baseline — full cardStates once for this browser/profile');
+      const skipByRevOnly = shouldSkipFabankiCloudCardStatesPull(uid, remoteRevSafe, remoteChangeAt);
+      const mustPull = !skipByRevOnly || remoteChangeAt > localChangeSeen || !hasBaseline || !(watermark > 0);
+
+      let pack = { decks: {}, maxSeen: watermark, docCount: 0 };
+      if(mustPull){
+        try{
+          const pullWm = (!hasBaseline || !(watermark > 0)) ? 0 : watermark;
+          syncLog('[fetchCloudCardStates] pull cardStates', {
+            pullWm,
+            remoteRev: remoteRevSafe,
+            remoteChangeAt,
+            localChangeSeen,
+            hasBaseline
+          });
+          pack = await fetchCloudCardStatesIncremental(db, uid, pullWm);
+          if(pack.docCount === 0 && !hasBaseline){
+            console.log('[fetchCloudCardStates] paginated pull empty — legacy full scan fallback');
+            pack = await fetchCloudCardStates(db, uid);
+          }
+        }catch(incErr){
+          console.warn('[fetchCloudCardStates] incremental failed, full snapshot fallback:', incErr);
           pack = await fetchCloudCardStates(db, uid);
-        } else if(!(watermark > 0)){
-          syncLog('[fetchCloudCardStates] watermark missing/0 — full snapshot (cross-device safe)');
-          pack = await fetchCloudCardStates(db, uid);
-        } else {
-          pack = await fetchCloudCardStatesIncremental(db, uid, watermark);
         }
-      }catch(incErr){
-        console.warn('[fetchCloudCardStates] incremental failed, full snapshot fallback:', incErr);
-        pack = await fetchCloudCardStates(db, uid);
+      } else {
+        syncLog('[fetchCloudCardStates] skip — revision & change marker unchanged:', remoteRevSafe, remoteChangeAt);
       }
 
       const decksPartial = pack.decks || {};
@@ -16569,23 +16789,41 @@
         localStorage.setItem(snapKey, '1');
       }catch(e){}
 
-      const mergedWithLocal = mergeDeckStates(collectDeckProgress(), decksPartial);
-
       let revForCache = remoteRevSafe;
       try{
-        const cardCount = Object.values(mergedWithLocal || {}).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
+        const cardCount = countCardsInDeckMap(decksPartial);
         if(remoteRevSafe < 1 && cardCount > 0){
           await seedCardStatesRevisionMinimum(db, uid);
           revForCache = 1;
         }
         updateFabankiCloudCardPullCache(uid, revForCache, { rev0Ok: revForCache === 0 && cardCount === 0 });
+        if(remoteChangeAt > 0){
+          localStorage.setItem(__fabanki_cloud_cards_change_key(uid), String(remoteChangeAt));
+        }
       }catch(e){
         console.warn('[fetchCloudCardStatesMaybe] bootstrap/cache failed:', e);
       }
-      return mergedWithLocal;
+      if(pack.docCount > 0){
+        console.log('[fetchCloudCardStatesMaybe] pulled cards:', pack.docCount, 'decks:', Object.keys(pack.decks || {}).length);
+      }
+      return decksPartial;
     }
 
-    try{ window.__fabanki_invalidateCloudCardPullCache = invalidateFabankiCloudCardPullCache; }catch(e){}
+    try{
+      window.__fabanki_invalidateCloudCardPullCache = invalidateFabankiCloudCardPullCache;
+      window.__fabanki_forceCloudCardPull = function(){
+        try{
+          localStorage.setItem('fabanki:force_cloud_pull', '1');
+          invalidateFabankiCloudCardPullCache();
+          sessionStorage.removeItem(__FABANKI_SESS_RESTORE_KEY);
+          sessionStorage.removeItem(__FABANKI_META_REV_SESSION_KEY);
+        }catch(e){}
+        if(typeof window.restoreFromCloud === 'function'){
+          return window.restoreFromCloud();
+        }
+        return Promise.resolve();
+      };
+    }catch(e){}
 
     async function saveState(state, preserveTimestamp = false){
       try{
@@ -16768,8 +17006,8 @@
         const snap = await docRef.get();
         const remoteSt = snap.exists ? (snap.data() || {}) : {};
         if(snap.exists) __fabankiRememberUserDocSnapshot(uid, remoteSt);
-        const remoteCardDecks = await fetchCloudCardStatesMaybe(db, uid, remoteSt);
-        const remoteDecks = mergeDeckStates(remoteSt.decks || {}, remoteCardDecks || {});
+        const cardStatesDecks = await fetchCloudCardStatesMaybe(db, uid, remoteSt);
+        const remoteDecks = composeCloudDeckSources(cardStatesDecks, remoteSt.decks || {});
         const mergedDecks = mergeDeckStates(localDecks || {}, remoteDecks || {});
         const mergedSig = getDeckSnapshotSignature(mergedDecks);
         if(mergedSig === __lastDeckSnapshotSignature && (nowMs - __lastDeckSnapshotAt) < 12000){
@@ -16777,12 +17015,16 @@
           return false;
         }
 
-        await docRef.set({
-          decks: mergedDecks,
-          lastUpdated: Date.now(),
-          mode: 'synced',
-          userId: uid
-        }, { merge: true });
+        if(__cardStatesSubcollectionBlocked){
+          await docRef.set({
+            decks: mergedDecks,
+            lastUpdated: Date.now(),
+            mode: 'synced',
+            userId: uid
+          }, { merge: true });
+        } else {
+          syncLog('syncAllDeckStatesToCloud: skip users/{uid}.decks write (cardStates subcollection is source of truth)');
+        }
         await bumpUserCardStatesRevision(db, uid);
 
         __lastDeckSnapshotSignature = mergedSig;
@@ -16884,7 +17126,7 @@
         const lastPullAt = Number(localStorage.getItem('fabanki:last_auto_sync_pull_at') || 0);
         const skipCloudPull = !forcePullOnce && lastPullAt > 0 && (Date.now() - lastPullAt) < __FABANKI_AUTO_SYNC_PULL_MS;
         if(skipCloudPull){
-          syncLog('autoSync: pull skipped (' + __FABANKI_AUTO_SYNC_PULL_MS + 'ms throttle); set localStorage fabanki:force_full_pull_once=1 to force');
+          syncLog('autoSync: user doc pull throttled (' + __FABANKI_AUTO_SYNC_PULL_MS + 'ms); still pulling cardStates');
           cloudTimestampSeen = Number(localStorage.getItem('fabanki:last_seen_remote_lastUpdated') || 0);
         }
         
@@ -16892,6 +17134,25 @@
         try{
           const db = window.__fabanki_firestore;
           const docRef = db.collection('users').doc(userId);
+          if(skipCloudPull){
+            try{
+              const sigBefore = getDeckSnapshotSignature(collectDeckProgress());
+              const remoteStLight = { cardStatesRevision: await readRemoteCardStatesRevision(db, userId, {}) };
+              const cardStatesPulled = await fetchCloudCardStatesMaybe(db, userId, remoteStLight);
+              const mergedDecksApply = mergeDeckStates(collectDeckProgress(), cardStatesPulled || {});
+              pulledRemoteDecks = mergedDecksApply;
+              const sigAfter = getDeckSnapshotSignature(mergedDecksApply);
+              if(sigAfter !== sigBefore){
+                applyStateToLocalStorage({ decks: mergedDecksApply });
+                const localStateRaw = localStorage.getItem('fabanki:user_state');
+                const localState = localStateRaw ? JSON.parse(localStateRaw) : {};
+                localStorage.setItem('fabanki:user_state', JSON.stringify({ ...(localState || {}), decks: mergedDecksApply }));
+                syncLog('autoSync: applied cardStates pull while user doc throttled');
+              }
+            }catch(e){
+              syncLog('autoSync: throttled cardStates pull failed', e);
+            }
+          }
           if(!skipCloudPull){
           const snap = await docRef.get();
           
@@ -16899,9 +17160,15 @@
             const remoteSt = snap.data();
             __fabankiRememberUserDocSnapshot(userId, remoteSt);
             localStorage.setItem('fabanki:last_auto_sync_pull_at', String(Date.now()));
-            const remoteCardDecks = await fetchCloudCardStatesMaybe(db, userId, remoteSt);
-            remoteSt.decks = mergeDeckStates(remoteSt.decks || {}, remoteCardDecks || {});
+            const cardStatesDecks = await fetchCloudCardStatesMaybe(db, userId, remoteSt);
+            const legacyNestedDecks = remoteSt.decks || {};
+            remoteSt.decks = composeCloudDeckSources(cardStatesDecks, legacyNestedDecks);
             pulledRemoteDecks = remoteSt.decks || {};
+            console.log('[autoSync] cloud deck sources:', {
+              cardStatesCards: countCardsInDeckMap(cardStatesDecks),
+              legacyNestedCards: countCardsInDeckMap(legacyNestedDecks),
+              composedCards: countCardsInDeckMap(pulledRemoteDecks)
+            });
             const localStateRaw = localStorage.getItem('fabanki:user_state');
             const localState = localStateRaw ? JSON.parse(localStateRaw) : null;
             const localLastUpdated = Number(localState?.lastUpdated || 0);
@@ -17042,6 +17309,7 @@
         }
         
         const uid = user.uid;
+        let sessionThrottleCardsOnly = false;
         try{
           const raw = sessionStorage.getItem(__FABANKI_SESS_RESTORE_KEY);
           if(raw){
@@ -17049,11 +17317,8 @@
             if(o && o.uid === uid && (Date.now() - Number(o.ts || 0)) < __FABANKI_RESTORE_SESSION_MS){
               const cx = Number(o.cloudXp);
               if(Number.isFinite(cx)) __lastKnownCloudXp = cx;
-              try{
-                localStorage.setItem('fabanki:last_auto_sync_pull_at', String(Date.now()));
-              }catch(e){}
-              console.log('[restoreFromCloud] Session throttle: skip Firestore (recent restore / reload)');
-              return;
+              sessionThrottleCardsOnly = true;
+              console.log('[restoreFromCloud] Session throttle: cardStates pull only (recent full restore)');
             }
           }
         }catch(e){}
@@ -17071,9 +17336,34 @@
         
         const remoteSt = snap.data();
         __fabankiRememberUserDocSnapshot(uid, remoteSt);
-        const remoteCardDecks = await fetchCloudCardStatesMaybe(db, uid, remoteSt);
-        // Compose deck data from both legacy location (users/{uid}.decks) and new cardStates subcollection
-        remoteSt.decks = mergeDeckStates(remoteSt.decks || {}, remoteCardDecks || {});
+        const legacyNestedDecks = remoteSt.decks || {};
+        const deckSigBeforePull = getDeckSnapshotSignature(collectDeckProgress());
+        const cardStatesDecks = await fetchCloudCardStatesMaybe(db, uid, remoteSt);
+        remoteSt.decks = composeCloudDeckSources(cardStatesDecks, legacyNestedDecks);
+        console.log('[restoreFromCloud] cloud deck sources:', {
+          cardStatesCards: countCardsInDeckMap(cardStatesDecks),
+          legacyNestedCards: countCardsInDeckMap(legacyNestedDecks),
+          composedCards: countCardsInDeckMap(remoteSt.decks)
+        });
+        const mergedDecksForLocal = mergeDeckStates(collectDeckProgress(), remoteSt.decks || {});
+        const deckSigAfterPull = getDeckSnapshotSignature(mergedDecksForLocal);
+        if(deckSigAfterPull !== deckSigBeforePull){
+          try{
+            applyStateToLocalStorage({ decks: mergedDecksForLocal });
+            const localStateRaw0 = localStorage.getItem('fabanki:user_state');
+            const localState0 = localStateRaw0 ? JSON.parse(localStateRaw0) : {};
+            localStorage.setItem('fabanki:user_state', JSON.stringify({ ...(localState0 || {}), decks: mergedDecksForLocal }));
+            console.log('[restoreFromCloud] Applied cardStates-primary pull (per-card merge)');
+          }catch(e){
+            console.warn('[restoreFromCloud] cardStates apply failed:', e);
+          }
+        }
+        if(sessionThrottleCardsOnly){
+          try{
+            localStorage.setItem('fabanki:last_auto_sync_pull_at', String(Date.now()));
+          }catch(e){}
+          return;
+        }
         // Cache the cloud XP immediately for safety checks
         __lastKnownCloudXp = Number(remoteSt.xp || 0);
         console.log('[restoreFromCloud] Cloud XP cached: ' + __lastKnownCloudXp);
@@ -17142,7 +17432,7 @@
           mergedState.lastUpdated = Math.max(remoteLastUpdated, localLastUpdated);
           clearDeckCardsBeforeApply = false;
         } else {
-          console.log('[restoreFromCloud] Local state is newer than Firestore, keeping local for now:', {
+          console.log('[restoreFromCloud] Local profile timestamp newer than Firestore; per-card cardStates still merged above:', {
             remoteLastUpdated,
             localLastUpdated,
             deltaMs: localLastUpdated - remoteLastUpdated
@@ -17150,43 +17440,6 @@
         }
         
         if(shouldRestore && mergedState){
-          // Final consistency rule: when cloud has deck data, use it as authoritative source.
-          // This guarantees all browsers converge to the same due values after restore.
-          const authoritativeDecks = remoteSt?.decks || {};
-          const authoritativeDeckCount = Object.keys(authoritativeDecks).length;
-          if(authoritativeDeckCount > 0){
-            // Merge per-card timestamps: most recently reviewed card wins across devices.
-            mergedState.decks = mergeDeckStates(localDecks, authoritativeDecks);
-            clearDeckCardsBeforeApply = false;
-            const authoritativeCardCount = Object.values(authoritativeDecks).reduce((sum, d) => sum + Object.keys(d?.cards || {}).length, 0);
-            console.log('[restoreFromCloud] Applying authoritative cloud decks for consistency:', {
-              decks: authoritativeDeckCount,
-              cards: authoritativeCardCount
-            });
-
-            // Focused diagnostic for "Connecteurs logiques" deck
-            try{
-              const targetKey = Object.keys(authoritativeDecks).find(k => /connecteurs\s+logiques/i.test(String(k)));
-              if(targetKey){
-                const cards = authoritativeDecks[targetKey]?.cards || {};
-                let dueNow = 0;
-                let dueLater = 0;
-                const nowTs = Date.now();
-                for(const st of Object.values(cards)){
-                  const dueTs = new Date(st?.due || 0).getTime();
-                  if(Number.isFinite(dueTs) && dueTs > 0 && dueTs <= nowTs) dueNow++;
-                  else dueLater++;
-                }
-                console.log('[restoreFromCloud] Cloud deck diagnostic (Connecteurs logiques):', {
-                  deckKey: targetKey,
-                  total: Object.keys(cards).length,
-                  dueNow,
-                  dueLater
-                });
-              }
-            }catch(e){ /* diagnostic only */ }
-          }
-
           console.log('[restoreFromCloud] Applying restored state:', {
             xp: mergedState.xp,
             credits: mergedState.credits,
@@ -22249,6 +22502,8 @@
 
   // Expose functions as required (so they're available globally)
   window.loadDeckFromURL = loadDeckFromURL;
+  window.loadMultipleDeckCards = loadMultipleDeckCards;
+  window.showNextCard = showNextCard;
   window.parseXMLDeck = parseXMLDeck;
   window.interpretSides = interpretSides;
   window.renderFront = renderFront;
