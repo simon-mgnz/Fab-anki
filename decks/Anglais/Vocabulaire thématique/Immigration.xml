@@ -1,0 +1,37 @@
+<deck name="Immigration"><fields><rich-text name='Front' sides='11'></rich-text><rich-text name='Back' sides='01'></rich-text></fields><cards>
+<card><rich-text name='Front'>l'immigration / l'émigration</rich-text><rich-text name='Back'>immigration / emigration</rich-text></card>
+<card><rich-text name='Front'>un immigrant / un immigré</rich-text><rich-text name='Back'>an immigrant</rich-text></card>
+<card><rich-text name='Front'>un réfugié</rich-text><rich-text name='Back'>a refugee</rich-text></card>
+<card><rich-text name='Front'>un demandeur d'asile</rich-text><rich-text name='Back'>an asylum seeker</rich-text></card>
+<card><rich-text name='Front'>le droit d'asile</rich-text><rich-text name='Back'>the right to asylum</rich-text></card>
+<card><rich-text name='Front'>la convention de Genève</rich-text><rich-text name='Back'>the Geneva Convention / the Refugee Convention</rich-text></card>
+<card><rich-text name='Front'>un migrant économique</rich-text><rich-text name='Back'>an economic migrant</rich-text></card>
+<card><rich-text name='Front'>un réfugié climatique</rich-text><rich-text name='Back'>a climate refugee / a climate migrant</rich-text></card>
+<card><rich-text name='Front'>la migration forcée / les personnes déplacées</rich-text><rich-text name='Back'>forced migration / displaced people / internally displaced persons (IDPs)</rich-text></card>
+<card><rich-text name='Front'>le HCR (Haut-Commissariat des Nations Unies pour les réfugiés)</rich-text><rich-text name='Back'>the UNHCR (United Nations High Commissioner for Refugees)</rich-text></card>
+<card><rich-text name='Front'>traverser la frontière / franchir illégalement la frontière</rich-text><rich-text name='Back'>to cross the border / to cross the border illegally</rich-text></card>
+<card><rich-text name='Front'>un passeur / les filières clandestines</rich-text><rich-text name='Back'>a people smuggler / people smuggling networks</rich-text></card>
+<card><rich-text name='Front'>l'immigration clandestine / un sans-papiers</rich-text><rich-text name='Back'>illegal immigration / undocumented immigration / an undocumented immigrant</rich-text></card>
+<card><rich-text name='Front'>un permis de séjour / un titre de séjour</rich-text><rich-text name='Back'>a residence permit</rich-text></card>
+<card><rich-text name='Front'>la naturalisation / acquérir la nationalité</rich-text><rich-text name='Back'>naturalisation / to acquire / obtain citizenship</rich-text></card>
+<card><rich-text name='Front'>le regroupement familial</rich-text><rich-text name='Back'>family reunification</rich-text></card>
+<card><rich-text name='Front'>l'intégration / l'assimilation</rich-text><rich-text name='Back'>integration / assimilation</rich-text></card>
+<card><rich-text name='Front'>le multiculturalisme / la diversité culturelle</rich-text><rich-text name='Back'>multiculturalism / cultural diversity</rich-text></card>
+<card><rich-text name='Front'>la xénophobie / la discrimination</rich-text><rich-text name='Back'>xenophobia / discrimination</rich-text></card>
+<card><rich-text name='Front'>l'identité nationale</rich-text><rich-text name='Back'>national identity</rich-text></card>
+<card><rich-text name='Front'>le pays d'accueil / le pays d'origine</rich-text><rich-text name='Back'>the host country / the country of origin</rich-text></card>
+<card><rich-text name='Front'>la fuite des cerveaux</rich-text><rich-text name='Back'>brain drain</rich-text></card>
+<card><rich-text name='Front'>les transferts de fonds vers le pays d'origine</rich-text><rich-text name='Back'>remittances</rich-text></card>
+<card><rich-text name='Front'>contribuer à l'économie du pays d'accueil</rich-text><rich-text name='Back'>to contribute to the host country's economy</rich-text></card>
+<card><rich-text name='Front'>exercer une pression sur les services publics</rich-text><rich-text name='Back'>to put pressure on / to strain public services</rich-text></card>
+<card><rich-text name='Front'>la politique migratoire / les quotas d'immigration</rich-text><rich-text name='Back'>migration policy / immigration policy / immigration quotas</rich-text></card>
+<card><rich-text name='Front'>fermer les frontières / durcir les contrôles</rich-text><rich-text name='Back'>to close the borders / to tighten border controls</rich-text></card>
+<card><rich-text name='Front'>accueillir des réfugiés / le devoir d'humanité</rich-text><rich-text name='Back'>to take in / welcome refugees / the duty of humanity</rich-text></card>
+<card><rich-text name='Front'>la solidarité européenne face aux flux migratoires</rich-text><rich-text name='Back'>European solidarity in the face of migratory flows</rich-text></card>
+<card><rich-text name='Front'>l'extrême droite / le populisme</rich-text><rich-text name='Back'>the far right / the extreme right / populism</rich-text></card>
+<card><rich-text name='Front'>instrumentaliser l'immigration</rich-text><rich-text name='Back'>to exploit / to weaponise immigration (for political ends)</rich-text></card>
+<card><rich-text name='Front'>fuir la guerre / la persécution / la misère</rich-text><rich-text name='Back'>to flee war / persecution / poverty</rich-text></card>
+<card><rich-text name='Front'>risquer sa vie pour traverser la Méditerranée</rich-text><rich-text name='Back'>to risk one's life crossing the Mediterranean</rich-text></card>
+<card><rich-text name='Front'>un camp de réfugiés</rich-text><rich-text name='Back'>a refugee camp</rich-text></card>
+<card><rich-text name='Front'>l'aide humanitaire / une ONG</rich-text><rich-text name='Back'>humanitarian aid / an NGO (non-governmental organisation)</rich-text></card>
+</cards></deck>

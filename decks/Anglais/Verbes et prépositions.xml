@@ -1,0 +1,153 @@
+<deck name="Verbes et prépositions" tags='Voc anglais'><fields><rich-text name='Front' sides='11'></rich-text><rich-text name='Back' sides='01'></rich-text></fields><cards>
+
+<!-- ══ ON ══ -->
+<card><rich-text name='Front'>dépendre de</rich-text><rich-text name='Back'>to depend <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>compter sur / se fier à</rich-text><rich-text name='Back'>to rely <strong>on</strong> / to count <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>insister pour faire qqch</rich-text><rich-text name='Back'>to insist <strong>on</strong> doing sth</rich-text></card>
+<card><rich-text name='Front'>se concentrer sur</rich-text><rich-text name='Back'>to focus <strong>on</strong> / to concentrate <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>féliciter qqn pour qqch</rich-text><rich-text name='Back'>to congratulate sb <strong>on</strong> sth</rich-text></card>
+<card><rich-text name='Front'>s'appuyer sur / capitaliser sur</rich-text><rich-text name='Back'>to build <strong>on</strong> / to capitalise <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>avoir un impact sur</rich-text><rich-text name='Back'>to have an impact <strong>on</strong> / to impact <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>réfléchir à / méditer sur</rich-text><rich-text name='Back'>to reflect <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>s'attarder sur (un sujet)</rich-text><rich-text name='Back'>to dwell <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>développer / approfondir (un point)</rich-text><rich-text name='Back'>to elaborate <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>dépendre de / être conditionné par</rich-text><rich-text name='Back'>to hinge <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>empiéter sur / enfreindre</rich-text><rich-text name='Back'>to infringe <strong>on</strong> / to encroach <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>aborder en passant (un sujet)</rich-text><rich-text name='Back'>to touch <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>espionner</rich-text><rich-text name='Back'>to spy <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>commenter / se prononcer sur</rich-text><rich-text name='Back'>to comment <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>se lancer dans / entreprendre</rich-text><rich-text name='Back'>to embark <strong>on</strong></rich-text></card>
+
+<!-- ══ WITH ══ -->
+<card><rich-text name='Front'>être d'accord avec qqn</rich-text><rich-text name='Back'>to agree <strong>with</strong> sb ⚠ (≠ agree ON a plan = se mettre d'accord sur)</rich-text></card>
+<card><rich-text name='Front'>se mettre d'accord sur (un plan, une décision)</rich-text><rich-text name='Back'>to agree <strong>on</strong> sth ⚠ (≠ agree WITH sb)</rich-text></card>
+<card><rich-text name='Front'>gérer / traiter (un problème)</rich-text><rich-text name='Back'>to deal <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>faire face à / surmonter</rich-text><rich-text name='Back'>to cope <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>se conformer à / respecter (une règle)</rich-text><rich-text name='Back'>to comply <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>interférer avec / perturber</rich-text><rich-text name='Back'>to interfere <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>prendre le parti de qqn</rich-text><rich-text name='Back'>to side <strong>with</strong> sb</rich-text></card>
+<card><rich-text name='Front'>inculper / accuser de (crime)</rich-text><rich-text name='Back'>to charge sb <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>collaborer avec</rich-text><rich-text name='Back'>to collaborate <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>lutter contre / avoir du mal avec</rich-text><rich-text name='Back'>to struggle <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>s'affronter avec / entrer en conflit</rich-text><rich-text name='Back'>to clash <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>trouver / proposer (une idée, une solution)</rich-text><rich-text name='Back'>to come up <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>s'immiscer dans / tripoter</rich-text><rich-text name='Back'>to meddle <strong>with</strong> / to tamper <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>se réconcilier avec</rich-text><rich-text name='Back'>to reconcile <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>se passer de / éliminer</rich-text><rich-text name='Back'>to dispense <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>faire écho à / parler à (qqn émotionnellement)</rich-text><rich-text name='Back'>to resonate <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>rompre avec (une tradition, le passé)</rich-text><rich-text name='Back'>to break <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>fournir qqch à qqn</rich-text><rich-text name='Back'>to provide sb <strong>with</strong> sth ⚠ (≠ to provide sth FOR sb)</rich-text></card>
+
+<!-- ══ OF ══ -->
+<card><rich-text name='Front'>être conscient de</rich-text><rich-text name='Back'>to be aware <strong>of</strong></rich-text></card>
+<card><rich-text name='Front'>être fier de</rich-text><rich-text name='Back'>to be proud <strong>of</strong></rich-text></card>
+<card><rich-text name='Front'>être capable de</rich-text><rich-text name='Back'>to be capable <strong>of</strong> (+ V-ing)</rich-text></card>
+<card><rich-text name='Front'>être composé de / consister en</rich-text><rich-text name='Back'>to consist <strong>of</strong></rich-text></card>
+<card><rich-text name='Front'>accuser qqn de qqch</rich-text><rich-text name='Back'>to accuse sb <strong>of</strong> sth ⚠ (≠ charge WITH = inculper)</rich-text></card>
+<card><rich-text name='Front'>approuver</rich-text><rich-text name='Back'>to approve <strong>of</strong></rich-text></card>
+<card><rich-text name='Front'>désapprouver</rich-text><rich-text name='Back'>to disapprove <strong>of</strong></rich-text></card>
+<card><rich-text name='Front'>soupçonner qqn de</rich-text><rich-text name='Back'>to suspect sb <strong>of</strong></rich-text></card>
+<card><rich-text name='Front'>priver qqn de</rich-text><rich-text name='Back'>to deprive sb <strong>of</strong></rich-text></card>
+<card><rich-text name='Front'>se débarrasser de</rich-text><rich-text name='Back'>to get rid <strong>of</strong> / to rid oneself <strong>of</strong></rich-text></card>
+<card><rich-text name='Front'>se vanter de (registre soutenu)</rich-text><rich-text name='Back'>to boast <strong>of</strong> / to boast <strong>about</strong></rich-text></card>
+<card><rich-text name='Front'>avertir qqn de</rich-text><rich-text name='Back'>to warn sb <strong>of</strong> / <strong>about</strong></rich-text></card>
+<card><rich-text name='Front'>rappeler qqch à qqn</rich-text><rich-text name='Back'>to remind sb <strong>of</strong> sth</rich-text></card>
+
+<!-- ══ FOR ══ -->
+<card><rich-text name='Front'>attendre</rich-text><rich-text name='Back'>to wait <strong>for</strong></rich-text></card>
+<card><rich-text name='Front'>postuler à (un emploi, une bourse)</rich-text><rich-text name='Back'>to apply <strong>for</strong></rich-text></card>
+<card><rich-text name='Front'>être responsable de</rich-text><rich-text name='Back'>to be responsible <strong>for</strong></rich-text></card>
+<card><rich-text name='Front'>expliquer / représenter (un pourcentage, une part)</rich-text><rich-text name='Back'>to account <strong>for</strong></rich-text></card>
+<card><rich-text name='Front'>aspirer à / désirer ardemment</rich-text><rich-text name='Back'>to long <strong>for</strong> / to yearn <strong>for</strong></rich-text></card>
+<card><rich-text name='Front'>chercher (activement)</rich-text><rich-text name='Back'>to search <strong>for</strong> / to look <strong>for</strong></rich-text></card>
+<card><rich-text name='Front'>se contenter de (une solution insuffisante)</rich-text><rich-text name='Back'>to settle <strong>for</strong></rich-text></card>
+<card><rich-text name='Front'>s'efforcer d'obtenir / viser</rich-text><rich-text name='Back'>to strive <strong>for</strong> / to aim <strong>for</strong></rich-text></card>
+<card><rich-text name='Front'>compenser</rich-text><rich-text name='Back'>to compensate <strong>for</strong> / to make up <strong>for</strong></rich-text></card>
+<card><rich-text name='Front'>être éligible à / remplir les conditions pour</rich-text><rich-text name='Back'>to qualify <strong>for</strong></rich-text></card>
+<card><rich-text name='Front'>répondre aux besoins de / s'adresser à</rich-text><rich-text name='Back'>to cater <strong>for</strong></rich-text></card>
+<card><rich-text name='Front'>plaider pour / en faveur de</rich-text><rich-text name='Back'>to argue <strong>for</strong> / to make a case <strong>for</strong></rich-text></card>
+<card><rich-text name='Front'>s'excuser pour</rich-text><rich-text name='Back'>to apologise <strong>for</strong></rich-text></card>
+<card><rich-text name='Front'>prendre soin de (une personne)</rich-text><rich-text name='Back'>to care <strong>for</strong> ⚠ (≠ care ABOUT = se soucier de)</rich-text></card>
+<card><rich-text name='Front'>se soucier de / tenir à</rich-text><rich-text name='Back'>to care <strong>about</strong> ⚠ (≠ care FOR = s'occuper de)</rich-text></card>
+
+<!-- ══ TO ══ -->
+<card><rich-text name='Front'>écouter</rich-text><rich-text name='Back'>to listen <strong>to</strong> ⚠ (jamais "listen" seul avec un COD)</rich-text></card>
+<card><rich-text name='Front'>appartenir à</rich-text><rich-text name='Back'>to belong <strong>to</strong></rich-text></card>
+<card><rich-text name='Front'>se référer à / renvoyer à</rich-text><rich-text name='Back'>to refer <strong>to</strong></rich-text></card>
+<card><rich-text name='Front'>contribuer à</rich-text><rich-text name='Back'>to contribute <strong>to</strong></rich-text></card>
+<card><rich-text name='Front'>être habitué à (+ V-ing)</rich-text><rich-text name='Back'>to be used <strong>to</strong> (+ V-ing) ⚠ jamais "to be used to + inf."</rich-text></card>
+<card><rich-text name='Front'>s'adapter à</rich-text><rich-text name='Back'>to adapt <strong>to</strong> / to adjust <strong>to</strong></rich-text></card>
+<card><rich-text name='Front'>s'opposer à</rich-text><rich-text name='Back'>to object <strong>to</strong></rich-text></card>
+<card><rich-text name='Front'>réagir à / répondre à</rich-text><rich-text name='Back'>to react <strong>to</strong> / to respond <strong>to</strong></rich-text></card>
+<card><rich-text name='Front'>avoir recours à / en venir à</rich-text><rich-text name='Back'>to resort <strong>to</strong></rich-text></card>
+<card><rich-text name='Front'>succomber à</rich-text><rich-text name='Back'>to succumb <strong>to</strong></rich-text></card>
+<card><rich-text name='Front'>consacrer qqch à</rich-text><rich-text name='Back'>to devote sth <strong>to</strong> / to dedicate sth <strong>to</strong></rich-text></card>
+<card><rich-text name='Front'>équivaloir à / revenir à (même chose)</rich-text><rich-text name='Back'>to amount <strong>to</strong></rich-text></card>
+<card><rich-text name='Front'>mener à / aboutir à</rich-text><rich-text name='Back'>to lead <strong>to</strong> / to give rise <strong>to</strong></rich-text></card>
+<card><rich-text name='Front'>s'accrocher à / s'en tenir à</rich-text><rich-text name='Back'>to cling <strong>to</strong> / to stick <strong>to</strong></rich-text></card>
+<card><rich-text name='Front'>exposer qqn à</rich-text><rich-text name='Back'>to expose sb <strong>to</strong></rich-text></card>
+
+<!-- ══ AT ══ -->
+<card><rich-text name='Front'>rire de / se moquer de</rich-text><rich-text name='Back'>to laugh <strong>at</strong> ⚠ (≠ laugh about = rire à propos de)</rich-text></card>
+<card><rich-text name='Front'>viser (une cible)</rich-text><rich-text name='Back'>to aim <strong>at</strong></rich-text></card>
+<card><rich-text name='Front'>être bon en / exceller en</rich-text><rich-text name='Back'>to be good <strong>at</strong> / to excel <strong>at</strong></rich-text></card>
+<card><rich-text name='Front'>fixer du regard</rich-text><rich-text name='Back'>to stare <strong>at</strong> / to glare <strong>at</strong></rich-text></card>
+<card><rich-text name='Front'>jeter un coup d'œil à</rich-text><rich-text name='Back'>to glance <strong>at</strong></rich-text></card>
+<card><rich-text name='Front'>s'émerveiller de / être stupéfait par</rich-text><rich-text name='Back'>to marvel <strong>at</strong></rich-text></card>
+<card><rich-text name='Front'>laisser entendre / insinuer</rich-text><rich-text name='Back'>to hint <strong>at</strong></rich-text></card>
+<card><rich-text name='Front'>arriver à (un endroit précis : aéroport, gare)</rich-text><rich-text name='Back'>to arrive <strong>at</strong> ⚠ (≠ arrive IN = ville/pays)</rich-text></card>
+<card><rich-text name='Front'>arriver dans (une ville, un pays)</rich-text><rich-text name='Back'>to arrive <strong>in</strong> ⚠ (≠ arrive AT = lieu précis)</rich-text></card>
+<card><rich-text name='Front'>ricaner de / mépriser</rich-text><rich-text name='Back'>to sneer <strong>at</strong></rich-text></card>
+
+<!-- ══ FROM ══ -->
+<card><rich-text name='Front'>souffrir de</rich-text><rich-text name='Back'>to suffer <strong>from</strong></rich-text></card>
+<card><rich-text name='Front'>bénéficier de / profiter de</rich-text><rich-text name='Back'>to benefit <strong>from</strong></rich-text></card>
+<card><rich-text name='Front'>s'abstenir de (+ V-ing)</rich-text><rich-text name='Back'>to refrain <strong>from</strong> / to abstain <strong>from</strong> (+ V-ing)</rich-text></card>
+<card><rich-text name='Front'>différer de / se distinguer de</rich-text><rich-text name='Back'>to differ <strong>from</strong></rich-text></card>
+<card><rich-text name='Front'>se remettre de (une maladie, un choc)</rich-text><rich-text name='Back'>to recover <strong>from</strong></rich-text></card>
+<card><rich-text name='Front'>résulter de / provenir de</rich-text><rich-text name='Back'>to result <strong>from</strong> / to stem <strong>from</strong></rich-text></card>
+<card><rich-text name='Front'>distinguer A de B</rich-text><rich-text name='Back'>to distinguish A <strong>from</strong> B</rich-text></card>
+<card><rich-text name='Front'>dériver de / tirer son origine de</rich-text><rich-text name='Back'>to derive <strong>from</strong></rich-text></card>
+<card><rich-text name='Front'>détourner qqn de</rich-text><rich-text name='Back'>to deter sb <strong>from</strong> / to dissuade sb <strong>from</strong></rich-text></card>
+<card><rich-text name='Front'>s'éloigner de / s'écarter de</rich-text><rich-text name='Back'>to deviate <strong>from</strong> / to depart <strong>from</strong></rich-text></card>
+
+<!-- ══ ABOUT ══ -->
+<card><rich-text name='Front'>s'inquiéter de</rich-text><rich-text name='Back'>to worry <strong>about</strong></rich-text></card>
+<card><rich-text name='Front'>rêver de (imaginer)</rich-text><rich-text name='Back'>to dream <strong>about</strong> / <strong>of</strong></rich-text></card>
+<card><rich-text name='Front'>se plaindre de (une situation)</rich-text><rich-text name='Back'>to complain <strong>about</strong> ⚠ (≠ complain OF = symptôme médical)</rich-text></card>
+<card><rich-text name='Front'>se plaindre d'un symptôme (médical)</rich-text><rich-text name='Back'>to complain <strong>of</strong> a symptom ⚠ (≠ complain ABOUT = situation)</rich-text></card>
+<card><rich-text name='Front'>être enthousiaste à propos de</rich-text><rich-text name='Back'>to be enthusiastic <strong>about</strong></rich-text></card>
+<card><rich-text name='Front'>penser à / réfléchir à</rich-text><rich-text name='Back'>to think <strong>about</strong> ⚠ (≠ think OF = avoir une opinion sur)</rich-text></card>
+<card><rich-text name='Front'>avoir une opinion sur (que penses-tu de...?)</rich-text><rich-text name='Back'>to think <strong>of</strong> ⚠ (≠ think ABOUT = réfléchir à)</rich-text></card>
+<card><rich-text name='Front'>être passionné par</rich-text><rich-text name='Back'>to be passionate <strong>about</strong></rich-text></card>
+
+<!-- ══ IN ══ -->
+<card><rich-text name='Front'>croire en</rich-text><rich-text name='Back'>to believe <strong>in</strong></rich-text></card>
+<card><rich-text name='Front'>investir dans</rich-text><rich-text name='Back'>to invest <strong>in</strong></rich-text></card>
+<card><rich-text name='Front'>se spécialiser dans</rich-text><rich-text name='Back'>to specialise <strong>in</strong></rich-text></card>
+<card><rich-text name='Front'>s'intéresser à</rich-text><rich-text name='Back'>to be interested <strong>in</strong></rich-text></card>
+<card><rich-text name='Front'>s'adonner à / se permettre</rich-text><rich-text name='Back'>to indulge <strong>in</strong></rich-text></card>
+<card><rich-text name='Front'>s'engager dans / participer à</rich-text><rich-text name='Back'>to engage <strong>in</strong></rich-text></card>
+<card><rich-text name='Front'>persister dans / s'entêter à</rich-text><rich-text name='Back'>to persist <strong>in</strong></rich-text></card>
+<card><rich-text name='Front'>aboutir à (un résultat)</rich-text><rich-text name='Back'>to result <strong>in</strong> ⚠ (≠ result FROM = être causé par)</rich-text></card>
+<card><rich-text name='Front'>réussir à (faire qqch)</rich-text><rich-text name='Back'>to succeed <strong>in</strong> (+ V-ing)</rich-text></card>
+
+<!-- ══ INTO ══ -->
+<card><rich-text name='Front'>enquêter sur / examiner</rich-text><rich-text name='Back'>to look <strong>into</strong> / to inquire <strong>into</strong></rich-text></card>
+<card><rich-text name='Front'>se transformer en</rich-text><rich-text name='Back'>to turn <strong>into</strong></rich-text></card>
+<card><rich-text name='Front'>contraindre qqn à faire qqch</rich-text><rich-text name='Back'>to force sb <strong>into</strong> doing sth / to coerce sb <strong>into</strong></rich-text></card>
+<card><rich-text name='Front'>plonger dans (un état)</rich-text><rich-text name='Back'>to plunge <strong>into</strong></rich-text></card>
+
+<!-- ══ PHRASAL VERBS PIÉGEUX ══ -->
+<card><rich-text name='Front'>mépriser / regarder de haut</rich-text><rich-text name='Back'>to look down <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>admirer / prendre en exemple</rich-text><rich-text name='Back'>to look up <strong>to</strong></rich-text></card>
+<card><rich-text name='Front'>s'occuper de / veiller sur</rich-text><rich-text name='Back'>to look <strong>after</strong></rich-text></card>
+<card><rich-text name='Front'>attendre avec impatience</rich-text><rich-text name='Back'>to look forward <strong>to</strong> (+ V-ing)</rich-text></card>
+<card><rich-text name='Front'>surmonter / faire face à (une difficulté)</rich-text><rich-text name='Back'>to get over / to overcome</rich-text></card>
+<card><rich-text name='Front'>soutenir / appuyer (une cause, une personne)</rich-text><rich-text name='Back'>to stand up <strong>for</strong> / to stand <strong>by</strong></rich-text></card>
+<card><rich-text name='Front'>tolérer / accepter (qqch de désagréable)</rich-text><rich-text name='Back'>to put up <strong>with</strong></rich-text></card>
+<card><rich-text name='Front'>renoncer à / abandonner</rich-text><rich-text name='Back'>to give up <strong>on</strong></rich-text></card>
+<card><rich-text name='Front'>comparer A à B (souligner similarité)</rich-text><rich-text name='Back'>to compare A <strong>to</strong> B ⚠ (≠ compare WITH = analyser différences)</rich-text></card>
+<card><rich-text name='Front'>comparer A avec B (analyse, différences)</rich-text><rich-text name='Back'>to compare A <strong>with</strong> B ⚠ (≠ compare TO = souligner similarité)</rich-text></card>
+
+</cards></deck>
