@@ -1,0 +1,37 @@
+<deck name="Technologies et intelligence artificielle"><fields><rich-text name='Front' sides='11'></rich-text><rich-text name='Back' sides='01'></rich-text></fields><cards>
+<card><rich-text name='Front'>l'intelligence artificielle (IA)</rich-text><rich-text name='Back'>artificial intelligence (AI)</rich-text></card>
+<card><rich-text name='Front'>l'apprentissage automatique / l'apprentissage profond</rich-text><rich-text name='Back'>machine learning / deep learning</rich-text></card>
+<card><rich-text name='Front'>un algorithme</rich-text><rich-text name='Back'>an algorithm</rich-text></card>
+<card><rich-text name='Front'>les données massives</rich-text><rich-text name='Back'>big data</rich-text></card>
+<card><rich-text name='Front'>les données personnelles / la vie privée</rich-text><rich-text name='Back'>personal data / privacy</rich-text></card>
+<card><rich-text name='Front'>la surveillance numérique</rich-text><rich-text name='Back'>digital surveillance</rich-text></card>
+<card><rich-text name='Front'>l'automatisation / les robots</rich-text><rich-text name='Back'>automation / robots / robotics</rich-text></card>
+<card><rich-text name='Front'>des emplois menacés par l'automatisation</rich-text><rich-text name='Back'>jobs threatened by automation / at risk of being automated</rich-text></card>
+<card><rich-text name='Front'>l'IA générative / un chatbot</rich-text><rich-text name='Back'>generative AI / a chatbot</rich-text></card>
+<card><rich-text name='Front'>les biais algorithmiques</rich-text><rich-text name='Back'>algorithmic bias</rich-text></card>
+<card><rich-text name='Front'>l'éthique de l'IA</rich-text><rich-text name='Back'>AI ethics</rich-text></card>
+<card><rich-text name='Front'>la fracture numérique</rich-text><rich-text name='Back'>the digital divide</rich-text></card>
+<card><rich-text name='Front'>les grandes entreprises technologiques (GAFAM)</rich-text><rich-text name='Back'>Big Tech / the tech giants</rich-text></card>
+<card><rich-text name='Front'>une start-up / la disruption</rich-text><rich-text name='Back'>a start-up / disruption</rich-text></card>
+<card><rich-text name='Front'>le cloud / l'informatique en nuage</rich-text><rich-text name='Back'>cloud computing / the cloud</rich-text></card>
+<card><rich-text name='Front'>la cybersécurité / une cyberattaque</rich-text><rich-text name='Back'>cybersecurity / a cyberattack</rich-text></card>
+<card><rich-text name='Front'>le piratage / un pirate informatique</rich-text><rich-text name='Back'>hacking / a hacker</rich-text></card>
+<card><rich-text name='Front'>la reconnaissance faciale / les données biométriques</rich-text><rich-text name='Back'>facial recognition / biometric data</rich-text></card>
+<card><rich-text name='Front'>l'internet des objets</rich-text><rich-text name='Back'>the Internet of Things (IoT)</rich-text></card>
+<card><rich-text name='Front'>la réalité virtuelle / la réalité augmentée</rich-text><rich-text name='Back'>virtual reality (VR) / augmented reality (AR)</rich-text></card>
+<card><rich-text name='Front'>la blockchain / la cryptomonnaie</rich-text><rich-text name='Back'>blockchain / cryptocurrency</rich-text></card>
+<card><rich-text name='Front'>les réseaux sociaux</rich-text><rich-text name='Back'>social media / social networks</rich-text></card>
+<card><rich-text name='Front'>un influenceur / un créateur de contenu</rich-text><rich-text name='Back'>an influencer / a content creator</rich-text></card>
+<card><rich-text name='Front'>l'addiction aux écrans / le temps d'écran</rich-text><rich-text name='Back'>screen addiction / screen time</rich-text></card>
+<card><rich-text name='Front'>l'empreinte numérique</rich-text><rich-text name='Back'>the digital footprint</rich-text></card>
+<card><rich-text name='Front'>les bulles de filtre</rich-text><rich-text name='Back'>filter bubbles</rich-text></card>
+<card><rich-text name='Front'>la désinformation en ligne</rich-text><rich-text name='Back'>online disinformation / misinformation</rich-text></card>
+<card><rich-text name='Front'>révolutionner / transformer en profondeur</rich-text><rich-text name='Back'>to revolutionise / to fundamentally transform</rich-text></card>
+<card><rich-text name='Front'>soulever des questions éthiques</rich-text><rich-text name='Back'>to raise ethical questions / concerns</rich-text></card>
+<card><rich-text name='Front'>réguler / encadrer les technologies</rich-text><rich-text name='Back'>to regulate / to oversee technology</rich-text></card>
+<card><rich-text name='Front'>la propriété intellectuelle</rich-text><rich-text name='Back'>intellectual property</rich-text></card>
+<card><rich-text name='Front'>les métiers de demain / les compétences numériques</rich-text><rich-text name='Back'>the jobs of the future / digital skills</rich-text></card>
+<card><rich-text name='Front'>l'intelligence artificielle au service de la médecine</rich-text><rich-text name='Back'>AI in healthcare / AI-driven medicine</rich-text></card>
+<card><rich-text name='Front'>une voiture autonome</rich-text><rich-text name='Back'>a self-driving car / an autonomous vehicle</rich-text></card>
+<card><rich-text name='Front'>l'empreinte carbone du numérique</rich-text><rich-text name='Back'>the carbon footprint of the digital sector / digital carbon footprint</rich-text></card>
+</cards></deck>
