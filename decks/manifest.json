@@ -70,6 +70,11 @@
 	{ "path": "Maths/Cours/Chapitre 18 - Probabilités.xml", "tags": ["last","timer"], "description": "Probabilites, lois, distributions et applications classiques." },
 	{ "path": "Maths/Cours/Chapitre 19 - Applications linéaires.xml", "tags": ["timer"], "description": "Applications lineaires, transformations, matrices." },
 	{ "path": "Maths/Cours/Chapitre 20 - Intégration sur un segment.xml", "tags": ["timer"], "description": "Integration sur un segment, techniques et applications classiques." },
+	{ "path": "Maths/Cours/Chapitre 21 - Espaces vectoriels de dimension finie.xml", "tags": ["timer"],"description":"Espaces vectoriels de dimension finie, bases, dimensions et applications classiques." },
+	{ "path": "Maths/Cours/Chapitre 01 - Raisonner, rédiger.xml", "tags": ["timer"],"description":"Variables aléatoires, lois, distributions et applications classiques." },
+	{ "path": "Maths/Cours/Chapitre 23 - Matrices et applications linéaires.xml", "tags": ["timer"],"description":"Matrices et applications linéaires, transformations, operations." },
+	{ "path": "Maths/Cours/Chapitre 24 - Groupe symétrique, déterminants.xml", "tags": ["timer"],"description":"Groupe symétrique, determinant, matrices et applications classiques." },
+
 
 	{ "path": "Maths/Contrôles/Chapitre 01 - Raisonner, rédiger.xml", "tags": ["timer"], "description": "Methodes pour raisonner et rediger, preuves et rigueur mathematique claire." },
 	{ "path": "Maths/Contrôles/Chapitre 02 - Calcul algébrique et trigonométrie.xml", "tags": ["timer"], "description": "Calcul algebrique et trigonometrie, identites, transformations et exercices cles types." },
