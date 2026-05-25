@@ -91,7 +91,10 @@
 	{ "path": "Maths/Contrôles/Chapitre 18 - Probabilités.xml", "tags": ["last","timer"], "description": "Probabilites, lois, distributions et applications classiques." },
 	{ "path": "Maths/Contrôles/Chapitre 19 - Applications linéaires.xml", "tags": ["timer"],"description":"Applications lineaires, transformations, matrices." },
 	{ "path": "Maths/Contrôles/Chapitre 20 - Intégration sur un segment.xml", "tags": ["timer"],"description":"Integration sur un segment, techniques et applications classiques." },
-
+	{ "path": "Maths/Contrôles/Chapitre 21 - Espaces vectoriels de dimension finie.xml", "tags": ["timer"],"description":"Espaces vectoriels de dimension finie, bases, dimensions et applications classiques." },
+	{ "path": "Maths/Contrôles/Chapitre 22 - Variables aléatoires.xml", "tags": ["timer"],"description":"Variables aléatoires, lois, distributions et applications classiques." },
+	{ "path": "Maths/Contrôles/Chapitre 23 - Matrices et applications linéaires.xml", "tags": ["timer"],"description":"Matrices et applications linéaires, transformations, operations." },
+	{ "path": "Maths/Contrôles/Chapitre 24 - Groupe symétrique, déterminants.xml", "tags": ["timer"],"description":"Groupe symétrique, determinant, matrices et applications classiques." },
 
 	{ "path": "Maths/Calcul mental/Puissances et Calcul littéral - Calcul mental.xml", "tags": ["timer","calcul"], "level": 5, "cost": 20, "description": "Calcul mental sur puissances et calcul litteral, entrainement rapide quotidien." },
 	{ "path": "Maths/Calcul mental/Trigonométrie - Calcul mental.xml", "tags": ["timer","calcul"], "level": 5, "cost": 20, "description": "Calcul mental de trigonometrie, identites et reflexes rapides quotidiens utiles." },
