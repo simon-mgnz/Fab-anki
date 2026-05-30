@@ -38,8 +38,10 @@
   
   // Service Worker Registration
   if('serviceWorker' in navigator){
+    let __fabanki_swRefreshing = false;
+
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./service-worker.js')
+      navigator.serviceWorker.register('./service-worker.js', { updateViaCache: 'none' })
         .then((registration) => {
           console.log('[PWA] Service Worker registered:', registration.scope);
 
@@ -59,29 +61,48 @@
               return Promise.resolve();
             }
           };
+
+          const activateWaitingWorker = (worker) => {
+            if(!worker) return;
+            worker.postMessage({ type: 'SKIP_WAITING' });
+          };
+
+          const applyAvailableUpdate = () => {
+            if(registration.waiting){
+              activateWaitingWorker(registration.waiting);
+              return;
+            }
+            if(registration.installing){
+              registration.installing.addEventListener('statechange', () => {
+                if(registration.waiting) activateWaitingWorker(registration.waiting);
+              });
+            }
+          };
           
           // Check for updates immediately on page load
           safeUpdateRegistration();
           
-          // Check for updates every 5 minutes
-          setInterval(() => {
-            safeUpdateRegistration();
-          }, 5 * 60 * 1000);
+          // Check for updates every 5 minutes and when tab becomes visible
+          setInterval(() => { safeUpdateRegistration(); }, 5 * 60 * 1000);
+          document.addEventListener('visibilitychange', () => {
+            if(document.visibilityState === 'visible') safeUpdateRegistration();
+          });
           
-          // Handle updates
+          // Auto-apply update as soon as a new worker is ready
           registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
+            if(!newWorker) return;
             newWorker.addEventListener('statechange', () => {
               if(newWorker.state === 'installed' && navigator.serviceWorker.controller){
-                // New version available - show notification
-                showUpdateNotification();
+                console.log('[PWA] New version detected — applying automatically');
+                applyAvailableUpdate();
               }
             });
           });
           
-          // Also check if there's already a waiting worker (from a previous update check)
-          if(registration.waiting){
-            showUpdateNotification();
+          if(registration.waiting && navigator.serviceWorker.controller){
+            console.log('[PWA] Waiting worker found — applying automatically');
+            applyAvailableUpdate();
           }
         })
         .catch((error) => {
@@ -98,12 +119,12 @@
         }
       });
       
-      // Handle controller change (when update is activated)
+      // Reload once when the new service worker takes control
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('[PWA] Service Worker Controller changed - update activated');
-        // Remove update notification when update is applied
-        const notification = document.querySelector('[data-update-notification]');
-        if(notification) notification.remove();
+        if(__fabanki_swRefreshing) return;
+        __fabanki_swRefreshing = true;
+        console.log('[PWA] Service Worker controller changed — reloading for update');
+        window.location.reload();
       });
     });
   }
@@ -22594,71 +22615,9 @@
     }
   }
   
-  // Show update notification when new version available
+  // Legacy hook kept for compatibility (updates are now automatic)
   function showUpdateNotification(){
-    // Don't show duplicate notifications
-    if(document.querySelector('[data-update-notification]')) return;
-    
-    const notification = document.createElement('div');
-    notification.setAttribute('data-update-notification', 'true');
-    notification.style.cssText = 'position:fixed;top:0;left:0;right:0;background:linear-gradient(90deg, #f59e0b 0%, #d97706 100%);color:white;padding:16px 20px;z-index:10001;display:flex;align-items:center;justify-content:space-between;gap:16px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
-    
-    const content = document.createElement('div');
-    content.style.cssText = 'flex:1;display:flex;align-items:center;gap:12px;';
-    
-    const icon = document.createElement('span');
-    icon.textContent = 'ðŸŽ‰';
-    icon.style.cssText = 'font-size:1.5em;';
-    
-    const text = document.createElement('div');
-    text.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
-    
-    const title = document.createElement('div');
-    title.style.cssText = 'font-size:1em;font-weight:700;';
-    title.textContent = 'Nouvelle version disponible!';
-    
-    const message = document.createElement('div');
-    message.style.cssText = 'font-size:0.9em;opacity:0.95;';
-    message.textContent = 'Cliquez sur "Mettre Ã  jour" pour installer la mise Ã  jour de l\'application.';
-    
-    text.appendChild(title);
-    text.appendChild(message);
-    content.appendChild(icon);
-    content.appendChild(text);
-    
-    const buttons = document.createElement('div');
-    buttons.style.cssText = 'display:flex;gap:8px;flex-shrink:0;';
-    
-    const updateBtn = document.createElement('button');
-    updateBtn.textContent = 'Mettre Ã  jour';
-    updateBtn.style.cssText = 'padding:10px 20px;border:none;border-radius:6px;background:white;color:#d97706;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);transition:transform 0.2s;';
-    updateBtn.onmouseover = () => updateBtn.style.transform = 'scale(1.05)';
-    updateBtn.onmouseout = () => updateBtn.style.transform = 'scale(1)';
-    updateBtn.addEventListener('click', () => {
-      window.location.reload();
-    });
-    
-    const laterBtn = document.createElement('button');
-    laterBtn.textContent = 'Plus tard';
-    laterBtn.style.cssText = 'padding:10px 20px;border:1px solid white;border-radius:6px;background:transparent;color:white;font-weight:600;cursor:pointer;transition:opacity 0.3s;';
-    laterBtn.addEventListener('click', () => {
-      notification.remove();
-    });
-    
-    buttons.appendChild(updateBtn);
-    buttons.appendChild(laterBtn);
-    
-    notification.appendChild(content);
-    notification.appendChild(buttons);
-    
-    document.body.appendChild(notification);
-    
-    // Show banner at top to shift content down
-    const oldMargin = document.body.style.marginTop;
-    document.body.style.marginTop = '80px';
-    document.body.style.transition = 'margin-top 0.3s ease';
-    
-    console.log('[PWA] Update notification shown to user');
+    console.log('[PWA] Update available — handled automatically');
   }
   
   // Show sync success notification

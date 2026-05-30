@@ -1,6 +1,6 @@
 // Fab Anki Service Worker
 // Version management for cache busting
-const VERSION = '2.0.74';
+const VERSION = '2.0.75';
 const CACHE_NAME = `fabanki-v${VERSION}`;
 const DECKS_CACHE = `fabanki-decks-v${VERSION}`;
 const RUNTIME_CACHE = `fabanki-runtime-v${VERSION}`;
@@ -9,8 +9,8 @@ const RUNTIME_CACHE = `fabanki-runtime-v${VERSION}`;
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/styles.css?v=2.0.74',
-  '/js/app.js?v=2.0.74',
+  '/styles.css?v=2.0.75',
+  '/js/app.js?v=2.0.75',
   '/config.js',
   '/decks/manifest.json',
   '/fabankiapp.png',
@@ -76,21 +76,37 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
-  // Strategy 1: Cache-first for static assets and decks
+  // Strategy 1: Network-first for app shell (always fetch latest when online)
+  if (isAppShell(url.pathname)) {
+    event.respondWith(networkFirstAppShell(request));
+    return;
+  }
+
+  // Strategy 2: Cache-first for other static assets and decks (offline decks)
   if (isStaticAsset(url.pathname) || isDeckFile(url.pathname)) {
     event.respondWith(cacheFirst(request));
     return;
   }
   
-  // Strategy 2: Network-first for API/sync requests
+  // Strategy 3: Network-first for API/sync requests
   if (isSyncRequest(url.pathname)) {
     event.respondWith(networkFirst(request));
     return;
   }
   
-  // Strategy 3: Stale-while-revalidate for everything else
+  // Strategy 4: Stale-while-revalidate for everything else
   event.respondWith(staleWhileRevalidate(request));
 });
+
+// Helper: App shell files that must always update when online
+function isAppShell(pathname) {
+  return pathname === '/' ||
+         pathname.endsWith('/index.html') ||
+         pathname.endsWith('/js/app.js') ||
+         pathname.endsWith('/styles.css') ||
+         pathname.endsWith('/config.js') ||
+         pathname.endsWith('/service-worker.js');
+}
 
 // Helper: Check if request is for static asset
 function isStaticAsset(pathname) {
@@ -116,6 +132,29 @@ function isSyncRequest(pathname) {
          pathname.includes('/api/') ||
          pathname.includes('firebase') ||
          pathname.includes('supabase');
+}
+
+// Strategy: Network-first for app shell (fresh updates; cache fallback offline)
+async function networkFirstAppShell(request) {
+  const cache = await caches.open(CACHE_NAME);
+
+  try {
+    const response = await fetch(request);
+    if (response && response.status === 200) {
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+
+    if (request.mode === 'navigate') {
+      const offlinePage = await cache.match('/index.html');
+      if (offlinePage) return offlinePage;
+    }
+
+    throw error;
+  }
 }
 
 // Strategy: Cache-first (for assets and decks)
