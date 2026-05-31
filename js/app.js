@@ -17999,6 +17999,15 @@
         try{ applyStateToLocalStorage(chosen); }catch(e){}
         await saveState(chosen);
         localStorage.setItem('fabanki:mode', 'synced');
+        try{
+          if(localStorage.getItem('fabanki:push_subscribed') === '1' && 'serviceWorker' in navigator){
+            const reg = await navigator.serviceWorker.ready;
+            const sub = await reg.pushManager.getSubscription();
+            if(sub && typeof window.__fabanki_resavePushSubscription === 'function'){
+              await window.__fabanki_resavePushSubscription(sub);
+            }
+          }
+        }catch(pushErr){ console.warn('[push] Re-sync after Google login failed:', pushErr); }
         return user;
       }catch(e){
         if(e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return null;
@@ -23784,7 +23793,7 @@
           
           console.log('âœ… Deck submitted successfully with ID:', publishedId);
           
-          alert('âœ… Deck publiÃ© avec succÃ¨s!\n\nLe dÃ©veloppeur sera notifiÃ© et examinera votre deck.\n\nID de soumission: ' + publishedId);
+          alert('✅ Deck soumis avec succès !\n\nIl sera publié automatiquement sur le catalogue dans quelques instants.\n\nID : ' + publishedId);
           
           // Clear draft
           localStorage.removeItem('fabanki:deck_draft');
@@ -24759,6 +24768,14 @@
           </div>
         </div>
       </div>
+      <div class="sp-section"><span class="sp-section-title">Administration</span>
+        <div class="sp-card">
+          <div class="rg-row">
+            <div><div class="rg-row-label">Modération des decks</div><div class="rg-row-sub">Liste et suppression des decks publiés (admin uniquement)</div></div>
+            <button class="secondary" id="rg-deck-mod-btn">Modérer</button>
+          </div>
+        </div>
+      </div>
       <div class="sp-section"><span class="sp-section-title">Données</span>
         <div class="sp-card">
           <div class="rg-row">
@@ -24829,12 +24846,171 @@
         if(typeof showOnboarding === 'function') showOnboarding();
       }catch(e){}
     });
+    el.querySelector('#rg-deck-mod-btn')?.addEventListener('click', () => {
+      if(typeof window.showDeckModerationModal === 'function') window.showDeckModerationModal();
+    });
     el.querySelector('#rg-reset-customize-btn')?.addEventListener('click', ()=>{
       ['fabanki:bg_color','fabanki:bg_pattern','fabanki:font_stack','fabanki:card_color','fabanki:popup_animation','fabanki:font_size','fabanki:accent_color'].forEach(k=>localStorage.removeItem(k));
       if(typeof applyCustomization==='function') applyCustomization();
       window.renderReglagesPage();
     });
   };
+})();
+
+// ===== ADMIN DECK MODERATION (server-side auth only) =====
+(function(){
+  function getFns(){ return window.__fabanki_functions || null; }
+  function getAuth(){ return window.__fabanki_auth || null; }
+
+  async function ensureAdminAuth(){
+    const auth = getAuth();
+    if(!auth) throw new Error('Firebase non configuré.');
+    if(!auth.currentUser || auth.currentUser.isAnonymous){
+      throw new Error('Connecte-toi avec ton compte Google administrateur (Réglages → Synchroniser) pour modérer les decks.');
+    }
+    return auth.currentUser;
+  }
+
+  window.showDeckModerationModal = async function(){
+    const existing = document.getElementById('deckModOverlay');
+    if(existing){ existing.remove(); }
+
+    try{
+      await ensureAdminAuth();
+      const fns = getFns();
+      if(!fns) throw new Error('Cloud Functions non disponibles.');
+
+      const overlay = document.createElement('div');
+      overlay.id = 'deckModOverlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10002;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+      const modal = document.createElement('div');
+      modal.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px;width:min(720px,96vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;';
+      modal.innerHTML = `
+        <div style="padding:20px 24px;border-bottom:1px solid var(--border-color,#eee);display:flex;justify-content:space-between;align-items:center;">
+          <h2 style="margin:0;font-size:1.1em;">Modération des decks</h2>
+          <button id="deckModClose" class="secondary" style="padding:4px 12px;">✕</button>
+        </div>
+        <div id="deckModBody" style="padding:20px 24px;overflow-y:auto;flex:1;">
+          <p style="color:var(--muted);">Chargement...</p>
+        </div>
+      `;
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
+      modal.querySelector('#deckModClose')?.addEventListener('click', () => overlay.remove());
+
+      const listFn = fns.httpsCallable('adminListPublishedDecks');
+      const { data } = await listFn({});
+      const decks = data?.decks || [];
+      const body = modal.querySelector('#deckModBody');
+
+      if(decks.length === 0){
+        body.innerHTML = '<p>Aucun deck publié récemment.</p>';
+        return;
+      }
+
+      const pendingCount = decks.filter(d => d.status === 'pending').length;
+      const headerHtml = pendingCount > 0
+        ? `<div style="margin-bottom:16px;padding:12px 16px;background:rgba(155,89,208,0.1);border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <span><strong>${pendingCount}</strong> deck${pendingCount > 1 ? 's' : ''} en attente de publication</span>
+            <button class="primary" id="deckModPublishAll">Publier tout</button>
+          </div>`
+        : '';
+
+      body.innerHTML = headerHtml + decks.map(d => `
+        <div class="deck-mod-row" data-id="${d.id}" style="border:1px solid var(--border-color,#eee);border-radius:12px;padding:14px 16px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:700;">${escapeHtml(d.title || 'Sans titre')}</div>
+              <div style="font-size:0.82em;color:var(--muted);margin-top:4px;">${escapeHtml(d.publishedPath || '—')}</div>
+              <div style="font-size:0.78em;color:var(--muted);margin-top:4px;">
+                Par ${escapeHtml(d.submittedBy || '?')} · ${d.cardCount || 0} cartes ·
+                <span style="color:${d.status==='published'?'#28a745':d.status==='pending'?'#9b59d0':d.status==='failed'?'#d9534f':'#888'}">${escapeHtml(d.status)}</span>
+              </div>
+              ${d.publishError ? `<div style="font-size:0.78em;color:#d9534f;margin-top:6px;">${escapeHtml(d.publishError)}</div>` : ''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+              ${d.status === 'published' && d.publishedPath ? `<button class="secondary deck-mod-remove" data-id="${d.id}" data-path="${escapeHtml(d.publishedPath)}" style="color:#d9534f;border-color:rgba(217,83,79,0.4);">Supprimer</button>` : ''}
+              ${(d.status === 'failed' || d.status === 'pending') ? `<button class="secondary deck-mod-retry" data-id="${d.id}">${d.status === 'pending' ? 'Publier' : 'Republier'}</button>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      body.querySelector('#deckModPublishAll')?.addEventListener('click', async (e) => {
+        const el = e.currentTarget;
+        if(!confirm(`Publier les ${pendingCount} deck(s) en attente sur GitHub ?`)) return;
+        el.disabled = true;
+        el.textContent = 'Publication...';
+        try{
+          const batchFn = fns.httpsCallable('adminPublishAllPending');
+          const { data: result } = await batchFn({});
+          alert(`Terminé : ${result.published} publié(s), ${result.failed} échec(s).`);
+          overlay.remove();
+          window.showDeckModerationModal();
+        }catch(err){
+          alert('Erreur : ' + (err.message || err));
+          el.disabled = false;
+          el.textContent = 'Publier tout';
+        }
+      });
+
+      body.querySelectorAll('.deck-mod-remove').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          const path = btn.dataset.path;
+          if(!confirm(`Supprimer définitivement le deck "${path}" du catalogue ?`)) return;
+          btn.disabled = true;
+          btn.textContent = 'Suppression...';
+          try{
+            const removeFn = fns.httpsCallable('adminRemoveDeck');
+            await removeFn({ submissionId: id, publishedPath: path });
+            btn.closest('.deck-mod-row')?.remove();
+            alert('Deck supprimé du catalogue.');
+          }catch(err){
+            alert('Erreur : ' + (err.message || err));
+            btn.disabled = false;
+            btn.textContent = 'Supprimer';
+          }
+        });
+      });
+
+      body.querySelectorAll('.deck-mod-retry').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          btn.disabled = true;
+          btn.textContent = 'Publication...';
+          try{
+            const retryFn = fns.httpsCallable('adminRetryPublish');
+            await retryFn({ submissionId: id });
+            alert('Deck republié.');
+            overlay.remove();
+            window.showDeckModerationModal();
+          }catch(err){
+            alert('Erreur : ' + (err.message || err));
+            btn.disabled = false;
+            btn.textContent = 'Republier';
+          }
+        });
+      });
+    }catch(err){
+      const code = err?.code || '';
+      if(code === 'functions/permission-denied' || String(err.message).includes('permission-denied')){
+        alert('Accès réservé à l\'administrateur.');
+      }else{
+        alert(err.message || String(err));
+      }
+    }
+  };
+
+  function escapeHtml(str){
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 })();
 
 // ===== UNIFIED NAVIGATION (bottom bar + sidebar) =====
@@ -25616,6 +25792,16 @@ window.exportProgressCSV = function(){
 
   function getDb(){ return window.__fabanki_firestore || window.firebase?.firestore?.() || null; }
   function getUser(){ return window.__fabanki_auth?.currentUser || window.firebase?.auth?.()?.currentUser || null; }
+  function getFunctions(){ return window.__fabanki_functions || null; }
+
+  async function ensurePushAuth(){
+    const auth = window.__fabanki_auth;
+    if(!auth) throw new Error('Firebase non configuré.');
+    if(!auth.currentUser){
+      await auth.signInAnonymously();
+    }
+    return auth.currentUser;
+  }
 
   // ── Souscription / Désinscription ─────────────────────────────────────────
 
@@ -25627,6 +25813,7 @@ window.exportProgressCSV = function(){
     if(!vapidKey || vapidKey.startsWith('REMPLACER')){
       throw new Error('Clé VAPID non configurée. Voir config.js pour les instructions.');
     }
+    await ensurePushAuth();
     const permission = await Notification.requestPermission();
     if(permission !== 'granted') throw new Error('Permission refusée.');
 
@@ -25649,8 +25836,9 @@ window.exportProgressCSV = function(){
   }
 
   async function saveSubscriptionToFirestore(sub){
+    await ensurePushAuth();
     const db = getDb(); const user = getUser();
-    if(!db || !user) return;
+    if(!db || !user) throw new Error('Impossible d\'enregistrer la souscription push.');
     const prefs = getPrefs();
     await db.collection('push_subscriptions').doc(user.uid).set({
       subscription: sub.toJSON(),
@@ -25661,6 +25849,8 @@ window.exportProgressCSV = function(){
     }, { merge: true });
   }
 
+  window.__fabanki_resavePushSubscription = saveSubscriptionToFirestore;
+
   async function removeSubscriptionFromFirestore(){
     const db = getDb(); const user = getUser();
     if(!db || !user) return;
@@ -25670,9 +25860,12 @@ window.exportProgressCSV = function(){
   // Sync due count to Firestore so Cloud Functions can read it
   window.__fabanki_syncDueCountForPush = async function(){
     if(localStorage.getItem('fabanki:push_subscribed') !== '1') return;
-    const db = getDb(); const user = getUser();
-    if(!db || !user) return;
+    const db = getDb();
+    if(!db) return;
     try{
+      await ensurePushAuth();
+      const user = getUser();
+      if(!user) return;
       await db.collection('push_subscriptions').doc(user.uid).set({
         dueCount: getDueCount(),
         updatedAt: new Date().toISOString(),
@@ -25778,15 +25971,24 @@ window.exportProgressCSV = function(){
     const testBtn = document.createElement('button');
     testBtn.className = 'secondary';
     testBtn.style.cssText = 'width:100%;margin-bottom:12px;';
-    testBtn.textContent = '🧪 Envoyer une notification test';
+    testBtn.textContent = '🧪 Envoyer une notification test (serveur)';
     testBtn.disabled = !isSubscribed;
-    testBtn.onclick = () => {
-      if(Notification.permission === 'granted'){
-        new Notification('Fab\'Anki — Test', {
-          body: `Il te reste ${getDueCount()} carte${getDueCount()>1?'s':''} à faire. Rappel quotidien fonctionnel !`,
-          icon: './fabankiapp.png',
-          tag: 'fabanki-test',
-        });
+    testBtn.onclick = async () => {
+      testBtn.disabled = true;
+      testBtn.textContent = 'Envoi...';
+      try{
+        const fns = getFunctions();
+        if(!fns) throw new Error('Cloud Functions non disponibles.');
+        await ensurePushAuth();
+        const sendTest = fns.httpsCallable('sendTestPush');
+        await sendTest({});
+        testBtn.textContent = '✓ Push serveur reçu !';
+      }catch(err){
+        const msg = err?.message || String(err);
+        alert('Test push échoué : ' + msg + '\n\nVérifie que les Cloud Functions sont déployées et que tu es connecté.');
+        testBtn.textContent = '🧪 Envoyer une notification test (serveur)';
+      }finally{
+        setTimeout(() => { testBtn.disabled = !isSubscribed; }, 2000);
       }
     };
     modal.appendChild(testBtn);
@@ -25852,7 +26054,10 @@ window.exportProgressCSV = function(){
     document.body.appendChild(overlay);
   };
 
-  // Sync due count whenever the due count element changes
+  // Sync due count on load and whenever the due count element changes
+  window.addEventListener('load', () => {
+    setTimeout(() => { window.__fabanki_syncDueCountForPush?.(); }, 4000);
+  });
   const dueEl = document.getElementById('dueCount');
   if(dueEl){
     new MutationObserver(() => {

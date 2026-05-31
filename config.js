@@ -28,16 +28,19 @@ window.__fabanki_firebaseConfig = window.__fabanki_firebaseConfig || {
       // Initialize Firebase app
       const fbApp = firebase.initializeApp(cfg);
       
-      // Set up Firestore and Auth
+      // Set up Firestore, Auth and Cloud Functions (europe-west1)
       window.__fabanki_firestore = firebase.firestore();
       window.__fabanki_auth = firebase.auth();
+      window.__fabanki_functions = firebase.app().functions('europe-west1');
     } else { 
       window.__fabanki_firestore = null;
       window.__fabanki_auth = null;
+      window.__fabanki_functions = null;
     }
   }catch(e){ 
     console.error('Firebase initialization failed:', e?.message);
     window.__fabanki_firestore = null;
     window.__fabanki_auth = null;
+    window.__fabanki_functions = null;
   }
 })();

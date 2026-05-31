@@ -1,0 +1,31 @@
+name: Deploy Firebase Hosting
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'decks/**'
+      - 'index.html'
+      - 'js/**'
+      - 'styles.css'
+      - 'service-worker.js'
+      - 'app-manifest.json'
+      - 'config.js'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy to Firebase Hosting
+        run: firebase deploy --only hosting --project fab-anki-classement --non-interactive
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
