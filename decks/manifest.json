@@ -1084,5 +1084,13 @@
 			"timer"
 		],
 		"description": "Deck soumis par Anonyme — Plan cours Marlen Haushofer."
+	},
+	{
+		"path": "Yohann/Français/Plan cours Georges Canguilhem.xml",
+		"tags": [
+			"text",
+			"timer"
+		],
+		"description": "Deck soumis par Anonyme — Plan cours Georges Canguilhem."
 	}
 ]
