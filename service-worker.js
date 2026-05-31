@@ -1,16 +1,16 @@
 // Fab Anki Service Worker
 // Version management for cache busting
-const VERSION = '2.0.75';
+const VERSION = '2.0.87';
 const CACHE_NAME = `fabanki-v${VERSION}`;
 const DECKS_CACHE = `fabanki-decks-v${VERSION}`;
 const RUNTIME_CACHE = `fabanki-runtime-v${VERSION}`;
 
-// Assets to cache on install
+// Assets to cache on install (URLs must match index.html query strings)
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/styles.css?v=2.0.75',
-  '/js/app.js?v=2.0.75',
+  `/styles.css?v=${VERSION}`,
+  `/js/app.js?v=${VERSION}`,
   '/config.js',
   '/decks/manifest.json',
   '/fabankiapp.png',

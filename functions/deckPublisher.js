@@ -120,16 +120,38 @@ function modesToTags(modes) {
 }
 
 function buildManifestEntry(submission, relativePath) {
+  const tags = modesToTags(submission.modes);
+  if (!tags.includes('community')) tags.push('community');
+
+  const customDesc = submission.description || submission.manifestDescription;
   const entry = {
     path: relativePath,
-    tags: modesToTags(submission.modes),
-    description: `Deck soumis par ${submission.submittedBy || 'un utilisateur'} — ${submission.title || 'Sans titre'}.`,
+    tags,
+    description: customDesc && String(customDesc).trim()
+      ? String(customDesc).trim()
+      : `Deck communautaire soumis par ${submission.submittedBy || 'un utilisateur'} — ${submission.title || 'Sans titre'}.`,
   };
   const cost = Number(submission.cost);
   const level = Number(submission.level);
   if (Number.isFinite(cost) && cost > 0) entry.cost = cost;
   if (Number.isFinite(level) && level > 0) entry.level = level;
   return entry;
+}
+
+async function listManifestFolders() {
+  const manifestRepoPath = 'decks/manifest.json';
+  const manifestFile = await githubGetFile(manifestRepoPath);
+  const manifestEntries = manifestFile ? parseManifest(manifestFile.content) : [];
+  const folders = new Set(['']);
+  for (const e of manifestEntries) {
+    const p = String(e.path || e);
+    const parts = p.split('/').filter(Boolean);
+    if (parts.length <= 1) continue;
+    for (let i = 1; i < parts.length; i += 1) {
+      folders.add(parts.slice(0, i).join('/'));
+    }
+  }
+  return [...folders].sort((a, b) => a.localeCompare(b, 'fr'));
 }
 
 function parseManifest(content) {
@@ -238,4 +260,6 @@ module.exports = {
   publishDeckToGitHub,
   removeDeckFromGitHub,
   buildRelativeDeckPath,
+  listManifestFolders,
+  modesToTags,
 };

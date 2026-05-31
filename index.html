@@ -2,13 +2,34 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
+  <script>
+    // Local dev (python -m http.server): never let a stale Service Worker shadow live files.
+    (function(){
+      try{
+        var h = location.hostname;
+        var isLocal = h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1';
+        if(!isLocal) return;
+        window.__fabanki_localDev = true;
+        if('serviceWorker' in navigator){
+          navigator.serviceWorker.getRegistrations().then(function(regs){
+            regs.forEach(function(r){ r.unregister(); });
+          }).catch(function(){});
+        }
+        if(window.caches){
+          caches.keys().then(function(keys){
+            keys.filter(function(k){ return k.indexOf('fabanki-') === 0; }).forEach(function(k){ caches.delete(k); });
+          }).catch(function(){});
+        }
+      }catch(e){}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Fab'Anki — Flashcards sans compte</title>
   <meta name="description" content="Application d'apprentissage par répétition espacée avec plusieurs modes de révision">
   <meta name="theme-color" content="#9b59d0">
   <link id="appFavicon" rel="icon" href="./fabankilogoblack.png">
   <!-- PWA Manifest -->
-  <link rel="manifest" href="./app-manifest.json?v=2.0.75">
+  <link rel="manifest" href="./app-manifest.json?v=2.0.87">
   <!-- iOS PWA Support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -25,7 +46,7 @@
   <!-- Firebase configuration -->
   <script src="./config.js"></script>
   <!-- Styles -->
-  <link rel="stylesheet" href="./styles.css?v=2.0.75">
+  <link rel="stylesheet" href="./styles.css?v=2.0.87">
 </head>
 <body>
   <div id="bootSplash" class="boot-splash" aria-hidden="false">
@@ -458,6 +479,6 @@
   </script>
 
   <!-- Main application -->
-  <script src="./js/app.js?v=2.0.75" onerror="window.__fabanki_showFatal && window.__fabanki_showFatal('Erreur de chargement','Impossible de charger app.js')"></script>
+  <script src="./js/app.js?v=2.0.87" onerror="window.__fabanki_showFatal && window.__fabanki_showFatal('Erreur de chargement','Impossible de charger app.js')"></script>
 </body>
 </html>

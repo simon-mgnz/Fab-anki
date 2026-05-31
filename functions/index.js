@@ -10,7 +10,7 @@ const webpush = require('web-push');
 const fetch = require('node-fetch');
 
 const { publishDeckToGitHub, removeDeckFromGitHub } = require('./deckPublisher');
-const { sendAdminEmail, buildDeckPublishedEmail, buildDeckFailedEmail } = require('./emailNotify');
+const { sendAdminEmail, buildDeckPublishedEmail, buildDeckPendingEmail, buildDeckFailedEmail } = require('./emailNotify');
 const { getAdminUserRecord, assertAdminContext } = require('./adminAuth');
 const { buildAdminHttpExports } = require('./adminHttp');
 
@@ -187,6 +187,9 @@ exports.onModificationDeckSubmission = fn()
 // ── Admin HTTP API (exports explicites pour Firebase deploy) ──────────────
 const _adminHttp = buildAdminHttpExports(db, processDeckSubmission);
 exports.adminHttpListDecks = _adminHttp.adminHttpListDecks;
+exports.adminHttpGetSubmission = _adminHttp.adminHttpGetSubmission;
+exports.adminHttpUpdateSubmission = _adminHttp.adminHttpUpdateSubmission;
+exports.adminHttpListFolders = _adminHttp.adminHttpListFolders;
 exports.adminHttpPublishAll = _adminHttp.adminHttpPublishAll;
 exports.adminHttpRetryPublish = _adminHttp.adminHttpRetryPublish;
 exports.adminHttpRemoveDeck = _adminHttp.adminHttpRemoveDeck;
