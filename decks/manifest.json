@@ -1052,5 +1052,13 @@
 			"timer"
 		],
 		"description": "Deck soumis par Anonyme — Citations - Jules Verne (Vingt mille lieues sous les mers)."
+	},
+	{
+		"path": "Citations - Marlen Haushofer (Le Mur invisible).xml",
+		"tags": [
+			"text",
+			"timer"
+		],
+		"description": "Deck soumis par Anonyme — Citations - Marlen Haushofer (Le Mur invisible)."
 	}
 ]
