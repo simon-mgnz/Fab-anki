@@ -12,6 +12,7 @@ const fetch = require('node-fetch');
 const { publishDeckToGitHub, removeDeckFromGitHub } = require('./deckPublisher');
 const { sendAdminEmail, buildDeckPublishedEmail, buildDeckFailedEmail } = require('./emailNotify');
 const { getAdminUserRecord, assertAdminContext } = require('./adminAuth');
+const { buildAdminHttpExports } = require('./adminHttp');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -183,107 +184,12 @@ exports.onModificationDeckSubmission = fn()
     return processDeckSubmission(context.params.requestId, submission, 'modification_requests');
   });
 
-// ── Admin moderation (server-side only — secrets never exposed) ───────────
-
-exports.adminListPublishedDecks = fn().https.onCall(async (_data, context) => {
-  assertAdminContext(context);
-
-  const allowed = new Set(['pending', 'published', 'publishing', 'failed', 'removed']);
-  const snap = await db.collection('deck_submissions').limit(100).get();
-
-  const docs = snap.docs
-    .filter((d) => allowed.has(d.data().status))
-    .sort((a, b) => {
-      const ta = a.data().submittedAt?.toMillis?.() || 0;
-      const tb = b.data().submittedAt?.toMillis?.() || 0;
-      return tb - ta;
-    })
-    .slice(0, 50);
-
-  return {
-    decks: docs.map((doc) => ({
-      id: doc.id,
-      title: doc.data().title,
-      publishedPath: doc.data().publishedPath || null,
-      submittedBy: doc.data().submittedBy || '',
-      status: doc.data().status,
-      cardCount: doc.data().cardCount || 0,
-      submittedAt: doc.data().submittedAt?.toDate?.()?.toISOString?.() || null,
-      publishError: doc.data().publishError || null,
-    })),
-  };
-});
-
-exports.adminRemoveDeck = fn()
-  .runWith({ timeoutSeconds: 120, memory: '512MB' })
-  .https.onCall(async (data, context) => {
-    assertAdminContext(context);
-
-    const submissionId = String(data?.submissionId || '').trim();
-    const publishedPath = String(data?.publishedPath || '').trim();
-    if (!submissionId || !publishedPath) {
-      throw new functions.https.HttpsError('invalid-argument', 'submissionId et publishedPath requis.');
-    }
-
-    await removeDeckFromGitHub(publishedPath);
-
-    await db.collection('deck_submissions').doc(submissionId).set({
-      status: 'removed',
-      removedAt: admin.firestore.FieldValue.serverTimestamp(),
-      removedBy: context.auth.uid,
-    }, { merge: true });
-
-    return { ok: true, removedPath: publishedPath };
-  });
-
-exports.adminRetryPublish = fn()
-  .runWith({ timeoutSeconds: 120, memory: '512MB' })
-  .https.onCall(async (data, context) => {
-    assertAdminContext(context);
-    const submissionId = String(data?.submissionId || '').trim();
-    if (!submissionId) {
-      throw new functions.https.HttpsError('invalid-argument', 'submissionId requis.');
-    }
-    const snap = await db.collection('deck_submissions').doc(submissionId).get();
-    if (!snap.exists) {
-      throw new functions.https.HttpsError('not-found', 'Soumission introuvable.');
-    }
-    const submission = snap.data();
-    await processDeckSubmission(submissionId, submission, 'admin_retry');
-    return { ok: true };
-  });
-
-exports.adminPublishAllPending = fn()
-  .runWith({ timeoutSeconds: 540, memory: '512MB' })
-  .https.onCall(async (_data, context) => {
-    assertAdminContext(context);
-
-    const snap = await db.collection('deck_submissions')
-      .where('status', '==', 'pending')
-      .limit(20)
-      .get();
-
-    const pending = snap.docs;
-    if (pending.length === 0) {
-      return { ok: true, published: 0, failed: 0, message: 'Aucun deck en attente.' };
-    }
-
-    let published = 0;
-    let failed = 0;
-    const errors = [];
-
-    for (const doc of pending) {
-      try {
-        await processDeckSubmission(doc.id, doc.data(), 'admin_batch');
-        published += 1;
-      } catch (e) {
-        failed += 1;
-        errors.push({ id: doc.id, title: doc.data().title, error: String(e.message || e) });
-      }
-    }
-
-    return { ok: true, published, failed, errors };
-  });
+// ── Admin HTTP API (exports explicites pour Firebase deploy) ──────────────
+const _adminHttp = buildAdminHttpExports(db, processDeckSubmission);
+exports.adminHttpListDecks = _adminHttp.adminHttpListDecks;
+exports.adminHttpPublishAll = _adminHttp.adminHttpPublishAll;
+exports.adminHttpRetryPublish = _adminHttp.adminHttpRetryPublish;
+exports.adminHttpRemoveDeck = _adminHttp.adminHttpRemoveDeck;
 
 // ── Push: test réel via web-push ──────────────────────────────────────────
 
