@@ -188,20 +188,18 @@ exports.onModificationDeckSubmission = fn()
 exports.adminListPublishedDecks = fn().https.onCall(async (_data, context) => {
   assertAdminContext(context);
 
-  const snap = await db.collection('deck_submissions')
-    .where('status', 'in', ['pending', 'published', 'publishing', 'failed', 'removed'])
-    .orderBy('submittedAt', 'desc')
-    .limit(50)
-    .get()
-    .catch(async () => {
-      // Fallback if composite index missing
-      const all = await db.collection('deck_submissions').orderBy('submittedAt', 'desc').limit(100).get();
-      return {
-        docs: all.docs.filter((d) => ['pending', 'published', 'publishing', 'failed', 'removed'].includes(d.data().status)),
-      };
-    });
+  const allowed = new Set(['pending', 'published', 'publishing', 'failed', 'removed']);
+  const snap = await db.collection('deck_submissions').limit(100).get();
 
-  const docs = snap.docs || [];
+  const docs = snap.docs
+    .filter((d) => allowed.has(d.data().status))
+    .sort((a, b) => {
+      const ta = a.data().submittedAt?.toMillis?.() || 0;
+      const tb = b.data().submittedAt?.toMillis?.() || 0;
+      return tb - ta;
+    })
+    .slice(0, 50);
+
   return {
     decks: docs.map((doc) => ({
       id: doc.id,

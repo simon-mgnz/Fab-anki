@@ -24871,39 +24871,72 @@
     return auth.currentUser;
   }
 
+  async function callCloudFunction(name, data){
+    const fns = getFns();
+    if(!fns) throw new Error('Cloud Functions non disponibles (script ou config manquant).');
+    const fn = fns.httpsCallable(name);
+    const timeoutMs = 25000;
+    return Promise.race([
+      fn(data || {}),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(
+          'Délai dépassé (25s). Vérifie que les Functions sont déployées : firebase deploy --only functions'
+        )), timeoutMs);
+      }),
+    ]);
+  }
+
+  function showModError(body, err){
+    const code = err?.code || '';
+    const msg = err?.message || String(err);
+    let hint = '';
+    if(code === 'functions/not-found' || msg.includes('Délai dépassé')){
+      hint = '<li>Déploie les Functions : <code>firebase deploy --only functions</code></li><li>Puis republie le site (GitHub Pages) pour avoir le JS à jour</li>';
+    }else if(code === 'functions/permission-denied'){
+      hint = '<li><code>ADMIN_UID</code> dans functions/.env doit correspondre à ton compte Google connecté</li>';
+    }else if(msg.includes('Connecte-toi')){
+      hint = '<li>Réglages → Synchroniser avec ton compte Google admin</li>';
+    }
+    body.innerHTML = `
+      <p style="color:#d9534f;font-weight:600;margin-top:0;">Impossible de charger la modération</p>
+      <p style="font-size:0.9em;">${escapeHtml(msg)}</p>
+      ${hint ? `<ul style="font-size:0.85em;color:var(--muted);">${hint}</ul>` : ''}
+    `;
+  }
+
   window.showDeckModerationModal = async function(){
     const existing = document.getElementById('deckModOverlay');
     if(existing){ existing.remove(); }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'deckModOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10002;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px;width:min(720px,96vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;';
+    modal.innerHTML = `
+      <div style="padding:20px 24px;border-bottom:1px solid var(--border-color,#eee);display:flex;justify-content:space-between;align-items:center;">
+        <h2 style="margin:0;font-size:1.1em;">Modération des decks</h2>
+        <button id="deckModClose" class="secondary" style="padding:4px 12px;">✕</button>
+      </div>
+      <div id="deckModBody" style="padding:20px 24px;overflow-y:auto;flex:1;">
+        <p style="color:var(--muted);">Chargement...</p>
+      </div>
+    `;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
+    modal.querySelector('#deckModClose')?.addEventListener('click', () => overlay.remove());
+
+    const body = modal.querySelector('#deckModBody');
 
     try{
       await ensureAdminAuth();
       const fns = getFns();
       if(!fns) throw new Error('Cloud Functions non disponibles.');
 
-      const overlay = document.createElement('div');
-      overlay.id = 'deckModOverlay';
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10002;display:flex;align-items:center;justify-content:center;padding:16px;';
-
-      const modal = document.createElement('div');
-      modal.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px;width:min(720px,96vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;';
-      modal.innerHTML = `
-        <div style="padding:20px 24px;border-bottom:1px solid var(--border-color,#eee);display:flex;justify-content:space-between;align-items:center;">
-          <h2 style="margin:0;font-size:1.1em;">Modération des decks</h2>
-          <button id="deckModClose" class="secondary" style="padding:4px 12px;">✕</button>
-        </div>
-        <div id="deckModBody" style="padding:20px 24px;overflow-y:auto;flex:1;">
-          <p style="color:var(--muted);">Chargement...</p>
-        </div>
-      `;
-      overlay.appendChild(modal);
-      document.body.appendChild(overlay);
-      overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
-      modal.querySelector('#deckModClose')?.addEventListener('click', () => overlay.remove());
-
-      const listFn = fns.httpsCallable('adminListPublishedDecks');
-      const { data } = await listFn({});
+      const { data } = await callCloudFunction('adminListPublishedDecks');
       const decks = data?.decks || [];
-      const body = modal.querySelector('#deckModBody');
 
       if(decks.length === 0){
         body.innerHTML = '<p>Aucun deck publié récemment.</p>';
@@ -24944,8 +24977,7 @@
         el.disabled = true;
         el.textContent = 'Publication...';
         try{
-          const batchFn = fns.httpsCallable('adminPublishAllPending');
-          const { data: result } = await batchFn({});
+          const { data: result } = await callCloudFunction('adminPublishAllPending');
           alert(`Terminé : ${result.published} publié(s), ${result.failed} échec(s).`);
           overlay.remove();
           window.showDeckModerationModal();
@@ -24964,8 +24996,7 @@
           btn.disabled = true;
           btn.textContent = 'Suppression...';
           try{
-            const removeFn = fns.httpsCallable('adminRemoveDeck');
-            await removeFn({ submissionId: id, publishedPath: path });
+            const { data: result } = await callCloudFunction('adminRemoveDeck', { submissionId: id, publishedPath: path });
             btn.closest('.deck-mod-row')?.remove();
             alert('Deck supprimé du catalogue.');
           }catch(err){
@@ -24982,25 +25013,20 @@
           btn.disabled = true;
           btn.textContent = 'Publication...';
           try{
-            const retryFn = fns.httpsCallable('adminRetryPublish');
-            await retryFn({ submissionId: id });
+            await callCloudFunction('adminRetryPublish', { submissionId: id });
             alert('Deck republié.');
             overlay.remove();
             window.showDeckModerationModal();
           }catch(err){
             alert('Erreur : ' + (err.message || err));
             btn.disabled = false;
-            btn.textContent = 'Republier';
+            btn.textContent = btn.dataset.retryLabel || 'Republier';
           }
         });
+        btn.dataset.retryLabel = btn.textContent;
       });
     }catch(err){
-      const code = err?.code || '';
-      if(code === 'functions/permission-denied' || String(err.message).includes('permission-denied')){
-        alert('Accès réservé à l\'administrateur.');
-      }else{
-        alert(err.message || String(err));
-      }
+      showModError(body, err);
     }
   };
 
