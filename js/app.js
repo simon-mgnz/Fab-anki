@@ -24857,9 +24857,10 @@
   };
 })();
 
-// ===== ADMIN DECK MODERATION (server-side auth only) =====
+// ===== ADMIN DECK MODERATION (HTTP API — CORS fix fabanki.fr) =====
 (function(){
-  function getFns(){ return window.__fabanki_functions || null; }
+  const ADMIN_HTTP_BASE = 'https://europe-west1-fab-anki-classement.cloudfunctions.net';
+
   function getAuth(){ return window.__fabanki_auth || null; }
 
   async function ensureAdminAuth(){
@@ -24871,31 +24872,68 @@
     return auth.currentUser;
   }
 
-  async function callCloudFunction(name, data){
-    const fns = getFns();
-    if(!fns) throw new Error('Cloud Functions non disponibles (script ou config manquant).');
-    const fn = fns.httpsCallable(name);
-    const timeoutMs = 25000;
-    return Promise.race([
-      fn(data || {}),
-      new Promise((_, reject) => {
-        setTimeout(() => reject(new Error(
-          'Délai dépassé (25s). Vérifie que les Functions sont déployées : firebase deploy --only functions'
-        )), timeoutMs);
-      }),
-    ]);
+  async function adminHttpCall(path, body){
+    const user = await ensureAdminAuth();
+    const token = await user.getIdToken();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 25000);
+    try{
+      const res = await fetch(`${ADMIN_HTTP_BASE}/${path}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body || {}),
+        signal: controller.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if(!res.ok){
+        const err = new Error(data.error || `HTTP ${res.status}`);
+        err.code = res.status === 403 ? 'functions/permission-denied' : 'functions/internal';
+        throw err;
+      }
+      return data;
+    }catch(e){
+      if(e.name === 'AbortError'){
+        throw new Error('Délai dépassé (25s). Vérifie firebase deploy --only functions');
+      }
+      throw e;
+    }finally{
+      clearTimeout(timer);
+    }
+  }
+
+  function formatFnError(err){
+    if(err?.details) return String(err.details);
+    const msg = String(err?.message || '');
+    const code = String(err?.code || '');
+    if(msg && msg !== 'internal') return msg;
+    if(code.includes('permission-denied')){
+      return 'Compte non autorisé. Connecte-toi avec le même compte Google que ADMIN_UID dans functions/.env.';
+    }
+    if(code.includes('unauthenticated')){
+      return 'Non connecté. Va dans Réglages → Synchroniser avec Google.';
+    }
+    if(code.includes('failed-precondition')){
+      return 'ADMIN_UID ou config manquante. Redéploie : firebase deploy --only functions';
+    }
+    if(code.includes('not-found')){
+      return 'Function introuvable. Déploie les Functions (firebase deploy --only functions).';
+    }
+    return 'Erreur serveur. Redéploie les Functions et vérifie Firebase Console → Functions → Logs.';
   }
 
   function showModError(body, err){
+    const msg = formatFnError(err);
     const code = err?.code || '';
-    const msg = err?.message || String(err);
     let hint = '';
-    if(code === 'functions/not-found' || msg.includes('Délai dépassé')){
-      hint = '<li>Déploie les Functions : <code>firebase deploy --only functions</code></li><li>Puis republie le site (GitHub Pages) pour avoir le JS à jour</li>';
-    }else if(code === 'functions/permission-denied'){
-      hint = '<li><code>ADMIN_UID</code> dans functions/.env doit correspondre à ton compte Google connecté</li>';
-    }else if(msg.includes('Connecte-toi')){
-      hint = '<li>Réglages → Synchroniser avec ton compte Google admin</li>';
+    if(code.includes('permission-denied') || msg.includes('UID connecté')){
+      hint = '<li>Ouvre la console (F12) et tape : <code>firebase.auth().currentUser.uid</code></li><li>Compare avec <code>ADMIN_UID</code> dans functions/.env</li>';
+    }else if(code.includes('internal') || code.includes('not-found')){
+      hint = '<li><code>firebase deploy --only functions</code></li><li>Puis push sur GitHub pour mettre à jour le site</li>';
+    }else if(msg.includes('Synchroniser')){
+      hint = '<li>Réglages → Synchroniser → compte Google admin</li>';
     }
     body.innerHTML = `
       <p style="color:#d9534f;font-weight:600;margin-top:0;">Impossible de charger la modération</p>
@@ -24932,10 +24970,8 @@
 
     try{
       await ensureAdminAuth();
-      const fns = getFns();
-      if(!fns) throw new Error('Cloud Functions non disponibles.');
 
-      const { data } = await callCloudFunction('adminListPublishedDecks');
+      const data = await adminHttpCall('adminHttpListDecks');
       const decks = data?.decks || [];
 
       if(decks.length === 0){
@@ -24977,7 +25013,7 @@
         el.disabled = true;
         el.textContent = 'Publication...';
         try{
-          const { data: result } = await callCloudFunction('adminPublishAllPending');
+          const result = await adminHttpCall('adminHttpPublishAll');
           alert(`Terminé : ${result.published} publié(s), ${result.failed} échec(s).`);
           overlay.remove();
           window.showDeckModerationModal();
@@ -24996,7 +25032,7 @@
           btn.disabled = true;
           btn.textContent = 'Suppression...';
           try{
-            const { data: result } = await callCloudFunction('adminRemoveDeck', { submissionId: id, publishedPath: path });
+            await adminHttpCall('adminHttpRemoveDeck', { submissionId: id, publishedPath: path });
             btn.closest('.deck-mod-row')?.remove();
             alert('Deck supprimé du catalogue.');
           }catch(err){
@@ -25013,7 +25049,7 @@
           btn.disabled = true;
           btn.textContent = 'Publication...';
           try{
-            await callCloudFunction('adminRetryPublish', { submissionId: id });
+            await adminHttpCall('adminHttpRetryPublish', { submissionId: id });
             alert('Deck republié.');
             overlay.remove();
             window.showDeckModerationModal();
