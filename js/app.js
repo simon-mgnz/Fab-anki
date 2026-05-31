@@ -36,12 +36,32 @@
     }catch(e){}
   }, true);
   
-  // Service Worker Registration
-  if('serviceWorker' in navigator){
+  // Service Worker Registration (production / fabanki.fr only — disabled on localhost)
+  function isFabankiLocalDev(){
+    try{
+      if(window.__fabanki_localDev) return true;
+      const h = window.location.hostname;
+      return h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1';
+    }catch(e){ return false; }
+  }
+
+  try{
+    const __fabankiScript = document.currentScript || document.querySelector('script[src*="app.js"]');
+    const __fabankiSrc = __fabankiScript?.getAttribute?.('src') || __fabankiScript?.src || '';
+    const __fabankiVerMatch = String(__fabankiSrc).match(/[?&]v=([^&]+)/);
+    window.__fabanki_appVersion = __fabankiVerMatch ? decodeURIComponent(__fabankiVerMatch[1]) : '';
+    console.log('[FabAnki] app.js version:', window.__fabanki_appVersion || '(missing ?v= — stale cache or old index.html)');
+    if(isFabankiLocalDev()) console.info('[FabAnki] Local dev — Service Worker disabled, files served live from python');
+  }catch(e){
+    window.__fabanki_appVersion = '';
+  }
+
+  if('serviceWorker' in navigator && !isFabankiLocalDev()){
     let __fabanki_swRefreshing = false;
 
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./service-worker.js', { updateViaCache: 'none' })
+      const swUrl = './service-worker.js' + (window.__fabanki_appVersion ? ('?v=' + encodeURIComponent(window.__fabanki_appVersion)) : '');
+      navigator.serviceWorker.register(swUrl, { updateViaCache: 'none' })
         .then((registration) => {
           console.log('[PWA] Service Worker registered:', registration.scope);
 
@@ -1183,6 +1203,56 @@
 
     return entry;
   }
+
+  function isCommunityManifestEntry(item){
+    if(!item || typeof item !== 'object') return false;
+    if(item.community === true) return true;
+    const tags = item.tags;
+    if(Array.isArray(tags) && tags.includes('community')) return true;
+    const desc = String(item.description || '').toLowerCase();
+    return desc.includes('communautaire') || desc.includes('soumis par');
+  }
+
+  function isCommunityDeckRelPath(relPath){
+    const rel = String(relPath || '')
+      .replace(/^decks\//i, '')
+      .replace(/^\.\/decks\//i, '')
+      .replace(/\/$/, '');
+    if(!rel) return false;
+    try{
+      const cached = window.deckCommunityPaths;
+      if(cached instanceof Set && cached.has(rel)) return true;
+    }catch(e){}
+    const entry = manifestMeta[rel] || getManifestEntryForPath('./decks/' + rel);
+    if(!entry) return false;
+    return isCommunityManifestEntry(entry);
+  }
+
+  function deckBrowserHideCommunity(){
+    try{ return localStorage.getItem('fabanki:hide_community_decks') === '1'; }catch(e){ return false; }
+  }
+
+  function syncDeckBrowserCommunityFilterBtn(){
+    const btn = document.getElementById('deckBrowserHideCommunityBtn');
+    if(!btn) return;
+    const hide = deckBrowserHideCommunity();
+    btn.classList.toggle('active', hide);
+    btn.textContent = hide ? 'Afficher communautaires' : 'Masquer communautaires';
+    btn.setAttribute('aria-pressed', hide ? 'true' : 'false');
+  }
+
+  window.toggleDeckBrowserCommunityFilter = function(){
+    const next = !deckBrowserHideCommunity();
+    try{ localStorage.setItem('fabanki:hide_community_decks', next ? '1' : '0'); }catch(e){}
+    syncDeckBrowserCommunityFilterBtn();
+    if(typeof window.deckBrowserRenderPath === 'function'){
+      window.deckBrowserRenderPath(currentFolderPath || '');
+    } else if(typeof window.deckBrowserApplyFilters === 'function'){
+      window.deckBrowserApplyFilters();
+    }
+    if(typeof window.refreshDeckBrowserStatsBar === 'function') window.refreshDeckBrowserStatsBar();
+  };
+
   function isDeckUnlocked(path){
     return localStorage.getItem('fabanki:deck_unlocked:'+normalizeDeckPath(path)) === '1';
   }
@@ -3118,10 +3188,16 @@
       } else {
         // ── Estimation du temps de révision ──────────────────────────────
         const totalTimeSec   = Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0);
-        const totalReviewed  = Number(localStorage.getItem('fabanki:fail_total')      || 0)
+        let totalReviewed  = Number(localStorage.getItem('fabanki:fail_total')      || 0)
                              + Number(localStorage.getItem('fabanki:difficult_total') || 0)
-                             + Number(localStorage.getItem('fabanki:good_total')      || 0)
+                             + Number(localStorage.getItem('fabanki:bon_total')       || 0)
                              + Number(localStorage.getItem('fabanki:easy_total')      || 0);
+        if(totalReviewed <= 0){
+          const goodFallback = Number(localStorage.getItem('fabanki:good_total') || 0);
+          totalReviewed = Number(localStorage.getItem('fabanki:fail_total') || 0)
+            + Number(localStorage.getItem('fabanki:difficult_total') || 0)
+            + goodFallback;
+        }
         // Average seconds per card — use real data as soon as 1 review exists, else 90s fallback
         const avgSec = (totalReviewed >= 1 && totalTimeSec >= 1) ? Math.round(totalTimeSec / totalReviewed) : 90;
 
@@ -10011,7 +10087,7 @@
         console.error('ðŸŽ¯ [QUEST] Error calling from pass:', e);
       }
       updateProgressDisplay();
-      try{ incLocal('fabanki:pass_total', 1); adjustMpsiScores(-6); }catch(e){}
+      try{ incLocal('fabanki:pass_total', 1); if(typeof window.adjustMpsiScores === 'function') window.adjustMpsiScores(-6); }catch(e){}
       try{ incLocal('fabanki:cards_since_streak_reset',1); }catch(e){}
       try{ localStorage.setItem('fabanki:consec_correct','0'); localStorage.setItem('fabanki:consec_difficult','0'); localStorage.setItem('fabanki:consec_no_pass','0'); }catch(e){}
       // remove from due list and show next
@@ -10027,7 +10103,7 @@
         updateHistogram();
       }
       try{ if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); }catch(e){}
-      try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+      try{ if(typeof window.syncClassement === 'function') window.syncClassement(); }catch(e){}
       try{
         // apply penalty XP for pass action
         const section = (typeof window.getDeckSection === 'function') ? window.getDeckSection() : '';
@@ -10295,23 +10371,24 @@
         incLocal('fabanki:fail_total',1);
         try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
         try{ localStorage.setItem('fabanki:consec_correct','0'); }catch(e){}
-        try{ adjustMpsiScores(-4); }catch(e){}
+        try{ if(typeof window.adjustMpsiScores === 'function') window.adjustMpsiScores(-4); }catch(e){}
       } else if(q === 3){
         incLocal('fabanki:difficult_total',1);
         try{ const cd = incLocal('fabanki:consec_difficult',1); if(cd >= 100) localStorage.setItem('fabanki:objective_Feynman','1'); }catch(e){}
         try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
-        try{ adjustMpsiScores(1); }catch(e){}
+        try{ if(typeof window.adjustMpsiScores === 'function') window.adjustMpsiScores(1); }catch(e){}
       } else if(q === 4){
         incLocal('fabanki:good_total',1);
+        incLocal('fabanki:bon_total',1);
         try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
         try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
-        try{ adjustMpsiScores(2); }catch(e){}
+        try{ if(typeof window.adjustMpsiScores === 'function') window.adjustMpsiScores(2); }catch(e){}
       } else if(q === 5){
         incLocal('fabanki:good_total',1);
         incLocal('fabanki:easy_total',1);
         try{ localStorage.setItem('fabanki:consec_difficult','0'); }catch(e){}
         try{ incLocal('fabanki:consec_correct',1); const consec = Number(localStorage.getItem('fabanki:consec_correct')||0); const maxi = Math.max(Number(localStorage.getItem('fabanki:consec_correct_max')||0), consec); localStorage.setItem('fabanki:consec_correct_max', String(maxi)); }catch(e){}
-        try{ adjustMpsiScores(3); }catch(e){}
+        try{ if(typeof window.adjustMpsiScores === 'function') window.adjustMpsiScores(3); }catch(e){}
       }
       // Record daily review history for stats page
       try{ recordDailyReview(); }catch(e){}
@@ -10385,7 +10462,7 @@
         }catch(e){ console.warn('xp calc', e); }
       }
       if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen();
-      try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+      try{ if(typeof window.syncClassement === 'function') window.syncClassement(); }catch(e){}
     }catch(e){}
     
     // Sync card review progress to cloud
@@ -10922,11 +10999,15 @@
           const list = await manifestRes.json();
           if(Array.isArray(list)){
             manifestMeta = {};
+            window.deckCommunityPaths = new Set();
             list.forEach(item => {
               if(typeof item === 'string'){
                 manifestMeta[item] = { path: item };
               } else if(item && item.path){
                 manifestMeta[item.path] = item;
+                if(isCommunityManifestEntry(item)){
+                  window.deckCommunityPaths.add(String(item.path).replace(/\/$/, ''));
+                }
               }
             });
             // Support both old format (strings) and new format (objects with path/tags/cost/level)
@@ -11015,7 +11096,7 @@
             titleWrap.appendChild(titleNode);
             const hint = document.createElement('div');
             hint.className = 'trail';
-            hint.textContent = 'Arborescence des dossiers et decks';
+            hint.textContent = 'Decks officiels Fab\'Anki et decks communautaires (badge orange)';
             titleWrap.appendChild(hint);
           }
         }
@@ -11050,43 +11131,68 @@
         searchIcon.style.display = 'flex';
         const searchInput = document.createElement('input');
         searchInput.placeholder = 'Rechercher un deck…';
-        searchInput.addEventListener('input', () => {
-          const q = searchInput.value.toLowerCase();
-          deckList.querySelectorAll('.deck-entry').forEach(row => {
-            const name = (row.dataset.search || row.querySelector('.deck-entry-name')?.textContent || row.textContent || '').toLowerCase();
-            row.style.display = (!q || name.includes(q)) ? '' : 'none';
+        const applyDeckBrowserFilters = () => {
+          const q = searchInput.value.toLowerCase().trim();
+          deckList.querySelectorAll('.deck-entry[data-deck-file="1"]').forEach(row => {
+            const name = (row.dataset.search || '').toLowerCase();
+            const visible = !q || name.includes(q);
+            row.style.display = visible ? 'flex' : 'none';
           });
-        });
-        searchWrap.appendChild(searchIcon); searchWrap.appendChild(searchInput);
-        toolbar.appendChild(searchWrap);
-        modalEl.insertBefore(toolbar, statsBar);
-
-        // Async populate stats
-        setTimeout(async () => {
+        };
+        async function refreshDeckBrowserStatsBar(){
           try{
-            const entries = await fetchDirectory('./decks/');
-            const xmlFiles = (Array.isArray(entries)?entries:[]).filter(e=>typeof e==='string'&&e.toLowerCase().endsWith('.xml'));
+            const entries = window.deckBrowserEntries;
+            let xmlFiles = [];
+            if(Array.isArray(entries) && entries.length){
+              xmlFiles = entries.filter(e => typeof e === 'string' && e.toLowerCase().endsWith('.xml'));
+            } else {
+              const fetched = await fetchDirectory('./decks/');
+              xmlFiles = (Array.isArray(fetched) ? fetched : []).filter(e => typeof e === 'string' && e.toLowerCase().endsWith('.xml'));
+            }
+            const hideComm = deckBrowserHideCommunity();
+            const visibleFiles = hideComm ? xmlFiles.filter(f => !isCommunityDeckRelPath(f)) : xmlFiles;
             let totalCards = 0, totalDue = 0, totalNew = 0;
-            for(const f of xmlFiles){
+            for(const f of visibleFiles){
               try{
-                const deckUrl = './decks/' + f;
-                const counts = await computeDeckCounts(deckUrl);
+                const counts = await computeDeckCounts('./decks/' + f);
                 totalDue += Number(counts.due || 0);
                 totalNew += Number(counts.fresh || 0);
                 totalCards += Number(counts.total || 0);
-              }catch(e){ /* ignore */ }
+              }catch(e){}
             }
-            const folderCount = countDeckBrowserFolders(xmlFiles);
+            const folderCount = countDeckBrowserFolders(visibleFiles);
             const el0 = document.getElementById('deckStatCell_0');
             const el1 = document.getElementById('deckStatCell_1');
             const el2 = document.getElementById('deckStatCell_2');
             const el3 = document.getElementById('deckStatCell_3');
-            if(el0) el0.textContent = totalCards > 0 ? totalCards.toLocaleString() : xmlFiles.length;
+            if(el0) el0.textContent = totalCards > 0 ? totalCards.toLocaleString() : String(visibleFiles.length);
             if(el1) el1.textContent = totalDue.toLocaleString();
             if(el2) el2.textContent = totalNew.toLocaleString();
             if(el3) el3.textContent = String(folderCount);
           }catch(e){ console.warn('stats bar error', e); }
-        }, 100);
+        }
+        searchInput.addEventListener('input', applyDeckBrowserFilters);
+        searchWrap.appendChild(searchIcon); searchWrap.appendChild(searchInput);
+
+        const filterBtn = document.createElement('button');
+        filterBtn.type = 'button';
+        filterBtn.id = 'deckBrowserHideCommunityBtn';
+        filterBtn.className = 'secondary deck-browser-filter-btn' + (deckBrowserHideCommunity() ? ' active' : '');
+        filterBtn.textContent = deckBrowserHideCommunity() ? 'Afficher communautaires' : 'Masquer communautaires';
+        filterBtn.title = 'Les decks communautaires sont soumis par des utilisateurs, distincts des decks officiels Fab\'Anki';
+        filterBtn.setAttribute('aria-pressed', deckBrowserHideCommunity() ? 'true' : 'false');
+        filterBtn.addEventListener('click', () => window.toggleDeckBrowserCommunityFilter());
+        toolbar.appendChild(searchWrap);
+        toolbar.appendChild(filterBtn);
+        modalEl.insertBefore(toolbar, statsBar);
+        window.deckBrowserApplyFilters = applyDeckBrowserFilters;
+        window.refreshDeckBrowserStatsBar = refreshDeckBrowserStatsBar;
+
+        setTimeout(() => { refreshDeckBrowserStatsBar(); }, 100);
+      } else {
+        syncDeckBrowserCommunityFilterBtn();
+        const filterBtn = document.getElementById('deckBrowserHideCommunityBtn');
+        if(filterBtn) filterBtn.onclick = () => window.toggleDeckBrowserCommunityFilter();
       }
       try{
         const entries = await fetchDirectory('./decks/');
@@ -11445,7 +11551,14 @@
           });
           // files (limit to first 10)
           Array.from(files).sort().forEach(file=>{
+            const deckRelPath = prefix + file;
+            if(!file.toLowerCase().endsWith('.xml')) return;
+            const isCommunity = isCommunityDeckRelPath(deckRelPath);
+            if(deckBrowserHideCommunity() && isCommunity) return;
+
             const row = document.createElement('div'); row.className='deck-entry';
+            row.dataset.deckFile = '1';
+            if(isCommunity) row.dataset.community = '1';
             row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
             row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
             row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
@@ -11465,7 +11578,15 @@
               masteryPct: 0
             });
             const nm = fileBuilt.nameEl;
-            row.dataset.search = `${fileBuilt.labels.primary} ${fullDeckName} ${prefix}`.toLowerCase();
+            if(isCommunity){
+              row.classList.add('deck-entry--community');
+              const badge = document.createElement('span');
+              badge.className = 'deck-community-badge';
+              badge.textContent = 'Communautaire';
+              badge.title = 'Deck soumis par un utilisateur — non officiel Fab\'Anki';
+              nm.insertBefore(badge, nm.firstChild);
+            }
+            row.dataset.search = `${fileBuilt.labels.primary} ${fullDeckName} ${prefix}${isCommunity ? ' communautaire' : ''}`.toLowerCase();
             const act = document.createElement('div'); act.className = 'deck-entry-actions';
               if(file.toLowerCase().endsWith('.xml')){
                 const b=document.createElement('button'); b.className='secondary';
@@ -11520,6 +11641,8 @@
           }
           
           deckMsg.textContent = '';
+          if(typeof window.deckBrowserApplyFilters === 'function') window.deckBrowserApplyFilters();
+          if(typeof window.refreshDeckBrowserStatsBar === 'function') window.refreshDeckBrowserStatsBar();
         }
         
         // Expose renderPath globally so Retour button can restore folder view
@@ -11927,6 +12050,11 @@
       try{
         const fail = Number(localStorage.getItem('fabanki:fail_total') || 0);
         const hard = Number(localStorage.getItem('fabanki:difficult_total') || 0);
+        const bon = Number(localStorage.getItem('fabanki:bon_total') || 0);
+        const easy = Number(localStorage.getItem('fabanki:easy_total') || 0);
+        if(bon > 0 || easy > 0 || localStorage.getItem('fabanki:migration_bon_total_v1') === '1'){
+          return Math.max(0, fail + hard + bon + easy);
+        }
         const good = Number(localStorage.getItem('fabanki:good_total') || 0);
         return Math.max(0, fail + hard + good);
       }catch(e){ return 0 }
@@ -12068,7 +12196,7 @@
             p0.appendChild(input);
             p0.appendChild(save);
             p0.appendChild(cancel);
-            save.addEventListener('click', ()=>{ const v = (input.value||'').trim(); if(!v) return input.focus(); localStorage.setItem('pseudo', v); if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){} });
+            save.addEventListener('click', ()=>{ const v = (input.value||'').trim(); if(!v) return input.focus(); localStorage.setItem('pseudo', v); if(typeof updateProfilePopupIfOpen === 'function') updateProfilePopupIfOpen(); try{ if(typeof window.syncClassement === 'function') window.syncClassement(); }catch(e){} });
             cancel.addEventListener('click', ()=>{ p0.style.display = ''; p0.textContent = `${localStorage.getItem('pseudo') || ''}`; });
             input.focus();
           }catch(e){ console.warn('edit pseudo', e) }
@@ -12281,7 +12409,7 @@
                   titleSel.value = name;
                   refreshProfileTitlePillsActive();
                   try{ avatarTitleEl.textContent = name; }catch(e){}
-                  try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+                  try{ if(typeof window.syncClassement === 'function') window.syncClassement(); }catch(e){}
                   try{ if(typeof autoSync === 'function') autoSync().catch(() => {}); }catch(e){}
                 });
               }
@@ -12306,7 +12434,7 @@
             }
             refreshProfileTitlePillsActive();
             try{ avatarTitleEl.textContent = v || ''; }catch(e){}
-            try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+            try{ if(typeof window.syncClassement === 'function') window.syncClassement(); }catch(e){}
             try{ if(typeof autoSync === 'function') autoSync().catch(() => {}); }catch(e){}
           });
 
@@ -12480,14 +12608,14 @@
               if(tierEnt) localStorage.setItem(`fabanki:title_chosen_${tierEnt[0]}`, selectedTitle);
               showXpToast(clean(`Titre selectionne: ${selectedTitle}`));
               // Trigger sync to update leaderboard
-              try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+              try{ if(typeof window.syncClassement === 'function') window.syncClassement(); }catch(e){}
               // Trigger full state sync to preserve title across browsers
               try{ if(typeof autoSync === 'function') autoSync().catch(e => console.warn('autoSync failed:', e)); }catch(e){}
             } else {
               localStorage.removeItem('fabanki:selected_title');
               showXpToast(t('noTitle'));
               // Trigger sync to update leaderboard
-              try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+              try{ if(typeof window.syncClassement === 'function') window.syncClassement(); }catch(e){}
               // Trigger full state sync to preserve title across browsers
               try{ if(typeof autoSync === 'function') autoSync().catch(e => console.warn('autoSync failed:', e)); }catch(e){}
             }
@@ -12898,7 +13026,7 @@
     try{ window.applyXp = applyXp; window.computeXpForQuality = computeXpForQuality; window.getDeckSection = getDeckSection; window.showXpToast = showXpToast; window.getXpTotal = getXpTotal; window.updateProfilePopupIfOpen = updateProfilePopupIfOpen; window.computePenaltyForSection = computePenaltyForSection; window.computeLevelAndProgress = computeLevelAndProgress; window.getLevelColor = getLevelColor; }catch(e){}
 
     // expose leaderboard helpers
-    try{ window.ensurePseudo = ensurePseudo; window.syncClassement = syncClassement; window.showLeaderboardPopup = showLeaderboardPopup; }catch(e){}
+    try{ window.ensurePseudo = ensurePseudo; window.syncClassement = syncClassement; window.showLeaderboardPopup = showLeaderboardPopup; window.adjustMpsiScores = adjustMpsiScores; window.getMonthId = getMonthId; }catch(e){}
 
     // === DEBUG UTILITY: Merge duplicate leaderboard entries ===
     window.fabanki_mergeDuplicates = async function(dryRun = true){
@@ -13091,13 +13219,22 @@
         const pseudo = String(localStorage.getItem('pseudo') || '').trim().toLowerCase();
         const flagKeyV1 = 'fabanki:migration_simon_bonus_v1';
         const flagKeyV2 = 'fabanki:migration_simon_bonus_v2_cards';
+        const flagKeyV3 = 'fabanki:migration_simon_bonus_v3_undo_good';
+        const BONUS = 11262;
         if(pseudo !== 'simon') return false;
         let changed = false;
 
-        if(localStorage.getItem(flagKeyV1) !== '1'){
+        // Undo v1 good_total inflation (fake "Bon" count — not tied to real grades)
+        if(localStorage.getItem(flagKeyV1) === '1' && localStorage.getItem(flagKeyV3) !== '1'){
           const currentGood = Number(localStorage.getItem('fabanki:good_total') || 0);
-          localStorage.setItem('fabanki:good_total', String(currentGood + 11262));
+          const easyNow = Number(localStorage.getItem('fabanki:easy_total') || 0);
+          const adjusted = Math.max(0, currentGood - BONUS);
+          localStorage.setItem('fabanki:good_total', String(Math.max(adjusted, easyNow)));
+          localStorage.setItem(flagKeyV3, '1');
+          changed = true;
+        }
 
+        if(localStorage.getItem(flagKeyV1) !== '1'){
           const streakMax = Math.max(Number(localStorage.getItem('fabanki:streak_max') || 0), 54);
           localStorage.setItem('fabanki:streak_max', String(streakMax));
           localStorage.setItem(flagKeyV1, '1');
@@ -13106,10 +13243,12 @@
 
         if(localStorage.getItem(flagKeyV2) !== '1'){
           const currentCards = Number(localStorage.getItem('fabanki:cards_total') || 0);
-          localStorage.setItem('fabanki:cards_total', String(currentCards + 11262));
+          localStorage.setItem('fabanki:cards_total', String(currentCards + BONUS));
           localStorage.setItem(flagKeyV2, '1');
           changed = true;
         }
+
+        if(typeof window.repairQualityCounterInvariants === 'function' && window.repairQualityCounterInvariants()) changed = true;
 
         return changed;
       }catch(e){ return false; }
@@ -15580,6 +15719,7 @@
         credits: getCredits(),
         streakCurrent: Number(localStorage.getItem('fabanki:streak_current') || 0),
         streakMax: Number(localStorage.getItem('fabanki:streak_max') || 0),
+        stats: collectStats(),
         decks: collectDeckStates(),
         quests: collectQuestState(),
         welcomeQuest: collectWelcomeQuestState(),
@@ -15747,21 +15887,207 @@
       }catch(e){ return {} }
     }
 
+    function repairQualityCounterInvariants(){
+      let changed = false;
+      try{
+        const easy = Number(localStorage.getItem('fabanki:easy_total') || 0);
+        let good = Number(localStorage.getItem('fabanki:good_total') || 0);
+        if(good < easy){
+          good = easy;
+          localStorage.setItem('fabanki:good_total', String(good));
+          changed = true;
+        }
+        const derivedBon = Math.max(0, good - easy);
+        const curBon = Number(localStorage.getItem('fabanki:bon_total') || 0);
+        const nextBon = Math.max(curBon, derivedBon);
+        if(curBon !== nextBon){
+          localStorage.setItem('fabanki:bon_total', String(nextBon));
+          changed = true;
+        }
+        if(localStorage.getItem('fabanki:migration_bon_total_v1') !== '1'){
+          localStorage.setItem('fabanki:migration_bon_total_v1', '1');
+          changed = true;
+        }
+      }catch(e){}
+      return changed;
+    }
+
     function collectStats(){
       try{
         return {
           failTotal:       Number(localStorage.getItem('fabanki:fail_total')       || 0),
           difficultTotal:  Number(localStorage.getItem('fabanki:difficult_total')  || 0),
           goodTotal:       Number(localStorage.getItem('fabanki:good_total')       || 0),
+          bonTotal:        Number(localStorage.getItem('fabanki:bon_total')        || 0),
           easyTotal:       Number(localStorage.getItem('fabanki:easy_total')       || 0),
+          passTotal:       Number(localStorage.getItem('fabanki:pass_total')       || 0),
           timeSpentTotalSec: Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0),
+          timeSpentWeekSec: Number(localStorage.getItem('fabanki:time_spent_week_sec') || 0),
+          timeSpentTodaySec: Number(localStorage.getItem('fabanki:time_spent_today_sec') || 0),
           masteredTotal:   Number(localStorage.getItem('fabanki:mastered_total')   || 0),
           maxDailyReviewed: Number(localStorage.getItem('fabanki:max_daily_reviewed') || 0),
           maxDailyReviewedDate: localStorage.getItem('fabanki:max_daily_reviewed_date') || null,
           dailyHistory:    JSON.parse(localStorage.getItem('fabanki:daily_history') || '{}'),
+          streakCurrent:   Number(localStorage.getItem('fabanki:streak_current') || 0),
+          streakMax:       Number(localStorage.getItem('fabanki:streak_max') || 0),
+          lastActiveDate:  localStorage.getItem('fabanki:last_active_date') || null,
+          weekId:          localStorage.getItem('fabanki:week_id') || '',
+          dayId:           localStorage.getItem('fabanki:day_id') || '',
         };
       }catch(e){ return {}; }
     }
+
+    function normalizeSimonGoodCount(val){
+      const n = Number(val || 0);
+      try{
+        const pseudo = String(localStorage.getItem('pseudo') || '').trim().toLowerCase();
+        const BONUS = 11262;
+        if(
+          pseudo === 'simon' &&
+          localStorage.getItem('fabanki:migration_simon_bonus_v3_undo_good') === '1' &&
+          n >= BONUS
+        ){
+          return Math.max(0, n - BONUS);
+        }
+      }catch(e){}
+      return n;
+    }
+
+    function mergeStatsObjects(localStats, remoteStats){
+      const l = localStats || {};
+      const r = remoteStats || {};
+      const maxNum = (a, b) => Math.max(Number(a || 0), Number(b || 0));
+      let remoteGood = Number(r.goodTotal || 0);
+      try{
+        const pseudo = String(localStorage.getItem('pseudo') || '').trim().toLowerCase();
+        const BONUS = 11262;
+        if(
+          pseudo === 'simon' &&
+          localStorage.getItem('fabanki:migration_simon_bonus_v3_undo_good') === '1' &&
+          localStorage.getItem('fabanki:simon_cloud_good_scrubbed') !== '1' &&
+          remoteGood >= BONUS
+        ){
+          remoteGood = Math.max(0, remoteGood - BONUS);
+          localStorage.setItem('fabanki:simon_cloud_good_scrubbed', '1');
+        }
+      }catch(e){}
+      const mergedHistory = { ...(r.dailyHistory || {}), ...(l.dailyHistory || {}) };
+      for(const key of new Set([...Object.keys(l.dailyHistory || {}), ...Object.keys(r.dailyHistory || {})])){
+        mergedHistory[key] = maxNum(l.dailyHistory?.[key], r.dailyHistory?.[key]);
+      }
+      const localMaxDay = Number(l.maxDailyReviewed || 0);
+      const remoteMaxDay = Number(r.maxDailyReviewed || 0);
+      const mergedGood = maxNum(l.goodTotal, remoteGood);
+      const mergedEasy = maxNum(l.easyTotal, r.easyTotal);
+      const mergedBon = maxNum(l.bonTotal, r.bonTotal);
+      return {
+        failTotal: maxNum(l.failTotal, r.failTotal),
+        difficultTotal: maxNum(l.difficultTotal, r.difficultTotal),
+        goodTotal: Math.max(mergedGood, mergedEasy, mergedBon + mergedEasy),
+        bonTotal: Math.max(mergedBon, Math.max(0, mergedGood - mergedEasy)),
+        easyTotal: mergedEasy,
+        passTotal: maxNum(l.passTotal, r.passTotal),
+        timeSpentTotalSec: maxNum(l.timeSpentTotalSec, r.timeSpentTotalSec),
+        timeSpentWeekSec: maxNum(l.timeSpentWeekSec, r.timeSpentWeekSec),
+        timeSpentTodaySec: maxNum(l.timeSpentTodaySec, r.timeSpentTodaySec),
+        masteredTotal: maxNum(l.masteredTotal, r.masteredTotal),
+        maxDailyReviewed: Math.max(localMaxDay, remoteMaxDay),
+        maxDailyReviewedDate: localMaxDay >= remoteMaxDay ? (l.maxDailyReviewedDate || r.maxDailyReviewedDate || null) : (r.maxDailyReviewedDate || l.maxDailyReviewedDate || null),
+        dailyHistory: mergedHistory,
+        streakCurrent: maxNum(l.streakCurrent, r.streakCurrent),
+        streakMax: maxNum(l.streakMax, r.streakMax),
+        lastActiveDate: [l.lastActiveDate, r.lastActiveDate].filter(Boolean).sort().pop() || null,
+        weekId: l.weekId || r.weekId || '',
+        dayId: l.dayId || r.dayId || '',
+      };
+    }
+
+    function applyStatsObject(stats){
+      if(!stats || typeof stats !== 'object') return;
+      const setMax = (key, val) => {
+        if(!Number.isFinite(Number(val))) return;
+        const cur = Number(localStorage.getItem(key) || 0);
+        localStorage.setItem(key, String(Math.max(cur, Number(val))));
+      };
+      setMax('fabanki:fail_total', stats.failTotal);
+      setMax('fabanki:difficult_total', stats.difficultTotal);
+      setMax('fabanki:good_total', stats.goodTotal);
+      setMax('fabanki:bon_total', stats.bonTotal);
+      setMax('fabanki:easy_total', stats.easyTotal);
+      setMax('fabanki:pass_total', stats.passTotal);
+      setMax('fabanki:time_spent_total_sec', stats.timeSpentTotalSec);
+      setMax('fabanki:time_spent_week_sec', stats.timeSpentWeekSec);
+      setMax('fabanki:time_spent_today_sec', stats.timeSpentTodaySec);
+      localStorage.setItem('fabanki:time_spent_week', String(Math.floor(Number(localStorage.getItem('fabanki:time_spent_week_sec') || 0) / 60)));
+      localStorage.setItem('fabanki:time_spent_today', String(Math.floor(Number(localStorage.getItem('fabanki:time_spent_today_sec') || 0) / 60)));
+      setMax('fabanki:mastered_total', stats.masteredTotal);
+      setMax('fabanki:max_daily_reviewed', stats.maxDailyReviewed);
+      if(stats.maxDailyReviewedDate){
+        const curMax = Number(localStorage.getItem('fabanki:max_daily_reviewed') || 0);
+        const incomingMax = Number(stats.maxDailyReviewed || 0);
+        if(incomingMax >= curMax) localStorage.setItem('fabanki:max_daily_reviewed_date', stats.maxDailyReviewedDate);
+      }
+      if(stats.dailyHistory && typeof stats.dailyHistory === 'object'){
+        try{
+          const local = JSON.parse(localStorage.getItem('fabanki:daily_history') || '{}');
+          const merged = { ...local };
+          for(const [date, cnt] of Object.entries(stats.dailyHistory)){
+            merged[date] = Math.max(merged[date] || 0, Number(cnt) || 0);
+          }
+          localStorage.setItem('fabanki:daily_history', JSON.stringify(merged));
+        }catch(e){}
+      }
+      setMax('fabanki:streak_current', stats.streakCurrent);
+      setMax('fabanki:streak_max', stats.streakMax);
+      if(stats.lastActiveDate) localStorage.setItem('fabanki:last_active_date', stats.lastActiveDate);
+      if(stats.weekId) localStorage.setItem('fabanki:week_id', stats.weekId);
+      if(stats.dayId) localStorage.setItem('fabanki:day_id', stats.dayId);
+      repairQualityCounterInvariants();
+    }
+
+    function parseCloudStatsPayload(remoteSt){
+      try{
+        if(remoteSt?.stats && typeof remoteSt.stats === 'object') return remoteSt.stats;
+        if(typeof remoteSt?.statsJson === 'string' && remoteSt.statsJson){
+          return JSON.parse(remoteSt.statsJson);
+        }
+      }catch(e){}
+      return null;
+    }
+
+    function parseCloudQuestsPayload(remoteSt){
+      try{
+        if(remoteSt?.quests && typeof remoteSt.quests === 'object') return remoteSt.quests;
+        if(typeof remoteSt?.questsJson === 'string' && remoteSt.questsJson){
+          return JSON.parse(remoteSt.questsJson);
+        }
+      }catch(e){}
+      return null;
+    }
+
+    function getClassementCardsReviewed(entry){
+      if(!entry || typeof entry !== 'object') return 0;
+      const aliases = ['Cartes_revisees', 'Cartes révisées', 'Cartes rÃ©visÃ©es', 'Cartes revisees'];
+      for(const key of aliases){
+        if(entry[key] !== undefined && entry[key] !== null) return Math.max(0, Number(entry[key]) || 0);
+      }
+      for(const [key, value] of Object.entries(entry)){
+        const norm = String(key || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+        if(norm === 'cartesrevisees') return Math.max(0, Number(value) || 0);
+      }
+      return 0;
+    }
+
+    try{
+      window.getClassementCardsReviewed = getClassementCardsReviewed;
+      window.applyStatsObject = applyStatsObject;
+      window.mergeStatsObjects = mergeStatsObjects;
+      window.repairQualityCounterInvariants = repairQualityCounterInvariants;
+      window.ensureStatsRestored = ensureStatsRestored;
+      window.recoverStatsFromClassementIfEmpty = recoverStatsFromClassementIfEmpty;
+      window.mergeStatsFromClassement = mergeStatsFromClassement;
+      repairQualityCounterInvariants();
+    }catch(e){}
 
     function applyStateToLocalStorage(state, options = {}){
       try{
@@ -15831,34 +16157,7 @@
         }
         // Stats — merge strategy: take max for counters, merge dates for daily history
         if(state.stats){
-          const s = state.stats;
-          const mergeMax = (key, val) => {
-            if(!Number.isFinite(val) || val <= 0) return;
-            const cur = Number(localStorage.getItem(key) || 0);
-            if(val > cur) localStorage.setItem(key, String(val));
-          };
-          mergeMax('fabanki:fail_total',           s.failTotal);
-          mergeMax('fabanki:difficult_total',       s.difficultTotal);
-          mergeMax('fabanki:good_total',            s.goodTotal);
-          mergeMax('fabanki:easy_total',            s.easyTotal);
-          mergeMax('fabanki:time_spent_total_sec',  s.timeSpentTotalSec);
-          mergeMax('fabanki:mastered_total',        s.masteredTotal);
-          mergeMax('fabanki:max_daily_reviewed',    s.maxDailyReviewed);
-          if(s.maxDailyReviewedDate){
-            const curMax = Number(localStorage.getItem('fabanki:max_daily_reviewed') || 0);
-            const remMax = s.maxDailyReviewed || 0;
-            if(remMax >= curMax) localStorage.setItem('fabanki:max_daily_reviewed_date', s.maxDailyReviewedDate);
-          }
-          if(s.dailyHistory && typeof s.dailyHistory === 'object'){
-            try{
-              const local = JSON.parse(localStorage.getItem('fabanki:daily_history') || '{}');
-              const merged = { ...local };
-              for(const [date, cnt] of Object.entries(s.dailyHistory)){
-                merged[date] = Math.max(merged[date] || 0, Number(cnt) || 0);
-              }
-              localStorage.setItem('fabanki:daily_history', JSON.stringify(merged));
-            }catch(e){}
-          }
+          applyStatsObject(state.stats);
         }
       }catch(e){ console.warn('applyStateToLocalStorage', e) }
     }
@@ -16056,6 +16355,7 @@
       const mergedWelcomeQuest = mergeWelcomeQuestState(localSt.welcomeQuest, remoteSt.welcomeQuest);
       const mergedPostWelcomeQuest = mergePostWelcomeQuestState(localSt.postWelcomeQuest, remoteSt.postWelcomeQuest);
       const mergedQuests = mergeQuestState(localSt.quests, remoteSt.quests);
+      const mergedStats = mergeStatsObjects(localSt.stats || collectStats(), remoteSt.stats || parseCloudStatsPayload(remoteSt) || {});
       const remoteDailyDate = new Date(remoteSt.dailyProgress?.dailyReviewedDate || 0).getTime();
       const localDailyDate = new Date(localSt.dailyProgress?.dailyReviewedDate || 0).getTime();
       const mergedDailyProgress = remoteDailyDate >= localDailyDate ? (remoteSt.dailyProgress || {}) : (localSt.dailyProgress || {});
@@ -16069,9 +16369,10 @@
         postWelcomeQuest: mergedPostWelcomeQuest,
         dailyProgress: mergedDailyProgress,
         quests: mergedQuests,
+        stats: mergedStats,
         xp: Math.max(Number(remoteSt.xp || 0), Number(localSt.xp || 0)),
-        streakCurrent: Math.max(Number(remoteSt.streakCurrent || 0), Number(localSt.streakCurrent || 0)),
-        streakMax: Math.max(Number(remoteSt.streakMax || 0), Number(localSt.streakMax || 0)),
+        streakCurrent: Math.max(Number(remoteSt.streakCurrent || 0), Number(localSt.streakCurrent || 0), Number(mergedStats.streakCurrent || 0)),
+        streakMax: Math.max(Number(remoteSt.streakMax || 0), Number(localSt.streakMax || 0), Number(mergedStats.streakMax || 0)),
         lastUpdated: Date.now()
       };
     }
@@ -16370,6 +16671,208 @@
     function __fabankiCardStatesRevisionMetaRef(db, uid){
       return db.collection('users').doc(uid).collection('fabankiSyncMeta').doc('state');
     }
+    function __fabankiProfileSyncMetaRef(db, uid){
+      return db.collection('users').doc(uid).collection('fabankiSyncMeta').doc('profile');
+    }
+
+    async function readProfileSyncSidecar(uid){
+      const db = window.__fabanki_firestore;
+      if(!db || !uid) return null;
+      try{
+        const snap = await __fabankiProfileSyncMetaRef(db, uid).get();
+        return snap.exists ? (snap.data() || null) : null;
+      }catch(e){
+        console.warn('[readProfileSyncSidecar]', e);
+        return null;
+      }
+    }
+
+    function mergeProfileSidecarIntoRemote(remoteSt, sidecar){
+      if(!remoteSt || !sidecar || typeof sidecar !== 'object') return remoteSt;
+      const out = { ...remoteSt };
+      if(typeof sidecar.statsJson === 'string' && sidecar.statsJson) out.statsJson = sidecar.statsJson;
+      if(typeof sidecar.questsJson === 'string' && sidecar.questsJson) out.questsJson = sidecar.questsJson;
+      if(typeof sidecar.dailyProgressJson === 'string' && sidecar.dailyProgressJson){
+        out.dailyProgressJson = sidecar.dailyProgressJson;
+      }
+      const sideTs = Number(sidecar.lastUpdated || 0);
+      if(sideTs > Number(out.lastUpdated || 0)) out.lastUpdated = sideTs;
+      return out;
+    }
+
+    async function writeProfileSyncSidecar(uid, payload){
+      const db = window.__fabanki_firestore;
+      if(!db || !uid || !payload) return false;
+      try{
+        await __fabankiProfileSyncMetaRef(db, uid).set(payload, { merge: true });
+        return true;
+      }catch(e){
+        console.warn('[writeProfileSyncSidecar]', e);
+        return false;
+      }
+    }
+
+    function getStatsReviewTotal(stats){
+      const s = stats || {};
+      const bon = Number(s.bonTotal ?? s.bon_total ?? 0);
+      const easy = Number(s.easyTotal || 0);
+      const good = Number(s.goodTotal || 0);
+      const goodOnly = bon > 0 ? bon : Math.max(0, good - easy);
+      return Number(s.failTotal || 0) + Number(s.difficultTotal || 0) + goodOnly + easy;
+    }
+
+    function computeStatsFromCardStates(useReps){
+      try{
+        let fail = 0, hard = 0, bon = 0, easy = 0;
+        for(const k of Object.keys(localStorage)){
+          if(!k.includes(':card:')) continue;
+          let st = null;
+          try{ st = JSON.parse(localStorage.getItem(k) || '{}'); }catch(e){ continue; }
+          if(!st || (!st.last && !(Number(st.reps) > 0))) continue;
+          const n = useReps ? Math.max(1, Number(st.reps || 0)) : 1;
+          const q = Number(st.lastQuality);
+          if(!Number.isFinite(q)){
+            bon += n;
+            continue;
+          }
+          if(q < 3) fail += n;
+          else if(q === 3) hard += n;
+          else if(q === 4) bon += n;
+          else if(q >= 5){ easy += n; bon += n; }
+        }
+        if(fail + hard + bon + easy <= 0) return null;
+        return {
+          failTotal: fail,
+          difficultTotal: hard,
+          bonTotal: Math.max(0, bon - easy),
+          goodTotal: bon,
+          easyTotal: easy
+        };
+      }catch(e){
+        return null;
+      }
+    }
+
+    function rebuildStatsFromCardStatesIfEmpty(){
+      try{
+        if(getStatsReviewTotal(collectStats()) > 0) return false;
+        const stats = computeStatsFromCardStates(false);
+        if(!stats) return false;
+        applyStatsObject(stats);
+        console.log('[stats] Rebuilt quality counters from card states:', stats);
+        return true;
+      }catch(e){
+        console.warn('[rebuildStatsFromCardStatesIfEmpty]', e);
+        return false;
+      }
+    }
+
+    async function fetchClassementStatsPayload(uid){
+      const db = window.__fabanki_firestore;
+      if(!db) return null;
+      const getField = (data, ...names) => {
+        for(const n of names){
+          if(data && data[n] !== undefined) return data[n];
+        }
+        return undefined;
+      };
+      let lb = null;
+      try{
+        if(uid){
+          const byUid = await db.collection('Classement').doc(uid).get();
+          if(byUid.exists) lb = byUid.data();
+        }
+      }catch(e){}
+      if(!lb){
+        const pseudo = localStorage.getItem('pseudo');
+        if(pseudo && pseudo !== 'Anonyme'){
+          try{
+            const q = await db.collection('Classement').where('Pseudo', '==', pseudo).limit(1).get();
+            if(!q.empty) lb = q.docs[0].data();
+          }catch(e){}
+        }
+      }
+      if(!lb) return null;
+      const fail = Number(getField(lb, 'Ratés', 'RatÃ©s') || 0);
+      const hard = Number(getField(lb, 'Reponses_difficiles', 'Réponses difficiles', 'RÃ©ponses difficiles') || 0);
+      const easy = Number(getField(lb, 'Reponses_faciles', 'Réponses faciles', 'RÃ©ponses faciles') || 0);
+      let good = Number(getField(lb, 'Bonnes réponses', 'Bonnes rÃ©ponses') || 0);
+      good = typeof normalizeSimonGoodCount === 'function' ? normalizeSimonGoodCount(good) : good;
+      const bon = Math.max(0, good - easy);
+      if(fail + hard + good <= 0) return null;
+      return {
+        failTotal: fail,
+        difficultTotal: hard,
+        bonTotal: bon,
+        goodTotal: Math.max(good, easy),
+        easyTotal: easy
+      };
+    }
+
+    async function mergeStatsFromClassement(uid){
+      try{
+        const payload = await fetchClassementStatsPayload(uid);
+        if(!payload) return false;
+        applyStatsObject(mergeStatsObjects(collectStats(), payload));
+        repairQualityCounterInvariants();
+        console.log('[stats] Merged quality counters from Classement:', payload);
+        return true;
+      }catch(e){
+        console.warn('[mergeStatsFromClassement]', e);
+        return false;
+      }
+    }
+
+    async function recoverStatsFromClassementIfEmpty(){
+      return mergeStatsFromClassement(fabankiFirestoreUid() || localStorage.getItem('fabanki:user_id'));
+    }
+
+    async function ensureStatsRestored(uid){
+      try{
+        if(!uid) uid = fabankiFirestoreUid() || localStorage.getItem('fabanki:user_id');
+        let merged = collectStats();
+
+        const sidecar = await readProfileSyncSidecar(uid);
+        if(sidecar?.statsJson){
+          try{
+            merged = mergeStatsObjects(merged, JSON.parse(sidecar.statsJson) || {});
+            console.log('[stats] Merged fabankiSyncMeta/profile sidecar');
+          }catch(e){
+            console.warn('[stats] sidecar statsJson parse failed:', e);
+          }
+        }
+
+        const lbStats = await fetchClassementStatsPayload(uid);
+        if(lbStats){
+          merged = mergeStatsObjects(merged, lbStats);
+          console.log('[stats] Merged Classement counters');
+        }
+
+        const cardStats = computeStatsFromCardStates(true);
+        if(cardStats){
+          merged = mergeStatsObjects(merged, cardStats);
+          console.log('[stats] Merged card-state counters (reps-weighted)');
+        }
+
+        applyStatsObject(merged);
+        repairQualityCounterInvariants();
+
+        try{
+          const usRaw = localStorage.getItem('fabanki:user_state');
+          const us = usRaw ? JSON.parse(usRaw) : {};
+          us.stats = collectStats();
+          localStorage.setItem('fabanki:user_state', JSON.stringify(us));
+        }catch(e){}
+
+        const total = getStatsReviewTotal(collectStats());
+        console.log('[stats] ensureStatsRestored done — review total:', total);
+        return { total, stats: collectStats() };
+      }catch(e){
+        console.warn('[ensureStatsRestored]', e);
+        return { total: getStatsReviewTotal(collectStats()), error: String(e?.message || e) };
+      }
+    }
+
     function __fabanki_cloud_cards_change_key(uid){ return 'fabanki:cloud_cs_change:' + String(uid || ''); }
 
     async function readRemoteCardStatesRevision(db, uid, remoteSt){
@@ -16871,15 +17374,21 @@
                 return; // Still saved locally above, just skip cloud push
               }
 
-              // Create an ULTRA-LEAN cloud state: only flat values, NO nested objects
-              // Do not sync quests on users/{uid}: nested arrays/maps inflate Firestore index entries and trigger
-              // "too many index entries for entity" when combined with deck/card mirrors. Quests stay in localStorage.
+              // Root users/{uid} may hit Firestore index limits (legacy nested decks). Profile data goes to sidecar.
+              const profileSidecar = {
+                statsJson: JSON.stringify(toSave.stats || collectStats()),
+                questsJson: JSON.stringify(toSave.quests || collectQuestState()),
+                dailyProgressJson: JSON.stringify(toSave.dailyProgress || collectDailyProgress()),
+                lastUpdated: lastUpdated
+              };
               const cloudState = {
                 userId: uid,
                 mode: 'synced',
                 lastUpdated: lastUpdated,
                 xp: Number(toSave.xp || 0),
-                credits: Number(toSave.credits || 0)
+                credits: Number(toSave.credits || 0),
+                streakCurrent: Number(toSave.streakCurrent || localStorage.getItem('fabanki:streak_current') || 0),
+                streakMax: Number(toSave.streakMax || localStorage.getItem('fabanki:streak_max') || 0),
               };
               
               // === SAFETY GATE 1.5: Block xp=0 upload ONLY when cloud already has real data ===
@@ -16956,6 +17465,11 @@
                 const cloudStateSizeKB = (cloudStateJson.length / 1024).toFixed(2);
                 console.log('[saveState] Uploading to cloud: xp=' + cloudState.xp + ', credits=' + cloudState.credits + ', size=' + cloudStateSizeKB + ' KB');
                 syncLog('Uploading cloud state', { xp: cloudState.xp, credits: cloudState.credits, sizeKB: cloudStateSizeKB });
+
+                const sidecarOk = await writeProfileSyncSidecar(uid, profileSidecar);
+                if(sidecarOk){
+                  console.log('[saveState] Profile sidecar saved (stats/quests/daily)');
+                }
 
                 try{
                   await window.__fabanki_firestore.collection('users').doc(uid).set(cloudState, { merge: true });
@@ -17178,7 +17692,11 @@
           const snap = await docRef.get();
           
           if(snap.exists){
-            const remoteSt = snap.data();
+            const remoteStRaw = snap.data();
+            const profileSidecar = await readProfileSyncSidecar(userId);
+            const remoteSt = profileSidecar
+              ? mergeProfileSidecarIntoRemote(remoteStRaw, profileSidecar)
+              : remoteStRaw;
             __fabankiRememberUserDocSnapshot(userId, remoteSt);
             localStorage.setItem('fabanki:last_auto_sync_pull_at', String(Date.now()));
             const cardStatesDecks = await fetchCloudCardStatesMaybe(db, userId, remoteSt);
@@ -17205,6 +17723,8 @@
             if(localEmpty && !remoteEmpty){
               syncLog('autoSync: local empty, pulling remote before push');
               const merged = { ...(localState || {}), ...remoteSt, decks: mergeDeckStates(localState?.decks || {}, pulledRemoteDecks || {}) };
+              merged.stats = mergeStatsObjects(parseCloudStatsPayload(remoteSt) || remoteSt.stats || {}, collectStats());
+              merged.quests = mergeQuestState(parseCloudQuestsPayload(remoteSt) || remoteSt.quests || null, collectQuestState());
               applyStateToLocalStorage(merged);
               localStorage.setItem('fabanki:user_state', JSON.stringify(merged));
             } else {
@@ -17223,12 +17743,24 @@
               }
               try{
                 const localQuestsNow = collectQuestState();
-                const mergedQuestsNow = mergeQuestState(localQuestsNow, remoteSt.quests || null);
+                const remoteQuestsNow = parseCloudQuestsPayload(remoteSt);
+                const mergedQuestsNow = mergeQuestState(localQuestsNow, remoteQuestsNow || remoteSt.quests || null);
                 applyStateToLocalStorage({ quests: mergedQuestsNow });
                 const localStateWithQuests = { ...(localState || {}), quests: mergedQuestsNow };
                 localStorage.setItem('fabanki:user_state', JSON.stringify(localStateWithQuests));
               }catch(e){
                 syncLog('autoSync: quest merge pull failed', e);
+              }
+              try{
+                const localStatsNow = collectStats();
+                const remoteStatsNow = parseCloudStatsPayload(remoteSt);
+                const mergedStatsNow = mergeStatsObjects(localStatsNow, remoteStatsNow || remoteSt.stats || {});
+                applyStatsObject(mergedStatsNow);
+                const localStateWithStats = JSON.parse(localStorage.getItem('fabanki:user_state') || '{}');
+                localStateWithStats.stats = mergedStatsNow;
+                localStorage.setItem('fabanki:user_state', JSON.stringify(localStateWithStats));
+              }catch(e){
+                syncLog('autoSync: stats merge pull failed', e);
               }
               // Cache cloud XP
               __lastKnownCloudXp = remoteXp;
@@ -17270,6 +17802,7 @@
 
         await saveState(st);
         await syncRecentCardsSinceTimestamp(userId, cloudTimestampSeen, 120);
+        try{ if(typeof window.syncClassement === 'function') await window.syncClassement(); }catch(e){}
         lastSyncCardId = currentCardId;
         syncLog('Auto-sync completed successfully');
       }catch(e){ 
@@ -17355,7 +17888,14 @@
           return; // No cloud data
         }
         
-        const remoteSt = snap.data();
+        const remoteStRaw = snap.data();
+        const profileSidecar = await readProfileSyncSidecar(uid);
+        const remoteSt = profileSidecar
+          ? mergeProfileSidecarIntoRemote(remoteStRaw, profileSidecar)
+          : remoteStRaw;
+        if(profileSidecar){
+          console.log('[restoreFromCloud] Merged fabankiSyncMeta/profile sidecar');
+        }
         __fabankiRememberUserDocSnapshot(uid, remoteSt);
         const legacyNestedDecks = remoteSt.decks || {};
         const deckSigBeforePull = getDeckSnapshotSignature(collectDeckProgress());
@@ -17497,6 +18037,10 @@
         __restoreInProgress = false;
         __cloudRestoreCompleted = true;
         console.log('[restoreFromCloud] Restore phase complete. Cloud pushes now allowed. lastKnownCloudXp=' + __lastKnownCloudXp);
+        try{
+          const uid = firebase?.auth?.()?.currentUser?.uid;
+          if(uid) await ensureStatsRestored(uid);
+        }catch(e){}
         setSyncStatus('', false);
       }
     }
@@ -17629,13 +18173,22 @@
           const good = getField(leaderboardData, 'Bonnes réponses', 'Bonnes rÃ©ponses');
           const fail = getField(leaderboardData, 'Ratés', 'RatÃ©s');
           const pass = getField(leaderboardData, 'Passer');
+          const hard = getField(leaderboardData, 'Reponses_difficiles', 'Réponses difficiles', 'RÃ©ponses difficiles');
+          const easy = getField(leaderboardData, 'Reponses_faciles', 'Réponses faciles', 'RÃ©ponses faciles');
           const mastered = getField(leaderboardData, 'Cartes maîtrisées', 'Cartes maÃ®trisÃ©es');
           const reviewed = getField(leaderboardData, 'Cartes révisées', 'Cartes rÃ©visÃ©es');
+          const setMaxStat = (key, val) => {
+            if(val === undefined || val === null || !Number.isFinite(Number(val))) return;
+            const cur = Number(localStorage.getItem(key) || 0);
+            localStorage.setItem(key, String(Math.max(cur, Number(val))));
+          };
           
-          if(good !== undefined) localStorage.setItem('fabanki:good_total', String(good));
-          if(fail !== undefined) localStorage.setItem('fabanki:fail_total', String(fail));
-          if(pass !== undefined) localStorage.setItem('fabanki:pass_total', String(pass));
-          if(mastered !== undefined) localStorage.setItem('fabanki:mastered_total', String(mastered));
+          setMaxStat('fabanki:good_total', normalizeSimonGoodCount(good));
+          setMaxStat('fabanki:fail_total', fail);
+          setMaxStat('fabanki:pass_total', pass);
+          setMaxStat('fabanki:difficult_total', hard);
+          setMaxStat('fabanki:easy_total', easy);
+          if(mastered !== undefined) setMaxStat('fabanki:mastered_total', mastered);
           if(leaderboardData.Streak_max !== undefined) localStorage.setItem('fabanki:streak_max', String(leaderboardData.Streak_max));
           if(leaderboardData.Streak_current !== undefined) localStorage.setItem('fabanki:streak_current', String(leaderboardData.Streak_current));
           if(leaderboardData.XP_semaine !== undefined) localStorage.setItem('fabanki:xp_semaine', String(leaderboardData.XP_semaine));
@@ -17752,7 +18305,11 @@
         const localSt = loadState() || defaultUserState();
         const docRef = db.collection('users').doc(uid);
         const snap = await docRef.get();
-        const remoteSt = snap.exists ? (snap.data() || null) : null;
+        let remoteSt = snap.exists ? (snap.data() || null) : null;
+        if(remoteSt){
+          const profileSidecar = await readProfileSyncSidecar(uid);
+          if(profileSidecar) remoteSt = mergeProfileSidecarIntoRemote(remoteSt, profileSidecar);
+        }
         if(remoteSt) __fabankiRememberUserDocSnapshot(uid, remoteSt);
 
         const localSum = getStateSummary(localSt || {});
@@ -17834,11 +18391,20 @@
                 const good = getF(lbDoc, 'Bonnes réponses', 'Bonnes rÃ©ponses');
                 const fail = getF(lbDoc, 'Ratés', 'RatÃ©s');
                 const pass = getF(lbDoc, 'Passer');
+                const hard = getF(lbDoc, 'Reponses_difficiles', 'Réponses difficiles', 'RÃ©ponses difficiles');
+                const easy = getF(lbDoc, 'Reponses_faciles', 'Réponses faciles', 'RÃ©ponses faciles');
                 const mastered = getF(lbDoc, 'Cartes maîtrisées', 'Cartes maÃ®trisÃ©es');
-                if(good !== undefined) localStorage.setItem('fabanki:good_total', String(good));
-                if(fail !== undefined) localStorage.setItem('fabanki:fail_total', String(fail));
-                if(pass !== undefined) localStorage.setItem('fabanki:pass_total', String(pass));
-                if(mastered !== undefined) localStorage.setItem('fabanki:mastered_total', String(mastered));
+                const setMaxStat = (key, val) => {
+                  if(val === undefined || val === null || !Number.isFinite(Number(val))) return;
+                  const cur = Number(localStorage.getItem(key) || 0);
+                  localStorage.setItem(key, String(Math.max(cur, Number(val))));
+                };
+                setMaxStat('fabanki:good_total', normalizeSimonGoodCount(good));
+                setMaxStat('fabanki:fail_total', fail);
+                setMaxStat('fabanki:pass_total', pass);
+                setMaxStat('fabanki:difficult_total', hard);
+                setMaxStat('fabanki:easy_total', easy);
+                if(mastered !== undefined) setMaxStat('fabanki:mastered_total', mastered);
                 if(lbDoc.Streak_max !== undefined) localStorage.setItem('fabanki:streak_max', String(lbDoc.Streak_max));
                 if(lbDoc.Streak_current !== undefined) localStorage.setItem('fabanki:streak_current', String(lbDoc.Streak_current));
                 console.log('[loginAndSync] ✅ Restored stats from leaderboard:', { xp: lbXp, good, fail, pass, mastered });
@@ -17899,11 +18465,11 @@
           };
         }
 
-        // Ensure we save the latest local collections
+        // Ensure we save the latest local collections merged with cloud payloads
         chosen.inventory = collectInventory();
         chosen.dailyProgress = collectDailyProgress();
-        chosen.stats = collectStats();
-        chosen.quests = collectQuestState();
+        chosen.stats = mergeStatsObjects(collectStats(), parseCloudStatsPayload(remoteSt) || remoteSt?.stats || {});
+        chosen.quests = mergeQuestState(collectQuestState(), parseCloudQuestsPayload(remoteSt) || remoteSt?.quests || null);
         chosen.welcomeQuest = collectWelcomeQuestState();
         chosen.postWelcomeQuest = collectPostWelcomeQuestState();
 
@@ -17982,7 +18548,11 @@
 
         const localSt = loadState() || defaultUserState();
         const snap = await db.collection('users').doc(uid).get();
-        const remoteSt = snap.exists ? snap.data() : null;
+        let remoteSt = snap.exists ? snap.data() : null;
+        if(remoteSt){
+          const profileSidecar = await readProfileSyncSidecar(uid);
+          if(profileSidecar) remoteSt = mergeProfileSidecarIntoRemote(remoteSt, profileSidecar);
+        }
 
         let chosen;
         if(remoteSt && !isStateEmpty(remoteSt)){
@@ -18311,7 +18881,7 @@
     try{
       if(applySimonBonusIfNeeded()){
         setTimeout(() => {
-          try{ if(typeof syncClassement === 'function') syncClassement(); }catch(e){}
+          try{ if(typeof window.syncClassement === 'function') window.syncClassement(); }catch(e){}
           try{ if(typeof autoSync === 'function') autoSync().catch(()=>{}); }catch(e){}
         }, 200);
       }
@@ -19938,14 +20508,14 @@
         // - Max cards reviewed ~50k (very active player over months)
         
         const MAX_LEVEL = 60;
-        const MAX_MPSI_SCORE = 5000;
+        const MAX_MPSI_SCORE = 10000000;
         const MAX_STREAK = 400;
         const MAX_CARDS_REVIEWED = 50000;
         const MAX_MASTERED = 50000;
         const MAX_GOOD_ANSWERS = 100000;
         const MAX_XP = 500000;
         const MAX_XP_WEEK = 50000;
-        const MAX_XP_SCORE_WEEK = 5000;
+        const MAX_XP_SCORE_WEEK = 10000;
         const MAX_CONSECUTIVE_CORRECT = 1000;
         const MAX_CONSECUTIVE_NO_PASS = 1000;
         
@@ -19965,10 +20535,30 @@
         
         sanitized.XP = getValidNumber(rawData.XP, 0, MAX_XP);
         sanitized.Niveau = getValidNumber(rawData.Niveau, 1, MAX_LEVEL);
-        sanitized['Cartes rÃ©visÃ©es'] = getValidNumber(rawData['Cartes rÃ©visÃ©es'], 0, MAX_CARDS_REVIEWED);
+        sanitized['Cartes_revisees'] = getValidNumber(
+          rawData['Cartes_revisees'] ?? rawData['Cartes rÃ©visÃ©es'] ?? rawData['Cartes révisées'],
+          0,
+          MAX_CARDS_REVIEWED
+        );
+        sanitized['Cartes rÃ©visÃ©es'] = sanitized['Cartes_revisees'];
+        sanitized['Cartes révisées'] = sanitized['Cartes_revisees'];
         sanitized['Bonnes rÃ©ponses'] = getValidNumber(rawData['Bonnes rÃ©ponses'], 0, MAX_GOOD_ANSWERS);
         sanitized['RatÃ©s'] = getValidNumber(rawData['RatÃ©s'], -1000, 100000);
         sanitized['Passer'] = getValidNumber(rawData['Passer'], -1000, 100000);
+        sanitized['Reponses_difficiles'] = getValidNumber(
+          rawData['Reponses_difficiles'] ?? rawData['Réponses difficiles'] ?? rawData['RÃ©ponses difficiles'],
+          0,
+          MAX_GOOD_ANSWERS
+        );
+        sanitized['Reponses_faciles'] = getValidNumber(
+          rawData['Reponses_faciles'] ?? rawData['Réponses faciles'] ?? rawData['RÃ©ponses faciles'],
+          0,
+          MAX_GOOD_ANSWERS
+        );
+        sanitized['Réponses difficiles'] = sanitized['Reponses_difficiles'];
+        sanitized['Réponses faciles'] = sanitized['Reponses_faciles'];
+        sanitized['RÃ©ponses difficiles'] = sanitized['Reponses_difficiles'];
+        sanitized['RÃ©ponses faciles'] = sanitized['Reponses_faciles'];
         sanitized['Streak_max'] = getValidNumber(rawData['Streak_max'], 0, MAX_STREAK);
         sanitized['Streak_current'] = getValidNumber(rawData['Streak_current'], 0, MAX_STREAK);
         sanitized['Daily_goal'] = getValidNumber(rawData['Daily_goal'], 0, 200);
@@ -20202,10 +20792,13 @@
         if(addSec <= 0) return;
         const curDaySec = Number(localStorage.getItem('fabanki:time_spent_today_sec') || 0);
         const curWeekSec = Number(localStorage.getItem('fabanki:time_spent_week_sec') || 0);
+        const curTotalSec = Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0);
         const newDaySec = curDaySec + addSec;
         const newWeekSec = curWeekSec + addSec;
+        const newTotalSec = curTotalSec + addSec;
         localStorage.setItem('fabanki:time_spent_today_sec', String(newDaySec));
         localStorage.setItem('fabanki:time_spent_week_sec', String(newWeekSec));
+        localStorage.setItem('fabanki:time_spent_total_sec', String(newTotalSec));
         localStorage.setItem('fabanki:time_spent_today', String(Math.floor(newDaySec / 60)));
         localStorage.setItem('fabanki:time_spent_week', String(Math.floor(newWeekSec / 60)));
       }catch(e){ console.warn('time accumulation error:', e) }
@@ -20518,9 +21111,11 @@
           }
         }catch(e){}
         const stats = getProfileStats();
-        const cartes = stats.totalReviewed || 0;
+        let cartes = Math.max(Number(stats.totalReviewed || 0), getTotalReviewedCount());
         const bonnes = Number(localStorage.getItem('fabanki:good_total') || 0);
         const rates = Number(localStorage.getItem('fabanki:fail_total') || 0);
+        const difficiles = Number(localStorage.getItem('fabanki:difficult_total') || 0);
+        const faciles = Number(localStorage.getItem('fabanki:easy_total') || 0);
         const passes = Number(localStorage.getItem('fabanki:pass_total') || 0);
         const mastered = Number(localStorage.getItem('fabanki:mastered_total') || countMasteredCards());
         const streakMax = Number(localStorage.getItem('fabanki:streak_max') || 0);
@@ -20579,6 +21174,18 @@
           }catch(e){}
         }catch(e){}
 
+        // Fetch previous classement doc early so card totals stay consistent across field aliases
+        let prevCards = 0;
+        let prevData = null;
+        try{
+          const prevSnap = await db.collection('Classement').doc(userId).get();
+          if(prevSnap && prevSnap.exists){
+            prevData = prevSnap.data() || {};
+            prevCards = getClassementCardsReviewed(prevData);
+            cartes = Math.max(cartes, prevCards);
+          }
+        }catch(e){}
+
         // prepare doc
         const nowIso = (new Date()).toISOString();
         const weekId = getWeekId();
@@ -20598,12 +21205,20 @@
           Pseudo: pseudo,
           XP: xp,
           Niveau: lvl,
+          Cartes_revisees: cartes,
           ['Cartes rÃ©visÃ©es']: cartes,
+          ['Cartes révisées']: cartes,
           ['DerniÃ¨re mise Ã  jour']: nowIso,
           ['DerniÃ¨re synchronisation']: nowIso,
           Score_MPSI: Math.max(0, scoreMPSI),
           ['Bonnes rÃ©ponses']: bonnes,
           ['RatÃ©s']: rates,
+          Reponses_difficiles: difficiles,
+          Reponses_faciles: faciles,
+          ['Réponses difficiles']: difficiles,
+          ['Réponses faciles']: faciles,
+          ['RÃ©ponses difficiles']: difficiles,
+          ['RÃ©ponses faciles']: faciles,
           ['Passer']: passes,
           ['Streak_max']: streakMax,
           ['Streak_current']: streakCurrent,
@@ -20623,16 +21238,13 @@
         };
 
         // Anti-cheat: Validate all data before sending to Firestore
-        const validatedDoc = sanitizeAndValidateUserData(doc);
+        let validatedDoc = sanitizeAndValidateUserData(doc);
         
-        // Anti-cheat: fetch previous doc and compare deltas
+        // Anti-cheat: compare deltas against previous doc
         try{
-          const ref = db.collection('Classement').doc(userId);
-          const prev = await ref.get();
-          if(prev && prev.exists){
-            const pd = prev.data() || {};
+          if(prevData){
+            const pd = prevData;
             const prevScore = Number(pd.Score_MPSI || 0);
-            const prevCards = Number(pd['Cartes rÃ©visÃ©es'] || 0);
             const prevXp = Number(pd.XP || 0);
             const prevGood = Number(pd['Bonnes réponses'] ?? pd['Bonnes rÃ©ponses'] ?? 0);
             const prevFail = Number(pd['Ratés'] ?? pd['RatÃ©s'] ?? 0);
@@ -20642,7 +21254,6 @@
               const prevDate = new Date(prevSync);
               const mins = (Date.now() - prevDate.getTime()) / 60000;
 
-              // Anti-cheat should only block clearly impossible raw activity, not derived score jumps.
               const scoreDelta = scoreMPSI - prevScore;
               const cardsDelta = cartes - prevCards;
               const xpDelta = xp - prevXp;
@@ -20659,8 +21270,6 @@
               const impossibleXpRate = xpRatePerMin > 1000 && mins > 0.1;
               const impossibleAnswerCounters = (goodDelta + failDelta + passDelta) > 500 && mins < 3;
 
-              // Only block if there is impossible raw activity.
-              // Score_MPSI can jump massively from recomputation (titles/streak/mastered), so it is diagnostic only.
               const shouldBlock = impossibleCardsJump || impossibleCardsRate || impossibleXpJump || impossibleXpRate || impossibleAnswerCounters;
 
               if(shouldBlock){
@@ -20748,14 +21357,10 @@
             const score = Number(d.Score_MPSI || 0);
             const scoreMonth = Number(d.Score_MPSI_mois || 0);
             const scoreWeek = Number(d.Score_MPSI_semaine || 0);
-            
-            // Block entries with unrealistic stats
-            if (level > 60) return false;              // Max reasonable level ~60
-            if (score > 5000) return false;           // Max reasonable MPSI score ~5000
-            if (scoreMonth > 5000) return false;      // Monthly score cap
-            if (scoreWeek > 5000) return false;       // Weekly score cap
-            if (score < -10000) return false;         // Negative score injection
-            
+            if (level > 999) return false;
+            if (score > 10000000 || score < -100000) return false;
+            if (scoreMonth > 10000000 || scoreMonth < -100000) return false;
+            if (scoreWeek > 10000000 || scoreWeek < -100000) return false;
             return true;
           } catch (e) {
             return false;
@@ -20915,15 +21520,28 @@
         function attachWeek(){
           if(unsubWeek) return;
           const m = getMonthId();
+          const normMonth = (s) => {
+            const raw = String(s || '').trim();
+            const parts = raw.match(/^(\d{4})-(\d{1,2})$/);
+            return parts ? `${parts[1]}-${String(parts[2]).padStart(2, '0')}` : raw;
+          };
           const qw = db.collection('Classement').orderBy('Score_MPSI_mois','desc');
           unsubWeek = qw.onSnapshot(snapshot=>{
             try{ 
               const allData = [];
-              snapshot.forEach(doc=>{ const d=doc.data()||{}; if(isValidLeaderboardEntry(d) && d.Mois_ID === m) { allData.push(d); } });
-              const uniqueData = dedupeLeaderboardEntries(allData, 'Score_MPSI_mois');
-              // Sort by Score_MPSI_mois descending to ensure proper ranking
-              uniqueData.sort((a,b) => (Number(b.Score_MPSI_mois || 0) - Number(a.Score_MPSI_mois || 0)));
-              tbody.innerHTML=''; let r=1; uniqueData.forEach(d=>{ const row = renderRow(d, r, 'Score_MPSI_mois'); if(row) { tbody.appendChild(row); r++; } });
+              snapshot.forEach(doc=>{
+                const d = doc.data() || {};
+                if(!isValidLeaderboardEntry(d)) return;
+                const monthScore = normMonth(d.Mois_ID) === normMonth(m) ? Number(d.Score_MPSI_mois || 0) : 0;
+                allData.push({ ...d, _monthScoreDisplay: monthScore });
+              });
+              const uniqueData = dedupeLeaderboardEntries(allData, '_monthScoreDisplay');
+              uniqueData.sort((a,b) => (Number(b._monthScoreDisplay || 0) - Number(a._monthScoreDisplay || 0)));
+              tbody.innerHTML=''; let r=1;
+              uniqueData.forEach(d=>{
+                const row = renderRow({ ...d, Score_MPSI_mois: d._monthScoreDisplay }, r, 'Score_MPSI_mois');
+                if(row) { tbody.appendChild(row); r++; }
+              });
             }catch(e){ console.warn('leaderboard render', e); }
           }, err=>{ console.warn('leaderboard snapshot error', err); tbody.innerHTML = '<tr><td colspan="7">Erreur lecture du classement</td></tr>'; });
         }
@@ -23793,7 +24411,7 @@
           
           console.log('âœ… Deck submitted successfully with ID:', publishedId);
           
-          alert('✅ Deck soumis avec succès !\n\nIl sera publié automatiquement sur le catalogue dans quelques instants.\n\nID : ' + publishedId);
+          alert('Deck soumis avec succès !\n\nIl sera publié automatiquement sur le catalogue dans quelques instants.\n\nID : ' + publishedId);
           
           // Clear draft
           localStorage.removeItem('fabanki:deck_draft');
@@ -24144,10 +24762,39 @@
   }
 
   function fmtTime(sec){
-    if(sec < 60) return sec + 's';
-    if(sec < 3600) return Math.floor(sec/60) + 'min';
-    return Math.floor(sec/3600) + 'h ' + Math.floor((sec%3600)/60) + 'min';
+    const n = Number(sec) || 0;
+    if(n < 60) return Math.round(n) + 's';
+    if(n < 3600) return Math.floor(n/60) + 'min';
+    return Math.floor(n/3600) + 'h ' + Math.floor((n%3600)/60) + 'min';
   }
+
+  function fmtTimeAvg(sec){
+    const n = Number(sec) || 0;
+    if(n <= 0) return '0s';
+    if(n < 1) return '<1s';
+    if(n < 60) return (n < 10 ? n.toFixed(1) : String(Math.round(n))) + 's';
+    return fmtTime(n);
+  }
+
+  function ensureQualityStats(){
+    try{
+      const easy = Number(localStorage.getItem('fabanki:easy_total') || 0);
+      let good = Number(localStorage.getItem('fabanki:good_total') || 0);
+      if(good < easy){
+        good = easy;
+        localStorage.setItem('fabanki:good_total', String(good));
+      }
+      const derivedBon = Math.max(0, good - easy);
+      const curBon = Number(localStorage.getItem('fabanki:bon_total') || 0);
+      const nextBon = Math.max(curBon, derivedBon);
+      if(curBon !== nextBon){
+        localStorage.setItem('fabanki:bon_total', String(nextBon));
+      }
+      localStorage.setItem('fabanki:migration_bon_total_v1', '1');
+    }catch(e){}
+  }
+
+  ensureQualityStats();
 
   function fmtDate(iso){
     if(!iso) return '—';
@@ -24214,12 +24861,43 @@
     const el = document.getElementById('statsPage');
     if(!el) return;
 
+    ensureQualityStats();
+    const failQuick = Number(localStorage.getItem('fabanki:fail_total')||0);
+    const hardQuick = Number(localStorage.getItem('fabanki:difficult_total')||0);
+    const bonQuick = Number(localStorage.getItem('fabanki:bon_total')||0);
+    const easyQuick = Number(localStorage.getItem('fabanki:easy_total')||0);
+    const totalQuick = failQuick + hardQuick + bonQuick + easyQuick;
+    const xpQuick = Number(localStorage.getItem('fabanki:xp_total')||0);
+    const statsLookIncomplete = totalQuick === 0 || (xpQuick > 3000 && totalQuick < Math.min(500, xpQuick / 3));
+    if(
+      statsLookIncomplete &&
+      !window.__fabanki_statsRestorePending &&
+      localStorage.getItem('fabanki:mode') === 'synced' &&
+      typeof window.ensureStatsRestored === 'function'
+    ){
+      const uid = localStorage.getItem('fabanki:user_id') || localStorage.getItem('userId');
+      if(uid){
+        window.__fabanki_statsRestorePending = true;
+        window.ensureStatsRestored(uid).finally(()=>{
+          window.__fabanki_statsRestorePending = false;
+          try{ window.renderStatsPage(); }catch(e){}
+        });
+        return;
+      }
+    }
+
+    try{
+      if(typeof window.repairQualityCounterInvariants === 'function'){
+        window.repairQualityCounterInvariants();
+      }
+    }catch(e){}
+
     const today = new Date().toISOString().slice(0,10);
     const fail = Number(localStorage.getItem('fabanki:fail_total')||0);
     const hard = Number(localStorage.getItem('fabanki:difficult_total')||0);
-    const good = Number(localStorage.getItem('fabanki:good_total')||0);
+    const bon = Number(localStorage.getItem('fabanki:bon_total')||0);
     const easy = Number(localStorage.getItem('fabanki:easy_total')||0);
-    const total = fail + hard + good;
+    const total = fail + hard + bon + easy;
     const dailyGoal = Number(localStorage.getItem('fabanki:daily_goal')||0);
     let hist = {};
     try{ hist = JSON.parse(localStorage.getItem('fabanki:daily_history')||'{}'); }catch(e){}
@@ -24233,8 +24911,8 @@
     const bestDay = Number(localStorage.getItem('fabanki:max_daily_reviewed')||0);
     const bestDayDate = localStorage.getItem('fabanki:max_daily_reviewed_date')||'';
     const timeSec = Number(localStorage.getItem('fabanki:time_spent_total_sec')||0);
-    const avgTimeSec = total > 0 ? Math.round(timeSec / total) : 0;
-    const successRate = total > 0 ? Math.round((good/total)*100) : 0;
+    const avgTimeSec = total > 0 ? (timeSec / total) : 0;
+    const successRate = total > 0 ? Math.round(((bon + easy) / total) * 100) : 0;
     // Active days (days with at least 1 review in last 30 days)
     const activeDays = last30Keys.filter(d=>(hist[d]||0)>0).length;
     // Goal days (days where goal was met, in last 30 days — approximate using dailyGoal)
@@ -24293,7 +24971,7 @@
       }
     }catch(e){}
     // Quality bar widths
-    const qualMax = Math.max(1, fail, hard, good-easy, easy);
+    const qualMax = Math.max(1, fail, hard, bon, easy);
     function qualBar(v,color){ return `<div class="sp-qual-bar-fill" style="width:${Math.round((v/qualMax)*100)}%;background:${color}"></div>`; }
 
     el.innerHTML = `<div class="sp-wrap sp-mosaic">
@@ -24346,11 +25024,11 @@
             <div class="sp-stat-cell"><span class="sp-stat-val">${total}</span><span class="sp-stat-label">Total</span></div>
             <div class="sp-stat-cell"><span class="sp-stat-val">${fmtTime(timeSec)}</span><span class="sp-stat-label">Temps total</span></div>
             <div class="sp-stat-cell"><span class="sp-stat-val">${successRate}%</span><span class="sp-stat-label">Taux succès</span></div>
-            <div class="sp-stat-cell"><span class="sp-stat-val">${fmtTime(avgTimeSec)}</span><span class="sp-stat-label">Moy/carte</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${fmtTimeAvg(avgTimeSec)}</span><span class="sp-stat-label">Moy/carte</span></div>
           </div>
           <div class="sp-qual-row"><span class="sp-qual-label">Raté</span><div class="sp-qual-bar">${qualBar(fail,'#d9534f')}</div><span class="sp-qual-count">${fail}</span></div>
           <div class="sp-qual-row"><span class="sp-qual-label">Difficile</span><div class="sp-qual-bar">${qualBar(hard,'#e89b27')}</div><span class="sp-qual-count">${hard}</span></div>
-          <div class="sp-qual-row"><span class="sp-qual-label">Bon</span><div class="sp-qual-bar">${qualBar(good-easy,'#28a745')}</div><span class="sp-qual-count">${good-easy}</span></div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Bon</span><div class="sp-qual-bar">${qualBar(bon,'#28a745')}</div><span class="sp-qual-count">${bon}</span></div>
           <div class="sp-qual-row"><span class="sp-qual-label">Facile</span><div class="sp-qual-bar">${qualBar(easy,'#9b59d0')}</div><span class="sp-qual-count">${easy}</span></div>
         </div>
       </div>
@@ -24398,6 +25076,10 @@
 (function(){
   function getLeaderboardField(entry, aliases, fallback){
     if(!entry || typeof entry !== 'object') return fallback;
+    if(aliases.some(a => /cartes/i.test(String(a))) && typeof window.getClassementCardsReviewed === 'function'){
+      const cards = window.getClassementCardsReviewed(entry);
+      if(cards > 0) return cards;
+    }
     for(const key of aliases){
       if(entry[key] !== undefined && entry[key] !== null) return entry[key];
     }
@@ -24405,14 +25087,17 @@
   }
   function isValidLeaderboardEntry(d){
     try{
-      const level = Number(d.Niveau || d['Niveau Prépa'] || 0);
+      const level = Number(d.Niveau || d['Niveau Prépa'] || d['Niveau PrÃ©pa'] || 0);
       const score = Number(d.Score_MPSI || 0);
-      if(level > 60) return false;
-      if(score > 5000) return false;
+      const scoreMonth = Number(d.Score_MPSI_mois || 0);
+      if(level > 999) return false;
+      if(score > 10000000 || score < -100000) return false;
+      if(scoreMonth > 10000000 || scoreMonth < -100000) return false;
       return true;
     }catch(e){ return false; }
   }
-  function dedupeByPseudo(rows){
+  function dedupeByPseudo(rows, scoreField){
+    const field = scoreField || 'Score_MPSI';
     const byPseudo = new Map();
     for(const raw of rows || []){
       const pseudo = String(raw?.Pseudo || '').trim();
@@ -24420,10 +25105,36 @@
       const key = pseudo.toLowerCase();
       const current = byPseudo.get(key);
       if(!current){ byPseudo.set(key, { ...(raw || {}) }); continue; }
-      const keep = Number(raw.Score_MPSI || 0) > Number(current.Score_MPSI || 0) ? raw : current;
+      const keep = Number(raw[field] || 0) > Number(current[field] || 0) ? raw : current;
       byPseudo.set(key, keep);
     }
     return Array.from(byPseudo.values());
+  }
+
+  function normalizeMonthId(value){
+    const raw = String(value || '').trim();
+    const parts = raw.match(/^(\d{4})-(\d{1,2})$/);
+    return parts ? `${parts[1]}-${String(parts[2]).padStart(2, '0')}` : raw;
+  }
+
+  function getClassementMonthId(){
+    if(typeof window.getMonthId === 'function') return normalizeMonthId(window.getMonthId());
+    try{
+      const dt = new Date();
+      return normalizeMonthId(dt.getFullYear() + '-' + (dt.getMonth() + 1));
+    }catch(e){
+      return normalizeMonthId(new Date().toISOString().slice(0, 7));
+    }
+  }
+
+  function getClassementMonthScore(entry, monthId){
+    if(!entry || typeof entry !== 'object') return 0;
+    const current = normalizeMonthId(monthId);
+    const stored = normalizeMonthId(entry.Mois_ID);
+    const score = Math.max(0, Number(entry.Score_MPSI_mois || 0));
+    if(stored === current) return score;
+    if(!stored && score > 0) return score;
+    return 0;
   }
 
   window.renderClassementPage = async function(){
@@ -24449,14 +25160,21 @@
     </div>`;
     const tbody = el.querySelector('#classementRows');
     const db = window.__fabanki_firestore;
-    const monthId = (new Date().toISOString().slice(0,7));
+    const monthId = getClassementMonthId();
     let mode = 'global';
-    const CL_LB_CACHE_TTL_MS = 600000;
+    const CL_LB_CACHE_TTL_MS = 30000;
 
     async function loadRows(forceRefresh){
       if(!tbody) return;
       if(!db){ tbody.innerHTML = '<tr><td colspan="7">Classement indisponible (Firebase non configuré)</td></tr>'; return; }
       try{
+        if(forceRefresh){
+          try{
+            Object.keys(sessionStorage).forEach(k => {
+              if(k.startsWith('fabanki:cl_lb_html:')) sessionStorage.removeItem(k);
+            });
+          }catch(e){}
+        }
         const cacheKey = 'fabanki:cl_lb_html:' + monthId + ':' + mode;
         if(!forceRefresh){
           try{
@@ -24475,23 +25193,31 @@
         snap.forEach(doc => {
           const d = doc.data() || {};
           if(!isValidLeaderboardEntry(d)) return;
-          if(mode === 'month' && d.Mois_ID !== monthId) return;
           rows.push(d);
         });
-        const unique = dedupeByPseudo(rows);
-        unique.sort((a,b)=> Number((mode === 'month' ? b.Score_MPSI_mois : b.Score_MPSI) || 0) - Number((mode === 'month' ? a.Score_MPSI_mois : a.Score_MPSI) || 0));
+        const scoreField = mode === 'month' ? '__monthScore' : 'Score_MPSI';
+        const enriched = mode === 'month'
+          ? rows.map(d => ({ ...d, __monthScore: getClassementMonthScore(d, monthId) }))
+          : rows;
+        const unique = dedupeByPseudo(enriched, scoreField);
+        unique.sort((a,b)=> Number((mode === 'month' ? b.__monthScore : b.Score_MPSI) || 0) - Number((mode === 'month' ? a.__monthScore : a.Score_MPSI) || 0));
         tbody.innerHTML = '';
         let rank = 1;
         unique.forEach(d => {
           const cards = Number(getLeaderboardField(d, ['Cartes révisées','Cartes rÃ©visÃ©es'], 0) || 0);
           if(cards <= 0) return;
+          const monthScore = mode === 'month' ? Number(d.__monthScore || 0) : 0;
+          if(mode === 'month'){
+            const storedMonth = normalizeMonthId(d.Mois_ID);
+            if(monthScore <= 0 && storedMonth !== monthId) return;
+          }
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${rank++}</td>
             <td>${d.Pseudo || '-'}</td>
             <td>${d.Selected_Title || '-'}</td>
             <td>${getLeaderboardField(d, ['Niveau','Niveau Prépa','Niveau PrÃ©pa'], 0)}</td>
-            <td>${mode === 'month' ? Number(d.Score_MPSI_mois || 0) : Number(d.Score_MPSI || 0)}</td>
+            <td>${mode === 'month' ? monthScore : Number(d.Score_MPSI || 0)}</td>
             <td>${cards}</td>
             <td>${getLeaderboardField(d, ['Quêtes_quotidiennes','QuÃªtes_quotidiennes'], 0)}</td>
           `;
@@ -24505,10 +25231,14 @@
         tbody.innerHTML = '<tr><td colspan="7">Erreur de chargement du classement</td></tr>';
       }
     }
-    el.querySelector('#classementGlobalBtn')?.addEventListener('click', ()=>{ mode = 'global'; loadRows(); });
-    el.querySelector('#classementMonthBtn')?.addEventListener('click', ()=>{ mode = 'month'; loadRows(); });
-    el.querySelector('#classementRefreshBtn')?.addEventListener('click', ()=> loadRows(true));
-    await loadRows();
+    el.querySelector('#classementGlobalBtn')?.addEventListener('click', ()=>{ mode = 'global'; loadRows(true); });
+    el.querySelector('#classementMonthBtn')?.addEventListener('click', ()=>{ mode = 'month'; loadRows(true); });
+    el.querySelector('#classementRefreshBtn')?.addEventListener('click', async ()=>{
+      try{ if(typeof window.syncClassement === 'function') await window.syncClassement(); }catch(e){}
+      await loadRows(true);
+    });
+    try{ if(typeof window.syncClassement === 'function') await window.syncClassement(); }catch(e){}
+    await loadRows(true);
   };
 })();
 
@@ -24837,7 +25567,7 @@
     });
     el.querySelector('#rg-reset-stats-btn')?.addEventListener('click',()=>{
       if(!confirm('Réinitialiser toutes les statistiques ? Cette action est irréversible.')) return;
-      ['fabanki:fail_total','fabanki:difficult_total','fabanki:good_total','fabanki:easy_total','fabanki:daily_history','fabanki:time_spent_total_sec','fabanki:max_daily_reviewed','fabanki:max_daily_reviewed_date'].forEach(k=>localStorage.removeItem(k));
+      ['fabanki:fail_total','fabanki:difficult_total','fabanki:good_total','fabanki:bon_total','fabanki:easy_total','fabanki:daily_history','fabanki:time_spent_total_sec','fabanki:max_daily_reviewed','fabanki:max_daily_reviewed_date'].forEach(k=>localStorage.removeItem(k));
       alert('Statistiques réinitialisées.');
     });
     el.querySelector('#rg-onboarding-btn')?.addEventListener('click', ()=>{
@@ -24942,6 +25672,193 @@
     `;
   }
 
+  function escapeHtml(str){
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  const ADMIN_DECK_MODES = [
+    { id: 'anki', label: 'Anki' },
+    { id: 'fillblank', label: 'Texte à trou' },
+    { id: 'timer', label: 'Timer' },
+    { id: 'activeMemory', label: 'Mémoire active' },
+    { id: 'step', label: 'Étape par étape' },
+    { id: 'reverse', label: 'Revers' },
+    { id: 'random', label: 'Aléatoire' },
+    { id: 'hold', label: 'Maintien' },
+    { id: 'multiple', label: 'Multiple' },
+    { id: 'calcul', label: 'Calcul' },
+    { id: 'associer', label: 'Associer' },
+    { id: 'rush', label: 'Rush' },
+  ];
+
+  function stripHtmlPreview(html){
+    const tmp = document.createElement('div');
+    tmp.innerHTML = String(html || '');
+    return (tmp.textContent || '').trim().slice(0, 120);
+  }
+
+  function parseSubmissionPreview(xmlContent, limit = 15){
+    const parser = new DOMParser();
+    let xml = parser.parseFromString(String(xmlContent || ''), 'application/xml');
+    if(xml.querySelector('parsererror')){
+      xml = parser.parseFromString(String(xmlContent || ''), 'text/html');
+    }
+    const allNodes = Array.from(xml.getElementsByTagName('card'));
+    const titleEl = xml.querySelector('title') || xml.querySelector('name');
+    const title = titleEl?.textContent?.trim() || xml.documentElement?.getAttribute?.('name') || '';
+    const cards = [];
+    for(const node of allNodes.slice(0, limit)){
+      const q = node.querySelector('question');
+      if(q){
+        const front = q.querySelector('front');
+        const back = q.querySelector('back');
+        cards.push({
+          front: stripHtmlPreview(front?.innerHTML || ''),
+          back: stripHtmlPreview(back?.innerHTML || ''),
+        });
+        continue;
+      }
+      const fields = Array.from(node.querySelectorAll('field, rich-text, tex'));
+      const texts = fields.map(f => stripHtmlPreview(f.innerHTML || f.textContent || '')).filter(Boolean);
+      cards.push({ front: texts[0] || '(vide)', back: texts[1] || '' });
+    }
+    return { title, cards, total: allNodes.length };
+  }
+
+  async function showSubmissionEditor(submissionId, parentOverlay){
+    const panel = document.createElement('div');
+    panel.id = 'deckModEditor';
+    panel.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10003;display:flex;align-items:center;justify-content:center;padding:12px;';
+    panel.innerHTML = '<div style="padding:24px;color:var(--muted);">Chargement du deck…</div>';
+    document.body.appendChild(panel);
+    panel.addEventListener('click', e => { if(e.target === panel) panel.remove(); });
+
+    try{
+      const [subRes, foldersRes] = await Promise.all([
+        adminHttpCall('adminHttpGetSubmission', { submissionId }),
+        adminHttpCall('adminHttpListFolders'),
+      ]);
+      const sub = subRes?.submission;
+      if(!sub) throw new Error('Soumission introuvable');
+      const folders = foldersRes?.folders || [''];
+      const preview = parseSubmissionPreview(sub.xmlContent);
+      const folderOptions = folders.map(f => {
+        const val = f ? `/${f}` : '/';
+        const sel = (sub.path || '/') === val ? ' selected' : '';
+        return `<option value="${escapeHtml(val)}"${sel}>${escapeHtml(f || 'Racine')}</option>`;
+      }).join('');
+      const modesHtml = ADMIN_DECK_MODES.map(m => {
+        const checked = (sub.modes || []).includes(m.id) ? ' checked' : '';
+        return `<label style="display:flex;align-items:center;gap:6px;font-size:0.85em;"><input type="checkbox" name="modMode" value="${m.id}"${checked}> ${escapeHtml(m.label)}</label>`;
+      }).join('');
+
+      panel.innerHTML = `
+        <div style="background:var(--card-bg,#fff);border-radius:16px;width:min(900px,98vw);max-height:94vh;overflow:hidden;display:flex;flex-direction:column;">
+          <div style="padding:16px 20px;border-bottom:1px solid var(--border-color,#eee);display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <h3 style="margin:0;font-size:1.05em;">Préparer la publication</h3>
+            <button type="button" class="secondary" id="deckModEditorClose" style="padding:4px 12px;">✕</button>
+          </div>
+          <div style="padding:16px 20px;overflow-y:auto;flex:1;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <div>
+                <label style="font-size:0.8em;color:var(--muted);">Titre</label>
+                <input id="modTitle" type="text" value="${escapeHtml(sub.title)}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--border-color,#ddd);">
+                <label style="font-size:0.8em;color:var(--muted);display:block;margin-top:12px;">Dossier</label>
+                <select id="modPathSelect" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;">${folderOptions}</select>
+                <input id="modPathCustom" type="text" placeholder="/Mon dossier/Sous-dossier" value="${escapeHtml(sub.path || '/')}" style="width:100%;margin-top:8px;padding:8px;border-radius:8px;border:1px solid var(--border-color,#ddd);font-size:0.9em;">
+                <div style="display:flex;gap:12px;margin-top:12px;">
+                  <div style="flex:1;"><label style="font-size:0.8em;color:var(--muted);">Coût</label><input id="modCost" type="number" min="0" value="${Number(sub.cost)||0}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--border-color,#ddd);"></div>
+                  <div style="flex:1;"><label style="font-size:0.8em;color:var(--muted);">Niveau requis</label><input id="modLevel" type="number" min="0" value="${Number(sub.level)||0}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--border-color,#ddd);"></div>
+                </div>
+                <label style="font-size:0.8em;color:var(--muted);display:block;margin-top:12px;">Description (manifest)</label>
+                <textarea id="modDescription" rows="2" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--border-color,#ddd);font-size:0.9em;">${escapeHtml(sub.description || '')}</textarea>
+                <div style="margin-top:12px;display:grid;grid-template-columns:repeat(2,1fr);gap:6px;">${modesHtml}</div>
+                <p style="font-size:0.78em;color:var(--muted);margin:12px 0 0;">Par ${escapeHtml(sub.submittedBy || '?')} · ${sub.cardCount || preview.total || 0} cartes · <span style="color:#9b59d0">${escapeHtml(sub.status)}</span></p>
+              </div>
+              <div>
+                <div style="font-weight:600;margin-bottom:8px;">Aperçu (${preview.total} carte${preview.total > 1 ? 's' : ''})</div>
+                <div id="modPreviewList" style="max-height:320px;overflow-y:auto;border:1px solid var(--border-color,#eee);border-radius:10px;padding:8px;font-size:0.85em;">
+                  ${preview.cards.length ? preview.cards.map((c, i) => `
+                    <div style="padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.06);">
+                      <div style="font-weight:600;color:var(--muted);font-size:0.75em;">Carte ${i + 1}</div>
+                      <div>${escapeHtml(c.front || '—')}</div>
+                      ${c.back ? `<div style="color:var(--muted);margin-top:4px;">→ ${escapeHtml(c.back)}</div>` : ''}
+                    </div>
+                  `).join('') : '<p style="color:var(--muted);">Aucune carte détectée dans le XML.</p>'}
+                  ${preview.total > preview.cards.length ? `<p style="color:var(--muted);font-size:0.8em;margin:8px 0 0;">… et ${preview.total - preview.cards.length} autre(s)</p>` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="padding:14px 20px;border-top:1px solid var(--border-color,#eee);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+            <button type="button" class="secondary" id="modSaveBtn">Enregistrer</button>
+            <button type="button" class="primary" id="modPublishBtn">Publier sur le catalogue</button>
+          </div>
+        </div>
+      `;
+
+      const pathSelect = panel.querySelector('#modPathSelect');
+      const pathCustom = panel.querySelector('#modPathCustom');
+      pathSelect?.addEventListener('change', () => {
+        if(pathCustom) pathCustom.value = pathSelect.value;
+      });
+
+      panel.querySelector('#deckModEditorClose')?.addEventListener('click', () => panel.remove());
+
+      panel.querySelector('#modSaveBtn')?.addEventListener('click', async () => {
+        const btn = panel.querySelector('#modSaveBtn');
+        btn.disabled = true;
+        try{
+          await saveSubmissionEdits(submissionId, panel);
+          alert('Modifications enregistrées.');
+        }catch(err){
+          alert('Erreur : ' + (err.message || err));
+        }finally{
+          btn.disabled = false;
+        }
+      });
+
+      panel.querySelector('#modPublishBtn')?.addEventListener('click', async () => {
+        if(!confirm('Publier ce deck sur GitHub (catalogue communautaire) ?')) return;
+        const btn = panel.querySelector('#modPublishBtn');
+        btn.disabled = true;
+        btn.textContent = 'Publication…';
+        try{
+          await saveSubmissionEdits(submissionId, panel);
+          await adminHttpCall('adminHttpRetryPublish', { submissionId });
+          alert('Deck publié.');
+          panel.remove();
+          parentOverlay?.remove();
+          window.showDeckModerationModal();
+        }catch(err){
+          alert('Erreur : ' + (err.message || err));
+          btn.disabled = false;
+          btn.textContent = 'Publier sur le catalogue';
+        }
+      });
+    }catch(err){
+      panel.innerHTML = `<div style="padding:24px;color:#d9534f;">${escapeHtml(err.message || err)}</div>`;
+    }
+  }
+
+  async function saveSubmissionEdits(submissionId, panel){
+    const modes = Array.from(panel.querySelectorAll('input[name="modMode"]:checked')).map(el => el.value);
+    const pathVal = panel.querySelector('#modPathCustom')?.value?.trim() || panel.querySelector('#modPathSelect')?.value || '/';
+    await adminHttpCall('adminHttpUpdateSubmission', {
+      submissionId,
+      title: panel.querySelector('#modTitle')?.value?.trim(),
+      path: pathVal,
+      cost: Number(panel.querySelector('#modCost')?.value || 0),
+      level: Number(panel.querySelector('#modLevel')?.value || 0),
+      description: panel.querySelector('#modDescription')?.value?.trim() || '',
+      modes,
+    });
+  }
+
   window.showDeckModerationModal = async function(){
     const existing = document.getElementById('deckModOverlay');
     if(existing){ existing.remove(); }
@@ -24992,7 +25909,9 @@
           <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;">${escapeHtml(d.title || 'Sans titre')}</div>
-              <div style="font-size:0.82em;color:var(--muted);margin-top:4px;">${escapeHtml(d.publishedPath || '—')}</div>
+              <div style="font-size:0.82em;color:var(--muted);margin-top:4px;">
+                ${d.publishedPath ? escapeHtml(d.publishedPath) : `Dossier : ${escapeHtml(d.path || '/')}`}
+              </div>
               <div style="font-size:0.78em;color:var(--muted);margin-top:4px;">
                 Par ${escapeHtml(d.submittedBy || '?')} · ${d.cardCount || 0} cartes ·
                 <span style="color:${d.status==='published'?'#28a745':d.status==='pending'?'#9b59d0':d.status==='failed'?'#d9534f':'#888'}">${escapeHtml(d.status)}</span>
@@ -25000,12 +25919,17 @@
               ${d.publishError ? `<div style="font-size:0.78em;color:#d9534f;margin-top:6px;">${escapeHtml(d.publishError)}</div>` : ''}
             </div>
             <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+              ${(d.status === 'pending' || d.status === 'failed') ? `<button class="primary deck-mod-edit" data-id="${d.id}">Gérer</button>` : ''}
               ${d.status === 'published' && d.publishedPath ? `<button class="secondary deck-mod-remove" data-id="${d.id}" data-path="${escapeHtml(d.publishedPath)}" style="color:#d9534f;border-color:rgba(217,83,79,0.4);">Supprimer</button>` : ''}
-              ${(d.status === 'failed' || d.status === 'pending') ? `<button class="secondary deck-mod-retry" data-id="${d.id}">${d.status === 'pending' ? 'Publier' : 'Republier'}</button>` : ''}
+              ${(d.status === 'failed' || d.status === 'pending') ? `<button class="secondary deck-mod-retry" data-id="${d.id}">${d.status === 'pending' ? 'Publier direct' : 'Republier'}</button>` : ''}
             </div>
           </div>
         </div>
       `).join('');
+
+      body.querySelectorAll('.deck-mod-edit').forEach(btn => {
+        btn.addEventListener('click', () => showSubmissionEditor(btn.dataset.id, overlay));
+      });
 
       body.querySelector('#deckModPublishAll')?.addEventListener('click', async (e) => {
         const el = e.currentTarget;
@@ -25065,14 +25989,6 @@
       showModError(body, err);
     }
   };
-
-  function escapeHtml(str){
-    return String(str || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
 })();
 
 // ===== UNIFIED NAVIGATION (bottom bar + sidebar) =====

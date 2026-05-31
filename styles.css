@@ -3287,6 +3287,42 @@ body.in-review.review-mobile-global{
   .deck-entry-bar-slot .deck-mastery--wide{height:4px;min-height:4px;max-height:4px}
 }
 
+.deck-community-badge{
+  display:inline-block;
+  font-size:.62rem;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  padding:2px 6px;
+  margin-right:6px;
+  border-radius:4px;
+  background:rgba(230,126,34,0.15);
+  color:#c0651a;
+  vertical-align:middle;
+  flex-shrink:0;
+}
+[data-theme='dark'] .deck-community-badge{
+  background:rgba(230,126,34,0.22);
+  color:#f0a050;
+}
+.deck-entry--community{
+  border-left:3px solid rgba(230,126,34,0.55);
+}
+.deck-browser-filter-btn{
+  flex-shrink:0;
+  font-size:.78rem;
+  padding:8px 12px;
+  white-space:nowrap;
+}
+.deck-browser-filter-btn.active{
+  background:rgba(230,126,34,0.12);
+  border-color:rgba(230,126,34,0.45);
+  color:#c0651a;
+}
+[data-theme='dark'] .deck-browser-filter-btn.active{
+  color:#f0a050;
+}
+
 body.nav-home-active main,
 body.nav-home-active #stats{
   display:none !important;

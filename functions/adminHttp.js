@@ -6,7 +6,7 @@ const admin = require('firebase-admin');
 const cors = require('cors')({ origin: true });
 
 const { assertAdminContext } = require('./adminAuth');
-const { removeDeckFromGitHub } = require('./deckPublisher');
+const { removeDeckFromGitHub, listManifestFolders } = require('./deckPublisher');
 
 const REGION = 'europe-west1';
 const fn = () => functions.region(REGION);
@@ -69,14 +69,121 @@ function buildAdminHttpExports(db, processDeckSubmission) {
         decks: docs.map((doc) => ({
           id: doc.id,
           title: doc.data().title,
+          path: doc.data().path || '/',
           publishedPath: doc.data().publishedPath || null,
           submittedBy: doc.data().submittedBy || '',
           status: doc.data().status,
           cardCount: doc.data().cardCount || 0,
+          cost: doc.data().cost || 0,
+          level: doc.data().level || 0,
+          modes: doc.data().modes || [],
           submittedAt: doc.data().submittedAt?.toDate?.()?.toISOString?.() || null,
           publishError: doc.data().publishError || null,
         })),
       });
+    })),
+
+    adminHttpGetSubmission: fn().https.onRequest(withCors(async (req, res) => {
+      if (req.method !== 'POST') {
+        res.status(405).json({ error: 'POST required' });
+        return;
+      }
+      await verifyAuth(req);
+      const submissionId = String(req.body?.submissionId || '').trim();
+      if (!submissionId) {
+        res.status(400).json({ error: 'submissionId requis' });
+        return;
+      }
+      const snap = await db.collection('deck_submissions').doc(submissionId).get();
+      if (!snap.exists) {
+        res.status(404).json({ error: 'Soumission introuvable' });
+        return;
+      }
+      const data = snap.data() || {};
+      res.json({
+        submission: {
+          id: snap.id,
+          title: data.title || '',
+          path: data.path || '/',
+          cost: data.cost || 0,
+          level: data.level || 0,
+          modes: Array.isArray(data.modes) ? data.modes : [],
+          description: data.description || '',
+          xmlContent: data.xmlContent || '',
+          cardCount: data.cardCount || 0,
+          submittedBy: data.submittedBy || '',
+          status: data.status || 'pending',
+          publishedPath: data.publishedPath || null,
+          publishError: data.publishError || null,
+          submittedAt: data.submittedAt?.toDate?.()?.toISOString?.() || null,
+        },
+      });
+    })),
+
+    adminHttpUpdateSubmission: fn().https.onRequest(withCors(async (req, res) => {
+      if (req.method !== 'POST') {
+        res.status(405).json({ error: 'POST required' });
+        return;
+      }
+      await verifyAuth(req);
+      const submissionId = String(req.body?.submissionId || '').trim();
+      if (!submissionId) {
+        res.status(400).json({ error: 'submissionId requis' });
+        return;
+      }
+      const ref = db.collection('deck_submissions').doc(submissionId);
+      const snap = await ref.get();
+      if (!snap.exists) {
+        res.status(404).json({ error: 'Soumission introuvable' });
+        return;
+      }
+      const current = snap.data() || {};
+      const editable = new Set(['pending', 'failed']);
+      if (!editable.has(current.status)) {
+        res.status(400).json({ error: `Impossible de modifier un deck au statut « ${current.status} »` });
+        return;
+      }
+
+      const title = String(req.body?.title ?? current.title ?? '').trim();
+      if (!title) {
+        res.status(400).json({ error: 'Titre requis' });
+        return;
+      }
+
+      let folderPath = String(req.body?.path ?? current.path ?? '/').trim();
+      if (!folderPath.startsWith('/')) folderPath = `/${folderPath}`;
+      folderPath = folderPath.replace(/\\/g, '/').replace(/\/+/g, '/');
+      if (folderPath !== '/' && folderPath.endsWith('/')) folderPath = folderPath.slice(0, -1);
+
+      const cost = Math.max(0, Number(req.body?.cost ?? current.cost ?? 0) || 0);
+      const level = Math.max(0, Number(req.body?.level ?? current.level ?? 0) || 0);
+      const modes = Array.isArray(req.body?.modes) ? req.body.modes.map(String) : (current.modes || []);
+      const description = String(req.body?.description ?? current.description ?? '').trim();
+
+      await ref.set({
+        title,
+        path: folderPath,
+        cost,
+        level,
+        modes,
+        description,
+        status: 'pending',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: 'admin',
+        publishError: admin.firestore.FieldValue.delete(),
+      }, { merge: true });
+
+      res.json({ ok: true });
+    })),
+
+    adminHttpListFolders: fn().https.onRequest(withCors(async (req, res) => {
+      if (req.method !== 'POST' && req.method !== 'GET') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+      }
+      await verifyAuth(req);
+      const folders = await listManifestFolders();
+      res.json({ folders });
     })),
 
     adminHttpPublishAll: fn()

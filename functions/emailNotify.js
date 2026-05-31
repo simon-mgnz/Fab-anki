@@ -57,6 +57,22 @@ function buildDeckPublishedEmail(submission, publishResult, submissionId) {
   `;
 }
 
+function buildDeckPendingEmail(submission, submissionId) {
+  const siteUrl = process.env.SITE_URL || 'https://fabanki.fr';
+  return `
+    <h2>Nouveau deck en attente de modération</h2>
+    <ul>
+      <li><strong>Titre :</strong> ${escapeHtml(submission.title)}</li>
+      <li><strong>Dossier demandé :</strong> ${escapeHtml(submission.path || '/')}</li>
+      <li><strong>Cartes :</strong> ${submission.cardCount || '?'}</li>
+      <li><strong>Soumis par :</strong> ${escapeHtml(submission.submittedBy || 'Anonymous')}</li>
+      <li><strong>ID :</strong> ${escapeHtml(submissionId)}</li>
+    </ul>
+    <p>Ouvre Réglages → Modération des decks pour prévisualiser, déplacer ou publier.</p>
+    <p><a href="${siteUrl}/">Ouvrir Fab'Anki</a></p>
+  `;
+}
+
 function buildDeckFailedEmail(submission, errorMessage, submissionId) {
   return `
     <h2>Échec de publication automatique d'un deck</h2>
@@ -79,5 +95,6 @@ function escapeHtml(str) {
 module.exports = {
   sendAdminEmail,
   buildDeckPublishedEmail,
+  buildDeckPendingEmail,
   buildDeckFailedEmail,
 };
