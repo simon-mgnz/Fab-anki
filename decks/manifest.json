@@ -1076,5 +1076,13 @@
 			"timer"
 		],
 		"description": "Deck soumis par Anonyme — Citations - Georges Canguilhem (La Connaissance de la vie)."
+	},
+	{
+		"path": "Yohann/Français/Plan cours Marlen Haushofer.xml",
+		"tags": [
+			"text",
+			"timer"
+		],
+		"description": "Deck soumis par Anonyme — Plan cours Marlen Haushofer."
 	}
 ]
