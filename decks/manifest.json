@@ -25,6 +25,8 @@
 	
 	{ "path": "Français/La connaissance de la vie.xml", "tags": ["original","timer","last"], "description": "Il nous apprend à vivre... eh bah, c'est la connaissance de la vie." },
 	{ "path": "Français/Vingt mille lieues sous les mers.xml", "tags": ["original","timer"], "description": "Vocabulaire et questions sur le roman, themes et personnages cles." },
+	{ "path": "Français/Citations - Jules Verne (Vingt mille lieues sous les mers).xml", "tags": ["timer"], "description": "Vocabulaire et questions sur le roman, themes et personnages cles." },
+
 	{ "path": "Français/Citations philosophiques.xml", "tags": ["original","timer"], "cost":50, "description": "Citations philosophiques de terminale, en texte à trou, pas mal pour un peu de culture" },
 	{ "path": "Français/Figures de style.xml", "tags": ["original","timer"], "cost":30, "description": "Toutes les figures de style, definitions et exemples cles." },
 	
