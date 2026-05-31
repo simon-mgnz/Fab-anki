@@ -1068,5 +1068,13 @@
 			"timer"
 		],
 		"description": "Deck soumis par Anonyme — Plan cours Vingt Mille Lieues sous les mers."
+	},
+	{
+		"path": "Yohann/Français/Citations - Georges Canguilhem (La Connaissance de la vie).xml",
+		"tags": [
+			"text",
+			"timer"
+		],
+		"description": "Deck soumis par Anonyme — Citations - Georges Canguilhem (La Connaissance de la vie)."
 	}
 ]
