@@ -1092,5 +1092,13 @@
 			"timer"
 		],
 		"description": "Deck soumis par Anonyme — Plan cours Georges Canguilhem."
+	},
+	{
+		"path": "Yohann/Français/Citations - Marlen Haushofer (Le Mur invisible).xml",
+		"tags": [
+			"text",
+			"timer"
+		],
+		"description": "Deck soumis par Anonyme — Citations - Marlen Haushofer (Le Mur invisible)."
 	}
 ]
