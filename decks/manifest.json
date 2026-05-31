@@ -1060,5 +1060,13 @@
 			"timer"
 		],
 		"description": "Deck soumis par Anonyme — Citations - Marlen Haushofer (Le Mur invisible)."
+	},
+	{
+		"path": "Yohann/Français/Plan cours Vingt Mille Lieues sous les mers.xml",
+		"tags": [
+			"text",
+			"timer"
+		],
+		"description": "Deck soumis par Anonyme — Plan cours Vingt Mille Lieues sous les mers."
 	}
 ]
