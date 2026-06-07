@@ -1243,6 +1243,15 @@
 		],
 		"time": "1.01",
 		"description": "Deck soumis par Anonyme — Citations - Marlen Haushofer (Le Mur invisible)."
+	},
+	{
+		"path": "Yohann/Français/Plan cours Marlen Haushofer (2).xml",
+		"tags": [
+			"text",
+			"timer",
+			"community"
+		],
+		"description": "Deck communautaire soumis par Anonyme — Plan cours Marlen Haushofer."
 	}
 	]
 }
