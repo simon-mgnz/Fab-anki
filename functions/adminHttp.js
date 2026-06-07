@@ -6,7 +6,7 @@ const admin = require('firebase-admin');
 const cors = require('cors')({ origin: true });
 
 const { assertAdminContext } = require('./adminAuth');
-const { removeDeckFromGitHub, listManifestFolders } = require('./deckPublisher');
+const { removeDeckFromGitHub, listManifestFolders, readManifestFullFromGitHub, updateManifestNotices } = require('./deckPublisher');
 
 const REGION = 'europe-west1';
 const fn = () => functions.region(REGION);
@@ -159,6 +159,11 @@ function buildAdminHttpExports(db, processDeckSubmission) {
       const level = Math.max(0, Number(req.body?.level ?? current.level ?? 0) || 0);
       const modes = Array.isArray(req.body?.modes) ? req.body.modes.map(String) : (current.modes || []);
       const description = String(req.body?.description ?? current.description ?? '').trim();
+      let time = String(req.body?.time ?? current.time ?? '').trim().replace(',', '.');
+      if (time && !/^[12]\.\d{1,2}$/.test(time)) {
+        res.status(400).json({ error: 'time invalide — format attendu : 1.05 ou 2.24' });
+        return;
+      }
 
       await ref.set({
         title,
@@ -167,6 +172,7 @@ function buildAdminHttpExports(db, processDeckSubmission) {
         level,
         modes,
         description,
+        time: time || admin.firestore.FieldValue.delete(),
         status: 'pending',
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedBy: 'admin',
@@ -257,6 +263,30 @@ function buildAdminHttpExports(db, processDeckSubmission) {
         }, { merge: true });
         res.json({ ok: true, removedPath: publishedPath });
       })),
+
+    adminHttpGetManifestNotices: fn().https.onRequest(withCors(async (req, res) => {
+      if (req.method !== 'POST' && req.method !== 'GET') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+      }
+      await verifyAuth(req);
+      const full = await readManifestFullFromGitHub();
+      res.json({
+        Warning: full.Warning || '',
+        Information: full.Information || '',
+      });
+    })),
+
+    adminHttpUpdateManifestNotices: fn().https.onRequest(withCors(async (req, res) => {
+      if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+      }
+      await verifyAuth(req);
+      const body = req.body || {};
+      const result = await updateManifestNotices(body.Warning, body.Information);
+      res.json({ ok: true, ...result });
+    })),
   };
 }
 

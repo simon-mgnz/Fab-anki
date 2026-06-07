@@ -193,6 +193,8 @@ exports.adminHttpListFolders = _adminHttp.adminHttpListFolders;
 exports.adminHttpPublishAll = _adminHttp.adminHttpPublishAll;
 exports.adminHttpRetryPublish = _adminHttp.adminHttpRetryPublish;
 exports.adminHttpRemoveDeck = _adminHttp.adminHttpRemoveDeck;
+exports.adminHttpGetManifestNotices = _adminHttp.adminHttpGetManifestNotices;
+exports.adminHttpUpdateManifestNotices = _adminHttp.adminHttpUpdateManifestNotices;
 
 // ── Push: test réel via web-push ──────────────────────────────────────────
 

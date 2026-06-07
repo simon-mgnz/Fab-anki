@@ -135,13 +135,19 @@ function buildManifestEntry(submission, relativePath) {
   const level = Number(submission.level);
   if (Number.isFinite(cost) && cost > 0) entry.cost = cost;
   if (Number.isFinite(level) && level > 0) entry.level = level;
+  const timeRaw = submission.time ?? submission.deckTime;
+  if (timeRaw != null && String(timeRaw).trim()) {
+    const t = String(timeRaw).trim().replace(',', '.');
+    if (/^[12]\.\d{1,2}$/.test(t)) entry.time = t;
+  }
   return entry;
 }
 
 async function listManifestFolders() {
   const manifestRepoPath = 'decks/manifest.json';
-  const manifestFile = await githubGetFile(manifestRepoPath);
-  const manifestEntries = manifestFile ? parseManifest(manifestFile.content) : [];
+  const manifestFull = await readManifestFullFromGitHub();
+  const manifestEntries = manifestFull.decks || [];
+  const manifestFile = manifestFull.sha ? { sha: manifestFull.sha } : null;
   const folders = new Set(['']);
   for (const e of manifestEntries) {
     const p = String(e.path || e);
@@ -154,15 +160,62 @@ async function listManifestFolders() {
   return [...folders].sort((a, b) => a.localeCompare(b, 'fr'));
 }
 
-function parseManifest(content) {
+function parseManifestFull(content) {
   const parsed = JSON.parse(content);
-  if (Array.isArray(parsed)) return parsed;
-  if (parsed && Array.isArray(parsed.decks)) return parsed.decks;
-  return [];
+  if (Array.isArray(parsed)) {
+    return { Warning: '', Information: '', decks: parsed };
+  }
+  if (parsed && typeof parsed === 'object') {
+    return {
+      Warning: String(parsed.Warning ?? parsed.warning ?? ''),
+      Information: String(parsed.Information ?? parsed.information ?? ''),
+      decks: Array.isArray(parsed.decks) ? parsed.decks : [],
+    };
+  }
+  return { Warning: '', Information: '', decks: [] };
 }
 
-function formatManifest(entries) {
-  return JSON.stringify(entries, null, '\t') + '\n';
+function parseManifest(content) {
+  return parseManifestFull(content).decks;
+}
+
+function formatManifestEntries(entries, meta = {}) {
+  return JSON.stringify({
+    Warning: meta.Warning ?? '',
+    Information: meta.Information ?? '',
+    decks: entries,
+  }, null, '\t') + '\n';
+}
+
+function formatManifest(entries, meta = {}) {
+  return formatManifestEntries(entries, meta);
+}
+
+async function readManifestFullFromGitHub() {
+  const manifestRepoPath = 'decks/manifest.json';
+  const manifestFile = await githubGetFile(manifestRepoPath);
+  if (!manifestFile) {
+    return { Warning: '', Information: '', decks: [], sha: null };
+  }
+  const full = parseManifestFull(manifestFile.content);
+  return { ...full, sha: manifestFile.sha };
+}
+
+async function updateManifestNotices(warning, information) {
+  const current = await readManifestFullFromGitHub();
+  const nextWarning = warning !== undefined ? String(warning) : current.Warning;
+  const nextInformation = information !== undefined ? String(information) : current.Information;
+  const content = formatManifestEntries(current.decks, {
+    Warning: nextWarning,
+    Information: nextInformation,
+  });
+  await githubPutFile(
+    'decks/manifest.json',
+    content,
+    'Admin: update manifest Warning/Information',
+    current.sha
+  );
+  return { Warning: nextWarning, Information: nextInformation };
 }
 
 function ensureUniqueRelativePath(entries, relativePath) {
@@ -198,8 +251,9 @@ async function publishDeckToGitHub(submission, submissionId) {
   validateSubmission(submission);
 
   const manifestRepoPath = 'decks/manifest.json';
-  const manifestFile = await githubGetFile(manifestRepoPath);
-  const manifestEntries = manifestFile ? parseManifest(manifestFile.content) : [];
+  const manifestFull = await readManifestFullFromGitHub();
+  const manifestEntries = manifestFull.decks || [];
+  const manifestFile = manifestFull.sha ? { sha: manifestFull.sha } : null;
 
   let relativePath = buildRelativeDeckPath(submission.path, submission.title);
   relativePath = ensureUniqueRelativePath(manifestEntries, relativePath);
@@ -217,7 +271,10 @@ async function publishDeckToGitHub(submission, submissionId) {
   manifestEntries.push(manifestEntry);
   await githubPutFile(
     manifestRepoPath,
-    formatManifest(manifestEntries),
+    formatManifestEntries(manifestEntries, {
+      Warning: manifestFull.Warning,
+      Information: manifestFull.Information,
+    }),
     `Auto-publish manifest: ${submission.title} (${submissionId})`,
     manifestFile ? manifestFile.sha : undefined
   );
@@ -232,10 +289,10 @@ async function removeDeckFromGitHub(publishedPath) {
   const xmlRepoPath = `decks/${relativePath}`;
   const manifestRepoPath = 'decks/manifest.json';
 
-  const manifestFile = await githubGetFile(manifestRepoPath);
-  if (!manifestFile) throw new Error('manifest.json introuvable sur GitHub');
+  const manifestFull = await readManifestFullFromGitHub();
+  if (!manifestFull.sha) throw new Error('manifest.json introuvable sur GitHub');
 
-  const manifestEntries = parseManifest(manifestFile.content);
+  const manifestEntries = manifestFull.decks || [];
   const filtered = manifestEntries.filter((e) => (e.path || e) !== relativePath);
   if (filtered.length === manifestEntries.length) {
     throw new Error(`Deck absent du manifest: ${relativePath}`);
@@ -248,9 +305,12 @@ async function removeDeckFromGitHub(publishedPath) {
 
   await githubPutFile(
     manifestRepoPath,
-    formatManifest(filtered),
+    formatManifestEntries(filtered, {
+      Warning: manifestFull.Warning,
+      Information: manifestFull.Information,
+    }),
     `Moderation: remove deck from manifest ${relativePath}`,
-    manifestFile.sha
+    manifestFull.sha
   );
 
   return { relativePath, xmlRepoPath };
@@ -262,4 +322,7 @@ module.exports = {
   buildRelativeDeckPath,
   listManifestFolders,
   modesToTags,
+  parseManifestFull,
+  readManifestFullFromGitHub,
+  updateManifestNotices,
 };

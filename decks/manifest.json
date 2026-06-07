@@ -1,10 +1,14 @@
-[
+{
+	"Warning": "",
+	"Information": "Nouveau : temps par deck (1.01, 1.02, pour x:y → x = année, y = semaine)",
+	"decks": [
 	{
 		"path": "Anglais/Voc de Cours (avec Mme Martin).xml",
 		"tags": [
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Vocabulaire de cours avec Mme Martin, mots cles et exemples essentiels."
 	},
 	{
@@ -15,6 +19,7 @@
 		],
 		"level": 25,
 		"cost": 50,
+		"time": "1.05",
 		"description": "Liste de verbes irreguliers anglais, formes principales et usage courant."
 	},
 	{
@@ -24,6 +29,7 @@
 			"timer"
 		],
 		"cost": 10,
+		"time": "1.08",
 		"description": "Vocabulaire sur la population mondiale, chiffres cles et tendances demographiques."
 	},
 	{
@@ -33,6 +39,7 @@
 			"timer"
 		],
 		"cost": 10,
+		"time": "1.09",
 		"description": "Vocabulaire sur la pauvreté, inegalites sociales et politiques d'aide globales."
 	},
 	{
@@ -42,6 +49,7 @@
 			"timer"
 		],
 		"cost": 10,
+		"time": "1.10",
 		"description": "Vocabulaire des inegalites mondiales, causes, impacts et solutions possibles cles."
 	},
 	{
@@ -51,6 +59,7 @@
 			"timer"
 		],
 		"cost": 10,
+		"time": "1.11",
 		"description": "Vocabulaire sur la famine, securite alimentaire et facteurs de crise."
 	},
 	{
@@ -59,6 +68,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.12",
 		"description": "Vocabulaire sur femmes et travail, egalite, emploi et droits sociaux."
 	},
 	{
@@ -67,6 +77,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.13",
 		"description": "Vocabulaire du monde du travail, contrats, roles et conditions modernes."
 	},
 	{
@@ -75,6 +86,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.14",
 		"description": "Vocabulaire sur la revolution du travail, changements, tendances et innovations."
 	},
 	{
@@ -83,6 +95,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.15",
 		"description": "Vocabulaire sur protection sociale, aides, politiques publiques et beneficiaires clefs."
 	},
 	{
@@ -91,6 +104,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.16",
 		"description": "Vocabulaire sur les États-Unis, histoire, et le fait que c'est des méchants, lmaoooo."
 	},
 	{
@@ -99,6 +113,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.17",
 		"description": "Vocabulaire sur l'environnement, changements climatiques et durabilité."
 	},
 	{
@@ -107,6 +122,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.18",
 		"description": "Vocabulaire sur l'immigration, politiques et impacts sociaux."
 	},
 	{
@@ -115,6 +131,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.19",
 		"description": "Vocabulaire sur les médias et l'information, enjeux et impacts."
 	},
 	{
@@ -123,6 +140,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.20",
 		"description": "Vocabulaire sur les réseaux sociaux, impacts et enjeux."
 	},
 	{
@@ -131,6 +149,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.21",
 		"description": "Vocabulaire sur la technologie et l'intelligence artificielle, enjeux et impacts."
 	},
 	{
@@ -139,6 +158,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Vocabulaire de colle pour l'oral, definitions et phrases utiles typique."
 	},
 	{
@@ -147,6 +167,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.20",
 		"level": 10,
 		"cost": 30,
 		"description": "Connecteurs logiques anglais, pour structurer idees et arguments clairement ecrits."
@@ -157,6 +178,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.25",
 		"level": 10,
 		"cost": 20,
 		"description": "Verbes et prépositions anglaises, usage et exemples."
@@ -167,6 +189,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.15",
 		"level": 10,
 		"cost": 50,
 		"description": "Faux amis et pièges grammaticaux anglais, pour éviter les erreurs courantes."
@@ -177,6 +200,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.16",
 		"level": 15,
 		"description": "Vocabulaire de synthese, reformulation et prise de notes efficaces en anglais."
 	},
@@ -186,6 +210,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.05",
 		"description": "Expressions idiomatiques anglaises, sens, contexte et exemples personnels courants d'usage."
 	},
 	{
@@ -195,6 +220,7 @@
 			"timer",
 			"last"
 		],
+		"time": "1.01",
 		"description": "Il nous apprend à vivre... eh bah, c'est la connaissance de la vie."
 	},
 	{
@@ -203,6 +229,7 @@
 			"original",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Vocabulaire et questions sur le roman, themes et personnages cles."
 	},
 	{
@@ -210,6 +237,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Vocabulaire et questions sur le roman, themes et personnages cles."
 	},
 	{
@@ -218,6 +246,7 @@
 			"original",
 			"timer"
 		],
+		"time": "1.07",
 		"cost": 50,
 		"description": "Citations philosophiques de terminale, en texte à trou, pas mal pour un peu de culture"
 	},
@@ -227,6 +256,7 @@
 			"original",
 			"timer"
 		],
+		"time": "1.12",
 		"cost": 30,
 		"description": "Toutes les figures de style, definitions et exemples cles."
 	},
@@ -241,6 +271,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Bases Java: syntaxe, types et structures de base."
 	},
 	{
@@ -249,6 +280,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Programmation orientée objet en Java: classes, héritage, interfaces."
 	},
 	{
@@ -257,6 +289,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Concepts Java intermédiaires: exceptions, collections, entrées/sorties."
 	},
 	{
@@ -265,6 +298,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Configuration de l'environnement Forge pour le développement Minecraft."
 	},
 	{
@@ -273,6 +307,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "API Forge: événements, blocs, items et hooks de modding."
 	},
 	{
@@ -281,6 +316,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Événements Forge: gestion et création de comportements personnalisés."
 	},
 	{
@@ -289,6 +325,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Fonctionnalités avancées de Forge: data generators, réseaux, et structures."
 	},
 	{
@@ -297,6 +334,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Portage de mods: compatibilité, versions et bonnes pratiques."
 	},
 	{
@@ -305,6 +343,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"cost": 5,
 		"description": "Formulaire Python: syntaxes, fonctions utiles et rappels de base courante."
 	},
@@ -314,6 +353,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Introduction option informatique, concepts essentiels et vocabulaire technique de base."
 	},
 	{
@@ -322,6 +362,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Fonctions en OCaml: definitions, paramêtres, retour et exemples pratiques."
 	},
 	{
@@ -330,6 +371,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Types de données en OCaml: definitions, structures et exemples pratiques."
 	},
 	{
@@ -338,6 +380,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Listes en OCaml: definitions, operations et exemples pratiques."
 	},
 	{
@@ -346,6 +389,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Tableaux en OCaml: definitions, operations et exemples pratiques."
 	},
 	{
@@ -353,6 +397,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.17",
 		"description": "Programmation: structures, variables, boucles et pratiques fondamentales de base courantes."
 	},
 	{
@@ -360,6 +405,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.18",
 		"description": "Analyse des algorithmes: complexité, notation asymptotique et methodes d'evaluation."
 	},
 	{
@@ -367,6 +413,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.24",
 		"description": "Représentation des nombres en machine: formats, conversions et operations de base."
 	},
 	{
@@ -375,6 +422,7 @@
 			"timer",
 			"calcul"
 		],
+		"time": "1.01",
 		"level": 10,
 		"description": "Derivees et primitives, formules, methodes de calcul et exercices types."
 	},
@@ -383,6 +431,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.13",
 		"level": 20,
 		"cost": 10,
 		"description": "LCI et caracteristiques, definitions, proprietes et applications classiques utiles exemples."
@@ -392,6 +441,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Methodes pour raisonner et rediger, preuves et rigueur mathematique claire."
 	},
 	{
@@ -399,6 +449,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.02",
 		"description": "Calcul algebrique et trigonometrie, identites, transformations et exercices cles types."
 	},
 	{
@@ -406,6 +457,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.03",
 		"description": "Fonctions reelles: continuite, variations, graphes et applications classiques corriges simples."
 	},
 	{
@@ -413,6 +465,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.05",
 		"description": "Nombres complexes, formes, operations et interpretation geometrique essentielle exemples courants."
 	},
 	{
@@ -420,6 +473,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.06",
 		"description": "Primitives et integrales, techniques de calcul et applications classiques guides."
 	},
 	{
@@ -427,6 +481,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.07",
 		"description": "Equations differentielles, resolues par methodes standards et exercices types progressifs."
 	},
 	{
@@ -434,6 +489,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.09",
 		"description": "Logique et ensembles, applications, relations, proprietes et exemples fondamentaux clairs."
 	},
 	{
@@ -441,6 +497,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.10",
 		"description": "Nombres reels et suites, convergence, monotonicite et exercices types classiques."
 	},
 	{
@@ -448,6 +505,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.11",
 		"description": "Arithmetique des entiers, divisibilite, congruences et applications usuelles exemples clairs."
 	},
 	{
@@ -455,6 +513,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.13",
 		"description": "Limites et continuite, theoremes clefs et exercices types classiques guides."
 	},
 	{
@@ -462,6 +521,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.14",
 		"description": "Structures algebriques, groupes, anneaux, corps et exemples concrets simples utiles."
 	},
 	{
@@ -469,6 +529,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.15",
 		"description": "Derivabilite et convexite, criteres, graphiques et applications types courants exemples."
 	},
 	{
@@ -476,6 +537,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.16",
 		"description": "Calcul matriciel et systemes lineaires, methodes et exercices types progressifs."
 	},
 	{
@@ -483,6 +545,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.17",
 		"description": "Polynomes et fractions rationnelles, decomposition et etudes classiques exemples utiles."
 	},
 	{
@@ -490,30 +553,31 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.19",
 		"description": "Analyse asymptotique, developpements et comparaisons de croissance classiques ."
 	},
 	{
 		"path": "Maths/Cours/Chapitre 16 - Espaces vectoriels.xml",
 		"tags": [
-			"last",
 			"timer"
 		],
+		"time": "1.20",
 		"description": "Espaces vectoriels, bases, dimensions et applications classiques."
 	},
 	{
 		"path": "Maths/Cours/Chapitre 17 - Dénombrement.xml",
 		"tags": [
-			"last",
 			"timer"
 		],
+		"time": "1.21",
 		"description": "Dénombrement, principes, combinaisons et applications classiques."
 	},
 	{
 		"path": "Maths/Cours/Chapitre 18 - Probabilités.xml",
 		"tags": [
-			"last",
 			"timer"
 		],
+		"time": "1.22",
 		"description": "Probabilites, lois, distributions et applications classiques."
 	},
 	{
@@ -521,6 +585,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.23",
 		"description": "Applications lineaires, transformations, matrices."
 	},
 	{
@@ -528,6 +593,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.25",
 		"description": "Integration sur un segment, techniques et applications classiques."
 	},
 	{
@@ -535,13 +601,15 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.26",
 		"description": "Espaces vectoriels de dimension finie, bases, dimensions et applications classiques."
 	},
 	{
-		"path": "Maths/Cours/Chapitre 01 - Raisonner, rédiger.xml",
+		"path": "Maths/Cours/Chapitre 22 - Variables aléatoires.xml",
 		"tags": [
 			"timer"
 		],
+		"time": "1.27",
 		"description": "Variables aléatoires, lois, distributions et applications classiques."
 	},
 	{
@@ -549,6 +617,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.28",
 		"description": "Matrices et applications linéaires, transformations, operations."
 	},
 	{
@@ -556,6 +625,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.30s",
 		"description": "Groupe symétrique, determinant, matrices et applications classiques."
 	},
 	{
@@ -563,6 +633,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.02",
 		"description": "Methodes pour raisonner et rediger, preuves et rigueur mathematique claire."
 	},
 	{
@@ -570,6 +641,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.02",
 		"description": "Calcul algebrique et trigonometrie, identites, transformations et exercices cles types."
 	},
 	{
@@ -577,6 +649,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.03",
 		"description": "Fonctions reelles: continuite, variations, graphes et applications classiques corriges simples."
 	},
 	{
@@ -584,6 +657,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.05",
 		"description": "Nombres complexes, formes, operations et interpretation geometrique essentielle exemples courants."
 	},
 	{
@@ -591,13 +665,15 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.06",
 		"description": "Primitives et integrales, techniques de calcul et applications classiques guides."
 	},
 	{
 		"path": "Maths/Contrôles/Chapitre 06 - Équations différentielles.xml",
 		"tags": [
 			"timer"
-		],
+		],	
+		"time": "1.07",
 		"description": "Equations differentielles, resolues par methodes standards et exercices types progressifs."
 	},
 	{
@@ -605,6 +681,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.09",
 		"description": "Logique et ensembles, applications, relations, proprietes et exemples fondamentaux clairs."
 	},
 	{
@@ -612,6 +689,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.10",
 		"description": "Nombres reels et suites, convergence, monotonicite et exercices types classiques."
 	},
 	{
@@ -619,6 +697,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.11",
 		"description": "Arithmetique des entiers, divisibilite, congruences et applications usuelles exemples clairs."
 	},
 	{
@@ -626,6 +705,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.13",
 		"description": "Limites et continuite, theoremes clefs et exercices types classiques guides."
 	},
 	{
@@ -633,6 +713,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.14",
 		"description": "Structures algebriques, groupes, anneaux, corps et exemples concrets simples utiles."
 	},
 	{
@@ -640,6 +721,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.15",
 		"description": "Derivabilite et convexite, criteres, graphiques et applications types courants exemples."
 	},
 	{
@@ -647,6 +729,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.16",
 		"description": "Calcul matriciel et systemes lineaires, methodes et exercices types progressifs."
 	},
 	{
@@ -654,6 +737,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.17",
 		"description": "Polynomes et fractions rationnelles, decomposition et etudes classiques exemples utiles."
 	},
 	{
@@ -661,6 +745,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.19",
 		"description": "Analyse asymptotique, developpements et comparaisons de croissance classiques ."
 	},
 	{
@@ -669,6 +754,7 @@
 			"last",
 			"timer"
 		],
+		"time": "1.20",
 		"description": "Espaces vectoriels, bases, dimensions et applications classiques."
 	},
 	{
@@ -677,6 +763,7 @@
 			"last",
 			"timer"
 		],
+		"time": "1.21",
 		"description": "Dénombrement, principes, combinaisons et applications classiques."
 	},
 	{
@@ -685,6 +772,7 @@
 			"last",
 			"timer"
 		],
+		"time": "1.22",
 		"description": "Probabilites, lois, distributions et applications classiques."
 	},
 	{
@@ -692,6 +780,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.23",
 		"description": "Applications lineaires, transformations, matrices."
 	},
 	{
@@ -699,6 +788,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.25",
 		"description": "Integration sur un segment, techniques et applications classiques."
 	},
 	{
@@ -706,6 +796,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.26",
 		"description": "Espaces vectoriels de dimension finie, bases, dimensions et applications classiques."
 	},
 	{
@@ -713,6 +804,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.27",
 		"description": "Variables aléatoires, lois, distributions et applications classiques."
 	},
 	{
@@ -720,6 +812,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.28",
 		"description": "Matrices et applications linéaires, transformations, operations."
 	},
 	{
@@ -727,6 +820,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.30",
 		"description": "Groupe symétrique, determinant, matrices et applications classiques."
 	},
 	{
@@ -735,6 +829,7 @@
 			"timer",
 			"calcul"
 		],
+		"time": "1.02",
 		"level": 5,
 		"cost": 20,
 		"description": "Calcul mental sur puissances et calcul litteral, entrainement rapide quotidien."
@@ -745,6 +840,7 @@
 			"timer",
 			"calcul"
 		],
+		"time": "1.04",
 		"level": 5,
 		"cost": 20,
 		"description": "Calcul mental de trigonometrie, identites et reflexes rapides quotidiens utiles."
@@ -755,6 +851,7 @@
 			"timer",
 			"calcul"
 		],
+		"time": "1.01",
 		"level": 5,
 		"cost": 20,
 		"description": "Calcul mental sur fractions, simplifications et operations rapides frequentes utiles."
@@ -765,6 +862,7 @@
 			"timer",
 			"calcul"
 		],
+		"time": "1.03",
 		"level": 5,
 		"cost": 20,
 		"description": "Calcul mental derivees et primitives, automatismes et vitesse progressive utile."
@@ -774,6 +872,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.20",
 		"description": "Developpements limites usuels, formules et applications rapides classiques exemples types."
 	},
 	{
@@ -781,6 +880,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.13",
 		"level": 20,
 		"cost": 20,
 		"description": "Unites SI, symboles, conversions et grandeurs fondamentales principales utiles courantes."
@@ -790,6 +890,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.03",
 		"description": "Formulaire de physique, constantes, equations et rappels rapides essentiels clairs."
 	},
 	{
@@ -798,6 +899,7 @@
 			"last",
 			"timer"
 		],
+		"time": "1.01",
 		"level": 5,
 		"description": "Prerequis physique-chimie pour MPSI, bases et notions essentielles claires utiles."
 	},
@@ -806,6 +908,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.03",
 		"level": 5,
 		"description": "Definitions de physique, vocabulaire, concepts et rappels essentiels clairs courants."
 	},
@@ -814,6 +917,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.02",
 		"level": 3,
 		"description": "Constantes physiques principales, valeurs, unites et usage courant en exercices."
 	},
@@ -822,6 +926,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.12",
 		"description": "Molecules et ions courants, formules, charges et nomenclature simples utiles."
 	},
 	{
@@ -829,6 +934,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Bases de l'optique géométrique, rayons lumineux, miroirs et lentilles."
 	},
 	{
@@ -836,6 +942,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.02",
 		"description": "Lentilles minces, principes et applications classiques."
 	},
 	{
@@ -843,6 +950,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.03",
 		"description": "Transformations chimiques, principes et applications classiques."
 	},
 	{
@@ -850,6 +958,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.04",
 		"description": "Signaux electriques dans l'ARQS, principes et applications classiques."
 	},
 	{
@@ -857,6 +966,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.06",
 		"description": "Circuit linéaire du premier ordre, principes et applications classiques."
 	},
 	{
@@ -864,6 +974,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.09",
 		"description": "Filtrage linéaire, principes et applications classiques."
 	},
 	{
@@ -871,6 +982,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.10",
 		"description": "Cinetique des systemes chimiques, reactions, vitesses."
 	},
 	{
@@ -878,6 +990,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.12",
 		"description": "Cinematique du point, trajectoires, vitesses et accelerations,."
 	},
 	{
@@ -885,6 +998,7 @@
 		"tags": [
 			"timer"
 		],
+		"time":"1.13",
 		"description": "Dynamique newtonienne, lois, forces."
 	},
 	{
@@ -892,6 +1006,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.14",
 		"description": "Etude energetique du mouvement, travail, energie et puissance."
 	},
 	{
@@ -899,6 +1014,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.15",
 		"description": "Particules chargees, champs electriques et magnetiques, trajectoires."
 	},
 	{
@@ -906,6 +1022,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.16",
 		"description": "Structure microscopique, proprietes macroscopiques, materiaux et liens importants."
 	},
 	{
@@ -913,6 +1030,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.17",
 		"description": "Moment cinetique d'un point, conservation et applications classiques."
 	},
 	{
@@ -920,6 +1038,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.18",
 		"description": "Mouvements dans un champ de force central conservatif, lois et applications classiques."
 	},
 	{
@@ -927,6 +1046,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.19",
 		"description": "Mouvement d'un solide, pendule pesant et applications classiques."
 	},
 	{
@@ -934,6 +1054,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.20",
 		"description": "Transformations chimiques en solution aqueuse, reactions, pH et applications classiques."
 	},
 	{
@@ -942,6 +1063,7 @@
 			"last",
 			"timer"
 		],
+		"time": "1.23",
 		"description": "Transformations chimiques en solution aqueuse, reactions, pH et applications classiques."
 	},
 	{
@@ -950,6 +1072,7 @@
 			"last",
 			"timer"
 		],
+		"time": "1.24",
 		"description": "Transformations chimiques en solution aqueuse, reactions, pH et applications classiques."
 	},
 	{
@@ -958,6 +1081,7 @@
 			"last",
 			"timer"
 		],
+		"time": "1.25",
 		"description": "Transformations chimiques en solution aqueuse, reactions, pH et applications classiques."
 	},
 	{
@@ -966,6 +1090,7 @@
 			"last",
 			"timer"
 		],
+		"time": "1.27",
 		"description": "Transformations chimiques en solution aqueuse, reactions, pH et applications classiques."
 	},
 	{
@@ -973,6 +1098,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.15",
 		"description": "Controle de cours sur particules chargees, champs et trajectoires cles."
 	},
 	{
@@ -980,6 +1106,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.16",
 		"description": "Controle de cours sur structure microscopique et proprietes macroscopiques cles."
 	},
 	{
@@ -987,13 +1114,15 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.17",
 		"description": "Controle de cours sur moment cinetique et conservation."
 	},
 	{
 		"path": "Physique/Contrôle de cours/Chapitre 16 - Mouvements dans un champ de force central conservatif.xml",
 		"tags": [
 			"timer"
-		],
+		],	
+		"time": "1.18",
 		"description": "Controle de cours sur mouvements en champ central conservatif types."
 	},
 	{
@@ -1001,6 +1130,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.19",
 		"description": "Controle de cours sur les mouvements classiques de solides (pendule pesant)."
 	},
 	{
@@ -1008,6 +1138,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.20",
 		"description": "Controle de cours sur les transformations chimiques en solution aqueuse."
 	},
 	{
@@ -1015,6 +1146,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.23",
 		"description": "Controle de cours sur la thermodynamique et les diagrammes de phases."
 	},
 	{
@@ -1022,6 +1154,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.24",
 		"description": "Controle de cours sur les transformations thermodynamiques."
 	},
 	{
@@ -1029,6 +1162,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.01",
 		"description": "SysML et bases de SI, modelisation et vocabulaire utile pratique."
 	},
 	{
@@ -1036,6 +1170,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.06",
 		"description": "Vecteurs, referentiels, changement de bases, liaisons et outils cles utiles."
 	},
 	{
@@ -1043,6 +1178,7 @@
 		"tags": [
 			"timer"
 		],
+		"time": "1.12",
 		"description": "Simulation et modeles de connaissance, principes et applications simples utiles."
 	},
 	{
@@ -1051,6 +1187,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Deck soumis par Anonyme — Citations - Jules Verne (Vingt mille lieues sous les mers)."
 	},
 	{
@@ -1059,6 +1196,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Deck soumis par Anonyme — Citations - Marlen Haushofer (Le Mur invisible)."
 	},
 	{
@@ -1067,6 +1205,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Deck soumis par Anonyme — Plan cours Vingt Mille Lieues sous les mers."
 	},
 	{
@@ -1075,6 +1214,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Deck soumis par Anonyme — Citations - Georges Canguilhem (La Connaissance de la vie)."
 	},
 	{
@@ -1083,6 +1223,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Deck soumis par Anonyme — Plan cours Marlen Haushofer."
 	},
 	{
@@ -1091,6 +1232,7 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Deck soumis par Anonyme — Plan cours Georges Canguilhem."
 	},
 	{
@@ -1099,6 +1241,8 @@
 			"text",
 			"timer"
 		],
+		"time": "1.01",
 		"description": "Deck soumis par Anonyme — Citations - Marlen Haushofer (Le Mur invisible)."
 	}
-]
+	]
+}
