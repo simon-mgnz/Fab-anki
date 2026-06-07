@@ -352,6 +352,239 @@
   let answerLocked = false;
   let deckKey = null; // prefix for localStorage
   let manifestMeta = {}; // path (relative to decks/) -> manifest entry (cost/level/tags)
+  let manifestNotices = { Warning: '', Information: '' };
+
+  function parseDecksManifestRaw(raw){
+    if(Array.isArray(raw)){
+      return { Warning: '', Information: '', decks: raw };
+    }
+    if(raw && typeof raw === 'object'){
+      return {
+        Warning: String(raw.Warning ?? raw.warning ?? ''),
+        Information: String(raw.Information ?? raw.information ?? ''),
+        decks: Array.isArray(raw.decks) ? raw.decks : []
+      };
+    }
+    return { Warning: '', Information: '', decks: [] };
+  }
+
+  function applyManifestDeckList(list){
+    manifestMeta = {};
+    (list || []).forEach(item => {
+      if(typeof item === 'string') manifestMeta[item] = { path: item };
+      else if(item && item.path) manifestMeta[item.path] = item;
+    });
+  }
+
+  async function loadManifestBundle(force){
+    try{
+      const manifestRes = await fetch('./decks/manifest.json?v=' + Date.now());
+      if(!manifestRes || !manifestRes.ok) return manifestNotices;
+      const raw = await manifestRes.json();
+      const parsed = parseDecksManifestRaw(raw);
+      manifestNotices = {
+        Warning: parsed.Warning || '',
+        Information: parsed.Information || ''
+      };
+      if(force || Object.keys(manifestMeta).length === 0){
+        applyManifestDeckList(parsed.decks);
+      }
+      try{ window.__fabanki_manifestNotices = manifestNotices; }catch(e){}
+      return manifestNotices;
+    }catch(e){
+      console.warn('[manifest] load failed:', e);
+      return manifestNotices;
+    }
+  }
+
+  window.__fabanki_reloadManifestNotices = async function(notices){
+    if(notices && typeof notices === 'object'){
+      manifestNotices = {
+        Warning: String(notices.Warning ?? ''),
+        Information: String(notices.Information ?? '')
+      };
+    }else{
+      await loadManifestBundle(true);
+    }
+    try{ window.__fabanki_manifestNotices = manifestNotices; }catch(e){}
+    return manifestNotices;
+  };
+
+  function renderSimpleMarkdown(md){
+    return String(md || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+      .replace(/\n/g, '<br>');
+  }
+
+  function hashNoticeText(text){
+    let h = 0;
+    const s = String(text || '');
+    for(let i = 0; i < s.length; i++){
+      h = ((h << 5) - h) + s.charCodeAt(i);
+      h |= 0;
+    }
+    return String(h);
+  }
+
+  function showManifestWarningPopupIfNeeded(){
+    try{
+      const msg = String(manifestNotices.Warning || '').trim();
+      if(!msg) return;
+      if(document.getElementById('fabankiWarningOverlay')) return;
+
+      const ov = document.createElement('div');
+      ov.id = 'fabankiWarningOverlay';
+      ov.className = 'fab-notice-overlay';
+      ov.innerHTML = `
+        <div class="fab-notice-modal fab-notice-warning" role="alertdialog" aria-labelledby="fabNoticeWarningTitle">
+          <div class="fab-notice-icon">⚠️</div>
+          <h3 id="fabNoticeWarningTitle">Avertissement</h3>
+          <div class="fab-notice-body">${renderSimpleMarkdown(msg)}</div>
+          <button type="button" class="fab-notice-ok" id="fabNoticeWarningOk">OK</button>
+        </div>`;
+      document.body.appendChild(ov);
+      ov.querySelector('#fabNoticeWarningOk')?.addEventListener('click', () => {
+        ov.remove();
+      });
+    }catch(e){ console.warn('[manifest] warning popup failed:', e); }
+  }
+
+  function buildHomeInformationHtml(infoText){
+    const msg = String(infoText || '').trim();
+    if(!msg) return '';
+    return `<div class="fab-home-info-box" role="note">
+      <div class="fab-home-info-label">Information</div>
+      <div class="fab-home-info-body">${renderSimpleMarkdown(msg)}</div>
+    </div>`;
+  }
+
+  function sch(){
+    return (typeof window !== 'undefined' && window.FabankiSchool) ? window.FabankiSchool : null;
+  }
+  function getPrepaYear(){
+    const S = sch();
+    return S ? S.getPrepaYear() : (localStorage.getItem('fabanki:prepa_year') || '');
+  }
+  function setPrepaYear(v){
+    const S = sch();
+    if(S) return S.setPrepaYear(v);
+    try{ localStorage.setItem('fabanki:prepa_year', String(v)); return true; }catch(e){ return false; }
+  }
+  try{
+    window.getPrepaYear = getPrepaYear;
+    window.setPrepaYear = setPrepaYear;
+  }catch(e){}
+  function getScolarWeekInfo(date){
+    const S = sch();
+    return S ? S.computeScolarWeek(date || new Date()) : { week: 1, label: 'S01' };
+  }
+  function isDeckReleasedForUser(entry){
+    const S = sch();
+    if(!S) return true;
+    return S.isDeckReleasedForUser(entry, getPrepaYear(), getScolarWeekInfo());
+  }
+  function isDeckNewThisWeek(entry){
+    const S = sch();
+    if(!S) return false;
+    return S.isDeckNewThisWeek(entry, getPrepaYear(), getScolarWeekInfo());
+  }
+  function getManifestEntryForDeckUrl(url){
+    return getManifestEntryForPath(url) || null;
+  }
+  function ensureDeckBadgeRow(nameEl){
+    if(!nameEl || !nameEl.parentElement) return null;
+    const parent = nameEl.parentElement;
+    let row = parent.querySelector('.deck-entry-badges');
+    if(!row){
+      row = document.createElement('div');
+      row.className = 'deck-entry-badges';
+      parent.insertBefore(row, nameEl);
+    }
+    return row;
+  }
+  function appendDeckManifestBadges(nameEl, deckRelPath, opts){
+    opts = opts || {};
+    const entry = opts.entry || getManifestEntryForPath('./decks/' + String(deckRelPath || '').replace(/^\.\/decks\//, ''));
+    if(!entry) return;
+    const badgeRow = ensureDeckBadgeRow(nameEl);
+    if(!badgeRow) return;
+    const S = sch();
+    const py = getPrepaYear();
+    if(opts.community){
+      const b = document.createElement('span');
+      b.className = 'deck-manifest-badge deck-manifest-badge--community';
+      b.textContent = 'Communautaire';
+      b.title = 'Deck soumis par un utilisateur';
+      badgeRow.appendChild(b);
+    }
+    if(S){
+      const time = S.parseDeckTime(entry.time);
+      if(time){
+        const timeBadge = document.createElement('span');
+        timeBadge.className = 'deck-manifest-badge deck-manifest-badge--time';
+        timeBadge.textContent = S.formatDeckTime(time.year, time.week);
+        timeBadge.title = time.year === 1 ? '1ère année — semaine ' + time.week : '2ème année — semaine ' + time.week;
+        badgeRow.appendChild(timeBadge);
+        if(py === '2' && time.year === 1){
+          const ref = document.createElement('span');
+          ref.className = 'deck-manifest-badge deck-manifest-badge--prepa1-ref';
+          ref.textContent = '1ère';
+          ref.title = 'Rappel 1ère année';
+          badgeRow.appendChild(ref);
+        }
+      }
+      if(isDeckNewThisWeek(entry)){
+        const nw = document.createElement('span');
+        nw.className = 'deck-manifest-badge deck-manifest-badge--new';
+        nw.textContent = 'Nouveau';
+        badgeRow.appendChild(nw);
+      }
+    }
+    if(!badgeRow.children.length) badgeRow.remove();
+  }
+  function decorateHomeDeckRow(rowEl, nameEl, deckUrl){
+    const entry = getManifestEntryForDeckUrl(deckUrl);
+    const S = sch();
+    const py = getPrepaYear();
+    if(nameEl && !nameEl.title) nameEl.title = nameEl.textContent || '';
+    if(!rowEl || !S) return;
+    const badges = document.createElement('div');
+    badges.className = 'homev2-deck-badges';
+    if(entry && S.parseDeckTime(entry.time)){
+      const time = S.parseDeckTime(entry.time);
+      const tb = document.createElement('span');
+      tb.className = 'deck-manifest-badge deck-manifest-badge--time';
+      tb.textContent = S.formatDeckTime(time.year, time.week);
+      badges.appendChild(tb);
+      if(py === '2' && time.year === 1){
+        const ref = document.createElement('span');
+        ref.className = 'deck-manifest-badge deck-manifest-badge--prepa1-ref';
+        ref.textContent = '1ère';
+        badges.appendChild(ref);
+      }
+      if(isDeckNewThisWeek(entry)){
+        const nw = document.createElement('span');
+        nw.className = 'deck-manifest-badge deck-manifest-badge--new';
+        nw.textContent = 'Nouveau';
+        badges.appendChild(nw);
+      }
+    }
+    if(isCommunityDeckRelPath(String(deckUrl).replace(/^\.\/decks\//, ''))){
+      const cb = document.createElement('span');
+      cb.className = 'deck-manifest-badge deck-manifest-badge--community';
+      cb.textContent = 'Comm.';
+      badges.appendChild(cb);
+    }
+    if(badges.children.length && nameEl){
+      rowEl.insertBefore(badges, nameEl);
+    }
+  }
+
   let tooltipShown = false;
   let cardShownAt = Date.now();
   let showHintBox = false; // Toggle for hint box visibility
@@ -1804,17 +2037,7 @@
       // Ensure manifest is loaded so Original deck tags are available
       try{
         if(Object.keys(manifestMeta || {}).length === 0){
-          const manifestRes = await fetch('./decks/manifest.json?v=' + Date.now());
-          if(manifestRes && manifestRes.ok){
-            const list = await manifestRes.json();
-            if(Array.isArray(list)){
-              manifestMeta = {};
-              list.forEach(item => {
-                if(typeof item === 'string') manifestMeta[item] = { path: item };
-                else if(item && item.path) manifestMeta[item.path] = item;
-              });
-            }
-          }
+          await loadManifestBundle(true);
         }
       }catch(e){ console.warn('Manifest load error (multi-deck):', e); }
       
@@ -2345,19 +2568,7 @@
 
       // Ensure manifest metadata is available for lock checks
       if(Object.keys(manifestMeta||{}).length === 0){
-        try{
-          const manifestRes = await fetch('./decks/manifest.json');
-          if(manifestRes && manifestRes.ok){
-            const list = await manifestRes.json();
-            if(Array.isArray(list)){
-              manifestMeta = {};
-              list.forEach(item => {
-                if(typeof item === 'string') manifestMeta[item] = { path:item };
-                else if(item && item.path) manifestMeta[item.path] = item;
-              });
-            }
-          }
-        }catch(e){}
+        try{ await loadManifestBundle(true); }catch(e){}
       }
 
       // Lock check is now handled in the overview page button display
@@ -2746,17 +2957,7 @@
       
       // Ensure manifest is loaded BEFORE checking tags (always reload to get latest)
       try{
-        const manifestRes = await fetch('./decks/manifest.json?v=' + Date.now());
-        if(manifestRes && manifestRes.ok){
-          const list = await manifestRes.json();
-          if(Array.isArray(list)){
-            manifestMeta = {};
-            list.forEach(item => {
-              if(typeof item === 'string') manifestMeta[item] = { path:item };
-              else if(item && item.path) manifestMeta[item.path] = item;
-            });
-          }
-        }
+        await loadManifestBundle(true);
       }catch(e){ console.warn('Manifest load error:', e); }
       
       // Define deckKey for this overview session (if not already defined)
@@ -5362,8 +5563,83 @@
     showNextCard();
   }
   
+  function restoreDefaultResponseButtons(){
+    const respButtons = document.getElementById('respButtons');
+    if(!respButtons) return;
+    respButtons.classList.remove('resp-summary-mode');
+    respButtons.style.removeProperty('gap');
+    respButtons.innerHTML = `
+      <button id="again" class="rate-ratte">${t('fail') || 'Raté'}</button>
+      <button id="hard" class="rate-difficile">${t('hard') || 'Difficile'}</button>
+      <button id="good" class="rate-bon">${t('good') || 'Bon'}</button>
+      <button id="easy" class="rate-facile">${t('easy') || 'Facile'}</button>
+      <button id="passer" class="secondary" title="Passer cette carte">${t('skip') || 'Passer'}</button>`;
+    respButtons.querySelectorAll('button').forEach(btn => {
+      btn.style.display = '';
+      btn.style.width = '';
+      btn.style.textAlign = '';
+      btn.style.justifyContent = '';
+    });
+  }
+
+  function showSuggestedGradeButtons(suggestedQuality){
+    const respButtons = document.getElementById('respButtons');
+    if(!respButtons) return;
+    restoreDefaultResponseButtons();
+    respButtons.classList.add('resp-summary-mode');
+    respButtons.style.display = 'inline-flex';
+
+    const qualityToId = { 0: 'again', 3: 'hard', 4: 'good', 5: 'easy' };
+    const showId = qualityToId[suggestedQuality] ?? qualityToId[4];
+
+    ['again', 'hard', 'good', 'easy'].forEach(id => {
+      const btn = document.getElementById(id);
+      if(btn) btn.style.display = (id === showId) ? '' : 'none';
+    });
+
+    let corriger = document.getElementById('gradeCorrigerBtn');
+    if(!corriger){
+      corriger = document.createElement('button');
+      corriger.id = 'gradeCorrigerBtn';
+      corriger.type = 'button';
+      corriger.className = 'secondary';
+      corriger.textContent = '🔧 Corriger';
+      corriger.addEventListener('click', () => {
+        respButtons.classList.remove('resp-summary-mode');
+        ['again', 'hard', 'good', 'easy'].forEach(id => {
+          const btn = document.getElementById(id);
+          if(btn) btn.style.display = '';
+        });
+        corriger.style.display = 'none';
+      });
+      respButtons.appendChild(corriger);
+    } else {
+      corriger.style.display = '';
+    }
+  }
+
+  function initResponseButtonDelegation(){
+    if(window.__fabanki_respDelegation) return;
+    const container = document.getElementById('respButtons');
+    if(!container) return;
+    window.__fabanki_respDelegation = true;
+    container.addEventListener('click', (ev) => {
+      const btn = ev.target && ev.target.closest ? ev.target.closest('button') : null;
+      if(!btn || !container.contains(btn)) return;
+      if(btn.id === 'gradeCorrigerBtn') return;
+      if(btn.id === 'again'){ hapticTap(12); answerCurrent(0); }
+      else if(btn.id === 'hard'){ hapticTap(8); answerCurrent(3); }
+      else if(btn.id === 'good'){ hapticTap(8); answerCurrent(4); }
+      else if(btn.id === 'easy'){ hapticTap(6); answerCurrent(5); }
+      else if(btn.id === 'passer'){ passCurrent(); }
+    });
+  }
+  initResponseButtonDelegation();
+
   function showNextCard(){
     answerLocked = false;
+
+    restoreDefaultResponseButtons();
 
     resetHoldModeUI();
     resetMultipleModeUI();
@@ -7844,64 +8120,9 @@
     // Show response buttons with quality options
     const respButtons = $('#respButtons');
     if(respButtons){
-      respButtons.style.display = 'inline-flex';
-      respButtons.style.gap = '8px';
-      respButtons.innerHTML = '';
-      
-      const qualityToGrade = {
-        5: { text: 'âœ“ ValidÃ©', quality: 5, cls: 'rate-facile' },
-        4: { text: 'Bon', quality: 4, cls: 'rate-bon' },
-        3: { text: 'Hard', quality: 3, cls: 'rate-difficile' },
-        0: { text: 'RatÃ©', quality: 0, cls: 'rate-ratte' }
-      };
-      
-      const suggestedGrade = qualityToGrade[meanScore] || qualityToGrade[3];
-      const btn = document.createElement('button');
-      btn.textContent = suggestedGrade.text;
-      btn.className = suggestedGrade.cls;
-      btn.style.cssText = 'padding:10px 16px;cursor:pointer;font-weight:600;';
-      btn.addEventListener('click', () => answerCurrent(suggestedGrade.quality));
-      respButtons.appendChild(btn);
-      
-      // Manual override button
-      const overrideBtn = document.createElement('button');
-      overrideBtn.textContent = 'ðŸ”§ Corriger';
-      overrideBtn.className = 'secondary';
-      overrideBtn.style.cssText = 'padding:10px 16px;cursor:pointer;font-size:0.85em;';
-      overrideBtn.addEventListener('click', () => {
-        respButtons.innerHTML = '';
-        
-        const qualities = [
-          { text: 'Facile', quality: 5, cls: 'rate-facile' },
-          { text: 'Bon', quality: 4, cls: 'rate-bon' },
-          { text: 'Difficile', quality: 3, cls: 'rate-difficile' },
-          { text: 'RatÃ©', quality: 0, cls: 'rate-ratte' }
-        ];
-        
-        qualities.forEach(q => {
-          const btn = document.createElement('button');
-          btn.textContent = q.text;
-          btn.className = q.cls;
-          btn.style.cssText = 'padding:10px 16px;cursor:pointer;font-weight:600;';
-          btn.addEventListener('click', () => answerCurrent(q.quality));
-          respButtons.appendChild(btn);
-        });
-        
-        const passBtn = document.createElement('button');
-        passBtn.textContent = 'Passer';
-        passBtn.className = 'secondary';
-        passBtn.style.cssText = 'padding:10px 16px;cursor:pointer;';
-        passBtn.addEventListener('click', () => passCurrent());
-        respButtons.appendChild(passBtn);
-      });
-      respButtons.appendChild(overrideBtn);
-      
-      const passBtn = document.createElement('button');
-      passBtn.textContent = 'Passer';
-      passBtn.className = 'secondary';
-      passBtn.style.cssText = 'padding:10px 16px;cursor:pointer;';
-      passBtn.addEventListener('click', () => passCurrent());
-      respButtons.appendChild(passBtn);
+      const qualityToGrade = { 5: 5, 4: 4, 3: 3, 0: 0 };
+      const suggestedQuality = qualityToGrade[meanScore] ?? 3;
+      showSuggestedGradeButtons(suggestedQuality);
     }
     
     originalModeState = null;
@@ -9034,70 +9255,7 @@
     
     const respButtons = $('#respButtons');
     if(respButtons){
-      respButtons.style.display = 'inline-flex';
-      respButtons.style.gap = '8px';
-      respButtons.innerHTML = '';
-      
-      // Create buttons based on result quality
-      const qualityToGrade = {
-        5: { text: 'âœ“ ValidÃ©', quality: 5, cls: 'rate-facile' },
-        4: { text: 'Bon', quality: 4, cls: 'rate-bon' },
-        3: { text: 'Hard', quality: 3, cls: 'rate-difficile' },
-        0: { text: 'RatÃ©', quality: 0, cls: 'rate-ratte' }
-      };
-      
-      const gradeInfo = qualityToGrade[result.quality];
-      if(gradeInfo){
-        const btn = document.createElement('button');
-        btn.textContent = gradeInfo.text;
-        btn.className = gradeInfo.cls;
-        btn.style.cssText = 'padding:10px 16px;cursor:pointer;font-weight:600;';
-        btn.addEventListener('click', () => answerCurrent(gradeInfo.quality));
-        respButtons.appendChild(btn);
-      }
-      
-      // Add manual override button
-      const overrideBtn = document.createElement('button');
-      overrideBtn.textContent = 'ðŸ”§ Corriger';
-      overrideBtn.className = 'secondary';
-      overrideBtn.style.cssText = 'padding:10px 16px;cursor:pointer;font-size:0.85em;';
-      overrideBtn.addEventListener('click', () => {
-        // Show all quality options
-        respButtons.innerHTML = '';
-        
-        const qualities = [
-          { text: 'Facile', quality: 5, cls: 'rate-facile' },
-          { text: 'Bon', quality: 4, cls: 'rate-bon' },
-          { text: 'Difficile', quality: 3, cls: 'rate-difficile' },
-          { text: 'RatÃ©', quality: 0, cls: 'rate-ratte' }
-        ];
-        
-        qualities.forEach(q => {
-          const btn = document.createElement('button');
-          btn.textContent = q.text;
-          btn.className = q.cls;
-          btn.style.cssText = 'padding:10px 16px;cursor:pointer;font-weight:600;';
-          btn.addEventListener('click', () => answerCurrent(q.quality));
-          respButtons.appendChild(btn);
-        });
-        
-        // Re-add pass button
-        const passBtn = document.createElement('button');
-        passBtn.textContent = 'Passer';
-        passBtn.className = 'secondary';
-        passBtn.style.cssText = 'padding:10px 16px;cursor:pointer;';
-        passBtn.addEventListener('click', () => passCurrent());
-        respButtons.appendChild(passBtn);
-      });
-      respButtons.appendChild(overrideBtn);
-      
-      // Add "Pass" button
-      const passBtn = document.createElement('button');
-      passBtn.textContent = 'Passer';
-      passBtn.className = 'secondary';
-      passBtn.style.cssText = 'padding:10px 16px;cursor:pointer;';
-      passBtn.addEventListener('click', () => passCurrent());
-      respButtons.appendChild(passBtn);
+      showSuggestedGradeButtons(result.quality ?? 4);
     }
   }
 
@@ -10996,11 +11154,12 @@
       try{
         const manifestRes = await fetch((path.replace(/\/$/, '') + '/manifest.json'));
         if(manifestRes && manifestRes.ok){
-          const list = await manifestRes.json();
-          if(Array.isArray(list)){
+          const raw = await manifestRes.json();
+          const parsed = parseDecksManifestRaw(raw);
+          if(parsed.decks && parsed.decks.length){
             manifestMeta = {};
             window.deckCommunityPaths = new Set();
-            list.forEach(item => {
+            parsed.decks.forEach(item => {
               if(typeof item === 'string'){
                 manifestMeta[item] = { path: item };
               } else if(item && item.path){
@@ -11010,8 +11169,12 @@
                 }
               }
             });
-            // Support both old format (strings) and new format (objects with path/tags/cost/level)
-            return list.map(item => typeof item === 'string' ? item : item.path);
+            manifestNotices = {
+              Warning: parsed.Warning || '',
+              Information: parsed.Information || ''
+            };
+            try{ window.__fabanki_manifestNotices = manifestNotices; }catch(e){}
+            return parsed.decks.map(item => typeof item === 'string' ? item : item.path);
           }
         }
       }catch(e){ console.log('[fetchDirectory] Manifest fetch error:', e); }
@@ -11154,6 +11317,8 @@
             let totalCards = 0, totalDue = 0, totalNew = 0;
             for(const f of visibleFiles){
               try{
+                const manifestEntry = getManifestEntryForPath('./decks/' + f);
+                if(manifestEntry && !isDeckReleasedForUser(manifestEntry)) continue;
                 const counts = await computeDeckCounts('./decks/' + f);
                 totalDue += Number(counts.due || 0);
                 totalNew += Number(counts.fresh || 0);
@@ -11522,6 +11687,8 @@
                 let totalReviewedDeckCards = 0;
                 for(const p of entries){
                   if(!p.startsWith(folderPath) || !p.toLowerCase().endsWith('.xml')) continue;
+                  const manifestEntry = getManifestEntryForPath('./decks/' + p);
+                  if(manifestEntry && !isDeckReleasedForUser(manifestEntry)) continue;
                   const deckUrl = './decks/'+p;
                   const meta = await computeDeckUiMeta(deckUrl, true);
                   totalDue += Number(meta.due || 0);
@@ -11580,12 +11747,10 @@
             const nm = fileBuilt.nameEl;
             if(isCommunity){
               row.classList.add('deck-entry--community');
-              const badge = document.createElement('span');
-              badge.className = 'deck-community-badge';
-              badge.textContent = 'Communautaire';
-              badge.title = 'Deck soumis par un utilisateur — non officiel Fab\'Anki';
-              nm.insertBefore(badge, nm.firstChild);
             }
+            const manifestEntry = getManifestEntryForPath(deckUrlForMeta);
+            if(manifestEntry && !isDeckReleasedForUser(manifestEntry)) return;
+            appendDeckManifestBadges(nm, deckRelPath, { entry: manifestEntry, community: isCommunity });
             row.dataset.search = `${fileBuilt.labels.primary} ${fullDeckName} ${prefix}${isCommunity ? ' communautaire' : ''}`.toLowerCase();
             const act = document.createElement('div'); act.className = 'deck-entry-actions';
               if(file.toLowerCase().endsWith('.xml')){
@@ -14358,7 +14523,14 @@
         try{
           const manifestRes = await fetch('./decks/manifest.json');
           if(manifestRes.ok){
-            const manifest = await manifestRes.json();
+            const raw = await manifestRes.json();
+            const parsed = parseDecksManifestRaw(raw);
+            manifestNotices = {
+              Warning: parsed.Warning || '',
+              Information: parsed.Information || ''
+            };
+            applyManifestDeckList(parsed.decks);
+            const manifest = parsed.decks;
             const processedDecks = new Set();
             const userLevel = computeLevelAndProgress ? computeLevelAndProgress(getXpTotal ? getXpTotal() : 0).level : 0;
             
@@ -18894,8 +19066,21 @@
         }
       }catch(e){}
     }, 600);
-    // Check and ask for daily goal if not set
-    if(!getDailyGoal()){
+    // Année de prépa puis objectif quotidien au premier lancement
+    if(!getPrepaYear()){
+      setTimeout(() => {
+        try{
+          const S = sch();
+          const afterPrepa = () => {
+            if(!getDailyGoal() && typeof showDailyGoalDialog === 'function'){
+              showDailyGoalDialog();
+            }
+          };
+          if(S && typeof S.showPrepaYearDialog === 'function') S.showPrepaYearDialog(afterPrepa);
+          else afterPrepa();
+        }catch(e){}
+      }, 1200);
+    }else if(!getDailyGoal()){
       setTimeout(() => {
         try{ if(typeof showDailyGoalDialog === 'function') showDailyGoalDialog(); }catch(e){}
       }, 1500);
@@ -21820,6 +22005,7 @@
         // remove any existing welcome first
         await removeWelcome();
         updateStatus(t('welcomeStatus'));
+        try{ await loadManifestBundle(); }catch(e){}
         // hide existing main/stats but keep DOM so handlers remain
         const mainEl = document.querySelector('main'); if(!mainEl) return;
         mainEl.style.display = 'none';
@@ -21869,12 +22055,15 @@
                 }catch(err){}
               }
             }
-            deckRows.push({ name, url, due: Number(due || 0), reviewed, lastSeen });
+            deckRows.push({ name, url, due: Number(due || 0), reviewed, lastSeen, entry: getManifestEntryForDeckUrl(url) });
           }
 
-          const recentDecks = deckRows.filter(d => d.lastSeen > 0).sort((a,b) => b.lastSeen - a.lastSeen).slice(0, 8);
-          const mostDueDecks = deckRows.filter(d => d.due > 0).sort((a,b) => b.due - a.due).slice(0, 8);
-          const unseenDecks = deckRows.filter(d => d.reviewed === 0).slice(0, 8);
+          const visibleDeckRows = deckRows.filter(d => !d.entry || isDeckReleasedForUser(d.entry));
+          const weeklyNewDecks = visibleDeckRows.filter(d => d.entry && isDeckNewThisWeek(d.entry));
+
+          const recentDecks = visibleDeckRows.filter(d => d.lastSeen > 0).sort((a,b) => b.lastSeen - a.lastSeen).slice(0, 8);
+          const mostDueDecks = visibleDeckRows.filter(d => d.due > 0).sort((a,b) => b.due - a.due).slice(0, 8);
+          const unseenDecks = visibleDeckRows.filter(d => d.reviewed === 0).slice(0, 8);
 
           const lvlStats = computeLevelAndProgress(getXpTotal());
           const ringColor = getLevelColor(lvlStats.level);
@@ -22006,6 +22195,8 @@
               const decksWithDue = [];
               for(const f of xmlFiles){
                 const deckUrl = './decks/' + f;
+                const meta = getManifestEntryForDeckUrl(deckUrl);
+                if(meta && !isDeckReleasedForUser(meta)) continue;
                 const cnt = await countDueNowForDeck(deckUrl);
                 if(cnt > 0) decksWithDue.push(deckUrl);
               }
@@ -22022,6 +22213,53 @@
           actions.appendChild(limitSelect);
           hero.appendChild(actions);
           container.appendChild(hero);
+
+          const infoHtml = buildHomeInformationHtml(manifestNotices.Information);
+          if(infoHtml){
+            const infoWrap = document.createElement('div');
+            infoWrap.className = 'homev2-info-wrap';
+            infoWrap.innerHTML = infoHtml;
+            container.appendChild(infoWrap);
+          }
+
+          const py = getPrepaYear();
+          if((py === '1' || py === '2') && weeklyNewDecks.length > 0){
+            const wkCard = document.createElement('div');
+            wkCard.className = 'card homev2-card homev2-weekly-card';
+            const wkTitle = document.createElement('div');
+            wkTitle.className = 'homev2-card-title';
+            const wkInfo = getScolarWeekInfo();
+            wkTitle.textContent = 'Nouveautés — semaine ' + (wkInfo.label || ('S' + wkInfo.week));
+            wkCard.appendChild(wkTitle);
+            const wkList = document.createElement('div');
+            wkList.className = 'homev2-deck-list';
+            for(const d of weeklyNewDecks.slice(0, 12)){
+              const row = document.createElement('div');
+              row.className = 'homev2-deck-row';
+              row.addEventListener('click', (ev) => {
+                if(ev.target.closest('button')) return;
+                openDeckWithModeSelection(d.url, d.name, ev.currentTarget);
+              });
+              const nm = document.createElement('div');
+              nm.className = 'homev2-deck-name';
+              nm.textContent = d.name.split('/').pop() || d.name;
+              nm.title = d.name;
+              decorateHomeDeckRow(row, nm, d.url);
+              const meta = document.createElement('div');
+              meta.className = 'homev2-deck-meta';
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'secondary homev2-open-btn';
+              btn.textContent = 'Ouvrir';
+              btn.addEventListener('click', (e) => { e.stopPropagation(); openDeckWithModeSelection(d.url, d.name, btn); });
+              meta.appendChild(btn);
+              row.appendChild(nm);
+              row.appendChild(meta);
+              wkList.appendChild(row);
+            }
+            wkCard.appendChild(wkList);
+            container.appendChild(wkCard);
+          }
 
           const grid = document.createElement('div');
           grid.className = 'homev2-grid';
@@ -22139,7 +22377,9 @@
               });
               const nm = document.createElement('div');
               nm.className = 'homev2-deck-name';
-              nm.textContent = d.name;
+              nm.textContent = d.name.split('/').pop() || d.name;
+              nm.title = d.name;
+              decorateHomeDeckRow(row, nm, d.url);
               const meta = document.createElement('div');
               meta.className = 'homev2-deck-meta';
               const badge = document.createElement('span');
@@ -22258,6 +22498,10 @@
       }
       
       // Now load deck with restored data
+      try{
+        await loadManifestBundle(true);
+        showManifestWarningPopupIfNeeded();
+      }catch(e){ console.warn('[manifest] startup load:', e); }
       if(pdeck){ 
         deckURL = pdeck; 
         loadDeckFromURL(pdeck); 
@@ -23460,7 +23704,8 @@
       cost: 0,
       level: 0,
       modes: [],
-      cards: []
+      cards: [],
+      time: ''
     };
     
     let currentEditingCardIndex = -1;
@@ -23554,7 +23799,8 @@
         cost: 0,
         level: 0,
         modes: ['anki'], // Default mode
-        cards: []
+        cards: [],
+        time: ''
       };
       currentEditingCardIndex = -1;
       currentEditingCard = null;
@@ -23563,6 +23809,14 @@
       document.getElementById('deckPath').value = '';
       document.getElementById('deckCost').value = '0';
       document.getElementById('deckLevel').value = '0';
+      const ty = document.getElementById('deckTimeYear');
+      const tw = document.getElementById('deckTimeWeek');
+      if(ty) ty.value = '1';
+      if(tw){
+        const S = window.FabankiSchool;
+        tw.value = S ? String(S.getDefaultDeckWeek()) : '';
+        tw.placeholder = S ? ('Défaut : semaine ' + S.getDefaultDeckWeek()) : 'Semaine actuelle si vide';
+      }
       document.getElementById('cardsContainer').innerHTML = '';
       updateCardCount();
     }
@@ -24169,6 +24423,20 @@
       });
     }
     
+    function readDeckTimeFromForm(){
+      const yearEl = document.getElementById('deckTimeYear');
+      const weekEl = document.getElementById('deckTimeWeek');
+      const year = yearEl ? Number(yearEl.value) : 0;
+      let week = weekEl && weekEl.value !== '' ? Number(weekEl.value) : NaN;
+      if(!Number.isFinite(week) || week < 1){
+        const S = window.FabankiSchool;
+        week = S ? S.getDefaultDeckWeek() : 1;
+      }
+      const S = window.FabankiSchool;
+      if(!S || (year !== 1 && year !== 2)) return '';
+      return S.formatDeckTime(year, week);
+    }
+
     // Generate XML
     function generateXML(){
       // Get metadata
@@ -24176,6 +24444,7 @@
       currentDeckData.path = document.getElementById('deckPath').value || '';
       currentDeckData.cost = parseInt(document.getElementById('deckCost').value) || 0;
       currentDeckData.level = parseInt(document.getElementById('deckLevel').value) || 0;
+      currentDeckData.time = readDeckTimeFromForm();
       updateModes();
       
       const schema = buildDeckFieldSchema();
@@ -24349,6 +24618,12 @@
           alert('Veuillez entrer un titre pour le deck.');
           return;
         }
+        const timeVal = readDeckTimeFromForm();
+        const yearEl = document.getElementById('deckTimeYear');
+        if(!yearEl || !yearEl.value){
+          alert('Veuillez sélectionner l\'année de prépa (1ère ou 2ème).');
+          return;
+        }
         
         if(currentDeckData.cards.length === 0){
           alert('Veuillez ajouter au moins une carte.');
@@ -24365,6 +24640,7 @@
           cost: currentDeckData.cost,
           level: currentDeckData.level,
           modes: currentDeckData.modes,
+          time: timeVal,
           xmlContent: xml,
           cardCount: currentDeckData.cards.length,
           submittedBy: localStorage.getItem('pseudo') || 'Anonymous',
@@ -25441,6 +25717,7 @@
     if(!el) return;
     const theme=localStorage.getItem('fabanki:theme')||'light';
     const dailyGoal=localStorage.getItem('fabanki:daily_goal')||'20';
+    const prepaYear=(typeof getPrepaYear==='function'?getPrepaYear():localStorage.getItem('fabanki:prepa_year'))||'1';
     const ret=localStorage.getItem('fabanki:target_retention')||'0.85';
     const fsz=Number(localStorage.getItem('fabanki:font_size'))||16;
     const haptic=localStorage.getItem('fabanki:haptic')!=='0';
@@ -25468,6 +25745,14 @@
       </div>
       <div class="sp-section"><span class="sp-section-title">Étude</span>
         <div class="sp-card">
+          <div class="rg-row">
+            <div><div class="rg-row-label">Année de prépa</div><div class="rg-row-sub">Débloque les decks semaine par semaine (Zone B — Grand Est)</div></div>
+            <select id="rg-prepa-year" class="rg-input" style="width:auto;min-width:140px">
+              <option value="1" ${prepaYear==='1'?'selected':''}>1ère année</option>
+              <option value="2" ${prepaYear==='2'?'selected':''}>2ème année</option>
+              <option value="finished" ${prepaYear==='finished'?'selected':''}>Classe terminée</option>
+            </select>
+          </div>
           <div class="rg-row">
             <div><div class="rg-row-label">Objectif quotidien</div><div class="rg-row-sub">Cartes à réviser chaque jour</div></div>
             <input type="number" min="1" max="500" value="${dailyGoal}" id="rg-daily-goal" class="rg-input">
@@ -25503,6 +25788,21 @@
           <div class="rg-row">
             <div><div class="rg-row-label">Modération des decks</div><div class="rg-row-sub">Liste et suppression des decks publiés (admin uniquement)</div></div>
             <button class="secondary" id="rg-deck-mod-btn">Modérer</button>
+          </div>
+          <div class="rg-manifest-admin" style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(0,0,0,0.08)">
+            <div class="rg-row" style="flex-direction:column;align-items:stretch;gap:8px">
+              <div><div class="rg-row-label">Avertissement (manifest)</div><div class="rg-row-sub">Popup rouge à chaque lancement · Markdown · vide = masqué</div></div>
+              <textarea id="rg-manifest-warning" class="rg-textarea" rows="4" placeholder="Markdown…"></textarea>
+            </div>
+            <div class="rg-row" style="flex-direction:column;align-items:stretch;gap:8px">
+              <div><div class="rg-row-label">Information (manifest)</div><div class="rg-row-sub">Encart bleu sur l'accueil · Markdown · vide = masqué</div></div>
+              <textarea id="rg-manifest-info" class="rg-textarea" rows="4" placeholder="Markdown…"></textarea>
+            </div>
+            <div class="rg-row" style="gap:8px;flex-wrap:wrap">
+              <button class="secondary" type="button" id="rg-manifest-reload-btn">Recharger</button>
+              <button class="primary" type="button" id="rg-manifest-save-btn">Enregistrer</button>
+            </div>
+            <div id="rg-manifest-status" style="font-size:0.78rem;color:var(--muted);margin-top:6px"></div>
           </div>
         </div>
       </div>
@@ -25547,6 +25847,14 @@
     const fsVal=el.querySelector('#rg-font-size-val');
     fsInput?.addEventListener('input',()=>{ const v=fsInput.value; if(fsVal) fsVal.textContent=v+'px'; document.documentElement.style.fontSize=v+'px'; localStorage.setItem('fabanki:font_size',v); });
     el.querySelector('#rg-daily-goal')?.addEventListener('change',e=>localStorage.setItem('fabanki:daily_goal',e.target.value));
+    el.querySelector('#rg-prepa-year')?.addEventListener('change', e => {
+      const v = e.target.value;
+      if(typeof setPrepaYear === 'function') setPrepaYear(v);
+      else localStorage.setItem('fabanki:prepa_year', v);
+      if(typeof window.renderWelcomeDecks === 'function' && document.getElementById('welcomeDecks')){
+        window.renderWelcomeDecks().catch(() => {});
+      }
+    });
     el.querySelector('#rg-retention')?.addEventListener('change',e=>localStorage.setItem('fabanki:target_retention',e.target.value));
     el.querySelector('#rg-fsrs-tuning-btn')?.addEventListener('click', () => { if(typeof window.showFsrsTuningModal === 'function') window.showFsrsTuningModal(); });
     el.querySelector('#rg-push-notif-btn')?.addEventListener('click', () => { if(typeof window.showPushNotifModal === 'function') window.showPushNotifModal(); });
@@ -25579,6 +25887,22 @@
     el.querySelector('#rg-deck-mod-btn')?.addEventListener('click', () => {
       if(typeof window.showDeckModerationModal === 'function') window.showDeckModerationModal();
     });
+    const warnTa = el.querySelector('#rg-manifest-warning');
+    const infoTa = el.querySelector('#rg-manifest-info');
+    const manifestStatus = el.querySelector('#rg-manifest-status');
+    el.querySelector('#rg-manifest-reload-btn')?.addEventListener('click', () => {
+      if(typeof window.adminLoadManifestNoticesFields === 'function'){
+        window.adminLoadManifestNoticesFields(warnTa, infoTa, manifestStatus);
+      }
+    });
+    el.querySelector('#rg-manifest-save-btn')?.addEventListener('click', () => {
+      if(typeof window.adminSaveManifestNoticesFields === 'function'){
+        window.adminSaveManifestNoticesFields(warnTa, infoTa, manifestStatus);
+      }
+    });
+    if(typeof window.adminLoadManifestNoticesFields === 'function'){
+      window.adminLoadManifestNoticesFields(warnTa, infoTa, manifestStatus);
+    }
     el.querySelector('#rg-reset-customize-btn')?.addEventListener('click', ()=>{
       ['fabanki:bg_color','fabanki:bg_pattern','fabanki:font_stack','fabanki:card_color','fabanki:popup_animation','fabanki:font_size','fabanki:accent_color'].forEach(k=>localStorage.removeItem(k));
       if(typeof applyCustomization==='function') applyCustomization();
@@ -25755,6 +26079,9 @@
         const checked = (sub.modes || []).includes(m.id) ? ' checked' : '';
         return `<label style="display:flex;align-items:center;gap:6px;font-size:0.85em;"><input type="checkbox" name="modMode" value="${m.id}"${checked}> ${escapeHtml(m.label)}</label>`;
       }).join('');
+      const timeMatch = String(sub.time || '').match(/^([12])\.(\d{1,2})$/);
+      const modTimeYear = timeMatch ? timeMatch[1] : '1';
+      const modTimeWeek = timeMatch ? String(Number(timeMatch[2])) : '';
 
       panel.innerHTML = `
         <div style="background:var(--card-bg,#fff);border-radius:16px;width:min(900px,98vw);max-height:94vh;overflow:hidden;display:flex;flex-direction:column;">
@@ -25773,6 +26100,10 @@
                 <div style="display:flex;gap:12px;margin-top:12px;">
                   <div style="flex:1;"><label style="font-size:0.8em;color:var(--muted);">Coût</label><input id="modCost" type="number" min="0" value="${Number(sub.cost)||0}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--border-color,#ddd);"></div>
                   <div style="flex:1;"><label style="font-size:0.8em;color:var(--muted);">Niveau requis</label><input id="modLevel" type="number" min="0" value="${Number(sub.level)||0}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--border-color,#ddd);"></div>
+                </div>
+                <div style="display:flex;gap:12px;margin-top:12px;">
+                  <div style="flex:1;"><label style="font-size:0.8em;color:var(--muted);">Année (time)</label><select id="modTimeYear" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;"><option value="1"${modTimeYear==='1'?' selected':''}>1ère</option><option value="2"${modTimeYear==='2'?' selected':''}>2ème</option></select></div>
+                  <div style="flex:1;"><label style="font-size:0.8em;color:var(--muted);">Semaine 1–36</label><input id="modTimeWeek" type="number" min="1" max="36" value="${escapeHtml(modTimeWeek)}" placeholder="ex. 5" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--border-color,#ddd);"></div>
                 </div>
                 <label style="font-size:0.8em;color:var(--muted);display:block;margin-top:12px;">Description (manifest)</label>
                 <textarea id="modDescription" rows="2" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--border-color,#ddd);font-size:0.9em;">${escapeHtml(sub.description || '')}</textarea>
@@ -25848,6 +26179,15 @@
   async function saveSubmissionEdits(submissionId, panel){
     const modes = Array.from(panel.querySelectorAll('input[name="modMode"]:checked')).map(el => el.value);
     const pathVal = panel.querySelector('#modPathCustom')?.value?.trim() || panel.querySelector('#modPathSelect')?.value || '/';
+    const ty = panel.querySelector('#modTimeYear')?.value;
+    const twRaw = panel.querySelector('#modTimeWeek')?.value;
+    let time = '';
+    if(ty && twRaw){
+      const w = Number(twRaw);
+      if(Number.isFinite(w) && w >= 1 && w <= 36){
+        time = `${ty}.${String(w).padStart(2, '0')}`;
+      }
+    }
     await adminHttpCall('adminHttpUpdateSubmission', {
       submissionId,
       title: panel.querySelector('#modTitle')?.value?.trim(),
@@ -25855,6 +26195,7 @@
       cost: Number(panel.querySelector('#modCost')?.value || 0),
       level: Number(panel.querySelector('#modLevel')?.value || 0),
       description: panel.querySelector('#modDescription')?.value?.trim() || '',
+      time,
       modes,
     });
   }
@@ -25987,6 +26328,36 @@
       });
     }catch(err){
       showModError(body, err);
+    }
+  };
+
+  window.adminLoadManifestNoticesFields = async function(warningEl, infoEl, statusEl){
+    if(statusEl) statusEl.textContent = 'Chargement…';
+    try{
+      const data = await adminHttpCall('adminHttpGetManifestNotices', {});
+      if(warningEl) warningEl.value = data.Warning || '';
+      if(infoEl) infoEl.value = data.Information || '';
+      if(statusEl) statusEl.textContent = 'Chargé depuis GitHub.';
+    }catch(err){
+      if(statusEl) statusEl.textContent = formatFnError(err);
+    }
+  };
+
+  window.adminSaveManifestNoticesFields = async function(warningEl, infoEl, statusEl){
+    if(statusEl) statusEl.textContent = 'Enregistrement…';
+    try{
+      const Warning = warningEl ? warningEl.value : '';
+      const Information = infoEl ? infoEl.value : '';
+      await adminHttpCall('adminHttpUpdateManifestNotices', { Warning, Information });
+      if(typeof window.__fabanki_reloadManifestNotices === 'function'){
+        await window.__fabanki_reloadManifestNotices({ Warning, Information });
+      }
+      if(statusEl) statusEl.textContent = 'Enregistré. L\'accueil sera mis à jour.';
+      if(typeof window.renderWelcomeDecks === 'function' && document.getElementById('welcomeDecks')){
+        window.renderWelcomeDecks().catch(() => {});
+      }
+    }catch(err){
+      if(statusEl) statusEl.textContent = formatFnError(err);
     }
   };
 })();
