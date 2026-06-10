@@ -5,8 +5,8 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const cors = require('cors')({ origin: true });
 
-const { assertAdminContext } = require('./adminAuth');
-const { removeDeckFromGitHub, listManifestFolders, readManifestFullFromGitHub, updateManifestNotices } = require('./deckPublisher');
+const { assertAdminContext, isAdminUid } = require('./adminAuth');
+const { removeDeckFromGitHub, listManifestFolders, readManifestFullFromGitHub, updateManifestNotices, bulkAssignManifestDeckTime } = require('./deckPublisher');
 
 const REGION = 'europe-west1';
 const fn = () => functions.region(REGION);
@@ -286,6 +286,36 @@ function buildAdminHttpExports(db, processDeckSubmission) {
       const body = req.body || {};
       const result = await updateManifestNotices(body.Warning, body.Information);
       res.json({ ok: true, ...result });
+    })),
+
+    adminHttpBulkAssignDeckTime: fn().https.onRequest(withCors(async (req, res) => {
+      if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+      }
+      await verifyAuth(req);
+      const body = req.body || {};
+      const result = await bulkAssignManifestDeckTime(body.folderPrefix, body.year, body.week);
+      res.json({ ok: true, ...result });
+    })),
+
+    adminHttpCheckAccess: fn().https.onRequest(withCors(async (req, res) => {
+      if (req.method !== 'POST' && req.method !== 'GET') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+      }
+      const header = req.headers.authorization || '';
+      const token = header.replace(/^Bearer\s+/i, '').trim();
+      if (!token) {
+        res.json({ isAdmin: false });
+        return;
+      }
+      try {
+        const decoded = await admin.auth().verifyIdToken(token);
+        res.json({ isAdmin: isAdminUid(decoded.uid) });
+      } catch {
+        res.json({ isAdmin: false });
+      }
     })),
   };
 }

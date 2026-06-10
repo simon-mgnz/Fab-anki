@@ -202,6 +202,68 @@
     return computeScolarWeek(new Date()).week;
   }
 
+  function getScolarWeekKey(weekInfo) {
+    const wk = weekInfo || computeScolarWeek(new Date());
+    return `${wk.schoolYearStartYear}-S${pad2(wk.week)}`;
+  }
+
+  /** Lundi de début de la semaine de cours n (1–36). */
+  function getMondayForTeachingWeek(schoolYearStartYear, weekNum) {
+    const holidays = getHolidayPeriods(schoolYearStartYear);
+    const rentreeMon = getMonday(getRentree(schoolYearStartYear));
+    let wStart = new Date(rentreeMon);
+    let n = 0;
+    while (n < TEACHING_WEEKS) {
+      if (!isMondayInHoliday(wStart, holidays)) {
+        n += 1;
+        if (n === weekNum) return new Date(wStart);
+      }
+      wStart.setDate(wStart.getDate() + 7);
+    }
+    return null;
+  }
+
+  function formatUnlockDate(monday) {
+    if (!monday) return '';
+    try {
+      return monday.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function isDeckUnlockingNextWeek(entry, prepaYear, weekInfo) {
+    const time = parseDeckTime(entry && entry.time);
+    if (!time) return false;
+    const py = prepaYear != null ? String(prepaYear) : getPrepaYear();
+    if (py !== '1' && py !== '2') return false;
+    const userYear = Number(py);
+    if (time.year !== userYear) return false;
+    const wk = weekInfo || computeScolarWeek(new Date());
+    if (time.week !== wk.week + 1) return false;
+    return !isDeckReleasedForUser(entry, prepaYear, wk);
+  }
+
+  function compareDeckTime(a, b) {
+    const ta = parseDeckTime(a && a.time);
+    const tb = parseDeckTime(b && b.time);
+    if (!ta && !tb) return 0;
+    if (!ta) return 1;
+    if (!tb) return -1;
+    if (ta.year !== tb.year) return ta.year - tb.year;
+    if (ta.week !== tb.week) return ta.week - tb.week;
+    return 0;
+  }
+
+  function listManifestDecksForWeek(decks, targetYear, targetWeek) {
+    const y = Number(targetYear);
+    const w = Number(targetWeek);
+    return (decks || []).filter((entry) => {
+      const t = parseDeckTime(entry && entry.time);
+      return t && t.year === y && t.week === w;
+    });
+  }
+
   function showPrepaYearDialog(callback) {
     try {
       if (document.getElementById('fabankiPrepaYearOverlay')) return;
@@ -275,6 +337,12 @@
     isDeckNewThisWeek,
     getDeckTimeBadgeKinds,
     getDefaultDeckWeek,
+    getScolarWeekKey,
+    getMondayForTeachingWeek,
+    formatUnlockDate,
+    isDeckUnlockingNextWeek,
+    compareDeckTime,
+    listManifestDecksForWeek,
     showPrepaYearDialog,
   };
 

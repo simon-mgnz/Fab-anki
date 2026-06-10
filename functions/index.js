@@ -85,8 +85,8 @@ async function notifyUsersNewDeck(deckName, deckUrl) {
       const payload = {
         title: 'Fab\'Anki — Nouveau deck disponible',
         body: `Nouveau deck : ${deckName}`,
-        icon: '/fabankiapp.png',
-        badge: '/fabankiapp.png',
+        icon: '/assets/icons/fabankiapp.png',
+        badge: '/assets/icons/fabankiapp.png',
         tag: 'fabanki-new-deck-auto',
         renotify: false,
         url: '/',
@@ -195,6 +195,8 @@ exports.adminHttpRetryPublish = _adminHttp.adminHttpRetryPublish;
 exports.adminHttpRemoveDeck = _adminHttp.adminHttpRemoveDeck;
 exports.adminHttpGetManifestNotices = _adminHttp.adminHttpGetManifestNotices;
 exports.adminHttpUpdateManifestNotices = _adminHttp.adminHttpUpdateManifestNotices;
+exports.adminHttpBulkAssignDeckTime = _adminHttp.adminHttpBulkAssignDeckTime;
+exports.adminHttpCheckAccess = _adminHttp.adminHttpCheckAccess;
 
 // ── Push: test réel via web-push ──────────────────────────────────────────
 
@@ -216,8 +218,8 @@ exports.sendTestPush = fn().https.onCall(async (_data, context) => {
     body: dueCount > 0
       ? `Push serveur OK — ${dueCount} carte${dueCount > 1 ? 's' : ''} à réviser.`
       : 'Push serveur OK — les rappels fonctionnent même navigateur fermé.',
-    icon: '/fabankiapp.png',
-    badge: '/fabankiapp.png',
+    icon: '/assets/icons/fabankiapp.png',
+    badge: '/assets/icons/fabankiapp.png',
     tag: 'fabanki-test-server',
     url: '/',
   };
@@ -266,8 +268,8 @@ exports.sendDailyReviewReminders = fn()
         const payload = {
           title: 'Fab\'Anki — Cartes à réviser',
           body: `Il te reste ${dueCount} carte${dueCount > 1 ? 's' : ''} à faire${timeStr} !`,
-          icon: '/fabankiapp.png',
-          badge: '/fabankiapp.png',
+          icon: '/assets/icons/fabankiapp.png',
+          badge: '/assets/icons/fabankiapp.png',
           tag: 'fabanki-daily',
           renotify: true,
           url: '/',
@@ -343,8 +345,8 @@ exports.checkNewDecks = fn()
       const payload = {
         title: 'Fab\'Anki — Nouveau contenu disponible',
         body,
-        icon: '/fabankiapp.png',
-        badge: '/fabankiapp.png',
+        icon: '/assets/icons/fabankiapp.png',
+        badge: '/assets/icons/fabankiapp.png',
         tag: 'fabanki-new-deck',
         renotify: false,
         url: '/',
@@ -389,8 +391,8 @@ exports.sendStreakWarnings = fn()
       const payload = {
         title: 'Fab\'Anki — Streak en danger ! 🔥',
         body: `Tu n'as pas révisé depuis plus de ${Math.floor(hoursSince)}h. ${sub.dueCount} carte${sub.dueCount > 1 ? 's' : ''} t'attendent !`,
-        icon: '/fabankiapp.png',
-        badge: '/fabankiapp.png',
+        icon: '/assets/icons/fabankiapp.png',
+        badge: '/assets/icons/fabankiapp.png',
         tag: 'fabanki-streak',
         renotify: false,
         url: '/',
@@ -433,8 +435,8 @@ exports.notifyDeckManually = fn()
       const payload = {
         title: 'Fab\'Anki — Nouveau deck disponible',
         body: `Nouveau deck : ${deckName}`,
-        icon: '/fabankiapp.png',
-        badge: '/fabankiapp.png',
+        icon: '/assets/icons/fabankiapp.png',
+        badge: '/assets/icons/fabankiapp.png',
         tag: 'fabanki-new-deck-manual',
         renotify: false,
         url: '/',

@@ -27,15 +27,15 @@
   <title>Fab'Anki — Flashcards sans compte</title>
   <meta name="description" content="Application d'apprentissage par répétition espacée avec plusieurs modes de révision">
   <meta name="theme-color" content="#9b59d0">
-  <link id="appFavicon" rel="icon" href="./fabankilogoblack.png">
+  <link id="appFavicon" rel="icon" href="./assets/icons/fabankifavicon.png">
   <!-- PWA Manifest -->
-  <link rel="manifest" href="./app-manifest.json?v=2.0.91">
+  <link rel="manifest" href="./app-manifest.json?v=2.0.97">
   <!-- iOS PWA Support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Fab Anki">
-  <link id="appleTouchIcon" rel="apple-touch-icon" href="./fabankiapp.png">
+  <link id="appleTouchIcon" rel="apple-touch-icon" href="./assets/icons/fabankiapp.png">
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
   <!-- Firebase (compat) -->
@@ -46,12 +46,12 @@
   <!-- Firebase configuration -->
   <script src="./config.js"></script>
   <!-- Styles -->
-  <link rel="stylesheet" href="./styles.css?v=2.0.91">
+  <link rel="stylesheet" href="./styles.css?v=2.0.97">
 </head>
 <body>
   <div id="bootSplash" class="boot-splash" aria-hidden="false">
     <div class="boot-splash__card">
-      <img id="bootSplashLogo" src="./fabankiapp.png" alt="Fab'Anki" class="boot-splash__logo">
+      <span id="bootSplashLogo" class="fab-brand-mark fab-brand-mark--splash" aria-hidden="true">𝓕</span>
       <div class="boot-splash__title">Fab'Anki</div>
       <div class="boot-splash__subtitle">Initialisation en cours...</div>
       <div class="boot-splash__bar"><i></i></div>
@@ -60,39 +60,39 @@
   <div id="appShell">
     <nav id="sideNav" aria-label="Navigation">
       <div class="sn-logo">
-        <img id="sideNavLogo" src="./fabankilogoblack.png" alt="Logo" style="width:28px;height:28px;">
+        <span id="sideNavLogo" class="fab-brand-mark fab-brand-mark--nav" aria-hidden="true">𝓕</span>
         <span class="sn-logo-text">Fab'Anki</span>
       </div>
       <div class="sn-items">
         <button class="sn-item active" id="snHome" data-tab="home">
-          <span class="sn-icon"><img src="./css/accueil.svg" alt=""></span><span class="sn-label">Accueil</span>
+          <span class="sn-icon"><img src="./assets/icons/nav/accueil.svg" alt=""></span><span class="sn-label">Accueil</span>
         </button>
         <button class="sn-item sn-item--review" id="snReview" data-tab="review">
-          <span class="sn-icon"><img src="./css/réviser.svg" alt=""></span><span class="sn-label">Réviser</span>
+          <span class="sn-icon"><img src="./assets/icons/nav/réviser.svg" alt=""></span><span class="sn-label">Réviser</span>
           <span class="sn-badge" id="snReviewBadge" style="display:none">0</span>
         </button>
         <button class="sn-item" id="snDecks" data-tab="decks">
-          <span class="sn-icon"><img src="./css/decks.svg" alt=""></span><span class="sn-label">Decks</span>
+          <span class="sn-icon"><img src="./assets/icons/nav/decks.svg" alt=""></span><span class="sn-label">Decks</span>
         </button>
         <button class="sn-item" id="snSessions" data-tab="sessions">
-          <span class="sn-icon"><img src="./css/sessions.svg" alt=""></span><span class="sn-label">Sessions</span>
+          <span class="sn-icon"><img src="./assets/icons/nav/sessions.svg" alt=""></span><span class="sn-label">Sessions</span>
         </button>
         <button class="sn-item" id="snStats" data-tab="stats">
-          <span class="sn-icon"><img src="./css/statistiques.svg" alt=""></span><span class="sn-label">Statistiques</span>
+          <span class="sn-icon"><img src="./assets/icons/nav/statistiques.svg" alt=""></span><span class="sn-label">Statistiques</span>
         </button>
         <button class="sn-item" id="snClassement" data-tab="classement">
-          <span class="sn-icon"><img src="./css/classement.svg" alt=""></span><span class="sn-label">Classement</span>
+          <span class="sn-icon"><img src="./assets/icons/nav/classement.svg" alt=""></span><span class="sn-label">Classement</span>
         </button>
         <button class="sn-item" id="snMarket" data-tab="market">
-          <span class="sn-icon"><img src="./css/marché.svg" alt=""></span><span class="sn-label">Marché</span>
+          <span class="sn-icon"><img src="./assets/icons/nav/marché.svg" alt=""></span><span class="sn-label">Marché</span>
         </button>
       </div>
       <div class="sn-bottom">
         <button class="sn-item" id="snReglages" data-tab="reglages">
-          <span class="sn-icon"><img src="./css/reglages.svg" alt=""></span><span class="sn-label">Réglages</span>
+          <span class="sn-icon"><img src="./assets/icons/nav/reglages.svg" alt=""></span><span class="sn-label">Réglages</span>
         </button>
         <button class="sn-item" id="snProfile" data-tab="profile">
-          <span class="sn-icon"><img src="./css/profil.svg" alt=""></span><span class="sn-label">Profil</span>
+          <span class="sn-icon"><img src="./assets/icons/nav/profil.svg" alt=""></span><span class="sn-label">Profil</span>
         </button>
         <button class="sn-item" id="snCollapseBtn" aria-label="Réduire/Agrandir la barre latérale" style="margin-top:4px;border-top:1px solid rgba(155,89,208,0.1);padding-top:10px">
           <i class="sn-collapse-icon" style="font-size:0.9rem">◀</i><span class="sn-label" style="font-size:0.8rem;color:var(--muted)">Réduire</span>
@@ -101,7 +101,7 @@
     </nav>
     <div class="app" id="app" data-theme="light">
     <header>
-      <h1 id="appTitle" style="display:flex;align-items:center;gap:10px;"><img id="topBarLogo" src="./fabankilogoblack.png" style="width:32px;height:32px;" alt="Logo">Fab'Anki — Flashcards (sans compte)</h1>
+      <h1 id="appTitle" style="display:flex;align-items:center;gap:10px;"><span id="topBarLogo" class="fab-brand-mark fab-brand-mark--top" aria-hidden="true">𝓕</span><span>Fab'Anki — Flashcards (sans compte)</span></h1>
       <div class="controls">
         <!-- Hidden file picker used as a fallback when running the page from file:// -->
         <input id="filePicker" type="file" accept=".xml,application/xml" style="display:none" />
@@ -378,22 +378,22 @@
   <!-- Bottom navigation bar -->
   <nav id="bottomNav" aria-label="Navigation principale">
     <button class="bn-tab" id="bnHome" data-tab="home" aria-label="Accueil">
-      <span class="bn-icon"><img src="./css/accueil.svg" alt=""></span>
+      <span class="bn-icon"><img src="./assets/icons/nav/accueil.svg" alt=""></span>
       <span class="bn-label">Accueil</span>
     </button>
     <button class="bn-tab" id="bnStats" data-tab="stats" aria-label="Statistiques">
-      <span class="bn-icon"><img src="./css/statistiques.svg" alt=""></span>
+      <span class="bn-icon"><img src="./assets/icons/nav/statistiques.svg" alt=""></span>
       <span class="bn-label">Stats</span>
     </button>
     <button class="bn-tab bn-tab--primary" id="bnReview" data-tab="review" aria-label="Réviser">
       <span class="bn-icon-wrap">
-        <img src="./css/réviser.svg" alt="" aria-hidden="true">
+        <img src="./assets/icons/nav/réviser.svg" alt="" aria-hidden="true">
         <span class="bn-badge" id="bnReviewBadge" style="display:none">0</span>
       </span>
       <span class="bn-label">Réviser</span>
     </button>
     <button class="bn-tab" id="bnDecks" data-tab="decks" aria-label="Decks">
-      <span class="bn-icon"><img src="./css/decks.svg" alt=""></span>
+      <span class="bn-icon"><img src="./assets/icons/nav/decks.svg" alt=""></span>
       <span class="bn-label">Decks</span>
     </button>
     <button type="button" class="bn-tab" id="bnMore" aria-label="Plus de pages" aria-expanded="false" aria-controls="bnMorePanel">
@@ -412,7 +412,7 @@
       </div>
       <nav class="bn-more-actions" aria-label="Autres pages">
         <button type="button" class="bn-more-item bn-more-item--with-icon" data-more="profile">
-          <span class="bn-more-item-icon"><img src="./css/profil.svg" alt=""></span>
+          <span class="bn-more-item-icon"><img src="./assets/icons/nav/profil.svg" alt=""></span>
           <span>Profil</span>
         </button>
         <button type="button" class="bn-more-item" data-more="sessions">Sessions</button>
@@ -491,7 +491,7 @@
   </script>
 
   <!-- Main application -->
-  <script src="./js/schoolCalendar.js?v=2.0.91"></script>
-  <script src="./js/app.js?v=2.0.91" onerror="window.__fabanki_showFatal && window.__fabanki_showFatal('Erreur de chargement','Impossible de charger app.js')"></script>
+  <script src="./js/schoolCalendar.js?v=2.0.97"></script>
+  <script src="./js/app.js?v=2.0.97" onerror="window.__fabanki_showFatal && window.__fabanki_showFatal('Erreur de chargement','Impossible de charger app.js')"></script>
 </body>
 </html>

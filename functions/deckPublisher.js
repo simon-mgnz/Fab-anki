@@ -201,6 +201,36 @@ async function readManifestFullFromGitHub() {
   return { ...full, sha: manifestFile.sha };
 }
 
+async function bulkAssignManifestDeckTime(folderPrefix, year, week) {
+  const y = Number(year);
+  const w = Number(week);
+  if (y !== 1 && y !== 2) throw new Error('Année invalide (1 ou 2)');
+  if (!Number.isFinite(w) || w < 1 || w > 36) throw new Error('Semaine invalide (1–36)');
+  const timeStr = `${y}.${String(w).padStart(2, '0')}`;
+  const prefix = String(folderPrefix || '').replace(/^\//, '').replace(/\\/g, '/').replace(/\/$/, '');
+  const current = await readManifestFullFromGitHub();
+  let updated = 0;
+  const decks = (current.decks || []).map((entry) => {
+    const p = String(entry.path || entry);
+    if (!p.toLowerCase().endsWith('.xml')) return entry;
+    if (prefix && !p.startsWith(prefix)) return entry;
+    updated += 1;
+    return { ...entry, time: timeStr };
+  });
+  if (updated === 0) throw new Error('Aucun deck .xml trouvé pour ce dossier');
+  const content = formatManifestEntries(decks, {
+    Warning: current.Warning,
+    Information: current.Information,
+  });
+  await githubPutFile(
+    'decks/manifest.json',
+    content,
+    `Admin: bulk assign time ${timeStr} → ${prefix || '(tous)'}`,
+    current.sha
+  );
+  return { updated, time: timeStr, prefix: prefix || '/' };
+}
+
 async function updateManifestNotices(warning, information) {
   const current = await readManifestFullFromGitHub();
   const nextWarning = warning !== undefined ? String(warning) : current.Warning;
@@ -325,4 +355,5 @@ module.exports = {
   parseManifestFull,
   readManifestFullFromGitHub,
   updateManifestNotices,
+  bulkAssignManifestDeckTime,
 };

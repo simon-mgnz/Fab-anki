@@ -7,6 +7,10 @@
 // ============================================================
 window.__fabanki_vapidPublicKey = 'BFnPq2aWftMWMLXAGP6wYGIm7XFYnct6EOmRxoV3OtL6PZZG6qrkxxhcG8y6-rTczVbQW0D6jMYXoFumtK89BA8';
 
+// Must match ADMIN_UID in functions/.env (Firebase Auth UID of the moderator account).
+// Used when adminHttpCheckAccess is not deployed yet; real admin actions still verified server-side.
+window.__fabanki_admin_uid = 'jowssbPJYgfVOevn57OBzFlS0yI3';
+
 // Firebase project configuration
 // Replace with your Firebase project's config from Firebase Console
 // To disable cloud sync, set this to {}

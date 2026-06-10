@@ -20,7 +20,12 @@ Pour que la PWA fonctionne correctement, vous devez créer deux icônes :
 
 ### Option 1 : Utiliser votre logo existant
 
-Vous avez déjà un logo à `/Fab'Anki/fabankilogo.png`. Vous pouvez :
+L'interface utilise le caractère **𝓕** (pas d'image de logo dans l'app). Les fichiers PNG sont dans `assets/icons/` :
+
+- `fabankifavicon.png` — favicon navigateur
+- `fabankiapp.png` — icône PWA / écran d'accueil / notifications
+
+Vous pouvez :
 
 1. Ouvrir ce fichier dans un éditeur d'images (Photoshop, GIMP, Figma, etc.)
 2. Redimensionner à 512x512 pixels
