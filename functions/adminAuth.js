@@ -38,7 +38,13 @@ function assertAdminContext(context) {
   }
 }
 
+function isAdminUid(uid) {
+  const adminUid = getAdminUid();
+  return !!(adminUid && uid && uid === adminUid);
+}
+
 module.exports = {
   getAdminUserRecord,
   assertAdminContext,
+  isAdminUid,
 };
