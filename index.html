@@ -23,13 +23,13 @@
       }catch(e){}
     })();
   </script>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
   <title>Fab'Anki — Flashcards sans compte</title>
   <meta name="description" content="Application d'apprentissage par répétition espacée avec plusieurs modes de révision">
   <meta name="theme-color" content="#9b59d0">
   <link id="appFavicon" rel="icon" href="./assets/icons/fabankifavicon.png">
   <!-- PWA Manifest -->
-  <link rel="manifest" href="./app-manifest.json?v=2.0.97">
+  <link rel="manifest" href="./app-manifest.json?v=2.0.122">
   <!-- iOS PWA Support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -46,7 +46,7 @@
   <!-- Firebase configuration -->
   <script src="./config.js"></script>
   <!-- Styles -->
-  <link rel="stylesheet" href="./styles.css?v=2.0.97">
+  <link rel="stylesheet" href="./styles.css?v=2.0.122">
 </head>
 <body>
   <div id="bootSplash" class="boot-splash" aria-hidden="false">
@@ -83,6 +83,9 @@
         <button class="sn-item" id="snClassement" data-tab="classement">
           <span class="sn-icon"><img src="./assets/icons/nav/classement.svg" alt=""></span><span class="sn-label">Classement</span>
         </button>
+        <button class="sn-item" id="snQuests" data-tab="quests">
+          <span class="sn-icon"><img src="./assets/icons/nav/quetes.svg" alt=""></span><span class="sn-label">Quêtes</span>
+        </button>
         <button class="sn-item" id="snMarket" data-tab="market">
           <span class="sn-icon"><img src="./assets/icons/nav/marché.svg" alt=""></span><span class="sn-label">Marché</span>
         </button>
@@ -104,7 +107,7 @@
       <h1 id="appTitle" style="display:flex;align-items:center;gap:10px;"><span id="topBarLogo" class="fab-brand-mark fab-brand-mark--top" aria-hidden="true">𝓕</span><span>Fab'Anki — Flashcards (sans compte)</span></h1>
       <div class="controls">
         <!-- Hidden file picker used as a fallback when running the page from file:// -->
-        <input id="filePicker" type="file" accept=".xml,application/xml" style="display:none" />
+        <input id="filePicker" type="file" accept=".xml,.csv,application/xml,text/csv" style="display:none" />
         <!-- swapped: Parcourir decks before Charger per user request -->
         <button id="browseDecks" data-label-text="Parcourir decks" data-label-emoji="📚">Parcourir decks</button>
         <button id="marketBtn" data-label-text="Marché" data-label-emoji="🛍️">Marché</button>
@@ -171,7 +174,9 @@
             <h3>Parcourir les decks (./decks/)</h3>
           <div>
             <button id="refreshDeckList" class="secondary">Rafraîchir</button>
+            <button id="importCsvBtn" class="secondary" style="margin-left:8px;">Importer CSV</button>
             <button id="createDeckBtn" class="primary" style="display:none;margin-left:8px;">+ Créer un deck</button>
+            <input id="csvFilePicker" type="file" accept=".csv,text/csv,text/tab-separated-values,.tsv" style="display:none" />
           </div>
         </div>
         <button id="closeDeckBrowser" class="secondary" style="position:absolute;top:12px;right:12px;padding:4px 12px;font-size:1.5em;line-height:1;min-width:auto;border-radius:4px;">×</button>
@@ -192,7 +197,7 @@
           </div>
         </div>
         
-        <!-- Import XML Section -->
+        <!-- Import XML / CSV Section -->
         <div style="margin-bottom:20px;padding:16px;background:rgba(0,122,255,0.05);border-radius:8px;border:1px solid rgba(0,122,255,0.2);">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <h3 style="margin:0;font-size:1.1em;">🔄 Importer un fichier XML</h3>
@@ -202,6 +207,12 @@
             <textarea id="rawXMLInput" placeholder="Collez votre XML ici..." style="width:100%;min-height:150px;font-family:monospace;font-size:0.85em;padding:12px;border-radius:6px;border:1px solid var(--border-color);margin-bottom:12px;"></textarea>
             <button id="importXMLBtn" class="primary">Importer XML</button>
           </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;margin-bottom:8px;">
+            <h3 style="margin:0;font-size:1.1em;">📄 Importer un CSV</h3>
+            <button type="button" id="importCsvCreatorBtn" class="secondary">Choisir un fichier</button>
+          </div>
+          <p class="muted small" style="margin:0">Colonnes <strong>Front</strong> et <strong>Back</strong> (ou Recto / Verso). Tags optionnel. Virgule, point-virgule ou tabulation.</p>
+          <input id="csvCreatorFilePicker" type="file" accept=".csv,text/csv,.tsv" style="display:none" />
         </div>
 
         <!-- Deck Metadata -->
@@ -307,6 +318,8 @@
     <section id="sessionsPage"></section>
     <!-- Réglages page -->
     <section id="reglagesPage"></section>
+    <!-- Quêtes page -->
+    <section id="questsPage"></section>
 
     <!-- Histogram / study breakdown -->
     <section id="stats" style="max-width:none;width:100%;margin:18px 0;padding:0 18px">
@@ -402,7 +415,7 @@
     </button>
   </nav>
 
-  <!-- Bottom nav overflow (mobile): Sessions, Classement, Marché, Réglages, Sync -->
+  <!-- Bottom nav overflow (mobile): Sessions, Classement, Quêtes, Marché, Réglages, Sync -->
   <div id="bnMoreRoot" class="bn-more-root" aria-hidden="true">
     <div class="bn-more-backdrop" tabindex="-1"></div>
     <div id="bnMorePanel" class="bn-more-panel" role="dialog" aria-modal="true" aria-labelledby="bnMoreTitle">
@@ -417,6 +430,10 @@
         </button>
         <button type="button" class="bn-more-item" data-more="sessions">Sessions</button>
         <button type="button" class="bn-more-item" data-more="classement">Classement</button>
+        <button type="button" class="bn-more-item bn-more-item--with-icon" data-more="quests">
+          <span class="bn-more-item-icon"><img src="./assets/icons/nav/quetes.svg" alt=""></span>
+          <span>Quêtes</span>
+        </button>
         <button type="button" class="bn-more-item" data-more="market">Marché</button>
         <button type="button" class="bn-more-item" data-more="reglages">Réglages</button>
         <button type="button" class="bn-more-item" data-more="sync">Synchroniser</button>
@@ -491,7 +508,7 @@
   </script>
 
   <!-- Main application -->
-  <script src="./js/schoolCalendar.js?v=2.0.97"></script>
-  <script src="./js/app.js?v=2.0.97" onerror="window.__fabanki_showFatal && window.__fabanki_showFatal('Erreur de chargement','Impossible de charger app.js')"></script>
+  <script src="./js/schoolCalendar.js?v=2.0.122"></script>
+  <script src="./js/app.js?v=2.0.122" onerror="window.__fabanki_showFatal && window.__fabanki_showFatal('Erreur de chargement','Impossible de charger app.js')"></script>
 </body>
 </html>

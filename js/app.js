@@ -499,18 +499,22 @@
   function ensureDeckBadgeRow(nameEl){
     if(!nameEl || !nameEl.parentElement) return null;
     const parent = nameEl.parentElement;
-    let row = parent.querySelector('.deck-entry-badges');
+    let row = parent.querySelector(':scope > .deck-entry-badges') || parent.querySelector('.deck-entry-badges');
     if(!row){
       row = document.createElement('div');
       row.className = 'deck-entry-badges';
-      parent.insertBefore(row, nameEl);
+      if(nameEl.parentNode === parent){
+        parent.insertBefore(row, nameEl);
+      } else {
+        parent.insertBefore(row, parent.firstChild);
+      }
     }
     return row;
   }
   function appendDeckManifestBadges(nameEl, deckRelPath, opts){
     opts = opts || {};
     const entry = opts.entry || getManifestEntryForPath('./decks/' + String(deckRelPath || '').replace(/^\.\/decks\//, ''));
-    if(!entry) return;
+    if(!entry && !opts.community) return;
     const badgeRow = ensureDeckBadgeRow(nameEl);
     if(!badgeRow) return;
     const S = sch();
@@ -522,7 +526,7 @@
       b.title = 'Deck soumis par un utilisateur';
       badgeRow.appendChild(b);
     }
-    if(S){
+    if(S && entry){
       const time = S.parseDeckTime(entry.time);
       if(time){
         const timeBadge = document.createElement('span');
@@ -580,8 +584,12 @@
       cb.textContent = 'Comm.';
       badges.appendChild(cb);
     }
-    if(badges.children.length && nameEl){
-      rowEl.insertBefore(badges, nameEl);
+    if(badges.children.length){
+      if(nameEl && nameEl.parentNode === rowEl){
+        rowEl.insertBefore(badges, nameEl);
+      } else if(rowEl){
+        rowEl.insertBefore(badges, rowEl.firstChild);
+      }
     }
   }
 
@@ -1461,6 +1469,23 @@
     return isCommunityManifestEntry(entry);
   }
 
+  function isCommunityFolderRelPath(folderRel, entries){
+    const rel = String(folderRel || '')
+      .replace(/^decks\//i, '')
+      .replace(/^\.\/decks\//i, '');
+    const prefix = rel.endsWith('/') ? rel : (rel ? rel + '/' : '');
+    if(!prefix) return false;
+    const list = Array.isArray(entries) ? entries : [];
+    let seen = false;
+    for(const p of list){
+      const path = String(p || '');
+      if(!path.startsWith(prefix) || !path.toLowerCase().endsWith('.xml')) continue;
+      seen = true;
+      if(!isCommunityDeckRelPath(path)) return false;
+    }
+    return seen;
+  }
+
   function deckBrowserHideCommunity(){
     try{ return localStorage.getItem('fabanki:hide_community_decks') === '1'; }catch(e){ return false; }
   }
@@ -1862,23 +1887,7 @@
       const mainEl = document.querySelector('main');
       if(mainEl) mainEl.style.display = 'block';
       
-      const res = await fetch(url);
-      if(!res.ok){
-        if(res.status === 404){
-          showNotFoundScreen({
-            title: 'Deck introuvable',
-            message: 'Ce deck est introuvable. Verifiez le chemin ou rechargez la liste.',
-            details: `HTTP ${res.status} - ${url}`,
-            onAction: () => {
-              if(typeof openDeckBrowser === 'function') openDeckBrowser();
-              else if(typeof renderWelcomeDecks === 'function') renderWelcomeDecks();
-            }
-          });
-          return;
-        }
-        throw new Error('HTTP '+res.status);
-      }
-      const text = await res.text();
+      const text = await readDeckXmlText(url);
       const parser = new DOMParser();
       let xml = parser.parseFromString(text,'application/xml');
       let parsererror = xml.querySelector('parsererror');
@@ -2051,9 +2060,8 @@
             continue;
           }
           
-          const res = await fetch(url);
-          if(!res.ok) continue;
-          const text = await res.text();
+          let text;
+          try{ text = await readDeckXmlText(url); }catch(e){ continue; }
           const parser = new DOMParser();
           let xml = parser.parseFromString(text,'application/xml');
           if(xml.querySelector('parsererror')) xml = parser.parseFromString(text,'text/html');
@@ -2234,7 +2242,16 @@
       
       if(multiDeckCards.length === 0){
         updateStatus(onlyNow ? 'Aucune carte à réviser maintenant' : 'Aucune carte à réviser');
-        renderEmpty();
+        if(!options.skipEmptyRecap){
+          renderEmpty();
+        } else {
+          try{
+            const sa = document.getElementById('showAnswer'); if(sa) sa.style.display = 'none';
+            const resp = document.getElementById('respButtons'); if(resp) resp.style.display = 'none';
+            const dueEl = document.getElementById('dueInline'); if(dueEl) dueEl.style.display = 'none';
+            const req = document.getElementById('requestModBtn'); if(req) req.style.display = 'none';
+          }catch(e){}
+        }
         return;
       }
       
@@ -2287,6 +2304,256 @@
     }
   }
 
+
+  const IMPORTED_CSV_STORE = 'fabanki:imported_csv_decks';
+
+  function csvNormHeader(s){
+    return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function parseCsvRows(text, delim){
+    const rows = [];
+    let row = [];
+    let cell = '';
+    let i = 0;
+    let inQuotes = false;
+    const src = String(text || '').replace(/^\uFEFF/, '');
+    while(i < src.length){
+      const c = src[i];
+      if(inQuotes){
+        if(c === '"'){
+          if(src[i + 1] === '"'){ cell += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        cell += c; i++; continue;
+      }
+      if(c === '"'){ inQuotes = true; i++; continue; }
+      if(c === delim){ row.push(cell); cell = ''; i++; continue; }
+      if(c === '\n' || c === '\r'){
+        row.push(cell); cell = '';
+        if(row.some(v => String(v).trim() !== '')) rows.push(row);
+        row = [];
+        if(c === '\r' && src[i + 1] === '\n') i += 2; else i++;
+        continue;
+      }
+      cell += c; i++;
+    }
+    row.push(cell);
+    if(row.some(v => String(v).trim() !== '')) rows.push(row);
+    return rows;
+  }
+
+  function detectCsvDelimiter(text){
+    const first = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/, 1)[0] || '';
+    const tab = (first.match(/\t/g) || []).length;
+    const semi = (first.match(/;/g) || []).length;
+    const comma = (first.match(/,/g) || []).length;
+    if(tab >= semi && tab >= comma && tab > 0) return '\t';
+    if(semi > comma) return ';';
+    return ',';
+  }
+
+  function parseCsvDeckTable(text){
+    const delim = detectCsvDelimiter(text);
+    const rows = parseCsvRows(text, delim);
+    if(!rows.length) throw new Error('Le fichier CSV est vide');
+    const FRONT = ['front','recto','question','q','terme','word','en','english','mot'];
+    const BACK = ['back','verso','answer','reponse','a','definition','traduction','fr','french'];
+    const TAGS = ['tags','tag','etiquettes','etiquette','labels','label'];
+    let start = 0;
+    let fi = 0, bi = 1, ti = -1;
+    const header = rows[0].map(csvNormHeader);
+    const fIdx = header.findIndex(h => FRONT.indexOf(h) !== -1);
+    const bIdx = header.findIndex(h => BACK.indexOf(h) !== -1);
+    if(fIdx >= 0 && bIdx >= 0 && fIdx !== bIdx){
+      fi = fIdx; bi = bIdx;
+      ti = header.findIndex(h => TAGS.indexOf(h) !== -1);
+      start = 1;
+    }
+    const cards = [];
+    for(let r = start; r < rows.length; r++){
+      const cols = rows[r];
+      const front = String(cols[fi] || '').trim();
+      const back = String(cols[bi] || '').trim();
+      if(!front && !back) continue;
+      const tags = ti >= 0 ? String(cols[ti] || '').trim() : '';
+      cards.push({ front, back, tags });
+    }
+    if(!cards.length) throw new Error('Aucune carte Front/Back trouvée dans le CSV');
+    return cards;
+  }
+
+  function csvCellToXmlHtml(value){
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\r?\n/g, '<br>');
+  }
+
+  function csvCardsToDeckXml(title, cards){
+    const name = String(title || 'Deck CSV').replace(/"/g, '&quot;');
+    let xml = `<deck name="${name}" tags="anki"><fields>`;
+    xml += `<rich-text name="Front" sides="10"></rich-text>`;
+    xml += `<rich-text name="Back" sides="01"></rich-text>`;
+    xml += `</fields><cards>`;
+    cards.forEach((c, i) => {
+      const idSrc = (c.front || '') + '|' + (c.back || '') + '|' + i;
+      const id = 'csv-' + (typeof fallbackSha1 === 'function' ? fallbackSha1(idSrc).slice(0, 12) : String(i));
+      xml += `<card id="${id}">`;
+      xml += `<rich-text name="Front">${csvCellToXmlHtml(c.front)}</rich-text>`;
+      xml += `<rich-text name="Back">${csvCellToXmlHtml(c.back)}</rich-text>`;
+      xml += `</card>`;
+    });
+    xml += `</cards></deck>`;
+    return xml;
+  }
+
+  function listImportedCsvDecks(){
+    try{
+      const raw = JSON.parse(localStorage.getItem(IMPORTED_CSV_STORE) || '[]');
+      return Array.isArray(raw) ? raw : [];
+    }catch(e){ return []; }
+  }
+
+  function saveImportedCsvDecks(list){
+    localStorage.setItem(IMPORTED_CSV_STORE, JSON.stringify(list || []));
+  }
+
+  function importedCsvDeckUrl(id){
+    return './decks/imported/' + encodeURIComponent(id) + '.xml';
+  }
+
+  function getImportedCsvDeckByUrl(url){
+    const m = String(url || '').match(/imported\/([^/]+)\.xml$/i);
+    if(!m) return null;
+    let id = m[1];
+    try{ id = decodeURIComponent(id); }catch(e){}
+    return listImportedCsvDecks().find(d => d && d.id === id) || null;
+  }
+
+  function upsertImportedCsvDeck(rec){
+    const list = listImportedCsvDecks().filter(d => d && d.id !== rec.id);
+    list.unshift(rec);
+    saveImportedCsvDecks(list);
+    try{
+      const url = importedCsvDeckUrl(rec.id);
+      const dk = getDeckKeyFromUrl(url);
+      localStorage.setItem('fabanki:deck_card_count:' + dk, String(rec.cardCount || 0));
+      localStorage.setItem('fabanki:deck_path:' + dk, normalizeDeckPath(url).replace(/\.xml$/i, '').toLowerCase());
+    }catch(e){}
+  }
+
+  function deleteImportedCsvDeck(id){
+    saveImportedCsvDecks(listImportedCsvDecks().filter(d => d && d.id !== id));
+  }
+
+  async function readDeckXmlText(url){
+    const imported = getImportedCsvDeckByUrl(url);
+    if(imported && imported.xml) return imported.xml;
+    const res = await fetch(url);
+    if(!res.ok){
+      const err = new Error('HTTP ' + res.status);
+      err.status = res.status;
+      err.url = url;
+      throw err;
+    }
+    return await res.text();
+  }
+
+  function importCsvTextAsDeck(text, filename){
+    const cards = parseCsvDeckTable(text);
+    const baseName = String(filename || 'deck.csv').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || 'Deck CSV';
+    const id = (typeof fallbackSha1 === 'function' ? fallbackSha1('csv:' + String(filename || baseName).toLowerCase()).slice(0, 12) : String(Date.now()));
+    const xml = csvCardsToDeckXml(baseName, cards);
+    const rec = {
+      id,
+      title: baseName,
+      filename: filename || (baseName + '.csv'),
+      xml,
+      cardCount: cards.length,
+      importedAt: Date.now()
+    };
+    upsertImportedCsvDeck(rec);
+    return rec;
+  }
+
+  async function openImportedCsvDeck(rec){
+    const url = importedCsvDeckUrl(rec.id);
+    showDeckLoading(true, t('downloadingDeck') || 'Chargement...');
+    try{
+      await showDeckOverview(url);
+    }finally{
+      showDeckLoading(false);
+    }
+  }
+
+  window.listImportedCsvDecks = listImportedCsvDecks;
+  window.importedCsvDeckUrl = importedCsvDeckUrl;
+  window.getImportedCsvDeckByUrl = getImportedCsvDeckByUrl;
+  window.importCsvTextAsDeck = importCsvTextAsDeck;
+  window.parseCsvDeckTable = parseCsvDeckTable;
+  window.openImportedCsvDeck = openImportedCsvDeck;
+  window.deleteImportedCsvDeck = deleteImportedCsvDeck;
+
+  function renderImportedCsvDeckRows(deckList){
+    if(!deckList) return;
+    const items = listImportedCsvDecks();
+    if(!items.length) return;
+    const head = document.createElement('div');
+    head.className = 'deck-browser-section-title';
+    head.textContent = 'Importés (CSV)';
+    deckList.appendChild(head);
+    items.forEach((rec) => {
+      const row = document.createElement('div');
+      row.className = 'deck-entry';
+      const built = (typeof window.buildDeckEntryLayout === 'function') ? null : null;
+      const icon = document.createElement('div');
+      icon.className = 'deck-entry-icon';
+      icon.textContent = '📄';
+      const textCol = document.createElement('div');
+      textCol.style.cssText = 'flex:1;min-width:0';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'deck-entry-name';
+      nameEl.textContent = rec.title || rec.filename || 'Deck CSV';
+      const meta = document.createElement('div');
+      meta.className = 'muted small';
+      meta.textContent = (rec.cardCount || 0) + ' cartes · CSV';
+      textCol.appendChild(nameEl);
+      textCol.appendChild(meta);
+      const actions = document.createElement('div');
+      actions.className = 'deck-entry-actions';
+      const openBtn = document.createElement('button');
+      openBtn.className = 'secondary';
+      openBtn.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
+      openBtn.textContent = (window.innerWidth <= 640) ? '▶' : 'Accéder';
+      openBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
+        if(deckBrowserOverlay) deckBrowserOverlay.style.display = 'none';
+        openImportedCsvDeck(rec);
+      });
+      const delBtn = document.createElement('button');
+      delBtn.className = 'secondary';
+      delBtn.title = 'Supprimer cet import';
+      delBtn.textContent = '×';
+      delBtn.style.cssText = 'min-width:36px;padding:5px 8px;';
+      delBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if(!confirm('Supprimer « ' + (rec.title || 'ce deck') + ' » des imports CSV ?')) return;
+        deleteImportedCsvDeck(rec.id);
+        if(typeof window.openDeckBrowser === 'function') window.openDeckBrowser();
+      });
+      actions.appendChild(openBtn);
+      actions.appendChild(delBtn);
+      row.appendChild(icon);
+      row.appendChild(textCol);
+      row.appendChild(actions);
+      row.addEventListener('click', (ev) => { if(ev.target.closest('button')) return; openBtn.click(); });
+      deckList.appendChild(row);
+    });
+  }
+  window.renderImportedCsvDeckRows = renderImportedCsvDeckRows;
 
   // === Function: parseXMLDeck ===
   // Parse the <fields> definition (name,type,sides) and build per-card `fields` objects.
@@ -2555,15 +2822,20 @@
       if(deckBrowserOverlay) {
         deckBrowserOverlay.style.display = 'none';
         deckBrowserOverlay.classList.remove('open');
-        deckBrowserOverlay.removeAttribute('aria-hidden');
+        deckBrowserOverlay.setAttribute('aria-hidden', 'true');
       }
       
-      const modals = document.querySelectorAll('.modal-overlay, .modal.open');
-      modals.forEach(m => { 
-        m.classList.remove('open'); 
-        m.style.display = 'none'; 
-        m.style.visibility = 'hidden';
-        m.removeAttribute('aria-hidden');
+      document.querySelectorAll('.modal-overlay').forEach(m => {
+        m.classList.remove('open');
+        m.style.display = 'none';
+        m.style.visibility = '';
+        m.setAttribute('aria-hidden', 'true');
+        const inner = m.querySelector('.modal');
+        if(inner){
+          inner.classList.remove('open');
+          inner.style.visibility = '';
+          inner.style.display = '';
+        }
       });
 
       // Ensure manifest metadata is available for lock checks
@@ -2595,8 +2867,7 @@
       `;
 
       // Parse deck to get stats
-      const res = await fetch(url);
-      const text = await res.text();
+      const text = await readDeckXmlText(url);
       const parser = new DOMParser();
       let xml = parser.parseFromString(text,'application/xml');
       if(xml.querySelector('parsererror')) xml = parser.parseFromString(text,'text/html');
@@ -2799,6 +3070,12 @@
             if(currentFolderPath && window.deckBrowserRenderPath){
               setTimeout(() => {
                 window.deckBrowserRenderPath(currentFolderPath);
+                const browser = document.getElementById('deckBrowserOverlay');
+                const modal = browser?.querySelector('.modal');
+                const list = document.getElementById('deckList');
+                if(browser) browser.scrollTop = 0;
+                if(modal){ modal.scrollTop = 0; modal.style.visibility = 'visible'; }
+                if(list) list.scrollTop = 0;
               }, 100);
             }
           }catch(e){
@@ -3368,7 +3645,7 @@
       
       if(lockState.locked && lockState.lockedByCost){
         // Show buy button
-        startBtn.textContent = `Acheter pour ${lockState.cost} ?`;
+        startBtn.textContent = `Acheter pour ${lockState.cost} ℂ`;
         startBtn.className = lockState.currentCredits >= lockState.cost ? 'primary' : 'secondary';
         startBtn.disabled = lockState.currentCredits < lockState.cost;
         startBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;';
@@ -3386,7 +3663,7 @@
         });
       } else if(lockState.locked && lockState.lockedByLevel){
         // Show level requirement
-        startBtn.textContent = `? Niveau ${lockState.levelReq} requis`;
+        startBtn.textContent = `🔒 Niveau ${lockState.levelReq} requis`;
         startBtn.className = 'secondary';
         startBtn.disabled = true;
         startBtn.style.cssText = 'width:100%;padding:12px;font-size:1em;opacity:0.6;cursor:not-allowed;';
@@ -3540,7 +3817,7 @@
       filterBar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:0 4px;';
       const filterDefs = [
         {key:'all', label:'Toutes'},
-        {key:'favorite', label:'? Favoris'},
+        {key:'favorite', label:'⭐ Favoris'},
         {key:'new', label:'Nouveau'},
         {key:'now', label:'En retard'},
         {key:'week', label:'Cette semaine'},
@@ -3761,7 +4038,7 @@
         tooltip.appendChild(resetGradeBtn);
         cardEl.appendChild(tooltip);
 
-        // Click anywhere on card ? open viewer/editor
+        // Click anywhere on card → open viewer/editor
         cardEl.addEventListener('click', () => {
           if(typeof window.openCardOverrideEditor === 'function') window.openCardOverrideEditor(card, url);
         });
@@ -5337,7 +5614,7 @@
               <div style="font-weight:700;font-size:1.1em;color:#111;">${note20.toFixed(1)}/20</div>
             </div>
             <div id="recap-stat-delta" class="recap-stat-box" style="background:rgba(155,89,208,0.08);border-radius:10px;padding:12px;cursor:pointer;">
-              <div style="color:#64748b;font-size:0.8em;">? Note</div>
+              <div style="color:#64748b;font-size:0.8em;">📝 Note</div>
               <div style="font-weight:700;font-size:1.1em;color:#111;">${noteDeltaText}</div>
             </div>
             <div id="recap-stat-duration" class="recap-stat-box" style="background:rgba(155,89,208,0.08);border-radius:10px;padding:12px;cursor:pointer;">
@@ -5346,7 +5623,7 @@
             </div>
             <div id="recap-stat-credits" class="recap-stat-box" style="background:linear-gradient(135deg, rgba(155,89,208,0.15) 0%, rgba(155,89,208,0.08) 100%);border-radius:10px;padding:12px;cursor:pointer;border:1px solid rgba(155,89,208,0.2);">
               <div style="color:var(--muted);font-size:0.8em;">Crédits gagnés</div>
-              <div style="font-weight:700;font-size:1.3em;color:var(--accent);">${sessionCreditsGrantedAmount}?</div>
+              <div style="font-weight:700;font-size:1.3em;color:var(--accent);">${sessionCreditsGrantedAmount}ℂ</div>
             </div>
           </div>
 
@@ -5869,22 +6146,22 @@
       overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
       
       const dialog = document.createElement('div');
-      dialog.style.cssText = 'background:white;border-radius:12px;padding:24px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
+      dialog.style.cssText = 'background:var(--card);color:var(--fg);border-radius:12px;padding:24px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
       
       const title = document.createElement('h2');
       title.textContent = '⏱️ Temps de révision';
-      title.style.cssText = 'margin-top:0;margin-bottom:16px;color:#333;';
+      title.style.cssText = 'margin-top:0;margin-bottom:16px;color:var(--fg);';
       dialog.appendChild(title);
       
       const desc = document.createElement('p');
       desc.textContent = 'Définissez le temps maximum pour voir chaque côté de la carte :';
-      desc.style.cssText = 'color:#666;margin-bottom:20px;';
+      desc.style.cssText = 'color:var(--muted);margin-bottom:20px;';
       dialog.appendChild(desc);
       
       // Front time input
       const frontLabel = document.createElement('label');
       frontLabel.textContent = 'Temps pour la face (secondes) :';
-      frontLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:#333;';
+      frontLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:var(--fg);';
       dialog.appendChild(frontLabel);
       
       const frontInput = document.createElement('input');
@@ -5898,7 +6175,7 @@
       // Back time input
       const backLabel = document.createElement('label');
       backLabel.textContent = 'Temps pour le revers (secondes) :';
-      backLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:#333;';
+      backLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:var(--fg);';
       dialog.appendChild(backLabel);
       
       const backInput = document.createElement('input');
@@ -5944,22 +6221,22 @@
       overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
       
       const dialog = document.createElement('div');
-      dialog.style.cssText = 'background:white;border-radius:12px;padding:24px;max-width:450px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
+      dialog.style.cssText = 'background:var(--card);color:var(--fg);border-radius:12px;padding:24px;max-width:450px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
       
       const title = document.createElement('h2');
       title.textContent = '🚀 Paramètres Rush';
-      title.style.cssText = 'margin-top:0;margin-bottom:16px;color:#333;';
+      title.style.cssText = 'margin-top:0;margin-bottom:16px;color:var(--fg);';
       dialog.appendChild(title);
       
       const desc = document.createElement('p');
       desc.textContent = 'Configurez la difficulté. Les temps diminuent au fur et à mesure que vous répondez correctement !';
-      desc.style.cssText = 'color:#666;margin-bottom:20px;';
+      desc.style.cssText = 'color:var(--muted);margin-bottom:20px;';
       dialog.appendChild(desc);
       
       // Hardest time input
       const hardestLabel = document.createElement('label');
       hardestLabel.textContent = 'Temps le plus rapide - Face (secondes) :';
-      hardestLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:#333;';
+      hardestLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:var(--fg);';
       dialog.appendChild(hardestLabel);
       
       const hardestInput = document.createElement('input');
@@ -5973,7 +6250,7 @@
       // Easiest time input
       const easiestLabel = document.createElement('label');
       easiestLabel.textContent = 'Temps le plus lent - Face (secondes) :';
-      easiestLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:#333;';
+      easiestLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:var(--fg);';
       dialog.appendChild(easiestLabel);
       
       const easiestInput = document.createElement('input');
@@ -5987,7 +6264,7 @@
       // Difficulty input
       const difficultyLabel = document.createElement('label');
       difficultyLabel.textContent = 'Difficulté (cartes à réussir) :';
-      difficultyLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:#333;';
+      difficultyLabel.style.cssText = 'display:block;margin-bottom:8px;font-weight:600;color:var(--fg);';
       dialog.appendChild(difficultyLabel);
       
       const difficultyInput = document.createElement('input');
@@ -6079,7 +6356,7 @@
       '\\pm': ['±'],
       '\\sum': ['\\Sigma'],
       '\\prod': ['\\Pi'],
-      '\\int': ['?']
+      '\\int': ['∫']
     };
     
     for(const [standard, alts] of Object.entries(variants)){
@@ -6271,7 +6548,7 @@
     // Merged formula display and input area
     const formulaDisplay = document.createElement('div');
     formulaDisplay.id = 'calculFormulaDisplay';
-    formulaDisplay.style.cssText = 'min-height:80px;padding:12px;background:white;border:1px solid #ddd;border-radius:6px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;';
+    formulaDisplay.style.cssText = 'min-height:80px;padding:12px;background:var(--card);color:var(--fg);border:1px solid var(--border, #ddd);border-radius:6px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;';
     
     // KaTeX render area
     const katexRender = document.createElement('div');
@@ -6282,7 +6559,7 @@
     input.type = 'text';
     input.id = 'calculInput';
     input.placeholder = 'Tapez votre LaTeX (ex: \\frac{1}{2}, \\sqrt{x}, etc...)';
-    input.style.cssText = 'padding:8px;border:1px solid #ddd;border-radius:4px;background:white;color:#333;font-family:"Courier New",monospace;font-size:0.9em;';
+    input.style.cssText = 'padding:8px;border:1px solid var(--border, #ddd);border-radius:4px;background:var(--card);color:var(--fg);font-family:"Courier New",monospace;font-size:0.9em;';
     
     const updateDisplay = () => {
       const f = window.__calculModeState.formula;
@@ -6316,7 +6593,7 @@
     
     formulaDisplay.appendChild(katexRender);
     formulaDisplay.appendChild(input);
-    formulaDisplay.style.cssText = 'min-height:120px;padding:12px;background:white;border:1px solid #ddd;border-radius:6px;display:flex;flex-direction:column;gap:8px;';
+    formulaDisplay.style.cssText = 'min-height:120px;padding:12px;background:var(--card);color:var(--fg);border:1px solid var(--border, #ddd);border-radius:6px;display:flex;flex-direction:column;gap:8px;';
     inputContainer.appendChild(formulaDisplay);
     container.appendChild(inputContainer);
     
@@ -6480,10 +6757,10 @@
     
     if(errorCount === 0){
       quality = 5; // Facile
-      feedbackMsg = '? Parfait! Formule correcte.';
+      feedbackMsg = '✓ Parfait! Formule correcte.';
     } else if(errorCount === 1){
       quality = 4; // Bon
-      feedbackMsg = '? Bon! Une petite erreur mais proche.';
+      feedbackMsg = '≈ Bon! Une petite erreur mais proche.';
     } else if(errorCount <= 3){
       quality = 3; // Difficile
       feedbackMsg = '✗ Difficile. 2-3 erreurs détectées.';
@@ -6508,7 +6785,7 @@
     
     const correctionBox = document.createElement('div');
     correctionBox.id = 'calculCorrectionBox';
-    correctionBox.style.cssText = 'background:white;padding:12px;border-radius:6px;margin-top:12px;border: 1px solid #e5e7eb;';
+    correctionBox.style.cssText = 'background:var(--card);color:var(--fg);padding:12px;border-radius:6px;margin-top:12px;border: 1px solid var(--border, #e5e7eb);';
     
     const userFormulaRender = document.createElement('div');
     userFormulaRender.style.cssText = 'font-size:1.2em;text-align:center;background:#f3f4f6;padding:12px;border-radius:4px;margin-top:8px;min-height:50px;word-wrap:break-word;overflow-wrap:break-word;max-width:100%;overflow-x:auto;';
@@ -7059,7 +7336,7 @@
 
   const ASSOCIER_I18N = {
     fr: {
-      settingsTitle: '? Mode Associer',
+      settingsTitle: '🔗 Mode Associer',
       settingsDesc: "Choisissez le nombre d'associations a faire :",
       settingsLangLabel: 'Langue :',
       settingsLangFr: 'Français',
@@ -7069,7 +7346,7 @@
       reset: 'Réinitialiser',
       linked: '✓ Lié',
       selectedQuestion: 'Question sélectionnée',
-      matchesHeader: '? Vos correspondances :',
+      matchesHeader: '📋 Vos correspondances :',
       continue: 'Continuer',
       correct: 'Correct',
       incorrect: 'Incorrect',
@@ -7081,7 +7358,7 @@
       hiddenContent: 'Contenu masqué'
     },
     en: {
-      settingsTitle: '? Match Mode',
+      settingsTitle: '🔗 Match Mode',
       settingsDesc: 'Choose how many associations to do:',
       settingsLangLabel: 'Language:',
       settingsLangFr: 'French',
@@ -7089,9 +7366,9 @@
       confirm: 'Confirm',
       validate: 'Validate matches',
       reset: 'Reset',
-      linked: '? Linked',
+      linked: '🔗 Linked',
       selectedQuestion: 'Selected question',
-      matchesHeader: '? Your matches:',
+      matchesHeader: '📋 Your matches:',
       continue: 'Continue',
       correct: 'Correct',
       incorrect: 'Incorrect',
@@ -7851,7 +8128,7 @@
     nextBtn.type = 'button';
     nextBtn.className = 'secondary';
     const isLast = state.currentIndex >= state.questions.length - 1;
-    nextBtn.textContent = isLast ? 'Terminer' : 'Suivant ?';
+    nextBtn.textContent = isLast ? 'Terminer' : 'Suivant →';
     if(isLast) nextBtn.classList.add('primary');
     nextBtn.addEventListener('click', () => {
       if(state.currentIndex < state.questions.length - 1){
@@ -7930,7 +8207,7 @@
         const input = document.createElement('input');
         input.type = 'text';
         input.placeholder = `Réponse ${idx + 1}`;
-        input.style.cssText = 'padding:6px 8px;border:2px solid #ddd;border-radius:4px;background:#fff;color:#333;font-size:0.95em;margin:0 4px;min-width:80px;';
+        input.style.cssText = 'padding:6px 8px;border:2px solid var(--border, #ddd);border-radius:4px;background:var(--card);color:var(--fg);font-size:0.95em;margin:0 4px;min-width:80px;';
         input.className = 'original-blank-input';
         textContainer.appendChild(input);
         inputsData.push({input, index: idx});
@@ -8154,16 +8431,16 @@
       overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
 
       const dialog = document.createElement('div');
-      dialog.style.cssText = 'background:white;border-radius:12px;padding:24px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
+      dialog.style.cssText = 'background:var(--card);color:var(--fg);border-radius:12px;padding:24px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
 
       const title = document.createElement('h2');
       title.textContent = '🧩 Mode Multiple';
-      title.style.cssText = 'margin-top:0;margin-bottom:16px;color:#333;';
+      title.style.cssText = 'margin-top:0;margin-bottom:16px;color:var(--fg);';
       dialog.appendChild(title);
 
       const desc = document.createElement('p');
       desc.textContent = 'Choisissez le nombre de cartes à réviser en même temps :';
-      desc.style.cssText = 'color:#666;margin-bottom:12px;';
+      desc.style.cssText = 'color:var(--muted);margin-bottom:12px;';
       dialog.appendChild(desc);
 
       const valueRow = document.createElement('div');
@@ -8222,16 +8499,16 @@
       overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
 
       const dialog = document.createElement('div');
-      dialog.style.cssText = 'background:white;border-radius:12px;padding:24px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
+      dialog.style.cssText = 'background:var(--card);color:var(--fg);border-radius:12px;padding:24px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
 
       const title = document.createElement('h2');
       title.textContent = associerT(associerSettings.lang, 'settingsTitle');
-      title.style.cssText = 'margin-top:0;margin-bottom:16px;color:#333;';
+      title.style.cssText = 'margin-top:0;margin-bottom:16px;color:var(--fg);';
       dialog.appendChild(title);
 
       const desc = document.createElement('p');
       desc.textContent = associerT(associerSettings.lang, 'settingsDesc');
-      desc.style.cssText = 'color:#666;margin-bottom:12px;';
+      desc.style.cssText = 'color:var(--muted);margin-bottom:12px;';
       dialog.appendChild(desc);
 
       const valueRow = document.createElement('div');
@@ -8306,7 +8583,7 @@
       overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
 
       const dialog = document.createElement('div');
-      dialog.style.cssText = 'background:white;border-radius:12px;padding:24px;max-width:500px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
+      dialog.style.cssText = 'background:var(--card);color:var(--fg);border-radius:12px;padding:24px;max-width:500px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
 
       const title = document.createElement('h2');
       title.textContent = 'Mode Original';
@@ -9933,7 +10210,7 @@
               submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
               status: 'pending'
             });
-            console.log('?? Modification request synced to cloud with ID:', docRef.id);
+            console.log('✅ Modification request synced to cloud with ID:', docRef.id);
           }catch(cloudError){
             console.error('Failed to sync modification request to cloud:', cloudError);
             alert('Avertissement: La demande a été enregistrée localement mais n\'a pas pu être synchronisée avec le cloud. Erreur: ' + cloudError.message);
@@ -10036,19 +10313,19 @@
         acceptBtn.style.cssText = 'padding:6px 12px;font-size:0.9em;background:#16a34a;';
         acceptBtn.addEventListener('click', () => {
           if(confirm('Accepter cette modification ?')){
-            console.log('? ACCEPTED:', req);
+            console.log('✅ ACCEPTED:', req);
             removeRequest(index);
           }
         });
         actionBtns.appendChild(acceptBtn);
         
         const rejectBtn = document.createElement('button');
-        rejectBtn.innerHTML = '? Refuser';
+        rejectBtn.innerHTML = 'âŒ Refuser';
         rejectBtn.className = 'secondary';
         rejectBtn.style.cssText = 'padding:6px 12px;font-size:0.9em;background:#dc2626;color:#fff;';
         rejectBtn.addEventListener('click', () => {
           if(confirm('Refuser cette modification ?')){
-            console.log('? REJECTED:', req);
+            console.log('âŒ REJECTED:', req);
             removeRequest(index);
           }
         });
@@ -10239,7 +10516,7 @@
       sessionData.push({cardId: c.id, grade: 0, timeSpent: timeSec, deckKey: cardData ? cardData.deckKey : null});
       try{
         const currentDeckKey = (multiDeckMode && cardData) ? cardData.deckKey : deckKey;
-        console.log('? [QUEST] Calling from PASS action, mode:', reviewMode);
+        console.log('🎯 [QUEST] Calling from PASS action, mode:', reviewMode);
         if(typeof window.syncPostWelcomeQuestProgress === 'function'){
           window.syncPostWelcomeQuestProgress({
             mode: reviewMode,
@@ -10249,10 +10526,10 @@
             masteredDelta: 0
           });
         }else{
-          console.warn('? [QUEST] syncPostWelcomeQuestProgress not yet available');
+          console.warn('🎯 [QUEST] syncPostWelcomeQuestProgress not yet available');
         }
       }catch(e){
-        console.error('? [QUEST] Error calling from pass:', e);
+        console.error('🎯 [QUEST] Error calling from pass:', e);
       }
       updateProgressDisplay();
       try{ incLocal('fabanki:pass_total', 1); if(typeof window.adjustMpsiScores === 'function') window.adjustMpsiScores(-6); }catch(e){}
@@ -10512,7 +10789,7 @@
       
       try{
         const currentDeckKey = (multiDeckMode && cardData) ? cardData.deckKey : deckKey;
-        console.log('? [QUEST] Calling from answerCurrent, mode:', reviewMode, 'quality:', q);
+        console.log('🎯 [QUEST] Calling from answerCurrent, mode:', reviewMode, 'quality:', q);
         if(typeof window.syncPostWelcomeQuestProgress === 'function'){
           window.syncPostWelcomeQuestProgress({
             mode: reviewMode,
@@ -10523,10 +10800,10 @@
             quality: q
           });
         }else{
-          console.warn('? [QUEST] syncPostWelcomeQuestProgress not yet available');
+          console.warn('🎯 [QUEST] syncPostWelcomeQuestProgress not yet available');
         }
       }catch(e){
-        console.error('? [QUEST] Error calling from answerCurrent:', e);
+        console.error('🎯 [QUEST] Error calling from answerCurrent:', e);
       }
       
       try{ if(timeSec > 20) incLocal('fabanki:long_answer_total', 1); }catch(e){}
@@ -10827,6 +11104,13 @@
         reader.onload = (e)=>{
           try{
             const text = e.target.result;
+            const name = (f.name || '').toLowerCase();
+            if(name.endsWith('.csv') || name.endsWith('.tsv')){
+              const rec = importCsvTextAsDeck(text, f.name);
+              updateStatus(rec.cardCount + ' cartes importées depuis CSV');
+              openImportedCsvDeck(rec).catch(err => updateStatus('Erreur CSV: ' + (err.message || err)));
+              return;
+            }
             const parser = new DOMParser();
             let xml = parser.parseFromString(text,'application/xml');
             let parsererror = xml.querySelector('parsererror');
@@ -10935,88 +11219,9 @@
       const initialTheme = document.getElementById('app')?.getAttribute('data-theme') || 'light';
       document.documentElement.setAttribute('data-theme', initialTheme);
       applyBrandingForTheme(initialTheme);
-        toggleBtn.addEventListener('click', ()=>{
-        const appEl = document.getElementById('app');
-        if(!appEl) return;
+      toggleBtn.addEventListener('click', ()=>{
         const current = document.documentElement.getAttribute('data-theme') || 'light';
-        const t = current === 'light' ? 'dark' : 'light';
-        // set on root so CSS variables apply globally, and on app for scoped selectors
-        document.documentElement.setAttribute('data-theme', t);
-        appEl.setAttribute('data-theme', t);
-        localStorage.setItem('fabanki:theme', t);
-        applyBrandingForTheme(t);
-        const themeLabel = t==='dark' ? 'Mode clair' : 'Mode sombre';
-        toggleBtn.setAttribute('data-label-text', themeLabel);
-        
-        // Auto-switch color to matching theme variant
-        const currentColorName = localStorage.getItem('fabanki:current_color_name');
-        if (currentColorName) {
-          const colors = [
-            { name: 'Clair (défaut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
-            { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
-            { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
-            { name: 'Vert', light: '#e8f5e9', dark: '#0d2818', level: 5 },
-            { name: 'Rose', light: '#fce4ec', dark: '#2a0e1f', level: 10 },
-            { name: 'Jaune', light: '#fffde7', dark: '#332d00', level: 10 },
-            { name: 'Pourpre', light: '#f3e5f5', dark: '#25071a', level: 15 },
-            { name: 'Indigo profond', light: '#e7e4f7', dark: '#1a0754', level: 0 },
-            { name: 'Cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 20 },
-            { name: 'Orange', light: '#ffe0b2', dark: '#2d1b0a', level: 20 },
-            { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 25 },
-            { name: 'Corail', light: '#ffebee', dark: '#2d0a0a', level: 25 },
-            { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 30 },
-            { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 30 },
-            { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 35 },
-            { name: 'Gradient Doré', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35 },
-            { name: 'Gradient Rose-Vert', light: 'linear-gradient(135deg, #f8bbd0 0%, #a5d6a7 100%)', dark: 'linear-gradient(135deg, #4a0e2a 0%, #1d3a1f 100%)', level: 40 },
-            { name: 'Gradient Prisma', light: 'linear-gradient(135deg, #e8f4f8 0%, #fce4ec 50%, #f3e5f5 100%)', dark: 'linear-gradient(135deg, #0a1a2e 0%, #2a0e1f 50%, #25071a 100%)', level: 45 },
-            { name: 'Gradient Bleu Royal', light: 'linear-gradient(135deg, #64b5f6 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0a2558 0%, #1a2a3a 100%)', level: 45 },
-            { name: 'Gradient Aurora', light: 'linear-gradient(135deg, #e0f2f1 0%, #fffde7 50%, #ffebee 100%)', dark: 'linear-gradient(135deg, #0d1816 0%, #332d00 50%, #2d0a0a 100%)', level: 48 },
-            { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
-            { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
-          ];
-          const color = colors.find(c => c.name === currentColorName);
-          if (color) {
-            const newColorValue = t === 'dark' ? color.dark : color.light;
-            localStorage.setItem('fabanki:bg_color', newColorValue);
-          }
-        }
-        
-        // Auto-switch card color to matching theme variant
-        const currentCardColorName = localStorage.getItem('fabanki:current_card_color_name');
-        if (currentCardColorName) {
-          const cardColors = [
-            { name: 'Défaut', id: 'default', light: '#fff', dark: '#111319', level: 0 },
-            { name: 'Bleu clair', id: 'lightblue', light: '#e4f1fa', dark: '#1a2a3a', level: 5 },
-            { name: 'Vert clair', id: 'lightgreen', light: '#e8f5e9', dark: '#1b2d1f', level: 10 },
-            { name: 'Rose clair', id: 'lightpink', light: '#fce4ec', dark: '#3a1f2e', level: 15 },
-            { name: 'Amber', id: 'amber', light: '#fff8e1', dark: '#3a3000', level: 20 },
-            { name: 'Indigo', id: 'indigo', light: '#e8eaf6', dark: '#1a1535', level: 25 },
-            { name: 'Indigo profond', id: 'indigo_deep', light: '#d8d3f0', dark: '#1a0754', level: 0 },
-            { name: 'Cyan', id: 'cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 28 },
-            { name: 'Orange pâle', id: 'pale_orange', light: '#ffe0b2', dark: '#2d1b0a', level: 22 },
-            { name: 'Menthe', id: 'mint', light: '#e0f2f1', dark: '#0d1816', level: 30 },
-            { name: 'Lavande', id: 'lavender', light: '#f3e5f5', dark: '#2a0e3a', level: 32 },
-            { name: 'Pêche', id: 'peach', light: '#ffd7a8', dark: '#3a1f0a', level: 35 },
-            { name: 'Ciel', id: 'sky', light: '#b3e5fc', dark: '#0a3a4a', level: 38 },
-            { name: 'Turquoise', id: 'turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 40 },
-            { name: 'Or pâle', id: 'gold', light: '#ffecb3', dark: '#3d2d00', level: 42 },
-            { name: 'Vert sapin', id: 'fir', light: '#a5d6a7', dark: '#1d3a1f', level: 45 },
-            { name: 'Rose vif', id: 'hotpink', light: '#f8bbd0', dark: '#4a0e2a', level: 45 },
-            { name: 'Bleu royal', id: 'royal', light: '#64b5f6', dark: '#0a2558', level: 48 },
-            { name: 'Sunrise', id: 'sunrise', light: '#ffcc80', dark: '#4d2600', level: 50 },
-            { name: 'Gradient Océan', id: 'gradient_ocean', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 55 },
-            { name: 'Gradient Forêt', id: 'gradient_forest', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 55 }
-          ];
-          const cardColor = cardColors.find(c => c.name === currentCardColorName);
-          if (cardColor) {
-            const newCardColorValue = t === 'dark' ? cardColor.dark : cardColor.light;
-            localStorage.setItem('fabanki:card_color', newCardColorValue);
-          }
-        }
-        
-        // Update card color when theme changes to ensure gradient colors adapt
-        try{ if(typeof applyCustomization === 'function') applyCustomization(); }catch(e){}
+        setThemeMode(current === 'light' ? 'dark' : 'light');
         try{ if(typeof updateTopBarLabels === 'function') updateTopBarLabels(); }catch(e){}
       });
 
@@ -11158,7 +11363,7 @@
     async function fetchDirectory(path){
       // Try manifest first (recommended for GitHub Pages)
       try{
-        const manifestRes = await fetch((path.replace(/\/$/, '') + '/manifest.json'));
+        const manifestRes = await fetch((path.replace(/\/$/, '') + '/manifest.json?v=' + Date.now()));
         if(manifestRes && manifestRes.ok){
           const raw = await manifestRes.json();
           const parsed = parseDecksManifestRaw(raw);
@@ -11212,6 +11417,26 @@
     }
     try{ window.fetchDirectory = fetchDirectory; }catch(e){}
 
+    const deckUiMetaCache = new Map();
+    var deckCardCountsIndex = null;
+    var deckCardCountsLower = null;
+    var deckCardCountsPromise = null;
+    var cardStatesByDeckKey = null;
+    var cardStateKeysByPath = null;
+    async function mapWithConcurrency(items, limit, fn){
+      const list = Array.from(items || []);
+      const out = new Array(list.length);
+      let idx = 0;
+      async function worker(){
+        while(idx < list.length){
+          const i = idx++;
+          out[i] = await fn(list[i], i);
+        }
+      }
+      const n = Math.min(Math.max(1, limit || 6), list.length);
+      await Promise.all(Array.from({ length: n }, () => worker()));
+      return out;
+    }
     async function openDeckBrowser(){
       if(!overlay) return;
       
@@ -11233,23 +11458,24 @@
       }, 300);
       
       overlay.style.display = 'flex'; 
-      overlay.style.visibility = 'visible'; // Override CSS hidden visibility
+      overlay.style.visibility = 'visible';
       overlay.setAttribute('aria-hidden','false'); 
       overlay.classList.add('open');
-      console.log('[DECK BROWSER] Overlay display set to flex, classList:', overlay.classList.value);
-      console.log('[DECK BROWSER] Overlay computed display:', window.getComputedStyle(overlay).display);
-      console.log('[DECK BROWSER] Overlay visibility:', window.getComputedStyle(overlay).visibility);
-      console.log('[DECK BROWSER] Overlay zIndex:', window.getComputedStyle(overlay).zIndex);
+      overlay.scrollTop = 0;
+      try{ window.__fabanki_pushOverlay?.(); }catch(e){}
       
       const modalEl = overlay.querySelector('.modal');
       if(modalEl){
         modalEl.classList.add('open');
-        modalEl.style.display = 'block';
+        modalEl.style.display = '';
+        modalEl.style.visibility = 'visible';
         modalEl.style.padding = '18px';
+        modalEl.scrollTop = 0;
       }
       deckList.innerHTML = '';
       deckList.style.visibility = 'visible';
-      deckList.style.backgroundColor = 'white';
+      deckList.style.backgroundColor = '';
+      deckList.scrollTop = 0;
       deckMsg.textContent = 'Recherche de ./decks/ ...';
 
       // Stats bar (4 cells: total, due, new, folders)
@@ -11321,15 +11547,18 @@
             const hideComm = deckBrowserHideCommunity();
             const visibleFiles = hideComm ? xmlFiles.filter(f => !isCommunityDeckRelPath(f)) : xmlFiles;
             let totalCards = 0, totalDue = 0, totalNew = 0;
-            for(const f of visibleFiles){
+            const metas = await mapWithConcurrency(visibleFiles, 6, async (f) => {
               try{
                 const manifestEntry = getManifestEntryForPath('./decks/' + f);
-                if(manifestEntry && !isDeckReleasedForUser(manifestEntry)) continue;
-                const counts = await computeDeckCounts('./decks/' + f);
-                totalDue += Number(counts.due || 0);
-                totalNew += Number(counts.fresh || 0);
-                totalCards += Number(counts.total || 0);
-              }catch(e){}
+                if(manifestEntry && !isDeckReleasedForUser(manifestEntry)) return null;
+                return await computeDeckUiMeta('./decks/' + f, false);
+              }catch(e){ return null; }
+            });
+            for(const meta of metas){
+              if(!meta) continue;
+              totalDue += Number(meta.due || 0);
+              totalNew += Number(meta.fresh || 0);
+              totalCards += Number(meta.total || 0);
             }
             const folderCount = countDeckBrowserFolders(visibleFiles);
             const el0 = document.getElementById('deckStatCell_0');
@@ -11366,7 +11595,13 @@
         if(filterBtn) filterBtn.onclick = () => window.toggleDeckBrowserCommunityFilter();
       }
       try{
-        const entries = await fetchDirectory('./decks/');
+        const [entries] = await Promise.all([
+          fetchDirectory('./decks/'),
+          ensureDeckCardCountsIndex()
+        ]);
+        try{ deckUiMetaCache.clear(); }catch(e){}
+        cardStatesByDeckKey = null;
+        cardStateKeysByPath = null;
         if(!entries || entries.length===0){ 
           deckMsg.textContent = 'Aucun fichier trouvé dans ./decks/'; 
           return;
@@ -11384,18 +11619,12 @@
           renderList(entries, './decks/');
         }
 
-        const deckUiMetaCache = new Map();
         function getReviewedCountForDeck(deckUrl){
           try{
             const dk = (typeof getDeckKeyFromUrl === 'function') ? getDeckKeyFromUrl(deckUrl) : null;
             if(!dk) return 0;
-            const pfx = `fabanki:${dk}:card:`;
-            let reviewed = 0;
-            for(let i=0;i<localStorage.length;i++){
-              const k = localStorage.key(i);
-              if(k && k.startsWith(pfx)) reviewed++;
-            }
-            return reviewed;
+            const cards = getCardStatesForDeck(deckUrl, dk);
+            return tallyDeckProgress(cards, true).reviewed;
           }catch(e){ return 0; }
         }
         function computeDeckMasteryPct(deckUrl, reviewedHint){
@@ -11403,31 +11632,20 @@
           const reviewed = Number(reviewedHint || 0) || getReviewedCountForDeck(deckUrl);
           if(!(mastered > 0) && reviewed > 0){
             try{
-              const canonical = (typeof getDeckKeyFromUrl === 'function') ? getDeckKeyFromUrl(deckUrl) : null;
-              const legacy = (typeof getLegacyDeckKeysForUrl === 'function') ? getLegacyDeckKeysForUrl(deckUrl) : [];
-              const deckKeys = [canonical, ...legacy].filter(Boolean);
+              const dk = (typeof getDeckKeyFromUrl === 'function') ? getDeckKeyFromUrl(deckUrl) : null;
+              const cards = getCardStatesForDeck(deckUrl, dk);
               let reviewedCards = 0;
               let masteredCards = 0;
-              const seen = new Set();
-              for(const dk of deckKeys){
-                const pfx = `fabanki:${dk}:card:`;
-                for(let i=0;i<localStorage.length;i++){
-                  const k = localStorage.key(i);
-                  if(!k || !k.startsWith(pfx) || seen.has(k)) continue;
-                  seen.add(k);
-                  try{
-                    const st = JSON.parse(localStorage.getItem(k) || '{}');
-                    const reps = Number(st.reps || 0);
-                    const interval = Number(st.interval || 0);
-                    const stability = Number(st.stability || 0);
-                    const hasLast = !!st.last;
-                    const isReviewed = reps > 0 || hasLast;
-                    if(!isReviewed) continue;
-                    reviewedCards += 1;
-                    const isMastered = interval >= 7 || stability >= 14 || reps >= 5;
-                    if(isMastered) masteredCards += 1;
-                  }catch(e){}
-                }
+              for(const id of Object.keys(cards || {})){
+                const st = cards[id] || {};
+                const reps = Number(st.reps || 0);
+                const interval = Number(st.interval || 0);
+                const stability = Number(st.stability || 0);
+                const hasLast = !!st.last;
+                const isReviewed = reps > 0 || hasLast;
+                if(!isReviewed) continue;
+                reviewedCards += 1;
+                if(interval >= 7 || stability >= 14 || reps >= 5) masteredCards += 1;
               }
               if(reviewedCards > 0){
                 mastered = Math.round((masteredCards / reviewedCards) * 100);
@@ -11465,7 +11683,7 @@
         }
 
         function refreshDeckEntryCounts(statsEl, mBar, deckUrl){
-          computeDeckUiMeta(deckUrl, true).then(meta => {
+          computeDeckUiMeta(deckUrl, false).then(meta => {
             if(statsEl) statsEl.innerHTML = deckKpisHtml(meta);
             if(mBar){
               mBar.classList.toggle('deck-mastery--empty', !(meta.mastered > 0));
@@ -11608,6 +11826,9 @@
           if(createBtn){
             createBtn.style.display = (path === '') ? 'inline-block' : 'none';
           }
+          if(path === '' && typeof window.renderImportedCsvDeckRows === 'function'){
+            window.renderImportedCsvDeckRows(deckList);
+          }
           
           const entries = window.deckBrowserEntries || overlay._manifestEntries || [];
           const files = new Set();
@@ -11629,19 +11850,26 @@
             b.addEventListener('click', ()=>{ const up = prefix.replace(/[^\/]+\/$/, ''); renderPath(up); currentFolderPath = up; });
             act.appendChild(b); back.appendChild(nm); back.appendChild(act); deckList.appendChild(back);
           }
-          // folders with due counts and badge
-          Array.from(folders).sort().forEach(folder=>{
+          function appendBrowserSectionTitle(label){
+            const h = document.createElement('div');
+            h.className = 'deck-browser-section-title';
+            h.textContent = label;
+            deckList.appendChild(h);
+          }
+
+          function renderFolderRow(folder, isCommunityFolder){
             const row = document.createElement('div'); row.className='deck-entry';
-            row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
-            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
-            row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
-            const folderIconDiv = document.createElement('div'); folderIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(155,89,208,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;'; folderIconDiv.textContent = '📁'; row.appendChild(folderIconDiv);
+            const folderIconDiv = document.createElement('div'); folderIconDiv.className = 'deck-entry-icon'; folderIconDiv.textContent = '📁'; row.appendChild(folderIconDiv);
             const folderName = decodeURIComponent((prefix+folder).replace(/\+/g,' ')).replace(/\/$/,'');
-            row.dataset.search = folderName.toLowerCase();
+            row.dataset.search = folderName.toLowerCase() + (isCommunityFolder ? ' communautaire' : '');
+            if(isCommunityFolder){
+              row.classList.add('deck-entry--community');
+              row.dataset.community = '1';
+            }
             const folderBuilt = buildDeckEntryMain({
               fullPath: folderName,
               isFolder: true,
-              altSub: 'Dossier',
+              altSub: isCommunityFolder ? 'Dossier communautaire' : 'Dossier',
               kpisHtml: [
                 deckKpiStack('À faire', '…', 'due'),
                 deckKpiStack('Nouv.', '…', 'new'),
@@ -11651,9 +11879,10 @@
             });
             const nm = folderBuilt.nameEl;
             const folderMBar = folderBuilt.mBar;
-            
-            // Calculate folder due count with badge
             const folderPath = prefix + folder;
+            if(isCommunityFolder){
+              appendDeckManifestBadges(nm, folderPath, { community: true });
+            }
             const folderLock = evaluateFolderLock(folderPath);
             if(folderLock.locked){
               row.style.opacity = '0.55';
@@ -11681,22 +11910,28 @@
               b.addEventListener('click', ()=>{ renderPath(folderPath); currentFolderPath = folderPath; });
             }
             act.appendChild(b);
+            row.addEventListener('click', (ev)=>{ if(ev.target.closest('button')) return; b.click(); });
             appendDeckEntryLayout(row, folderBuilt, act);
             deckList.appendChild(row);
-            
-            // Asynchronously calculate total dues for all files in this folder
+
             (async ()=>{
               try{
+                const folderXml = entries.filter(p => {
+                  if(!p.startsWith(folderPath) || !p.toLowerCase().endsWith('.xml')) return false;
+                  const comm = isCommunityDeckRelPath(p);
+                  return isCommunityFolder ? comm : !comm;
+                });
+                const metas = await mapWithConcurrency(folderXml, 6, async (p) => {
+                  const manifestEntry = getManifestEntryForPath('./decks/' + p);
+                  if(manifestEntry && !isDeckReleasedForUser(manifestEntry)) return null;
+                  return computeDeckUiMeta('./decks/'+p, false);
+                });
                 let totalDue = 0;
                 let totalFresh = 0;
                 let weightedMastery = 0;
                 let totalReviewedDeckCards = 0;
-                for(const p of entries){
-                  if(!p.startsWith(folderPath) || !p.toLowerCase().endsWith('.xml')) continue;
-                  const manifestEntry = getManifestEntryForPath('./decks/' + p);
-                  if(manifestEntry && !isDeckReleasedForUser(manifestEntry)) continue;
-                  const deckUrl = './decks/'+p;
-                  const meta = await computeDeckUiMeta(deckUrl, true);
+                for(const meta of metas){
+                  if(!meta) continue;
                   totalDue += Number(meta.due || 0);
                   totalFresh += Number(meta.fresh || 0);
                   if(meta.reviewed > 0){
@@ -11721,21 +11956,15 @@
                 }
               }catch(e){ /* ignore */ }
             })();
-          });
-          // files (limit to first 10)
-          Array.from(files).sort().forEach(file=>{
-            const deckRelPath = prefix + file;
-            if(!file.toLowerCase().endsWith('.xml')) return;
-            const isCommunity = isCommunityDeckRelPath(deckRelPath);
-            if(deckBrowserHideCommunity() && isCommunity) return;
+          }
 
+          function renderFileRow(file){
+            const deckRelPath = prefix + file;
+            const isCommunity = isCommunityDeckRelPath(deckRelPath);
             const row = document.createElement('div'); row.className='deck-entry';
             row.dataset.deckFile = '1';
             if(isCommunity) row.dataset.community = '1';
-            row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;cursor:default;';
-            row.addEventListener('mouseenter', ()=>{ row.style.background='rgba(155,89,208,0.06)'; });
-            row.addEventListener('mouseleave', ()=>{ row.style.background='transparent'; });
-            const fileIconDiv = document.createElement('div'); fileIconDiv.style.cssText = 'width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);'; fileIconDiv.textContent = '📄'; row.appendChild(fileIconDiv);
+            const fileIconDiv = document.createElement('div'); fileIconDiv.className = 'deck-entry-icon deck-entry-icon--file'; fileIconDiv.textContent = '📄'; row.appendChild(fileIconDiv);
             const dec = decodeURIComponent((prefix+file).replace(/\+/g,' '));
             const fullDeckName = dec.replace(/\.xml$/i,'');
             const deckUrlForMeta = './decks/'+prefix+file;
@@ -11755,36 +11984,75 @@
               row.classList.add('deck-entry--community');
             }
             const manifestEntry = getManifestEntryForPath(deckUrlForMeta);
-            if(manifestEntry && !isDeckReleasedForUser(manifestEntry)) return;
+            const calendarLocked = !!(manifestEntry && !isDeckReleasedForUser(manifestEntry));
             appendDeckManifestBadges(nm, deckRelPath, { entry: manifestEntry, community: isCommunity });
             row.dataset.search = `${fileBuilt.labels.primary} ${fullDeckName} ${prefix}${isCommunity ? ' communautaire' : ''}`.toLowerCase();
             const act = document.createElement('div'); act.className = 'deck-entry-actions';
-              if(file.toLowerCase().endsWith('.xml')){
-                const b=document.createElement('button'); b.className='secondary';
-                b.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
-                b.textContent = (window.innerWidth <= 640) ? '▶' : 'Accéder';
-                b.addEventListener('click', async ()=>{ 
-                  const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
-                  if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
-                  const deckUrl = './decks/'+prefix+file;
-                  showDeckLoading(true, t('downloadingDeck'));
-                  try{
-                    await showDeckOverview(deckUrl);
-                  }finally{
-                    showDeckLoading(false);
-                  }
-                });
-                act.appendChild(b);
-                appendDeckEntryLayout(row, fileBuilt, act);
-                refreshDeckEntryCounts(fileBuilt.statsCol, fileBuilt.mBar, deckUrlForMeta);
-              } else {
-                appendDeckEntryLayout(row, fileBuilt, act);
+            const b=document.createElement('button'); b.className='secondary';
+            b.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
+            if(calendarLocked){
+              row.style.opacity = '0.72';
+              const S = sch();
+              const time = S && S.parseDeckTime(manifestEntry.time);
+              const unlockWeek = (time && S.getDeckUnlockWeek) ? S.getDeckUnlockWeek(time) : (time && time.week);
+              const when = time
+                ? ((time.year === 2 ? '2e année' : '1re année') + ' · semaine ' + unlockWeek + ' (2 sem. avant le cours)')
+                : 'pas encore au programme';
+              b.textContent = '🔒 ' + (time ? S.formatDeckTime(time.year, unlockWeek) : 'Bientôt');
+              b.disabled = true;
+              b.title = 'Disponible ' + when + ' (Réglages → année de prépa)';
+              nm.title = (nm.title ? nm.title + ' — ' : '') + 'Disponible ' + when;
+            } else {
+              b.textContent = (window.innerWidth <= 640) ? '▶' : 'Accéder';
+              b.addEventListener('click', async ()=>{
+              const deckBrowserOverlay = document.getElementById('deckBrowserOverlay');
+              if(deckBrowserOverlay) deckBrowserOverlay.style.display='none';
+              const deckUrl = './decks/'+prefix+file;
+              showDeckLoading(true, t('downloadingDeck'));
+              try{
+                await showDeckOverview(deckUrl);
+              }finally{
+                showDeckLoading(false);
               }
+              });
+            }
+            act.appendChild(b);
+            row.addEventListener('click', (ev)=>{ if(ev.target.closest('button')) return; b.click(); });
+            appendDeckEntryLayout(row, fileBuilt, act);
+            refreshDeckEntryCounts(fileBuilt.statsCol, fileBuilt.mBar, deckUrlForMeta);
             deckList.appendChild(row);
-          });
-          
+          }
+
+          const sortedFolders = Array.from(folders).sort();
+          const sortedFiles = Array.from(files).filter(f => f.toLowerCase().endsWith('.xml')).sort();
+          const officialFolders = [];
+          const communityFolders = [];
+          for(const folder of sortedFolders){
+            if(isCommunityFolderRelPath(prefix + folder, entries)) communityFolders.push(folder);
+            else officialFolders.push(folder);
+          }
+          const officialFiles = [];
+          const communityFiles = [];
+          for(const file of sortedFiles){
+            if(isCommunityDeckRelPath(prefix + file)) communityFiles.push(file);
+            else officialFiles.push(file);
+          }
+          const hideComm = deckBrowserHideCommunity();
+          const visibleCommunityFolders = hideComm ? [] : communityFolders;
+          const visibleCommunityFiles = hideComm ? [] : communityFiles;
+          const hasOfficial = officialFolders.length + officialFiles.length > 0;
+          const hasCommunity = visibleCommunityFolders.length + visibleCommunityFiles.length > 0;
+          if(hasOfficial && hasCommunity) appendBrowserSectionTitle('Decks officiels');
+          officialFolders.forEach(folder => renderFolderRow(folder, false));
+          officialFiles.forEach(renderFileRow);
+          if(hasCommunity){
+            if(hasOfficial) appendBrowserSectionTitle('Communautaires');
+            visibleCommunityFolders.forEach(folder => renderFolderRow(folder, true));
+            visibleCommunityFiles.forEach(renderFileRow);
+          }
+
           // Add "Review all decks in this folder" button if there are any XML files
-          const xmlFiles = Array.from(files).filter(f => f.toLowerCase().endsWith('.xml'));
+          const xmlFiles = officialFiles.concat(visibleCommunityFiles);
           if(xmlFiles.length > 0){
             const allBtn = document.createElement('div'); allBtn.className = 'deck-entry'; allBtn.style.marginTop = '12px'; allBtn.style.borderTop = '1px solid rgba(0,0,0,0.06)'; allBtn.style.paddingTop = '12px';
             const allBtnText = document.createElement('div'); allBtnText.textContent = '📚 Réviser tous les decks du dossier'; allBtnText.style.fontWeight = '600';
@@ -11875,11 +12143,11 @@
                   });
                 } else if(lockState.locked){
                   if(lockState.lockedByLevel){
-                    btn.textContent = `? Niveau ${lockState.levelReq}`;
+                    btn.textContent = `🔒 Niveau ${lockState.levelReq}`;
                     btn.disabled = true;
                     btn.title = 'Atteignez le niveau requis pour débloquer ce deck';
                   } else if(lockState.lockedByCost){
-                    btn.textContent = `Acheter ${lockState.cost}?`;
+                    btn.textContent = `Acheter ${lockState.cost}ℂ`;
                     btn.disabled = lockState.currentCredits < lockState.cost;
                     btn.title = lockState.currentCredits < lockState.cost ? 'Crédits insuffisants' : 'Débloquer ce deck';
                     btn.addEventListener('click', ()=>{
@@ -11925,14 +12193,12 @@
               (async ()=>{ try{
                 const dk = (typeof getDeckKeyFromUrl==='function')?getDeckKeyFromUrl(base+e):null;
                 if(!dk) return;
-                const pfx='fabanki:'+dk+':card:';
-                let reviewed=0;
-                for(let _i=0;_i<localStorage.length;_i++){ const _k=localStorage.key(_i); if(_k&&_k.startsWith(pfx)) reviewed++; }
+                const reviewed = getReviewedCountForDeck(base+e);
                 if(reviewed>0){
                   const pill=document.createElement('span');
                   pill.className='deck-mastery-pill';
                   pill.title=reviewed+' cartes révisées';
-                  pill.textContent='? '+reviewed;
+                  pill.textContent='✓ '+reviewed;
                   built.textCol.appendChild(pill);
                 }
               }catch(_e){} })();
@@ -12029,78 +12295,200 @@
       return topFolders.size || allFolders.size;
     }
 
-    function resolveCanonicalCardsForDeck(url, deckKeyForCount){
-      let canonicalCards = null;
-      let selectedDeckKey = deckKeyForCount;
-      try{
-        const stateRaw = localStorage.getItem('fabanki:user_state');
-        const stateObj = stateRaw ? JSON.parse(stateRaw) : null;
-        const allDecks = stateObj?.decks || {};
-        const targetPath = normalizeDeckPath(url).replace(/\.xml$/i, '');
-        const targetPathNorm = targetPath.toLowerCase();
-        let pathMatchedDeckKey = '';
-        for(const dk of Object.keys(allDecks)){
-          const savedPath = localStorage.getItem(`fabanki:deck_path:${dk}`) || '';
-          const savedPathNorm = String(savedPath).replace(/\.xml$/i, '').toLowerCase();
-          if(savedPathNorm === targetPathNorm || savedPathNorm.endsWith('/' + targetPathNorm) || targetPathNorm.endsWith('/' + savedPathNorm)){
-            pathMatchedDeckKey = dk;
-            break;
+    function ensureDeckCardCountsIndex(){
+      if(deckCardCountsIndex) return Promise.resolve(deckCardCountsIndex);
+      if(deckCardCountsPromise) return deckCardCountsPromise;
+      deckCardCountsPromise = fetch('./decks/card-counts.json?v=2.0.122')
+        .then(res => res.ok ? res.json() : {})
+        .then(obj => {
+          deckCardCountsIndex = obj && typeof obj === 'object' ? obj : {};
+          deckCardCountsLower = {};
+          for(const k of Object.keys(deckCardCountsIndex)){
+            deckCardCountsLower[String(k).toLowerCase()] = Number(deckCardCountsIndex[k]) || 0;
           }
-        }
-        if(pathMatchedDeckKey && allDecks[pathMatchedDeckKey]?.cards){
-          selectedDeckKey = pathMatchedDeckKey;
-          canonicalCards = allDecks[pathMatchedDeckKey].cards || {};
-        } else if(allDecks[deckKeyForCount]?.cards){
-          selectedDeckKey = deckKeyForCount;
-          canonicalCards = allDecks[deckKeyForCount].cards || {};
+          return deckCardCountsIndex;
+        })
+        .catch(() => {
+          deckCardCountsIndex = {};
+          deckCardCountsLower = {};
+          return deckCardCountsIndex;
+        });
+      return deckCardCountsPromise;
+    }
+    try{ ensureDeckCardCountsIndex(); }catch(e){}
+
+    function getKnownDeckCardTotal(url, dk){
+      const path = normalizeDeckPath(url);
+      const lower = String(path || '').toLowerCase();
+      if(deckCardCountsLower && Object.prototype.hasOwnProperty.call(deckCardCountsLower, lower)){
+        return deckCardCountsLower[lower];
+      }
+      try{
+        const cached = Number(localStorage.getItem('fabanki:deck_card_count:' + dk) || 0);
+        if(cached > 0) return cached;
+      }catch(e){}
+      return null;
+    }
+
+    function rebuildCardStateIndex(){
+      const map = new Map();
+      const add = (dk, id, st, overwrite) => {
+        if(!dk || id == null || id === '') return;
+        if(!map.has(dk)) map.set(dk, {});
+        const obj = map.get(dk);
+        if(overwrite || obj[id] == null) obj[id] = st || {};
+      };
+      try{
+        const stateObj = JSON.parse(localStorage.getItem('fabanki:user_state') || 'null');
+        const allDecks = stateObj && stateObj.decks ? stateObj.decks : {};
+        for(const dk of Object.keys(allDecks)){
+          const cards = allDecks[dk] && allDecks[dk].cards;
+          if(!cards || typeof cards !== 'object') continue;
+          for(const id of Object.keys(cards)) add(dk, id, cards[id], false);
         }
       }catch(e){}
-      return { canonicalCards, selectedDeckKey };
+      try{
+        for(let i = 0; i < localStorage.length; i++){
+          const k = localStorage.key(i);
+          if(!k || k.indexOf('fabanki:') !== 0 || k.indexOf(':card:') === -1) continue;
+          const rest = k.slice(8);
+          const sep = rest.indexOf(':card:');
+          if(sep < 1) continue;
+          const dk = rest.slice(0, sep);
+          const id = rest.slice(sep + 6);
+          if(!id) continue;
+          try{ add(dk, id, JSON.parse(localStorage.getItem(k) || '{}'), true); }catch(e){}
+        }
+      }catch(e){}
+      const pathMap = new Map();
+      try{
+        for(const dk of map.keys()){
+          const savedPath = String(localStorage.getItem('fabanki:deck_path:' + dk) || '').replace(/\.xml$/i, '').toLowerCase();
+          if(!savedPath) continue;
+          if(!pathMap.has(savedPath)) pathMap.set(savedPath, []);
+          pathMap.get(savedPath).push(dk);
+        }
+      }catch(e){}
+      cardStatesByDeckKey = map;
+      cardStateKeysByPath = pathMap;
+      return map;
+    }
+
+    function getCardStateIndex(){
+      return cardStatesByDeckKey || rebuildCardStateIndex();
+    }
+
+    function getCardStatesForDeck(url, deckKeyForCount){
+      const idx = getCardStateIndex();
+      const merged = {};
+      const keys = [];
+      const addKey = (dk) => { if(dk && keys.indexOf(dk) === -1) keys.push(dk); };
+      addKey(deckKeyForCount);
+      try{
+        const legacy = (typeof getLegacyDeckKeysForUrl === 'function') ? getLegacyDeckKeysForUrl(url) : [];
+        for(const dk of legacy) addKey(dk);
+      }catch(e){}
+      try{
+        const targetPath = normalizeDeckPath(url).replace(/\.xml$/i, '').toLowerCase();
+        const pathMap = cardStateKeysByPath || new Map();
+        const exact = pathMap.get(targetPath);
+        if(exact){
+          for(const dk of exact) addKey(dk);
+        } else {
+          for(const [savedPath, dks] of pathMap){
+            if(savedPath === targetPath || savedPath.endsWith('/' + targetPath) || targetPath.endsWith('/' + savedPath)){
+              for(const dk of dks) addKey(dk);
+            }
+          }
+        }
+      }catch(e){}
+      for(const dk of keys){
+        const cards = idx.get(dk);
+        if(cards) Object.assign(merged, cards);
+      }
+      return merged;
+    }
+
+    function tallyDeckProgress(cards, fsrsOff){
+      const now = Date.now();
+      let due = 0, reviewed = 0;
+      for(const id of Object.keys(cards || {})){
+        try{
+          const st = cards[id] || {};
+          const reps = Number(st.reps || 0);
+          const lastTs = new Date(st.last || 0).getTime();
+          const hasValidLast = Number.isFinite(lastTs) && lastTs > 0;
+          const isReviewed = !!(hasValidLast && reps > 0 && st.never !== true);
+          if(!isReviewed) continue;
+          reviewed++;
+          if(!fsrsOff){
+            const dueTs = new Date(st.due || 0).getTime();
+            if(Number.isFinite(dueTs) && dueTs > 0 && dueTs <= now) due++;
+          }
+        }catch(e){}
+      }
+      return { due, reviewed };
+    }
+
+    function computeDeckCountsFromState(url){
+      const deckKeyForCount = getDeckKeyFromUrl(url);
+      const fsrsOff = isFsrsDisabledForDeckKey(deckKeyForCount);
+      const cards = getCardStatesForDeck(url, deckKeyForCount);
+      const tallied = tallyDeckProgress(cards, fsrsOff);
+      const knownTotal = getKnownDeckCardTotal(url, deckKeyForCount);
+      const total = (knownTotal != null) ? knownTotal : tallied.reviewed;
+      return {
+        due: tallied.due,
+        fresh: Math.max(0, total - tallied.reviewed),
+        reviewed: tallied.reviewed,
+        total,
+        deckKey: deckKeyForCount,
+        knownTotal
+      };
+    }
+
+    async function computeDeckCountsFromXml(url){
+      const empty = { due: 0, fresh: 0, reviewed: 0, total: 0 };
+      let text;
+      try{ text = await readDeckXmlText(url); }catch(e){ return empty; }
+      const parser = new DOMParser();
+      let xml = parser.parseFromString(text, 'application/xml');
+      if(xml.querySelector && xml.querySelector('parsererror')) xml = parser.parseFromString(text, 'text/html');
+      const ids = parseCardIdsFromXML(xml);
+      try{ migrateLegacyDeckCardStates(url, ids); }catch(e){}
+      const deckKeyForCount = getDeckKeyFromUrl(url);
+      try{ if(deckKeyForCount) localStorage.setItem('fabanki:deck_card_count:' + deckKeyForCount, String(ids.length)); }catch(e){}
+      const fsrsOff = isFsrsDisabledForDeckKey(deckKeyForCount);
+      const cards = getCardStatesForDeck(url, deckKeyForCount);
+      const now = Date.now();
+      let due = 0, fresh = 0, reviewed = 0;
+      for(const id of ids){
+        try{
+          const st = cards[id] || {};
+          const reps = Number(st.reps || 0);
+          const lastTs = new Date(st.last || 0).getTime();
+          const hasValidLast = Number.isFinite(lastTs) && lastTs > 0;
+          const isReviewed = !!(hasValidLast && reps > 0 && st.never !== true);
+          if(!isReviewed){ fresh++; continue; }
+          reviewed++;
+          if(!fsrsOff){
+            const dueTs = new Date(st.due || 0).getTime();
+            if(Number.isFinite(dueTs) && dueTs > 0 && dueTs <= now) due++;
+          }
+        }catch(e){ continue; }
+      }
+      return { due, fresh, reviewed, total: ids.length, deckKey: deckKeyForCount };
     }
 
     async function computeDeckCounts(url){
-      const empty = { due: 0, fresh: 0, reviewed: 0, total: 0 };
       try{
-        const deckKeyForCount = getDeckKeyFromUrl(url);
-        const fsrsOff = isFsrsDisabledForDeckKey(deckKeyForCount);
-        const res = await fetch(url);
-        if(!res.ok) return empty;
-        const text = await res.text();
-        const parser = new DOMParser();
-        let xml = parser.parseFromString(text,'application/xml');
-        if(xml.querySelector && xml.querySelector('parsererror')) xml = parser.parseFromString(text,'text/html');
-        const ids = parseCardIdsFromXML(xml);
-        try{ migrateLegacyDeckCardStates(url, ids); }catch(e){}
-        try{
-          const dk = getDeckKeyFromUrl(url);
-          if(dk) localStorage.setItem(`fabanki:deck_card_count:${dk}`, String(ids.length));
-        }catch(e){}
-        const now = new Date();
-        let due = 0, fresh = 0, reviewed = 0;
-        const { canonicalCards, selectedDeckKey } = resolveCanonicalCardsForDeck(url, deckKeyForCount);
-        const keyPrefix = 'fabanki:' + deckKeyForCount + ':';
-        for(const id of ids){
-          try{
-            const st = canonicalCards ? (canonicalCards[id] || {}) : JSON.parse(localStorage.getItem(keyPrefix + 'card:' + id) || '{}');
-            const reps = Number(st?.reps || 0);
-            const lastTs = new Date(st?.last || 0).getTime();
-            const hasValidLast = Number.isFinite(lastTs) && lastTs > 0;
-            const isReviewed = !!(hasValidLast && reps > 0 && st?.never !== true);
-            if(!isReviewed){
-              fresh++;
-              continue;
-            }
-            reviewed++;
-            if(!fsrsOff){
-              const dueTs = new Date(st?.due || 0).getTime();
-              if(Number.isFinite(dueTs) && dueTs > 0 && dueTs <= now.getTime()) due++;
-            }
-          }catch(e){ continue; }
-        }
-        return { due, fresh, reviewed, total: ids.length, deckKey: selectedDeckKey };
+        await ensureDeckCardCountsIndex();
+        const fast = computeDeckCountsFromState(url);
+        if(fast.knownTotal != null || fast.reviewed > 0) return fast;
+        return await computeDeckCountsFromXml(url);
       }catch(e){
         console.error('computeDeckCounts error:', e);
-        return empty;
+        return { due: 0, fresh: 0, reviewed: 0, total: 0 };
       }
     }
 
@@ -12295,9 +12683,41 @@
             localStorage.setItem('fabanki:bg_color', value);
           }
         }
+        const currentCardColorName = localStorage.getItem('fabanki:current_card_color_name');
+        if(currentCardColorName){
+          const cardColors = [
+            { name: 'Défaut', light: '#fff', dark: '#111319' },
+            { name: 'Bleu clair', light: '#e4f1fa', dark: '#1a2a3a' },
+            { name: 'Vert clair', light: '#e8f5e9', dark: '#1b2d1f' },
+            { name: 'Rose clair', light: '#fce4ec', dark: '#3a1f2e' },
+            { name: 'Amber', light: '#fff8e1', dark: '#3a3000' },
+            { name: 'Indigo', light: '#e8eaf6', dark: '#1a1535' },
+            { name: 'Indigo profond', light: '#d8d3f0', dark: '#1a0754' },
+            { name: 'Cyan', light: '#e0f7fa', dark: '#0d1b1f' },
+            { name: 'Orange pâle', light: '#ffe0b2', dark: '#2d1b0a' },
+            { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816' },
+            { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a' },
+            { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a' },
+            { name: 'Ciel', light: '#b3e5fc', dark: '#0a3a4a' },
+            { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35' },
+            { name: 'Or pâle', light: '#ffecb3', dark: '#3d2d00' },
+            { name: 'Vert sapin', light: '#a5d6a7', dark: '#1d3a1f' },
+            { name: 'Rose vif', light: '#f8bbd0', dark: '#4a0e2a' },
+            { name: 'Bleu royal', light: '#64b5f6', dark: '#0a2558' },
+            { name: 'Sunrise', light: '#ffcc80', dark: '#4d2600' },
+            { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)' },
+            { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)' }
+          ];
+          const cardColor = cardColors.find(c => c.name === currentCardColorName);
+          if(cardColor){
+            localStorage.setItem('fabanki:card_color', t === 'dark' ? cardColor.dark : cardColor.light);
+          }
+        }
         applyCustomization();
+        try{ if(typeof updateTopBarLabels === 'function') updateTopBarLabels(); }catch(e){}
       }catch(e){ console.warn('setThemeMode error', e); }
     }
+    try{ window.setThemeMode = setThemeMode; }catch(e){}
 
     function showProfilePopup(){
       try{
@@ -12325,7 +12745,7 @@
         // \u2500\u2500 Avatar header \u2500\u2500
         const avatarSection = document.createElement('div');
         avatarSection.className = 'profile-avatar-section';
-        avatarSection.style.cssText = 'background:linear-gradient(135deg,rgba(155,89,208,0.15),rgba(155,89,208,0.05));padding:24px 20px 18px;border-bottom:1px solid rgba(155,89,208,0.12);display:flex;align-items:center;gap:16px;position:relative;border-radius:16px 16px 0 0;';
+        avatarSection.style.cssText = 'background:linear-gradient(135deg,rgba(155,89,208,0.15),rgba(155,89,208,0.05));padding:16px 20px 14px;border-bottom:1px solid rgba(155,89,208,0.12);display:flex;align-items:center;gap:16px;position:relative;border-radius:16px 16px 0 0;';
 
         const avatarCircle = document.createElement('div');
         avatarCircle.className = 'profile-avatar-circle';
@@ -12374,11 +12794,7 @@
         });
         pseudoRow.appendChild(p0); pseudoRow.appendChild(editBtn);
 
-        const avatarTitleEl = document.createElement('div');
-        avatarTitleEl.style.cssText = 'font-size:0.82rem;color:var(--accent);font-weight:600;';
-        avatarTitleEl.textContent = localStorage.getItem('fabanki:selected_title') || '';
-
-        avatarInfo.appendChild(pseudoRow); avatarInfo.appendChild(avatarTitleEl);
+        avatarInfo.appendChild(pseudoRow);
 
         const closeX = document.createElement('button');
         closeX.style.cssText = 'display:none;';
@@ -12403,240 +12819,97 @@
 
         const profileV3Wrap = document.createElement('div');
         profileV3Wrap.className = 'profile-v3';
-        const currentLang = localStorage.getItem('fabanki:lang') || 'fr';
-        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-        const currentTitle = localStorage.getItem('fabanki:selected_title') || '';
         const currentGoal = Number(localStorage.getItem('fabanki:daily_goal') || 20);
-        const fontSizeNow = Number(localStorage.getItem('fabanki:font_size') || 16);
+        const goalPresets = [10, 20, 30, 50, 80, 100, 150, 200];
         profileV3Wrap.innerHTML = `
-          <section class="profile-v3-grid">
-            <article class="profile-v3-card">
-              <h4>Apparence</h4>
-              <div class="profile-v3-field">Thème</div>
-              <div class="profile-v3-seg" id="profileThemeSeg">
-                <button data-theme="light" class="${currentTheme==='light'?'active':''}">Clair</button>
-                <button data-theme="dark" class="${currentTheme==='dark'?'active':''}">Sombre</button>
+          <section class="profile-v3-stack">
+            <article class="profile-v3-card profile-v3-goals">
+              <div class="profile-v3-goals-head">
+                <h4>Objectif quotidien</h4>
+                <button type="button" id="profileClassementBtn" class="profile-v3-linkbtn">Classement</button>
               </div>
-              <div class="profile-v3-field">Langue</div>
-              <div class="profile-v3-seg" id="profileLangSeg">
-                <button data-lang="fr" class="${currentLang==='fr'?'active':''}">Français</button>
-                <button data-lang="en" class="${currentLang==='en'?'active':''}">English</button>
+              <div class="profile-v3-goal-readout">
+                <span id="profileGoalValue" class="profile-v3-goal-num">${currentGoal}</span>
+                <span class="profile-v3-goal-unit">cartes / jour</span>
               </div>
-              <div class="profile-v3-field">Taille du texte <span id="profileFontSizeValue">${fontSizeNow}px</span></div>
-              <input id="profileFontSizeRange" type="range" min="12" max="20" step="1" value="${fontSizeNow}">
-            </article>
-            <article class="profile-v3-card">
-              <h4>Titres</h4>
-              <div class="profile-v3-field">Sélectionner un titre</div>
-              <p class="profile-v3-hint">Seuls les titres des paliers débloqués (selon votre XP) peuvent être choisis. Les autres restent visibles mais verrouillés.</p>
-              <select id="profileTitleSel" class="profile-v3-select"></select>
-              <div id="profileTitlePills" class="profile-v3-pills"></div>
-            </article>
-            <article class="profile-v3-card">
-              <h4>Objectifs</h4>
-              <div class="profile-v3-field">Objectif quotidien <span id="profileGoalValue">${currentGoal}</span></div>
-              <input id="profileDailyGoalRange" type="range" min="0" max="300" step="5" value="${currentGoal}">
-              <div class="profile-v3-actions">
-                <button id="profileDailyGoalDialogBtn" class="secondary">Ajuster en détail</button>
-                <button id="profileClassementBtn" class="secondary">Ouvrir Classement</button>
+              <div class="profile-v3-goal-stepper">
+                <button type="button" id="profileGoalMinus" aria-label="Diminuer">−</button>
+                <input id="profileGoalInput" type="number" min="0" max="500" step="5" value="${currentGoal}">
+                <button type="button" id="profileGoalPlus" aria-label="Augmenter">+</button>
+              </div>
+              <div id="profileGoalChips" class="profile-v3-goal-chips">
+                ${goalPresets.map(n => `<button type="button" class="profile-v3-goal-chip${Number(n)===Number(currentGoal)?' active':''}" data-goal="${n}">${n}</button>`).join('')}
               </div>
             </article>
-            <article class="profile-v3-card">
+            <article class="profile-v3-card profile-v3-custom">
               <h4>Personnalisation</h4>
               <div class="profile-v3-field">Couleur d'accent</div>
               <div id="profileAccentPalette" class="profile-v3-color-palette">
-                <button class="profile-v3-color-dot" data-accent="#9b59d0" style="background:#9b59d0"></button>
-                <button class="profile-v3-color-dot" data-accent="#6366f1" style="background:#6366f1"></button>
-                <button class="profile-v3-color-dot" data-accent="#58cc3a" style="background:#58cc3a"></button>
-                <button class="profile-v3-color-dot" data-accent="#d946a6" style="background:#d946a6"></button>
-                <button class="profile-v3-color-dot" data-accent="#f59e0b" style="background:#f59e0b"></button>
-                <button class="profile-v3-color-dot" data-accent="#5aaed6" style="background:#5aaed6"></button>
-                <button class="profile-v3-color-dot" data-accent="#ef4444" style="background:#ef4444"></button>
-                <button class="profile-v3-color-dot" data-accent="#eab308" style="background:#eab308"></button>
+                <button type="button" class="profile-v3-color-dot" data-accent="#9b59d0" style="background:#9b59d0"></button>
+                <button type="button" class="profile-v3-color-dot" data-accent="#6366f1" style="background:#6366f1"></button>
+                <button type="button" class="profile-v3-color-dot" data-accent="#58cc3a" style="background:#58cc3a"></button>
+                <button type="button" class="profile-v3-color-dot" data-accent="#d946a6" style="background:#d946a6"></button>
+                <button type="button" class="profile-v3-color-dot" data-accent="#f59e0b" style="background:#f59e0b"></button>
+                <button type="button" class="profile-v3-color-dot" data-accent="#5aaed6" style="background:#5aaed6"></button>
+                <button type="button" class="profile-v3-color-dot" data-accent="#ef4444" style="background:#ef4444"></button>
+                <button type="button" class="profile-v3-color-dot" data-accent="#eab308" style="background:#eab308"></button>
               </div>
-              <div class="profile-v3-field">Motifs</div>
-              <div id="profilePatternPicker" class="profile-v3-pick-grid">
-                <button data-pattern="none" class="profile-v3-pattern-btn">Aucun</button>
-                <button data-pattern="dots" class="profile-v3-pattern-btn profile-v3-pattern--dots">Points</button>
-                <button data-pattern="grid" class="profile-v3-pattern-btn profile-v3-pattern--grid">Grille</button>
-                <button data-pattern="stripes" class="profile-v3-pattern-btn profile-v3-pattern--stripes">Rayures</button>
-                <button data-pattern="waves" class="profile-v3-pattern-btn profile-v3-pattern--waves">Vagues</button>
-                <button data-pattern="zigzag" class="profile-v3-pattern-btn profile-v3-pattern--zigzag">Zigzag</button>
-                <button data-pattern="circles" class="profile-v3-pattern-btn profile-v3-pattern--circles">Cercles</button>
-                <button data-pattern="mesh" class="profile-v3-pattern-btn profile-v3-pattern--mesh">Mesh</button>
-                <button data-pattern="diamond" class="profile-v3-pattern-btn profile-v3-pattern--diamond">Diamant</button>
-                <button data-pattern="hero_topography" class="profile-v3-pattern-btn profile-v3-pattern--topography">Topo</button>
-              </div>
-              <div class="profile-v3-field">Texte (police)</div>
-              <div id="profileFontPicker" class="profile-v3-pick-grid">
-                <button data-font="" class="profile-v3-font-btn">Système</button>
-                <button data-font='"Inter", "Helvetica", "Arial", sans-serif' class="profile-v3-font-btn" style="font-family:'Inter','Helvetica','Arial',sans-serif">Moderne</button>
-                <button data-font='"Segoe UI", "Tahoma", sans-serif' class="profile-v3-font-btn" style="font-family:'Segoe UI','Tahoma',sans-serif">Confort</button>
-                <button data-font='"Georgia", "Times New Roman", serif' class="profile-v3-font-btn" style="font-family:'Georgia','Times New Roman',serif">Sérif</button>
-                <button data-font='"Trebuchet MS", "Verdana", sans-serif' class="profile-v3-font-btn" style="font-family:'Trebuchet MS','Verdana',sans-serif">Trebuchet</button>
-                <button data-font='"Courier New", monospace' class="profile-v3-font-btn" style="font-family:'Courier New',monospace">Mono</button>
-              </div>
+              <div class="profile-v3-field">Couleur de fond</div>
+              <div id="profileBgColorGrid" class="profile-v3-swatch-grid"></div>
+              <div class="profile-v3-field">Couleur des cartes</div>
+              <div id="profileCardColorGrid" class="profile-v3-swatch-grid"></div>
+              <div class="profile-v3-field">Motif de fond</div>
+              <div id="profilePatternPicker" class="profile-v3-pick-grid profile-v3-pick-grid--dense"></div>
+              <div class="profile-v3-field">Motif des cartes</div>
+              <div id="profileCardPatternPicker" class="profile-v3-pick-grid profile-v3-pick-grid--dense"></div>
+              <div class="profile-v3-field">Police</div>
+              <div id="profileFontPicker" class="profile-v3-pick-grid profile-v3-pick-grid--dense"></div>
               <div class="profile-v3-field">Animations</div>
-              <div id="profileAnimPicker" class="profile-v3-pick-grid">
-                <button data-anim="none">Aucune</button>
-                <button data-anim="fade">Fade</button>
-                <button data-anim="slidedown">Slide</button>
-                <button data-anim="bounce">Bounce</button>
-                <button data-anim="zoom">Zoom</button>
-                <button data-anim="spring">Spring</button>
-                <button data-anim="flip">Flip</button>
-                <button data-anim="pulse">Pulse</button>
-                <button data-anim="wobble">Wobble</button>
-                <button data-anim="shake">Shake</button>
-              </div>
-              <div class="profile-v3-actions">
-                <button id="profileAdvancedCustomizeBtn" class="secondary">Options avancées</button>
-              </div>
+              <div id="profileAnimPicker" class="profile-v3-pick-grid profile-v3-pick-grid--dense"></div>
             </article>
           </section>
         `;
         m.appendChild(profileV3Wrap);
         try{
-          const titleByTier = {
-            1: { tier:'Bronze', names:['Lagrange','Laplace','Fourier','Cauchy','Riemann'] },
-            2: { tier:'Silver', names:['Ramanujan','Cantor','Hilbert','Leibniz','Boole'] },
-            3: { tier:'Gold', names:['Descartes','Bernoulli','Weierstrass','Dirichlet','Archimedes'] },
-            4: { tier:'Platinum', names:['Euclid','Pythagoras','Al-Khwarizmi','Galois','Grothendieck'] },
-            5: { tier:'Diamond', names:['Euler','Newton','Gauss','Fibonacci','Pascal'] }
+          const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
+          const currentLevel = (typeof computeLevelAndProgress === 'function')
+            ? computeLevelAndProgress(stats.xpTotal || 0).level
+            : 0;
+          const lockReason = (item) => {
+            if(item.special && !item.unlocked) return 'Quête de bienvenue';
+            if((item.level || 0) > currentLevel) return `Niveau ${item.level}`;
+            if(item.credit && item.marketKey && !localStorage.getItem(item.marketKey)) return `${item.credit} ℂ au Marché`;
+            return '';
           };
-          const TITLE_TIER_XP_REQ = [0, 500, 2000, 5000, 15000];
-          const titleSel = profileV3Wrap.querySelector('#profileTitleSel');
-          const pillsWrap = profileV3Wrap.querySelector('#profileTitlePills');
-          const xpTot = Number(stats.xpTotal || 0);
-          function isTierUnlocked(tierKey){
-            const idx = Number(tierKey) - 1;
-            const req = TITLE_TIER_XP_REQ[idx];
-            if(req === undefined) return false;
-            return xpTot >= req;
-          }
-          function findTierKeyForTitle(name){
-            for(const [k, data] of Object.entries(titleByTier)){
-              if(data.names.includes(name)) return k;
-            }
-            return null;
-          }
-          function rebuildProfileTitleSelect(){
-            titleSel.innerHTML = '';
-            const noneOpt = document.createElement('option');
-            noneOpt.value = '';
-            noneOpt.textContent = t('noTitle');
-            titleSel.appendChild(noneOpt);
-            const unlockedNames = new Set();
-            Object.entries(titleByTier).forEach(([tierKey, data]) => {
-              if(!isTierUnlocked(tierKey)) return;
-              data.names.forEach(name => {
-                unlockedNames.add(name);
-                const opt = document.createElement('option');
-                opt.value = name;
-                opt.textContent = `${name} (${data.tier})`;
-                titleSel.appendChild(opt);
-              });
+          const persistGoal = (raw) => {
+            const v = Math.max(0, Math.min(500, Number(raw) || 0));
+            if(typeof setDailyGoal === 'function') setDailyGoal(v);
+            else localStorage.setItem('fabanki:daily_goal', String(v));
+            const goalValueEl = profileV3Wrap.querySelector('#profileGoalValue');
+            const goalInput = profileV3Wrap.querySelector('#profileGoalInput');
+            if(goalValueEl) goalValueEl.textContent = String(v);
+            if(goalInput) goalInput.value = String(v);
+            profileV3Wrap.querySelectorAll('#profileGoalChips .profile-v3-goal-chip').forEach(c => {
+              c.classList.toggle('active', Number(c.dataset.goal) === v);
             });
-            let sel = localStorage.getItem('fabanki:selected_title') || '';
-            if(sel && !unlockedNames.has(sel)){
-              localStorage.removeItem('fabanki:selected_title');
-              sel = '';
-            }
-            titleSel.value = sel || '';
-            return unlockedNames;
-          }
-          function refreshProfileTitlePillsActive(){
-            const v = localStorage.getItem('fabanki:selected_title') || '';
-            pillsWrap.querySelectorAll('.profile-v3-pill[data-title-name]').forEach(p => {
-              const ok = !p.classList.contains('profile-v3-pill--locked');
-              p.classList.toggle('active', ok && p.getAttribute('data-title-name') === v);
-            });
-          }
-          Object.entries(titleByTier).forEach(([tierKey, data]) => {
-            const row = document.createElement('div');
-            row.className = 'profile-v3-pill-row';
-            const cap = document.createElement('div');
-            cap.className = 'profile-v3-pill-tier';
-            const req = TITLE_TIER_XP_REQ[Number(tierKey) - 1] ?? 0;
-            const tierOk = isTierUnlocked(tierKey);
-            cap.textContent = data.tier + (!tierOk ? ` · ${req.toLocaleString()} XP` : '');
-            if(!tierOk) cap.classList.add('profile-v3-pill-tier--locked');
-            row.appendChild(cap);
-            data.names.forEach(name => {
-              const unlocked = tierOk;
-              const pill = document.createElement('button');
-              pill.type = 'button';
-              pill.className = 'profile-v3-pill';
-              pill.setAttribute('data-title-name', name);
-              pill.textContent = name;
-              if(!unlocked){
-                pill.classList.add('profile-v3-pill--locked');
-                pill.setAttribute('aria-disabled', 'true');
-                pill.title = `${data.tier} — ${req.toLocaleString()} XP requis`;
-              } else {
-                pill.addEventListener('click', () => {
-                  localStorage.setItem('fabanki:selected_title', name);
-                  localStorage.setItem(`fabanki:title_chosen_${tierKey}`, name);
-                  titleSel.value = name;
-                  refreshProfileTitlePillsActive();
-                  try{ avatarTitleEl.textContent = name; }catch(e){}
-                  try{ if(typeof window.syncClassement === 'function') window.syncClassement(); }catch(e){}
-                  try{ if(typeof autoSync === 'function') autoSync().catch(() => {}); }catch(e){}
-                });
+            try{
+              if(v > 0 && typeof completeWelcomeQuestMission === 'function'){
+                completeWelcomeQuestMission('part1', 'goal_set', 3);
               }
-              if(currentTitle === name && unlocked) pill.classList.add('active');
-              row.appendChild(pill);
-            });
-            pillsWrap.appendChild(row);
+            }catch(e){}
+            return v;
+          };
+          profileV3Wrap.querySelector('#profileGoalMinus')?.addEventListener('click', ()=>{
+            persistGoal(Number(profileV3Wrap.querySelector('#profileGoalInput')?.value || 0) - 5);
           });
-          rebuildProfileTitleSelect();
-          refreshProfileTitlePillsActive();
-          try{
-            avatarTitleEl.textContent = localStorage.getItem('fabanki:selected_title') || '';
-          }catch(e){}
-          titleSel.addEventListener('change', (e) => {
-            const v = e.target.value || '';
-            if(v){
-              localStorage.setItem('fabanki:selected_title', v);
-              const tk = findTierKeyForTitle(v);
-              if(tk) localStorage.setItem(`fabanki:title_chosen_${tk}`, v);
-            } else {
-              localStorage.removeItem('fabanki:selected_title');
-            }
-            refreshProfileTitlePillsActive();
-            try{ avatarTitleEl.textContent = v || ''; }catch(e){}
-            try{ if(typeof window.syncClassement === 'function') window.syncClassement(); }catch(e){}
-            try{ if(typeof autoSync === 'function') autoSync().catch(() => {}); }catch(e){}
+          profileV3Wrap.querySelector('#profileGoalPlus')?.addEventListener('click', ()=>{
+            persistGoal(Number(profileV3Wrap.querySelector('#profileGoalInput')?.value || 0) + 5);
           });
-
-          const themeButtons = Array.from(profileV3Wrap.querySelectorAll('#profileThemeSeg button'));
-          themeButtons.forEach(btn => btn.addEventListener('click', ()=>{
-            const next = btn.dataset.theme || 'light';
-            setThemeMode(next);
-            themeButtons.forEach(b => b.classList.toggle('active', b === btn));
-          }));
-          const langButtons = Array.from(profileV3Wrap.querySelectorAll('#profileLangSeg button'));
-          langButtons.forEach(btn => btn.addEventListener('click', ()=>{
-            const nextLang = btn.dataset.lang || 'fr';
-            localStorage.setItem('fabanki:lang', nextLang);
-            langButtons.forEach(b => b.classList.toggle('active', b === btn));
-            try{ if(typeof updateUILanguage === 'function') updateUILanguage(nextLang); }catch(e){}
-          }));
-
-          const fsRange = profileV3Wrap.querySelector('#profileFontSizeRange');
-          const fsValue = profileV3Wrap.querySelector('#profileFontSizeValue');
-          fsRange?.addEventListener('input', ()=>{
-            const v = Number(fsRange.value || 16);
-            fsValue.textContent = `${v}px`;
-            localStorage.setItem('fabanki:font_size', String(v));
-            document.documentElement.style.fontSize = `${v}px`;
+          profileV3Wrap.querySelector('#profileGoalInput')?.addEventListener('change', (e)=>{
+            persistGoal(e.target.value);
           });
-          const dailyRange = profileV3Wrap.querySelector('#profileDailyGoalRange');
-          const dailyValue = profileV3Wrap.querySelector('#profileGoalValue');
-          dailyRange?.addEventListener('input', ()=>{
-            const v = Number(dailyRange.value || 0);
-            dailyValue.textContent = String(v);
-            localStorage.setItem('fabanki:daily_goal', String(Math.max(0, v)));
+          profileV3Wrap.querySelectorAll('#profileGoalChips .profile-v3-goal-chip').forEach(chip => {
+            chip.addEventListener('click', ()=> persistGoal(chip.dataset.goal));
           });
 
           const currentAccent = localStorage.getItem('fabanki:accent_color') || '#9b59d0';
@@ -12650,29 +12923,194 @@
               if(typeof applyCustomization==='function') applyCustomization();
             });
           });
-          const bindPicker = (selector, dataAttr, storageKey, fallback) => {
-            const buttons = Array.from(profileV3Wrap.querySelectorAll(selector));
-            const current = localStorage.getItem(storageKey) || fallback;
-            buttons.forEach(btn => {
-              btn.classList.toggle('active', (btn.dataset[dataAttr] || '') === current);
-              btn.addEventListener('click', ()=>{
-                const v = btn.dataset[dataAttr] || fallback;
-                localStorage.setItem(storageKey, v);
-                buttons.forEach(b => b.classList.toggle('active', b === btn));
-                if(typeof applyCustomization==='function') applyCustomization();
-              });
+
+          const fillSwatches = (mount, items, storageKey, nameKey) => {
+            if(!mount) return;
+            const current = localStorage.getItem(storageKey) || '';
+            items.forEach(item => {
+              const value = isDarkTheme ? item.dark : item.light;
+              const locked = !!lockReason(item);
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'profile-v3-swatch' + (locked ? ' locked' : '');
+              btn.title = locked ? `${item.name} — ${lockReason(item)}` : item.name;
+              if(String(value).includes('gradient')){
+                btn.style.backgroundImage = value;
+              } else {
+                btn.style.background = value;
+              }
+              if(!locked && value === current) btn.classList.add('active');
+              if(!locked){
+                btn.addEventListener('click', ()=>{
+                  mount.querySelectorAll('.profile-v3-swatch').forEach(b => b.classList.remove('active'));
+                  btn.classList.add('active');
+                  localStorage.setItem(storageKey, value);
+                  if(nameKey) localStorage.setItem(nameKey, item.name);
+                  if(typeof applyCustomization==='function') applyCustomization();
+                });
+              }
+              mount.appendChild(btn);
             });
           };
-          bindPicker('#profilePatternPicker button', 'pattern', 'fabanki:bg_pattern', 'none');
-          bindPicker('#profileFontPicker button', 'font', 'fabanki:font_stack', '');
-          bindPicker('#profileAnimPicker button', 'anim', 'fabanki:popup_animation', 'none');
+          const fillPicker = (mount, items, { idAttr, storageKey, extraStorage, onPick }) => {
+            if(!mount) return;
+            const current = localStorage.getItem(storageKey) || items[0]?.id || '';
+            items.forEach(item => {
+              const locked = !!lockReason(item);
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = locked ? 'locked' : '';
+              btn.dataset[idAttr] = item.id;
+              btn.textContent = locked ? `🔒 ${item.name}` : item.name;
+              btn.title = locked ? `${item.name} — ${lockReason(item)}` : item.name;
+              if(item.stack) btn.style.fontFamily = item.stack;
+              if(!locked && item.id === current) btn.classList.add('active');
+              if(!locked){
+                btn.addEventListener('click', ()=>{
+                  mount.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                  btn.classList.add('active');
+                  localStorage.setItem(storageKey, item.id);
+                  if(extraStorage) extraStorage(item);
+                  if(typeof onPick === 'function') onPick(item);
+                  else if(typeof applyCustomization==='function') applyCustomization();
+                });
+              }
+              mount.appendChild(btn);
+            });
+          };
+
+          fillSwatches(profileV3Wrap.querySelector('#profileBgColorGrid'), [
+            { name: 'Clair (défaut)', light: '#f6f7fb', dark: '#0f1115', level: 0 },
+            { name: 'Bleu', light: '#e8f4f8', dark: '#0a1a2e', level: 5 },
+            { name: 'Vert', light: '#e8f5e9', dark: '#0d2818', level: 5 },
+            { name: 'Rose', id: 'rose', light: '#fce4ec', dark: '#2a0e1f', level: 10, credit: 30, marketKey: 'fabanki:market_color_rose' },
+            { name: 'Jaune', light: '#fffde7', dark: '#332d00', level: 10 },
+            { name: 'Pourpre', light: '#f3e5f5', dark: '#25071a', level: 15 },
+            { name: 'Indigo profond', light: '#d8d3f0', dark: '#1a0754', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_indigo') === 'true' },
+            { name: 'Cyan', id: 'cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 20, credit: 40, marketKey: 'fabanki:market_color_cyan' },
+            { name: 'Orange', light: '#ffe0b2', dark: '#2d1b0a', level: 20 },
+            { name: 'Menthe', id: 'menthe', light: '#e0f2f1', dark: '#0d1816', level: 25, credit: 50, marketKey: 'fabanki:market_color_menthe' },
+            { name: 'Corail', light: '#ffebee', dark: '#382f2f', level: 25 },
+            { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 30 },
+            { name: 'Pêche', id: 'peche', light: '#ffd7a8', dark: '#3a1f0a', level: 30, credit: 60, marketKey: 'fabanki:market_color_peche' },
+            { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 35 },
+            { name: 'Gradient Doré', id: 'gradient_dore', light: 'linear-gradient(135deg, #ffecb3 0%, #ffcc80 100%)', dark: 'linear-gradient(135deg, #3d2d00 0%, #4d2600 100%)', level: 35, credit: 80, marketKey: 'fabanki:market_color_gradient_dore' },
+            { name: 'Gradient Rose-Vert', light: 'linear-gradient(135deg, #f8bbd0 0%, #a5d6a7 100%)', dark: 'linear-gradient(135deg, #4a0e2a 0%, #1d3a1f 100%)', level: 40 },
+            { name: 'Gradient Prisma', light: 'linear-gradient(135deg, #e8f4f8 0%, #fce4ec 50%, #f3e5f5 100%)', dark: 'linear-gradient(135deg, #0a1a2e 0%, #2a0e1f 50%, #25071a 100%)', level: 45 },
+            { name: 'Gradient Bleu Royal', light: 'linear-gradient(135deg, #64b5f6 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0a2558 0%, #1a2a3a 100%)', level: 45 },
+            { name: 'Gradient Aurora', light: 'linear-gradient(135deg, #e0f2f1 0%, #fffde7 50%, #ffebee 100%)', dark: 'linear-gradient(135deg, #0d1816 0%, #332d00 50%, #2d0a0a 100%)', level: 48 },
+            { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 50 },
+            { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 50 }
+          ], 'fabanki:bg_color', 'fabanki:current_color_name');
+
+          fillSwatches(profileV3Wrap.querySelector('#profileCardColorGrid'), [
+            { name: 'Défaut', light: '#fff', dark: '#111319', level: 0 },
+            { name: 'Bleu clair', light: '#e3f2fd', dark: '#1a2a3a', level: 5 },
+            { name: 'Vert clair', light: '#e8f5e9', dark: '#1b2d1f', level: 10 },
+            { name: 'Rose clair', light: '#fce4ec', dark: '#3a1f2e', level: 15 },
+            { name: 'Amber', light: '#fff8e1', dark: '#3a3000', level: 20 },
+            { name: 'Indigo', light: '#e8eaf6', dark: '#1a1535', level: 25 },
+            { name: 'Indigo profond', light: '#d8d3f0', dark: '#1a0754', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_indigo') === 'true' },
+            { name: 'Cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 28 },
+            { name: 'Orange pâle', light: '#ffe0b2', dark: '#2d1b0a', level: 22 },
+            { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 30 },
+            { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 32 },
+            { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 35 },
+            { name: 'Ciel', light: '#b3e5fc', dark: '#0a3a4a', level: 38 },
+            { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 40 },
+            { name: 'Or pâle', light: '#ffecb3', dark: '#3d2d00', level: 42 },
+            { name: 'Vert sapin', light: '#a5d6a7', dark: '#1d3a1f', level: 45 },
+            { name: 'Rose vif', light: '#f8bbd0', dark: '#4a0e2a', level: 45 },
+            { name: 'Bleu royal', light: '#64b5f6', dark: '#0a2558', level: 48 },
+            { name: 'Sunrise', light: '#ffcc80', dark: '#4d2600', level: 50 },
+            { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 55 },
+            { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 55 }
+          ], 'fabanki:card_color', 'fabanki:current_card_color_name');
+
+          fillPicker(profileV3Wrap.querySelector('#profilePatternPicker'), [
+            { name: 'Aucun', id: 'none', level: 0 },
+            { name: 'Points', id: 'dots', level: 5 },
+            { name: 'Grille', id: 'grid', level: 10, credit: 25, marketKey: 'fabanki:market_pattern_grid' },
+            { name: 'Rayures', id: 'stripes', level: 15 },
+            { name: 'Zigzag', id: 'zigzag', level: 20 },
+            { name: 'Vagues', id: 'waves', level: 30, credit: 35, marketKey: 'fabanki:market_pattern_waves' },
+            { name: 'Hexagone', id: 'hexagon', level: 25 },
+            { name: 'Carrés', id: 'squares', level: 35, credit: 45, marketKey: 'fabanki:market_pattern_squares' },
+            { name: 'Croix', id: 'cross', level: 28 },
+            { name: 'Chevrons', id: 'chevron', level: 32, credit: 40, marketKey: 'fabanki:market_pattern_chevron' },
+            { name: 'Cercles', id: 'circles', level: 38 },
+            { name: 'Mailles', id: 'mesh', level: 22 },
+            { name: 'Losange', id: 'diamond', level: 24 },
+            { name: 'Spirale', id: 'spiral', level: 26 },
+            { name: 'Cible', id: 'target', level: 29 },
+            { name: 'Écailles', id: 'scales', level: 31 },
+            { name: 'Feuilles', id: 'leaves', level: 33 },
+            { name: 'Triangles', id: 'triangles', level: 36 },
+            { name: "Nid d'abeille", id: 'honeycomb', level: 37 },
+            { name: 'Pluie', id: 'rain', level: 39 },
+            { name: "Toile d'araignée", id: 'web', level: 41 },
+            { name: '42', id: 'fortytwo', level: 42 },
+            { name: 'Topographie', id: 'hero_topography', level: 45, credit: 45, marketKey: 'fabanki:market_pattern_hero_topography' },
+            { name: 'Hexagones', id: 'hero_hex', level: 50, credit: 50, marketKey: 'fabanki:market_pattern_hero_hex' },
+            { name: 'Circuit', id: 'hero_circuit', level: 55, credit: 55, marketKey: 'fabanki:market_pattern_hero_circuit' },
+            { name: 'Puzzle', id: 'hero_jigsaw', level: 60, credit: 60, marketKey: 'fabanki:market_pattern_hero_jigsaw' },
+            { name: '42 Pattern', id: 'welcome42', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_42_pattern') === 'true' }
+          ], { idAttr: 'pattern', storageKey: 'fabanki:bg_pattern' });
+
+          fillPicker(profileV3Wrap.querySelector('#profileCardPatternPicker'), [
+            { name: 'Aucun', id: 'none', level: 0 },
+            { name: 'Points', id: 'dots', level: 10 },
+            { name: 'Grille', id: 'grid', level: 20 },
+            { name: 'Rayures', id: 'stripes', level: 30 },
+            { name: 'Zigzag', id: 'zigzag', level: 40 },
+            { name: 'Vagues', id: 'waves', level: 50 },
+            { name: 'Topographie', id: 'hero_topography', level: 35, credit: 35, marketKey: 'fabanki:market_card_pattern_hero_topography' },
+            { name: 'Hexagones', id: 'hero_hex', level: 40, credit: 40, marketKey: 'fabanki:market_card_pattern_hero_hex' },
+            { name: 'Circuit', id: 'hero_circuit', level: 50, credit: 50, marketKey: 'fabanki:market_card_pattern_hero_circuit' },
+            { name: 'Puzzle', id: 'hero_jigsaw', level: 60, credit: 60, marketKey: 'fabanki:market_card_pattern_hero_jigsaw' }
+          ], {
+            idAttr: 'cardpattern',
+            storageKey: 'fabanki:card_pattern',
+            onPick: () => { if(typeof applyCardPattern === 'function') applyCardPattern(); }
+          });
+
+          fillPicker(profileV3Wrap.querySelector('#profileFontPicker'), [
+            { name: 'Classique', id: 'system', stack: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial', level: 0 },
+            { name: 'Élégant', id: 'elegant', stack: '"Georgia", "Times New Roman", serif', level: 5 },
+            { name: 'Moderne', id: 'modern', stack: '"Inter", "Helvetica", "Arial", sans-serif', level: 10, credit: 30, marketKey: 'fabanki:market_font_modern' },
+            { name: 'Monospace', id: 'mono', stack: '"Courier New", "Monaco", monospace', level: 15 },
+            { name: 'Lisible', id: 'readable', stack: '"Trebuchet MS", sans-serif', level: 20 },
+            { name: 'Confortable', id: 'comfortable', stack: '"Segoe UI", "Tahoma", sans-serif', level: 25, credit: 35, marketKey: 'fabanki:market_font_comfortable' },
+            { name: 'Minimaliste', id: 'minimal', stack: '"Helvetica Neue", "Arial", sans-serif', level: 30 },
+            { name: 'Littéraire', id: 'literary', stack: '"Cambria", "Palatino", serif', level: 35 },
+            { name: 'Futuriste', id: 'futuristic', stack: '"Trebuchet MS", "Lucida Grande", sans-serif', level: 40, credit: 50, marketKey: 'fabanki:market_font_futuristic' },
+            { name: 'Manuscrit', id: 'script', stack: '"Comic Sans MS", "Brush Script MT", cursive', level: 45 }
+          ], {
+            idAttr: 'font',
+            storageKey: 'fabanki:font_family',
+            extraStorage: (item) => { localStorage.setItem('fabanki:font_stack', item.stack || ''); }
+          });
+
+          fillPicker(profileV3Wrap.querySelector('#profileAnimPicker'), [
+            { name: 'Aucune', id: 'none', level: 0 },
+            { name: 'Fondu', id: 'fade', level: 5 },
+            { name: 'Glissade bas', id: 'slidedown', level: 10 },
+            { name: 'Glissade haut', id: 'slideup', level: 15 },
+            { name: 'Rebond', id: 'bounce', level: 20, credit: 25, marketKey: 'fabanki:market_animation_bounce' },
+            { name: 'Rotation', id: 'rotate', level: 25 },
+            { name: 'Ressort', id: 'spring', level: 30, credit: 30, marketKey: 'fabanki:market_animation_spring' },
+            { name: 'Zoom', id: 'zoom', level: 35, credit: 35, marketKey: 'fabanki:market_animation_zoom' },
+            { name: 'Flip', id: 'flip', level: 40, credit: 40, marketKey: 'fabanki:market_animation_flip' },
+            { name: 'Pulse', id: 'pulse', level: 45, credit: 45, marketKey: 'fabanki:market_animation_pulse' },
+            { name: 'Wobble', id: 'wobble', level: 50, credit: 50, marketKey: 'fabanki:market_animation_wobble' },
+            { name: 'Shake', id: 'shake', level: 55, credit: 55, marketKey: 'fabanki:market_animation_shake' }
+          ], { idAttr: 'anim', storageKey: 'fabanki:popup_animation' });
+
           profileV3Wrap.querySelector('#profileClassementBtn')?.addEventListener('click', ()=>{
             const cur = document.getElementById('profileContainer');
             if(cur) cur.remove();
             try{ if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('classement'); }catch(e){}
           });
-          profileV3Wrap.querySelector('#profileDailyGoalDialogBtn')?.addEventListener('click', ()=>{ try{ if(typeof showDailyGoalDialog === 'function') showDailyGoalDialog(); }catch(e){} });
-          profileV3Wrap.querySelector('#profileAdvancedCustomizeBtn')?.addEventListener('click', ()=>{ try{ if(typeof showCustomizationModal === 'function') showCustomizationModal(); }catch(e){} });
         }catch(e){ console.warn('profile v3 bind error', e); }
         ov.appendChild(m); document.body.appendChild(ov); return;
 
@@ -12828,7 +13266,7 @@
               pill.style.cssText = unlocked
                 ? `padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer;background:${isSelected?tc:`${tc}22`};color:${isSelected?'#fff':tc};border:1px solid ${isSelected?tc:`${tc}55`};font-weight:${isSelected?700:500};opacity:1;transition:all 0.15s;`
                 : `padding:4px 10px;border-radius:20px;font-size:11px;cursor:not-allowed;background:rgba(0,0,0,0.06);color:var(--muted);border:1px dashed rgba(0,0,0,0.16);font-weight:500;opacity:1;transition:all 0.15s;`;
-              pill.textContent = (unlocked ? '' : '? ') + name;
+              pill.textContent = (unlocked ? '' : '🔒 ') + name;
               if(!unlocked) pill.title = `${tierData.name} — ${tierXpReq.toLocaleString()} XP requis`;
               if(unlocked) pill.addEventListener('click', () => {
                 localStorage.setItem('fabanki:selected_title', name);
@@ -13008,7 +13446,7 @@
           <div class="profile-appearance-title">Personnalisation de l'interface</div>
           <div class="profile-appearance-grid">
             <label class="profile-field">Taille du texte
-              <input id="profileFontSizeRange" type="range" min="12" max="20" step="1" value="${Number(localStorage.getItem('fabanki:font_size') || 16)}">
+              <input id="profileFontSizeRange" type="range" min="12" max="20" step="1" value="${parseUiFontSizePx(localStorage.getItem('fabanki:font_size'))}">
             </label>
             <label class="profile-field">Animation popup
               <select id="profilePopupAnim">
@@ -13073,9 +13511,9 @@
           const popupAnim = sectionsWrap.querySelector('#profilePopupAnim');
           if(fsRange){
             fsRange.addEventListener('input', () => {
-              const v = Number(fsRange.value || 16);
+              const v = parseUiFontSizePx(fsRange.value);
               localStorage.setItem('fabanki:font_size', String(v));
-              document.documentElement.style.fontSize = `${v}px`;
+              applyUiFontSize();
             });
           }
           if(popupAnim){
@@ -13205,7 +13643,7 @@
         const db = window.__fabanki_firestore;
         if(!db){ console.error('Firestore not available'); return; }
         
-        console.log('? [MERGE] Scanning for duplicate entries...');
+        console.log('🔍 [MERGE] Scanning for duplicate entries...');
         const snapshot = await db.collection('Classement').get();
         const entries = [];
         snapshot.forEach(doc => {
@@ -13229,13 +13667,13 @@
         });
         
         if(duplicates.length === 0){
-          console.log('? No duplicates found!');
+          console.log('✅ No duplicates found!');
           return;
         }
         
-        console.log(`?? Found ${duplicates.length} user(s) with duplicate entries:`);
+        console.log(`⚠️ Found ${duplicates.length} user(s) with duplicate entries:`);
         duplicates.forEach(dup => {
-          console.log(`  ? ${dup.pseudo}: ${dup.docs.length} entries`);
+          console.log(`  📛 ${dup.pseudo}: ${dup.docs.length} entries`);
           dup.docs.forEach((doc, idx) => {
             console.log(`    ${idx + 1}. ID: ${doc.id}, Score: ${doc.data.Score_MPSI || 0}, Cards: ${doc.data['Cartes révisées'] || 0}, Level: ${doc.data.Niveau || 0}`);
           });
@@ -13243,13 +13681,13 @@
         
         if(dryRun){
           console.log('');
-          console.log('? DRY RUN MODE - No changes made.');
+          console.log('🔴 DRY RUN MODE - No changes made.');
           console.log('To actually merge duplicates, run: fabanki_mergeDuplicates(false)');
           return;
         }
         
         console.log('');
-        console.log('? [MERGE] Starting merge process...');
+        console.log('🔄 [MERGE] Starting merge process...');
         let mergedCount = 0;
         
         for(const dup of duplicates){
@@ -13268,12 +13706,12 @@
             }
           }
           
-          console.log(`  ? Keeping best entry for "${dup.pseudo}": ID ${bestDoc.id}`);
+          console.log(`  ✨ Keeping best entry for "${dup.pseudo}": ID ${bestDoc.id}`);
           
           // Delete all other entries
           for(const doc of dup.docs){
             if(doc.id !== bestDoc.id){
-              console.log(`    ?? Deleting duplicate: ID ${doc.id}`);
+              console.log(`    🗑️ Deleting duplicate: ID ${doc.id}`);
               await db.collection('Classement').doc(doc.id).delete();
               mergedCount++;
             }
@@ -13282,9 +13720,9 @@
         
         console.log('');
         console.log(`? [MERGE] Complete! Removed ${mergedCount} duplicate entries.`);
-        console.log('? Refresh the leaderboard to see changes.');
+        console.log('🔄 Refresh the leaderboard to see changes.');
       }catch(e){
-        console.error('? [MERGE] Error:', e);
+        console.error('âŒ [MERGE] Error:', e);
       }
     };
 
@@ -13493,8 +13931,8 @@
           <div class="market-level-meta">
             <div class="market-level-line">
               <span class="market-pill market-pill--credits">💰 ${_creditCount.toLocaleString()} crédits</span>
-              <span class="market-pill">? ${xpStats.progress}/${xpStats.need} XP</span>
-              <span class="market-pill">? ${xpStats.toNext} pour le niveau suivant</span>
+              <span class="market-pill">✨ ${xpStats.progress}/${xpStats.need} XP</span>
+              <span class="market-pill">⬆ ${xpStats.toNext} pour le niveau suivant</span>
             </div>
             <div class="market-progress"><i style="width:${Math.round(xpStats.pct)}%"></i></div>
           </div>
@@ -13705,7 +14143,7 @@
         priceDiv.style.cssText = isMobile
           ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
           : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
-        priceDiv.textContent = '100 ?';
+        priceDiv.textContent = '100 ℂ';
         btnDiv.appendChild(priceDiv);
         
         const modeBtn = document.createElement('button');
@@ -13796,7 +14234,7 @@
         timerPriceDiv.style.cssText = isMobile
           ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
           : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
-        timerPriceDiv.textContent = '100 ?';
+        timerPriceDiv.textContent = '100 ℂ';
         timerBtnDiv.appendChild(timerPriceDiv);
         
         const timerBtn = document.createElement('button');
@@ -13887,7 +14325,7 @@
         rushPriceDiv.style.cssText = isMobile
           ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
           : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
-        rushPriceDiv.textContent = '150 ?';
+        rushPriceDiv.textContent = '150 ℂ';
         rushBtnDiv.appendChild(rushPriceDiv);
         
         const rushBtn = document.createElement('button');
@@ -13978,7 +14416,7 @@
         calculPriceDiv.style.cssText = isMobile
           ? 'color:#FFFFFF;font-weight:700;font-size:1.3em;'
           : 'color:#FFFFFF;font-weight:700;font-size:1.2em;';
-        calculPriceDiv.textContent = '100 ?';
+        calculPriceDiv.textContent = '100 ℂ';
         calculBtnDiv.appendChild(calculPriceDiv);
         
         const calculBtn = document.createElement('button');
@@ -14032,7 +14470,7 @@
           const isLocked = isLockedByLevel || isLockedByPurchase;
           
           const card = document.createElement('div');
-          card.style.cssText = 'background:white;border:2px solid #e0e0e0;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.1);display:flex;flex-direction:column;gap:10px;transition:all 0.3s;';
+          card.className = 'market-tile';
           
           // Preview box
           const preview = document.createElement('div');
@@ -14074,16 +14512,16 @@
           infoDiv.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
           
           const nameDiv = document.createElement('div');
-          nameDiv.style.cssText = 'font-weight:700;color:#333;';
+          nameDiv.style.cssText = 'font-weight:700;color:var(--fg);';
           nameDiv.textContent = item.name;
           infoDiv.appendChild(nameDiv);
           
           const reqDiv = document.createElement('div');
           reqDiv.style.cssText = 'font-size:0.85em;color:#666;';
           if(isLockedByLevel){
-            reqDiv.textContent = `? Niveau ${item.level}`;
+            reqDiv.textContent = `🔒 Niveau ${item.level}`;
           } else if(isLockedByPurchase){
-            reqDiv.textContent = `${item.credit} ?`;
+            reqDiv.textContent = `${item.credit} ℂ`;
           } else if(item.level > 0){
             reqDiv.textContent = `Niveau ${item.level}`;
           } else {
@@ -14110,7 +14548,7 @@
             btn.style.color = '#999';
             btn.style.cursor = 'not-allowed';
           } else {
-            btn.textContent = `Acheter ${item.credit} ?`;
+            btn.textContent = `Acheter ${item.credit} ℂ`;
             btn.style.background = 'linear-gradient(135deg, var(--accent) 0%, #c084fc 100%)';
             btn.style.color = 'white';
             btn.addEventListener('click', () => {
@@ -14198,7 +14636,7 @@
           { name: 'Hexagones', id: 'hero_hex', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='90' viewBox='0 0 100 90'><path d='M25 5 L75 5 L95 45 L75 85 L25 85 L5 45 Z' fill='none' stroke='%2399a' stroke-opacity='0.30' stroke-width='2'/></svg>\")", level: 50, credit: 50 },
           { name: 'Circuit', id: 'hero_circuit', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 20 H60 V10 H110' fill='none' stroke='%2399a' stroke-opacity='0.30' stroke-width='2'/><path d='M10 80 H50 V110 H110' fill='none' stroke='%2399a' stroke-opacity='0.20' stroke-width='2'/><circle cx='60' cy='10' r='3' fill='%2399a' fill-opacity='0.35'/><circle cx='50' cy='110' r='3' fill='%2399a' fill-opacity='0.35'/><circle cx='60' cy='20' r='3' fill='%2399a' fill-opacity='0.30'/></svg>\")", level: 55, credit: 55 },
           { name: 'Puzzle', id: 'hero_jigsaw', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 10 H50 V30 H70 V10 H110 V110 H70 V90 H50 V110 H10 Z' fill='none' stroke='%2399a' stroke-opacity='0.30' stroke-width='2'/><circle cx='60' cy='30' r='6' fill='none' stroke='%2399a' stroke-opacity='0.30' stroke-width='2'/></svg>\")", level: 60, credit: 60 },
-          { name: '42 Pattern ?', id: 'welcome42', pattern: 'url(css/42pattern.png)', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_42_pattern') === 'true' }
+          { name: '42 Pattern 🎯', id: 'welcome42', pattern: 'url(css/42pattern.png)', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_42_pattern') === 'true' }
         ];
         
         const patternsGrid = document.createElement('div');
@@ -14324,16 +14762,9 @@
         content.appendChild(activeMemoryModeSection);
         */
         
-        // ===== SECTION 2: OFFRES SPÉCIALES (TITRES + XP) =====
+        // ===== SECTION 2: OFFRES SPÉCIALES (XP) =====
         const specialsSection = document.createElement('section');
         specialsSection.style.cssText = 'margin-bottom:40px;';
-        const mathematicianTiers = {
-          1: { name: 'Bronze', cost: 25, color: '#8B7355', textColor: '#FFFFFF', mathematicians: ['Lagrange', 'Laplace', 'Fourier', 'Cauchy', 'Riemann'] },
-          2: { name: 'Silver', cost: 50, color: '#A0A0A0', textColor: '#FFFFFF', mathematicians: ['Ramanujan', 'Cantor', 'Hilbert', 'Leibniz', 'Boole'] },
-          3: { name: 'Gold', cost: 100, color: '#DAA520', textColor: '#FFFFFF', mathematicians: ['Descartes', 'Bernoulli', 'Weierstrass', 'Dirichlet', 'Archimedes'] },
-          4: { name: 'Platinum', cost: 250, color: '#9D9D9D', textColor: '#333333', mathematicians: ['Euclid', 'Pythagoras', 'Al-Khwarizmi', 'Galois', 'Grothendieck'] },
-          5: { name: 'Diamond', cost: 500, color: '#4169E1', textColor: '#FFFFFF', mathematicians: ['Euler', 'Newton', 'Gauss', 'Fibonacci', 'Pascal'] }
-        };
         
         const specialsTitle = document.createElement('h3');
         specialsTitle.textContent = '⭐ Offres spéciales';
@@ -14343,110 +14774,10 @@
         const specialsGrid = document.createElement('div');
         specialsGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:16px;';
         
-        // Mathematician Titles organized by tier
-        const titlesHeaderDiv = document.createElement('div');
-        titlesHeaderDiv.style.cssText = 'grid-column: 1 / -1;';
-        titlesHeaderDiv.innerHTML = '<h4 style="color:#666;margin:0 0 12px 0;">👑 Titres Mathématicien</h4>';
-        specialsGrid.appendChild(titlesHeaderDiv);
-        
-        // Iterate through tiers and display one mathematician per tier
-        for(const [tierKey, tierData] of Object.entries(mathematicianTiers)){
-          // Check which mathematicians in this tier are unpurchased
-          const unpurchasedMath = tierData.mathematicians.filter(mathName => {
-            const id = `title_${mathName.toLowerCase()}`;
-            return !localStorage.getItem(`fabanki:market_${id}`);
-          });
-          
-          // Skip tier if all mathematicians are purchased
-          if(unpurchasedMath.length === 0) {
-            console.log(`DEBUG Tier ${tierData.name}: All mathematicians purchased, hiding tier`);
-            continue;
-          }
-          
-          // Display one random unpurchased mathematician from this tier
-          const randIndex = Math.floor(Math.random() * unpurchasedMath.length);
-          const displayMath = unpurchasedMath[randIndex];
-          const itemId = `title_${displayMath.toLowerCase()}`;
-          
-          console.log(`DEBUG Title ${displayMath} (Tier ${tierData.name}): Showing (${unpurchasedMath.length}/${tierData.mathematicians.length} available)`);
-          
-          const currentCredits = getBalance();
-          const canAfford = currentCredits >= tierData.cost;
-          
-          console.log(`DEBUG Title ${displayMath}: credits=${currentCredits}, cost=${tierData.cost}, canAfford=${canAfford}`);
-          
-          const card = document.createElement('div');
-          card.style.cssText = `background:${tierData.color};border-radius:12px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,0.15);display:flex;flex-direction:column;color:${tierData.textColor};`;
-          
-          const rarityBadge = document.createElement('div');
-          rarityBadge.style.cssText = `display:inline-block;background:rgba(255,255,255,0.25);color:${tierData.textColor};padding:4px 8px;border-radius:4px;font-size:0.8em;font-weight:700;margin-bottom:8px;width:fit-content;`;
-          rarityBadge.textContent = `${tierData.name.toUpperCase()}`;
-          card.appendChild(rarityBadge);
-          
-          const titleEl = document.createElement('h5');
-          titleEl.textContent = displayMath;
-          titleEl.style.cssText = `margin:0 0 8px 0;color:${tierData.textColor};font-weight:700;`;
-          card.appendChild(titleEl);
-          
-          const desc = document.createElement('p');
-          desc.textContent = tierData.mathematicians.length > 1 ? `Au hasard parmi ${tierData.mathematicians.length} mathématiciens` : 'Titre prestigieux de mathématicien';
-          desc.style.cssText = `margin:0 0 12px 0;font-size:0.9em;color:${tierData.textColor};flex:1;opacity:0.95;`;
-          card.appendChild(desc);
-          
-          const priceDiv = document.createElement('div');
-          priceDiv.style.cssText = `margin-bottom:12px;font-weight:700;color:${canAfford ? tierData.textColor : '#ff0000'};`;
-          priceDiv.innerHTML = `<strong>Prix:</strong> ${tierData.cost} ?`;
-          card.appendChild(priceDiv);
-          
-          const btn = document.createElement('button');
-          btn.style.cssText = `width:100%;background:${tierData.color};color:${tierData.textColor};border:2px solid ${tierData.textColor};padding:10px;border-radius:6px;font-weight:700;cursor:${canAfford ? 'pointer' : 'not-allowed'};opacity:${canAfford ? '1' : '0.6'};`;
-          btn.textContent = 'Acheter';
-          btn.disabled = !canAfford;
-          
-          btn.addEventListener('click', ()=>{
-            if(!canAfford){
-              showMarketToast(`Crédits insuffisants! Vous avez ${currentCredits} ℂ`);
-              return;
-            }
-            if(purchaseItem(itemId, tierData.cost, ()=>{
-              // Choisir aléatoirement un titre du tier
-              const randomIndex = Math.floor(Math.random() * tierData.mathematicians.length);
-              const chosenTitle = tierData.mathematicians[randomIndex];
-              // Enregistrer le titre choisi
-              const titleStorageKey = `fabanki:title_chosen_${tierKey}`;
-              localStorage.setItem(titleStorageKey, chosenTitle);
-              // Show toast instead of alert
-              showMarketToast(`Titre "${chosenTitle}" (${tierData.name}) acquis aléatoirement !`);
-              
-              // Track welcome quest first title
-              try{
-                if(typeof completeWelcomeQuestMission === 'function'){
-                  completeWelcomeQuestMission('part3', 'first_title', 10);
-                }
-              }catch(e){ console.warn('welcome quest title error', e); }
-              
-              setTimeout(() => {
-                const mc = document.getElementById('marketContainer');
-                if(mc) mc.remove();
-                showMarketPage();
-              }, 1500);
-            })){
-              setTimeout(() => {
-                const mc = document.getElementById('marketContainer');
-                if(mc) mc.remove();
-                showMarketPage();
-              }, 1500);
-            }
-          });
-          
-          card.appendChild(btn);
-          specialsGrid.appendChild(card);
-        }
-        
         // XP Boosters section header
         const boostersHeaderDiv = document.createElement('div');
-        boostersHeaderDiv.style.cssText = 'grid-column: 1 / -1;margin-top:12px;';
-        boostersHeaderDiv.innerHTML = '<h4 style="color:#666;margin:0 0 12px 0;">? Boosts XP</h4>';
+        boostersHeaderDiv.style.cssText = 'grid-column: 1 / -1;';
+        boostersHeaderDiv.innerHTML = '<h4 style="color:#666;margin:0 0 12px 0;">⚡ Boosts XP</h4>';
         specialsGrid.appendChild(boostersHeaderDiv);
         
         const xpBoosters = [
@@ -14457,7 +14788,7 @@
         
         xpBoosters.forEach(({icon, multiplier, duration, cost, itemId, durationMs}) => {
           const card = document.createElement('div');
-          card.style.cssText = 'background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.1);display:flex;flex-direction:column;';
+          card.className = 'market-tile';
           
           // Check if boost is active
           const boosterData = localStorage.getItem(`fabanki:market_${itemId}`);
@@ -14469,7 +14800,7 @@
           
           const titleEl = document.createElement('h5');
           titleEl.textContent = `${icon} ${multiplier}`;
-          titleEl.style.cssText = 'margin:0 0 8px 0;color:#333;';
+          titleEl.style.cssText = 'margin:0 0 8px 0;color:var(--fg);';
           card.appendChild(titleEl);
           
           const desc = document.createElement('p');
@@ -14481,14 +14812,14 @@
           const canAfford = currentCredits >= cost;
           
           const priceDiv = document.createElement('div');
-          priceDiv.style.cssText = `color:${canAfford ? '#000' : '#e74c3c'};margin-bottom:12px;font-weight:${canAfford ? '600' : '700'};`;
-          priceDiv.innerHTML = `<strong>Prix:</strong> ${cost} ?`;
+          priceDiv.style.cssText = `color:${canAfford ? 'var(--fg)' : '#e74c3c'};margin-bottom:12px;font-weight:${canAfford ? '600' : '700'};`;
+          priceDiv.innerHTML = `<strong>Prix:</strong> ${cost} ℂ`;
           card.appendChild(priceDiv);
           
           const btn = document.createElement('button');
           btn.className = 'primary';
           btn.style.cssText = 'width:100%;';
-          btn.textContent = isActive ? '? Actif' : 'Activer';
+          btn.textContent = isActive ? '✓ Actif' : 'Activer';
           btn.disabled = isActive;
           
           if(!isActive){
@@ -14586,7 +14917,7 @@
               const { item, path, deckMeta, cost, levelReq, isLockedByCost, isLockedByLevel } = deckData;
               
               const deckCard = document.createElement('div');
-              deckCard.style.cssText = 'background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.1);display:flex;flex-direction:column;';
+              deckCard.className = 'market-tile';
               
               const deckTitle = document.createElement('h4');
               const titleText = typeof item === 'string' ? path.replace(/\.xml$/i, '') : (deckMeta.title || path.replace(/\.xml$/i, ''));
@@ -14608,11 +14939,11 @@
                 const lockInfo = document.createElement('div');
                 const canAfford = currentCredits >= cost;
                 lockInfo.innerHTML = `<strong>💳 Coût:</strong> ${cost} ℂ`;
-                lockInfo.style.cssText = `color:${canAfford ? '#000' : '#e74c3c'};margin-bottom:6px;`;
+                lockInfo.style.cssText = `color:${canAfford ? 'var(--fg)' : '#e74c3c'};margin-bottom:6px;`;
                 infoDiv.appendChild(lockInfo);
               } else if(isLockedByLevel){
                 const lockInfo = document.createElement('div');
-                lockInfo.innerHTML = `<strong>? Niveau requis:</strong> ${levelReq}`;
+                lockInfo.innerHTML = `<strong>🔒 Niveau requis:</strong> ${levelReq}`;
                 lockInfo.style.cssText = 'color:#e74c3c;margin-bottom:6px;';
                 infoDiv.appendChild(lockInfo);
               }
@@ -14623,7 +14954,7 @@
               const actionBtn = document.createElement('button');
               if(isLockedByCost){
                 const canAfford = currentCredits >= cost;
-                actionBtn.textContent = `Acheter pour ${cost} ?`;
+                actionBtn.textContent = `Acheter pour ${cost} ℂ`;
                 actionBtn.className = canAfford ? 'primary' : 'secondary';
                 actionBtn.disabled = !canAfford;
                 actionBtn.addEventListener('click', ()=>{
@@ -15035,6 +15366,10 @@
     }
 
     function refreshWelcomeQuestUI(){
+      if(document.getElementById('questsPage')?.classList.contains('sp-active') && typeof window.renderQuestsPage === 'function'){
+        window.renderQuestsPage();
+        return;
+      }
       const questCard = document.querySelector('.welcome-quest-card');
       if(questCard){
         const content = questCard.querySelector('.welcome-quest-content');
@@ -15047,40 +15382,39 @@
 
     function createRewardCardUI({ title, subtitle, locked, previewStyle, details, previewEmoji }){
       const card = document.createElement('div');
-      card.style.cssText = 'margin:10px 0 18px 0;padding:12px;border:1px solid #e5e7eb;border-radius:12px;background:white;box-shadow:0 6px 16px rgba(0,0,0,0.06);display:flex;gap:12px;align-items:center;';
-      if(locked){
-        card.style.opacity = '0.7';
-      }
+      card.className = 'quest-reward-card';
+      if(locked) card.classList.add('is-locked');
 
       const preview = document.createElement('div');
-      preview.style.cssText = `width:72px;height:72px;border-radius:10px;border:1px solid #e5e7eb;background:${previewStyle || '#f3f4f6'};display:flex;align-items:center;justify-content:center;font-weight:700;color:#111827;`;
+      preview.className = 'quest-reward-preview';
+      if(previewStyle) preview.style.background = previewStyle;
       preview.textContent = previewEmoji || (locked ? '🔒' : '🎁');
       card.appendChild(preview);
 
       const content = document.createElement('div');
-      content.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:4px;';
+      content.className = 'quest-reward-body';
 
       const titleEl = document.createElement('div');
-      titleEl.style.cssText = 'font-weight:700;color:#111827;';
+      titleEl.className = 'quest-reward-title';
       titleEl.textContent = title;
       content.appendChild(titleEl);
 
       if(subtitle){
         const subtitleEl = document.createElement('div');
-        subtitleEl.style.cssText = 'color:#6b7280;font-size:0.9em;';
+        subtitleEl.className = 'quest-reward-sub';
         subtitleEl.textContent = subtitle;
         content.appendChild(subtitleEl);
       }
 
       if(details){
         const detailsEl = document.createElement('div');
-        detailsEl.style.cssText = 'color:#4b5563;font-size:0.85em;';
+        detailsEl.className = 'quest-reward-details';
         detailsEl.textContent = details;
         content.appendChild(detailsEl);
       }
 
       const badge = document.createElement('div');
-      badge.style.cssText = `padding:6px 10px;border-radius:999px;font-size:0.8em;font-weight:700;${locked ? 'background:#e5e7eb;color:#6b7280;' : 'background:#d1fae5;color:#065f46;'}`;
+      badge.className = 'quest-reward-badge' + (locked ? ' is-locked' : ' is-open');
       badge.textContent = locked ? 'Verrouillé' : 'Débloqué';
       card.appendChild(content);
       card.appendChild(badge);
@@ -15149,34 +15483,34 @@
 
     function createQuestPart(title, missions, showProgress, locked = false){
       const part = document.createElement('div');
-      part.style.cssText = `margin-bottom:16px;padding:12px;background:${locked ? '#f3f4f6' : 'white'};border-radius:8px;border:1px solid ${locked ? '#d1d5db' : '#e5e7eb'};opacity:${locked ? '0.6' : '1'};`;
+      part.className = 'quest-part' + (locked ? ' is-locked' : '');
       
       const header = document.createElement('div');
-      header.style.cssText = 'font-weight:700;color:#4b5563;margin-bottom:8px;font-size:0.95em;display:flex;align-items:center;gap:6px;';
-      header.innerHTML = locked ? `? ${title}` : `${title}`;
+      header.className = 'quest-part-head';
+      header.textContent = locked ? ('🔒 ' + title) : title;
       part.appendChild(header);
       
       missions.forEach(mission => {
         const missionDiv = document.createElement('div');
-        missionDiv.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;';
+        missionDiv.className = 'quest-mission';
         
         const leftSide = document.createElement('div');
-        leftSide.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        leftSide.className = 'quest-mission-left';
         
         const displayDone = !locked && !!mission.done;
         const checkbox = document.createElement('div');
-        checkbox.style.cssText = `width:20px;height:20px;border-radius:4px;border:2px solid ${displayDone ? '#10b981' : '#d1d5db'};background:${displayDone ? '#10b981' : 'white'};display:flex;align-items:center;justify-content:center;color:white;font-size:0.75em;font-weight:700;`;
+        checkbox.className = 'quest-check' + (displayDone ? ' is-done' : '');
         checkbox.textContent = displayDone ? '✓' : '';
         leftSide.appendChild(checkbox);
         
         const label = document.createElement('span');
-        label.style.cssText = `color:${displayDone ? '#6b7280' : '#1f2937'};text-decoration:${displayDone ? 'line-through' : 'none'};font-size:0.9em;`;
+        label.className = 'quest-mission-label' + (displayDone ? ' is-done' : '');
         label.textContent = mission.label;
         leftSide.appendChild(label);
         
         if(mission.progress && !displayDone && !locked){
           const progress = document.createElement('span');
-          progress.style.cssText = 'color:#9ca3af;font-size:0.8em;margin-left:4px;';
+          progress.className = 'quest-mission-progress';
           progress.textContent = `(${mission.progress})`;
           leftSide.appendChild(progress);
         }
@@ -15184,7 +15518,7 @@
         missionDiv.appendChild(leftSide);
         
         const reward = document.createElement('div');
-        reward.style.cssText = 'color:var(--accent);font-weight:600;font-size:0.85em;';
+        reward.className = 'quest-mission-reward';
         reward.textContent = mission.reward;
         missionDiv.appendChild(reward);
         
@@ -15433,10 +15767,10 @@
     function syncPostWelcomeQuestProgress({ mode, timeSec, reviewed, deckKey, masteredDelta, quality }){
       // Log with timestamp to force visibility in console
       const timestamp = new Date().toLocaleTimeString();
-      console.log(`? [QUEST ${timestamp}] Function called with:`, { mode, reviewed, deckKey });
+      console.log(`🎯 [QUEST ${timestamp}] Function called with:`, { mode, reviewed, deckKey });
       try{
         const state = initPostWelcomeQuest();
-        console.log(`? [QUEST ${timestamp}] Current state:`, { stepCards: state.stepCards, activeCards: state.activeCards, reverseCards: state.reverseCards });
+        console.log(`🎯 [QUEST ${timestamp}] Current state:`, { stepCards: state.stepCards, activeCards: state.activeCards, reverseCards: state.reverseCards });
         const part1Done = Number(state.stepCards || 0) >= postWelcomeQuestTargets.stepCards &&
           Number(state.activeCards || 0) >= postWelcomeQuestTargets.activeCards &&
           Number(state.timeSec || 0) >= postWelcomeQuestTargets.timeSec;
@@ -15833,6 +16167,10 @@
 
     function refreshPostWelcomeQuestUI(){
       try{
+        if(document.getElementById('questsPage')?.classList.contains('sp-active') && typeof window.renderQuestsPage === 'function'){
+          window.renderQuestsPage();
+          return;
+        }
         const existing = document.querySelector('.post-welcome-quest-card');
         const newCard = renderPostWelcomeQuestCard();
         if(!newCard) return;
@@ -15846,9 +16184,43 @@
       }catch(e){ console.warn('refreshPostWelcomeQuestUI error:', e); }
     }
 
+    window.renderQuestsPage = function(){
+      const el = document.getElementById('questsPage');
+      if(!el) return;
+      try{ syncPostWelcomeQuestTime(); }catch(e){}
+      el.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'quests-wrap';
+
+      const header = document.createElement('div');
+      header.className = 'sp-header';
+      header.style.cssText = 'position:sticky;top:0;z-index:10;background:var(--bg)';
+      const title = document.createElement('span');
+      title.className = 'sp-header-title';
+      title.textContent = 'Quêtes';
+      header.appendChild(title);
+      wrap.appendChild(header);
+
+      let card = null;
+      try{ card = renderWelcomeQuestCard(); }catch(e){ console.warn('renderQuestsPage welcome:', e); }
+      if(!card){
+        try{ card = renderPostWelcomeQuestCard({ embedded: true }); }catch(e){ console.warn('renderQuestsPage post:', e); }
+      }
+      if(card){
+        wrap.appendChild(card);
+      }else{
+        const empty = document.createElement('div');
+        empty.className = 'sess-empty';
+        empty.innerHTML = '<div class="sess-empty-title">Aucune quête pour le moment</div>';
+        wrap.appendChild(empty);
+      }
+      el.appendChild(wrap);
+    };
+
     try{ 
       window.renderPostWelcomeQuestCard = renderPostWelcomeQuestCard;
       window.syncPostWelcomeQuestProgress = syncPostWelcomeQuestProgress;
+      window.syncPostWelcomeQuestTime = syncPostWelcomeQuestTime;
     }catch(e){}
 
     // Sync onboarding completion to welcome quest
@@ -16245,7 +16617,7 @@
 
     function getClassementCardsReviewed(entry){
       if(!entry || typeof entry !== 'object') return 0;
-      const aliases = ['Cartes_revisees', 'Cartes révisées', 'Cartes rÃ©visÃ©es', 'Cartes revisees'];
+      const aliases = ['Cartes_revisees', 'Cartes révisées', 'Cartes révisées', 'Cartes revisees'];
       for(const key of aliases){
         if(entry[key] !== undefined && entry[key] !== null) return Math.max(0, Number(entry[key]) || 0);
       }
@@ -17005,10 +17377,10 @@
         }
       }
       if(!lb) return null;
-      const fail = Number(getField(lb, 'Ratés', 'RatÃ©s') || 0);
-      const hard = Number(getField(lb, 'Reponses_difficiles', 'Réponses difficiles', 'RÃ©ponses difficiles') || 0);
-      const easy = Number(getField(lb, 'Reponses_faciles', 'Réponses faciles', 'RÃ©ponses faciles') || 0);
-      let good = Number(getField(lb, 'Bonnes réponses', 'Bonnes rÃ©ponses') || 0);
+      const fail = Number(getField(lb, 'Ratés', 'Ratés') || 0);
+      const hard = Number(getField(lb, 'Reponses_difficiles', 'Réponses difficiles', 'Réponses difficiles') || 0);
+      const easy = Number(getField(lb, 'Reponses_faciles', 'Réponses faciles', 'Réponses faciles') || 0);
+      let good = Number(getField(lb, 'Bonnes réponses', 'Bonnes réponses') || 0);
       good = typeof normalizeSimonGoodCount === 'function' ? normalizeSimonGoodCount(good) : good;
       const bon = Math.max(0, good - easy);
       if(fail + hard + good <= 0) return null;
@@ -18284,21 +18656,88 @@
         let entries = [];
         try{ entries = await fetchDirectory('./decks/'); }catch(e){ entries = []; }
         const allFiles = (Array.isArray(entries) ? entries : []).filter(e=> typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
+        try{
+          const imported = listImportedCsvDecks();
+          for(const rec of imported){
+            if(rec && rec.id) allFiles.push('imported/' + rec.id + '.xml');
+          }
+        }catch(e){}
         const decksWithDueCards = [];
+        const freshDecks = [];
         let totalDueCount = 0;
         updateStatus('Analyse des decks...');
+        await ensureDeckCardCountsIndex().catch(() => {});
+        cardStatesByDeckKey = null;
+        cardStateKeysByPath = null;
         for(const f of allFiles){
           const url = './decks/' + f;
-          const cnt = await countDueNowForDeck(url);
-          if(cnt > 0){ decksWithDueCards.push(url); totalDueCount += cnt; }
+          try{
+            const manifestEntry = (typeof getManifestEntryForDeckUrl === 'function') ? getManifestEntryForDeckUrl(url) : null;
+            if(manifestEntry && typeof isDeckReleasedForUser === 'function' && !isDeckReleasedForUser(manifestEntry)) continue;
+            if(typeof evaluateDeckLock === 'function'){
+              const lockState = evaluateDeckLock(url);
+              if(lockState && lockState.locked) continue;
+            }
+          }catch(e){}
+          const counts = computeDeckCountsFromState(url);
+          const due = Number(counts.due || 0);
+          const fresh = Number(counts.fresh || 0);
+          if(due > 0){
+            decksWithDueCards.push(url);
+            totalDueCount += due;
+          } else if(fresh > 0){
+            freshDecks.push({ url, fresh });
+          }
         }
-        if(decksWithDueCards.length > 0){
-          updateStatus(`Chargement de ${totalDueCount} cartes...`);
+        let urlsToLoad = decksWithDueCards;
+        let onlyNow = true;
+        if(!urlsToLoad.length && freshDecks.length){
+          freshDecks.sort((a, b) => b.fresh - a.fresh);
+          const cap = Number.isFinite(limitCount) ? limitCount : 50;
+          urlsToLoad = [];
+          let acc = 0;
+          for(const d of freshDecks){
+            urlsToLoad.push(d.url);
+            acc += d.fresh;
+            if(urlsToLoad.length >= 8 || acc >= cap) break;
+          }
+          onlyNow = false;
+        }
+        const sessionLimit = Number.isFinite(limitCount) ? limitCount : (onlyNow ? null : 50);
+        const hideIdleReviewChrome = () => {
+          try{
+            const sa = document.getElementById('showAnswer'); if(sa) sa.style.display = 'none';
+            const resp = document.getElementById('respButtons'); if(resp) resp.style.display = 'none';
+            const dueEl = document.getElementById('dueInline'); if(dueEl) dueEl.style.display = 'none';
+            const req = document.getElementById('requestModBtn'); if(req) req.style.display = 'none';
+            const front = document.getElementById('front'); if(front) front.innerHTML = '<div class="muted" style="text-align:center;padding:24px 12px">Ouvre un deck depuis Decks pour commencer une session.</div>';
+          }catch(e){}
+        };
+        if(urlsToLoad.length > 0){
+          updateStatus(onlyNow ? `Chargement de ${totalDueCount} cartes...` : 'Chargement des nouvelles cartes...');
           await removeWelcome();
-          await loadMultipleDeckCards(decksWithDueCards, { onlyNow: true, limitCount: (Number.isFinite(limitCount) ? limitCount : null) });
-          if(typeof showNextCard === 'function') showNextCard();
+          await loadMultipleDeckCards(urlsToLoad, { onlyNow, limitCount: sessionLimit, skipEmptyRecap: true });
+          if((!dueCards || !dueCards.length) && onlyNow && freshDecks.length){
+            freshDecks.sort((a, b) => b.fresh - a.fresh);
+            const cap = Number.isFinite(limitCount) ? limitCount : 50;
+            const fallback = [];
+            let acc = 0;
+            for(const d of freshDecks){
+              fallback.push(d.url);
+              acc += d.fresh;
+              if(fallback.length >= 8 || acc >= cap) break;
+            }
+            updateStatus('Chargement des nouvelles cartes...');
+            await loadMultipleDeckCards(fallback, { onlyNow: false, limitCount: cap, skipEmptyRecap: true });
+          }
+          if(dueCards && dueCards.length && typeof showNextCard === 'function') showNextCard();
+          else {
+            updateStatus('Aucune carte à réviser maintenant');
+            hideIdleReviewChrome();
+          }
         } else {
           updateStatus('Aucune carte à réviser maintenant');
+          hideIdleReviewChrome();
         }
       }catch(e){ console.warn('startNowReview error', e); }
     };
@@ -18378,7 +18817,7 @@
           return false;
         }
         
-        console.log('[RECOVERY] ? Recovering from leaderboard: XP=' + leaderboardXp);
+        console.log('[RECOVERY] 🔧 Recovering from leaderboard: XP=' + leaderboardXp);
         
         // Restore all recoverable stats from leaderboard to localStorage
         localStorage.setItem('fabanki:xp_total', String(leaderboardXp));
@@ -18392,13 +18831,13 @@
             return undefined;
           };
           
-          const good = getField(leaderboardData, 'Bonnes réponses', 'Bonnes rÃ©ponses');
-          const fail = getField(leaderboardData, 'Ratés', 'RatÃ©s');
+          const good = getField(leaderboardData, 'Bonnes réponses', 'Bonnes réponses');
+          const fail = getField(leaderboardData, 'Ratés', 'Ratés');
           const pass = getField(leaderboardData, 'Passer');
-          const hard = getField(leaderboardData, 'Reponses_difficiles', 'Réponses difficiles', 'RÃ©ponses difficiles');
-          const easy = getField(leaderboardData, 'Reponses_faciles', 'Réponses faciles', 'RÃ©ponses faciles');
-          const mastered = getField(leaderboardData, 'Cartes maîtrisées', 'Cartes maÃ®trisÃ©es');
-          const reviewed = getField(leaderboardData, 'Cartes révisées', 'Cartes rÃ©visÃ©es');
+          const hard = getField(leaderboardData, 'Reponses_difficiles', 'Réponses difficiles', 'Réponses difficiles');
+          const easy = getField(leaderboardData, 'Reponses_faciles', 'Réponses faciles', 'Réponses faciles');
+          const mastered = getField(leaderboardData, 'Cartes maîtrisées', 'Cartes maîtrisées');
+          const reviewed = getField(leaderboardData, 'Cartes révisées', 'Cartes révisées');
           const setMaxStat = (key, val) => {
             if(val === undefined || val === null || !Number.isFinite(Number(val))) return;
             const cur = Number(localStorage.getItem(key) || 0);
@@ -18420,7 +18859,7 @@
           if(leaderboardData.Selected_Title) localStorage.setItem('fabanki:selected_title', leaderboardData.Selected_Title);
           if(reviewed !== undefined) localStorage.setItem('fabanki:reviewed_total', String(reviewed));
           
-          console.log('[RECOVERY] ? Restored stats from leaderboard:', {
+          console.log('[RECOVERY] ✅ Restored stats from leaderboard:', {
             xp: leaderboardXp,
             good, fail, pass, mastered,
             streakMax: leaderboardData.Streak_max,
@@ -18453,8 +18892,8 @@
         localStorage.setItem('fabanki:user_state', JSON.stringify(localState));
         window.userState = localState;
         
-        console.log('[RECOVERY] ? Cloud user document restored with XP=' + leaderboardXp + ', credits=' + recoveredCloudState.credits);
-        console.log('[RECOVERY] ? Recovery complete!');
+        console.log('[RECOVERY] ✅ Cloud user document restored with XP=' + leaderboardXp + ', credits=' + recoveredCloudState.credits);
+        console.log('[RECOVERY] ✅ Recovery complete!');
         
         return true;
       }catch(e){
@@ -18605,17 +19044,17 @@
             }
             if(lbXp > 0){
               bestXp = lbXp;
-              console.log('[loginAndSync] ? RECOVERED XP from leaderboard: ' + lbXp);
+              console.log('[loginAndSync] ✅ RECOVERED XP from leaderboard: ' + lbXp);
               // Also restore other stats from leaderboard
               const lbDoc = lbByUid.exists ? lbByUid.data() : null;
               if(lbDoc){
                 const getF = (d, ...ns) => { for(const n of ns){ if(d[n] !== undefined) return d[n]; } return undefined; };
-                const good = getF(lbDoc, 'Bonnes réponses', 'Bonnes rÃ©ponses');
-                const fail = getF(lbDoc, 'Ratés', 'RatÃ©s');
+                const good = getF(lbDoc, 'Bonnes réponses', 'Bonnes réponses');
+                const fail = getF(lbDoc, 'Ratés', 'Ratés');
                 const pass = getF(lbDoc, 'Passer');
-                const hard = getF(lbDoc, 'Reponses_difficiles', 'Réponses difficiles', 'RÃ©ponses difficiles');
-                const easy = getF(lbDoc, 'Reponses_faciles', 'Réponses faciles', 'RÃ©ponses faciles');
-                const mastered = getF(lbDoc, 'Cartes maîtrisées', 'Cartes maÃ®trisÃ©es');
+                const hard = getF(lbDoc, 'Reponses_difficiles', 'Réponses difficiles', 'Réponses difficiles');
+                const easy = getF(lbDoc, 'Reponses_faciles', 'Réponses faciles', 'Réponses faciles');
+                const mastered = getF(lbDoc, 'Cartes maîtrisées', 'Cartes maîtrisées');
                 const setMaxStat = (key, val) => {
                   if(val === undefined || val === null || !Number.isFinite(Number(val))) return;
                   const cur = Number(localStorage.getItem(key) || 0);
@@ -18629,7 +19068,7 @@
                 if(mastered !== undefined) setMaxStat('fabanki:mastered_total', mastered);
                 if(lbDoc.Streak_max !== undefined) localStorage.setItem('fabanki:streak_max', String(lbDoc.Streak_max));
                 if(lbDoc.Streak_current !== undefined) localStorage.setItem('fabanki:streak_current', String(lbDoc.Streak_current));
-                console.log('[loginAndSync] ? Restored stats from leaderboard:', { xp: lbXp, good, fail, pass, mastered });
+                console.log('[loginAndSync] ✅ Restored stats from leaderboard:', { xp: lbXp, good, fail, pass, mastered });
               }
             } else {
               console.log('[loginAndSync] Leaderboard also has no XP data');
@@ -18639,8 +19078,8 @@
           }
         }
         
-        console.log('[loginAndSync] Merging: localXp=' + localXp + ', cloudXp=' + remoteXp + ' ? bestXp=' + bestXp);
-        console.log('[loginAndSync] Merging: localCredits=' + localCredits + ', cloudCredits=' + remoteCredits + ' ? bestCredits=' + bestCredits);
+        console.log('[loginAndSync] Merging: localXp=' + localXp + ', cloudXp=' + remoteXp + ' → bestXp=' + bestXp);
+        console.log('[loginAndSync] Merging: localCredits=' + localCredits + ', cloudCredits=' + remoteCredits + ' → bestCredits=' + bestCredits);
         
         // Full merge using mergeUserStates when cloud has significant data
         const cloudDocSizeLogin = remoteSt ? JSON.stringify(remoteSt).length : 0;
@@ -18674,7 +19113,7 @@
           const localDecks = localSt?.decks || {};
           const remoteDecks = remoteSt?.decks || {};
           const mergedDecks = mergeDeckStates(localDecks, remoteDecks);
-          console.log('[loginAndSync] Deck merge: local=' + Object.keys(localDecks).length + ', cloud=' + Object.keys(remoteDecks).length + ' ? merged=' + Object.keys(mergedDecks).length + ' decks');
+          console.log('[loginAndSync] Deck merge: local=' + Object.keys(localDecks).length + ', cloud=' + Object.keys(remoteDecks).length + ' → merged=' + Object.keys(mergedDecks).length + ' decks');
           
           chosen = {
             ...localSt,
@@ -19003,7 +19442,7 @@
           function validate(){
             const em = emailIn.value.trim();
             const pw = passIn.value;
-            if(!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){ setStatus('?? Email invalide', true); return null; }
+            if(!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){ setStatus('⚠️ Email invalide', true); return null; }
             if(!pw || pw.length < 6){ setStatus('⚠️ Mot de passe trop court (min 6 caractères)', true); return null; }
             setStatus('', false);
             return { em, pw };
@@ -19020,7 +19459,7 @@
               await createAccountAndSync(v.em, v.pw);
               ov.remove();
             }catch(e){
-              setStatus('? ' + (e?.message || String(e)), true);
+              setStatus('❌ ' + (e?.message || String(e)), true);
             } finally { setBusy(false); }
           });
 
@@ -19031,7 +19470,7 @@
               await loginAndSync(v.em, v.pw);
               ov.remove();
             }catch(e){
-              setStatus('? ' + (e?.message || String(e)), true);
+              setStatus('❌ ' + (e?.message || String(e)), true);
             } finally { setBusy(false); }
           });
 
@@ -19093,7 +19532,7 @@
           showSyncPopup();
         }catch(err){
           console.error('Sync button click error:', err);
-          alert('? Erreur lors de l\'ouverture du formulaire de synchronisation:\n\n' + (err?.message || String(err)));
+          alert('âŒ Erreur lors de l\'ouverture du formulaire de synchronisation:\n\n' + (err?.message || String(err)));
         }
       });
     }
@@ -19762,10 +20201,10 @@
 
         const setActiveTab = (type) => {
           const isDaily = type === 'daily';
-          dailyBtn.style.background = isDaily ? '#5b3df6' : '#f3f4f6';
-          dailyBtn.style.color = isDaily ? '#fff' : '#111';
-          weeklyBtn.style.background = !isDaily ? '#5b3df6' : '#f3f4f6';
-          weeklyBtn.style.color = !isDaily ? '#fff' : '#111';
+          dailyBtn.style.background = isDaily ? 'var(--accent)' : 'var(--surface-2, rgba(0,0,0,0.04))';
+          dailyBtn.style.color = isDaily ? '#fff' : 'var(--fg)';
+          weeklyBtn.style.background = !isDaily ? 'var(--accent)' : 'var(--surface-2, rgba(0,0,0,0.04))';
+          weeklyBtn.style.color = !isDaily ? '#fff' : 'var(--fg)';
 
           const missions = isDaily ? daily : weekly;
           const completed = missions.filter(m => m.completed).length;
@@ -19777,21 +20216,20 @@
           list.innerHTML = '';
           for(const m of missions){
             const row = document.createElement('div');
+            row.className = 'mission-row';
             row.style.padding = '10px 12px';
             row.style.borderRadius = '10px';
-            row.style.background = '#fff';
-            row.style.boxShadow = '0 1px 6px rgba(0,0,0,0.06)';
 
             const name = document.createElement('div');
             name.textContent = m.name;
             name.style.fontWeight = '700';
             name.style.marginBottom = '6px';
             name.style.textDecoration = m.completed ? 'line-through' : 'none';
-            name.style.color = m.completed ? '#6b7280' : '#111';
+            name.style.color = m.completed ? 'var(--muted)' : 'var(--fg)';
 
             const bar = document.createElement('div');
             bar.style.height = '8px';
-            bar.style.background = '#eef0f4';
+            bar.style.background = 'var(--surface-2, rgba(0,0,0,0.08))';
             bar.style.borderRadius = '999px';
 
             const fill = document.createElement('div');
@@ -19919,7 +20357,7 @@
         const currentPattern = localStorage.getItem('fabanki:bg_pattern') || 'none';
         const currentFont = localStorage.getItem('fabanki:font_family') || 'system';
         const currentCardColor = localStorage.getItem('fabanki:card_color') || 'default';
-        const currentFontSize = localStorage.getItem('fabanki:font_size') || '1';
+        const currentFontSize = parseUiFontSizePx(localStorage.getItem('fabanki:font_size'));
         const currentAnimation = localStorage.getItem('fabanki:popup_animation') || 'none';
         
         // Background color section
@@ -19990,7 +20428,7 @@
             colorOption.style.opacity = '0.4';
             colorOption.style.cursor = 'not-allowed';
             // Show lock with cost below
-            const lockHTML = '<div style="font-size:1.5rem;line-height:1">?</div>';
+            const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
             const costHTML = isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${color.credit}ℂ</div>` : (isLockedByWelcome ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">Quête</div>` : '');
             colorOption.innerHTML = lockHTML + costHTML;
           }
@@ -20064,7 +20502,7 @@
           { name: 'Hexagones', id: 'hero_hex', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='90' viewBox='0 0 100 90'><path d='M25 5 L75 5 L95 45 L75 85 L25 85 L5 45 Z' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/></svg>\")", level: 50, credit: 50 },
           { name: 'Circuit', id: 'hero_circuit', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 20 H60 V10 H110' fill='none' stroke='%2399a' stroke-opacity='0.16' stroke-width='2'/><path d='M10 80 H50 V110 H110' fill='none' stroke='%2399a' stroke-opacity='0.12' stroke-width='2'/><circle cx='60' cy='10' r='3' fill='%2399a' fill-opacity='0.25'/><circle cx='50' cy='110' r='3' fill='%2399a' fill-opacity='0.25'/><circle cx='60' cy='20' r='3' fill='%2399a' fill-opacity='0.2'/></svg>\")", level: 55, credit: 55 },
           { name: 'Puzzle', id: 'hero_jigsaw', pattern: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M10 10 H50 V30 H70 V10 H110 V110 H70 V90 H50 V110 H10 Z' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/><circle cx='60' cy='30' r='6' fill='none' stroke='%2399a' stroke-opacity='0.14' stroke-width='2'/></svg>\")", level: 60, credit: 60 },
-          { name: '42 Pattern ?', id: 'welcome42', pattern: 'url(css/42pattern.png)', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_42_pattern') === 'true' }
+          { name: '42 Pattern 🎯', id: 'welcome42', pattern: 'url(css/42pattern.png)', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_42_pattern') === 'true' }
         ];
         
         const patternGrid = document.createElement('div');
@@ -20098,7 +20536,7 @@
             patternOption.style.opacity = '0.4';
             patternOption.style.cursor = 'not-allowed';
             // Show lock with cost below
-            const lockHTML = '<div style="font-size:1.5rem;line-height:1">?</div>';
+            const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
             const costHTML = isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${p.credit}ℂ</div>` : (isLockedByWelcome ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">Quête</div>` : '');
             patternOption.innerHTML = lockHTML + costHTML;
           } else {
@@ -20182,8 +20620,8 @@
             fontOption.style.opacity = '0.4';
             fontOption.style.cursor = 'not-allowed';
             // Show lock with cost below
-            const lockHTML = '<div style="font-size:1.5rem;line-height:1">?</div>';
-            const costHTML = isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${f.credit}?</div>` : '';
+            const lockHTML = '<div style="font-size:1.5rem;line-height:1">🔒</div>';
+            const costHTML = isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${f.credit}ℂ</div>` : '';
             fontOption.innerHTML = lockHTML + costHTML;
           }
           
@@ -20213,7 +20651,7 @@
         fontSizeSection.className = 'customization-section';
         const fontSizeTitle = document.createElement('div');
         fontSizeTitle.className = 'customization-section-title';
-        fontSizeTitle.textContent = `Taille de police (${Math.round(currentFontSize * 100)}%)`;
+        fontSizeTitle.textContent = `Taille de police (${currentFontSize}px)`;
         fontSizeSection.appendChild(fontSizeTitle);
         
         const fontSizeContainer = document.createElement('div');
@@ -20224,24 +20662,24 @@
         
         const fontSizeSlider = document.createElement('input');
         fontSizeSlider.type = 'range';
-        fontSizeSlider.min = '0.8';
-        fontSizeSlider.max = '1.5';
-        fontSizeSlider.step = '0.05';
-        fontSizeSlider.value = currentFontSize;
+        fontSizeSlider.min = String(UI_FONT_SIZE_MIN);
+        fontSizeSlider.max = String(UI_FONT_SIZE_MAX);
+        fontSizeSlider.step = '1';
+        fontSizeSlider.value = String(currentFontSize);
         fontSizeSlider.style.flex = '1';
         fontSizeSlider.style.cursor = 'pointer';
         
         const fontSizeValue = document.createElement('span');
-        fontSizeValue.textContent = `${Math.round(currentFontSize * 100)}%`;
+        fontSizeValue.textContent = `${currentFontSize}px`;
         fontSizeValue.style.minWidth = '50px';
         fontSizeValue.style.textAlign = 'right';
         
         fontSizeSlider.addEventListener('input', (e) => {
-          const size = parseFloat(e.target.value);
-          localStorage.setItem('fabanki:font_size', size);
-          document.documentElement.style.setProperty('--font-size', size + 'rem');
-          fontSizeValue.textContent = `${Math.round(size * 100)}%`;
-          fontSizeTitle.textContent = `Taille de police (${Math.round(size * 100)}%)`;
+          const size = parseUiFontSizePx(e.target.value);
+          localStorage.setItem('fabanki:font_size', String(size));
+          applyUiFontSize();
+          fontSizeValue.textContent = `${size}px`;
+          fontSizeTitle.textContent = `Taille de police (${size}px)`;
         });
         
         fontSizeContainer.appendChild(fontSizeSlider);
@@ -20373,7 +20811,7 @@
           if (isLocked) {
             patternOption.style.opacity = '0.4';
             patternOption.style.cursor = 'not-allowed';
-            patternOption.innerHTML = '<span style="font-size:1.5rem">?</span>' + (isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${p.credit}?</div>` : '');
+            patternOption.innerHTML = '<span style="font-size:1.5rem">🔒</span>' + (isLockedByPurchase ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:2px">${p.credit}ℂ</div>` : '');
           } else {
             patternOption.textContent = p.name;
             patternOption.style.backgroundColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#111319' : '#fff';
@@ -20524,10 +20962,84 @@
       }
     }
     
+    const UI_FONT_SIZE_MIN = 12;
+    const UI_FONT_SIZE_MAX = 20;
+    const UI_FONT_SIZE_DEFAULT = 16;
+
+    function parseUiFontSizePx(raw) {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n <= 0) return UI_FONT_SIZE_DEFAULT;
+      // Ancien slider de personnalisation : multiplicateur rem (0.8–1.5)
+      if (n <= 2.5) {
+        return Math.round(Math.min(UI_FONT_SIZE_MAX, Math.max(UI_FONT_SIZE_MIN, n * 16)));
+      }
+      return Math.round(Math.min(UI_FONT_SIZE_MAX, Math.max(UI_FONT_SIZE_MIN, n)));
+    }
+
+    function applyUiFontSize() {
+      try {
+        const px = parseUiFontSizePx(localStorage.getItem('fabanki:font_size'));
+        try {
+          if (localStorage.getItem('fabanki:font_size') !== String(px)) {
+            localStorage.setItem('fabanki:font_size', String(px));
+          }
+        } catch (e) {}
+        const root = document.documentElement;
+        root.style.fontSize = '';
+        root.style.setProperty('--font-size', px + 'px');
+      } catch (e) {}
+    }
+    window.parseUiFontSizePx = parseUiFontSizePx;
+    window.applyUiFontSize = applyUiFontSize;
+    applyUiFontSize();
+
+    function applyKatexScale() {
+      try {
+        const raw = Number(localStorage.getItem('fabanki:katex_scale'));
+        const scale = Number.isFinite(raw) && raw > 0 ? Math.min(2, Math.max(1, raw)) : 1;
+        document.documentElement.style.setProperty('--katex-scale', String(scale));
+      } catch (e) {}
+    }
+    window.applyKatexScale = applyKatexScale;
+    applyKatexScale();
+
+    function applyRespButtons() {
+      try {
+        const root = document.documentElement;
+        const raw = Number(localStorage.getItem('fabanki:resp_btn_scale'));
+        const scale = Number.isFinite(raw) && raw > 0 ? Math.min(1.7, Math.max(1, raw)) : 1;
+        root.style.setProperty('--resp-btn-scale', String(scale));
+        const shapeRaw = localStorage.getItem('fabanki:resp_btn_shape') || 'circle';
+        const posRaw = localStorage.getItem('fabanki:resp_btn_pos') || 'auto';
+        const shape = (shapeRaw === 'rounded' || shapeRaw === 'rect') ? shapeRaw : 'circle';
+        const pos = (posRaw === 'row' || posRaw === 'right' || posRaw === 'bottom') ? posRaw : 'auto';
+        root.setAttribute('data-resp-shape', shape);
+        root.setAttribute('data-resp-pos', pos);
+      } catch (e) {}
+    }
+    window.applyRespButtons = applyRespButtons;
+    applyRespButtons();
+
     function applyCustomization() {
       try {
         const root = document.documentElement;
-        const bgColor = localStorage.getItem('fabanki:bg_color');
+        const isDark = root.getAttribute('data-theme') === 'dark';
+        root.style.colorScheme = isDark ? 'dark' : 'light';
+        const hexLuma = (value) => {
+          const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(value || '').trim());
+          if(!m) return null;
+          return (0.2126 * parseInt(m[1], 16) + 0.7152 * parseInt(m[2], 16) + 0.0722 * parseInt(m[3], 16)) / 255;
+        };
+        const themeSafeColor = (value, darkMax, lightMin) => {
+          if(!value) return null;
+          if(String(value).includes('gradient')) return value;
+          const luma = hexLuma(value);
+          if(luma == null) return value;
+          if(isDark && luma > darkMax) return null;
+          if(!isDark && luma < lightMin) return null;
+          return value;
+        };
+        const bgColor = themeSafeColor(localStorage.getItem('fabanki:bg_color'), 0.72, 0.18);
         const bgPattern = localStorage.getItem('fabanki:bg_pattern') || 'dots';
         const fontFamily = localStorage.getItem('fabanki:font_stack');
         const accentColor = localStorage.getItem('fabanki:accent_color');
@@ -20542,6 +21054,8 @@
         
         if (bgColor) {
           root.style.setProperty('--bg', bgColor);
+        } else {
+          root.style.removeProperty('--bg');
         }
         
         // Apply background pattern
@@ -20578,8 +21092,12 @@
         
         const body = document.body;
         const html = document.documentElement;
-        body.style.backgroundImage = patterns[bgPattern] || patterns['dots'];
-        html.style.backgroundImage = patterns[bgPattern] || patterns['dots'];
+        let patternCss = patterns[bgPattern] || patterns['dots'];
+        if(isDark && patternCss && patternCss.indexOf('rgba(0,0,0') !== -1){
+          patternCss = patternCss.replace(/rgba\(0,0,0,/g, 'rgba(255,255,255,');
+        }
+        body.style.backgroundImage = patternCss;
+        html.style.backgroundImage = patternCss;
         
         if (bgPattern !== 'none') {
           const bgSize = bgPattern === 'grid' ? '4px 4px' : 
@@ -20602,40 +21120,32 @@
           document.body.style.fontFamily = fontFamily;
         }
         
-        // Apply font size
-        const fontSize = localStorage.getItem('fabanki:font_size') || '1';
-        root.style.setProperty('--font-size', fontSize + 'rem');
+        applyUiFontSize();
+        try{ window.applyKatexScale?.(); }catch(e){}
+        try{ window.applyRespButtons?.(); }catch(e){}
         
-        // Apply card color - handle gradient and theme-aware colors
-        const cardColor = localStorage.getItem('fabanki:card_color');
+        // Apply card color via CSS variable only — never paint every .card inline
+        // (that used to freeze light #fff cards on top of dark theme).
+        document.querySelectorAll('.card').forEach(card => {
+          card.style.removeProperty('background-color');
+          card.style.removeProperty('background-image');
+        });
+        let cardColor = themeSafeColor(localStorage.getItem('fabanki:card_color'), 0.78, 0.18);
         if (cardColor) {
-          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-          
-          // Check if it's a gradient (contains 'linear-gradient' or similar)
           if (cardColor.includes('gradient')) {
-            // Gradient colors are theme-aware (light gradient at start, dark at end)
-            // Split by )/ pattern for dual gradients, otherwise use as-is
             let appliedGradient = cardColor;
             if (cardColor.includes(', light:') || cardColor.includes('), dark:')) {
-              // Parse light/dark gradient pairs if stored that way
               const parts = cardColor.split('), ');
               if (parts.length >= 2) {
                 appliedGradient = isDark ? parts[1] : parts[0];
               }
             }
             root.style.setProperty('--card', appliedGradient);
-            document.querySelectorAll('.card').forEach(card => {
-              card.style.backgroundImage = appliedGradient;
-              card.style.backgroundColor = 'transparent';
-            });
           } else {
-            // Solid color
             root.style.setProperty('--card', cardColor);
-            document.querySelectorAll('.card').forEach(card => {
-              card.style.backgroundColor = cardColor;
-              card.style.backgroundImage = 'none';
-            });
           }
+        } else {
+          root.style.removeProperty('--card');
         }
         
         // Apply card patterns
@@ -20696,29 +21206,11 @@
             };
             if (patternMap[cardPattern]) {
               card.classList.add(patternMap[cardPattern]);
-              // When pattern is active, ensure there's a background for the pattern to show on
-              if (cardColor && !cardColor.includes('gradient')) {
-                // Use custom color as background
-                card.style.backgroundColor = cardColor;
-                card.style.backgroundImage = ''; // Clear inline style to let CSS pattern show
-              } else if (cardColor && cardColor.includes('gradient')) {
-                // For gradients, patterns won't work well, so skip pattern and just use gradient
-                let appliedGradient = cardColor;
-                if (cardColor.includes(', light:') || cardColor.includes('), dark:')) {
-                  const parts = cardColor.split('), ');
-                  if (parts.length >= 2) {
-                    appliedGradient = isDark ? parts[1] : parts[0];
-                  }
-                }
-                card.style.backgroundImage = appliedGradient;
-                card.style.backgroundColor = 'transparent';
-                // Remove pattern class since gradient is incompatible
+              if (cardColor && cardColor.includes('gradient')) {
                 card.classList.remove(patternMap[cardPattern]);
-              } else {
-                // No custom color - keep card default background so pattern is visible
-                // Don't clear backgroundColor, let CSS default handle it
-                card.style.backgroundImage = ''; // Clear inline to let CSS pattern show
               }
+              card.style.removeProperty('background-color');
+              card.style.removeProperty('background-image');
             }
           } else {
             // No pattern - ensure inline background-image is cleared so card color can work
@@ -20771,7 +21263,7 @@
         sanitized.XP = getValidNumber(rawData.XP, 0, MAX_XP);
         sanitized.Niveau = getValidNumber(rawData.Niveau, 1, MAX_LEVEL);
         sanitized['Cartes_revisees'] = getValidNumber(
-          rawData['Cartes_revisees'] ?? rawData['Cartes rÃ©visÃ©es'] ?? rawData['Cartes révisées'],
+          rawData['Cartes_revisees'] ?? rawData['Cartes révisées'] ?? rawData['Cartes révisées'],
           0,
           MAX_CARDS_REVIEWED
         );
@@ -20781,12 +21273,12 @@
         sanitized['Ratés'] = getValidNumber(rawData['Ratés'], -1000, 100000);
         sanitized['Passer'] = getValidNumber(rawData['Passer'], -1000, 100000);
         sanitized['Reponses_difficiles'] = getValidNumber(
-          rawData['Reponses_difficiles'] ?? rawData['Réponses difficiles'] ?? rawData['RÃ©ponses difficiles'],
+          rawData['Reponses_difficiles'] ?? rawData['Réponses difficiles'] ?? rawData['Réponses difficiles'],
           0,
           MAX_GOOD_ANSWERS
         );
         sanitized['Reponses_faciles'] = getValidNumber(
-          rawData['Reponses_faciles'] ?? rawData['Réponses faciles'] ?? rawData['RÃ©ponses faciles'],
+          rawData['Reponses_faciles'] ?? rawData['Réponses faciles'] ?? rawData['Réponses faciles'],
           0,
           MAX_GOOD_ANSWERS
         );
@@ -20877,12 +21369,12 @@
         const ov = document.createElement('div'); ov.id='pseudoOverlay'; ov.className='modal-overlay'; ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; ov.style.zIndex='2500';
         const m = document.createElement('div'); m.className='modal'; m.style.maxWidth='520px'; m.style.width='94%';
         const h = document.createElement('h3'); h.textContent = "Bienvenue sur Fab'Anki"; h.style.marginBottom='8px'; m.appendChild(h);
-        const desc = document.createElement('p'); desc.textContent = "Choisissez comment commencer :"; desc.style.color='#666'; desc.style.fontSize='0.9em'; desc.style.marginBottom='16px'; m.appendChild(desc);
+        const desc = document.createElement('p'); desc.className='pseudo-auth-lead'; desc.textContent = "Choisissez comment commencer :"; m.appendChild(desc);
         
         // New user option
-        const newUserSection = document.createElement('div'); newUserSection.style.marginBottom='16px'; newUserSection.style.padding='12px'; newUserSection.style.border='1px solid #ddd'; newUserSection.style.borderRadius='8px';
-        const newUserTitle = document.createElement('h4'); newUserTitle.textContent = '👋 Nouvel utilisateur'; newUserTitle.style.margin='0 0 8px 0'; newUserSection.appendChild(newUserTitle);
-        const inp = document.createElement('input'); inp.type='text'; inp.placeholder='Entre ton pseudo'; inp.style.width='100%'; inp.style.padding='8px'; inp.style.fontSize='1rem'; inp.style.marginBottom='8px';
+        const newUserSection = document.createElement('div'); newUserSection.className='pseudo-auth-option';
+        const newUserTitle = document.createElement('h4'); newUserTitle.textContent = '👋 Nouvel utilisateur'; newUserSection.appendChild(newUserTitle);
+        const inp = document.createElement('input'); inp.type='text'; inp.placeholder='Entre ton pseudo';
         newUserSection.appendChild(inp);
         const btn = document.createElement('button'); btn.className='primary'; btn.textContent='Commencer'; btn.style.width='100%';
         btn.addEventListener('click', ()=>{
@@ -20904,9 +21396,9 @@
         m.appendChild(newUserSection);
         
         // Existing user option
-        const loginSection = document.createElement('div'); loginSection.style.padding='12px'; loginSection.style.border='1px solid #ddd'; loginSection.style.borderRadius='8px'; loginSection.style.background='#f8f9fa';
-        const loginTitle = document.createElement('h4'); loginTitle.textContent = '🔐 Déjà un compte ?'; loginTitle.style.margin='0 0 8px 0'; loginSection.appendChild(loginTitle);
-        const loginDesc = document.createElement('p'); loginDesc.textContent = 'Connectez-vous pour synchroniser vos données'; loginDesc.style.fontSize='0.85em'; loginDesc.style.color='#666'; loginDesc.style.marginBottom='8px'; loginSection.appendChild(loginDesc);
+        const loginSection = document.createElement('div'); loginSection.className='pseudo-auth-option';
+        const loginTitle = document.createElement('h4'); loginTitle.textContent = '🔐 Déjà un compte ?'; loginSection.appendChild(loginTitle);
+        const loginDesc = document.createElement('p'); loginDesc.textContent = 'Connectez-vous pour synchroniser vos données'; loginSection.appendChild(loginDesc);
         const loginBtn = document.createElement('button'); loginBtn.className='secondary'; loginBtn.textContent='Se connecter'; loginBtn.style.width='100%';
         loginBtn.addEventListener('click', async ()=>{
           ov.remove();
@@ -21481,10 +21973,10 @@
             const pd = prevData;
             const prevScore = Number(pd.Score_MPSI || 0);
             const prevXp = Number(pd.XP || 0);
-            const prevGood = Number(pd['Bonnes réponses'] ?? pd['Bonnes rÃ©ponses'] ?? 0);
-            const prevFail = Number(pd['Ratés'] ?? pd['RatÃ©s'] ?? 0);
+            const prevGood = Number(pd['Bonnes réponses'] ?? pd['Bonnes réponses'] ?? 0);
+            const prevFail = Number(pd['Ratés'] ?? pd['Ratés'] ?? 0);
             const prevPass = Number(pd['Passer'] || 0);
-            const prevSync = pd['Dernière synchronisation'] || pd['DerniÃ¨re mise Ã  jour'] || null;
+            const prevSync = pd['Dernière synchronisation'] || pd['Dernière mise à jour'] || null;
             if(prevSync){
               const prevDate = new Date(prevSync);
               const mins = (Date.now() - prevDate.getTime()) / 60000;
@@ -21588,7 +22080,7 @@
         // SECURITY: Filter function to remove suspicious entries from leaderboard
         function isValidLeaderboardEntry(d) {
           try {
-            const level = Number(d.Niveau || d['Niveau PrÃ©pa'] || d['Niveau Prépa'] || 0);
+            const level = Number(d.Niveau || d['Niveau Prépa'] || d['Niveau Prépa'] || 0);
             const score = Number(d.Score_MPSI || 0);
             const scoreMonth = Number(d.Score_MPSI_mois || 0);
             const scoreWeek = Number(d.Score_MPSI_semaine || 0);
@@ -21624,7 +22116,7 @@
         
         function renderRow(d, rank, scoreField = 'Score_MPSI'){
           // Skip users with 0 cards seen
-          const cardsReviewed = Number(getLeaderboardField(d, ['Cartes rÃ©visÃ©es', 'Cartes révisées', 'Cartes revisees'], 0) || 0);
+          const cardsReviewed = Number(getLeaderboardField(d, ['Cartes révisées', 'Cartes révisées', 'Cartes revisees'], 0) || 0);
           if(cardsReviewed === 0) return null;
           
           // Skip anonymous users
@@ -21641,7 +22133,7 @@
           tdTitle.textContent = fixMojibakeText(selectedTitle || '-');
           tdTitle.style.fontWeight = selectedTitle ? '700' : '400';
           
-          const tdNiv = document.createElement('td'); tdNiv.textContent = getLeaderboardField(d, ['Niveau', 'Niveau PrÃ©pa', 'Niveau Prépa', 'Niveau Prepa'], '');
+          const tdNiv = document.createElement('td'); tdNiv.textContent = getLeaderboardField(d, ['Niveau', 'Niveau Prépa', 'Niveau Prépa', 'Niveau Prepa'], '');
           const tdScore = document.createElement('td'); tdScore.textContent = d[scoreField] || 0;
           const tdBadges = document.createElement('td'); tdBadges.style.display='flex'; tdBadges.style.gap='6px';
           try{
@@ -21662,8 +22154,8 @@
               }
             }catch(e){}
           }catch(e){}
-          const tdCartes = document.createElement('td'); tdCartes.textContent = getLeaderboardField(d, ['Cartes rÃ©visÃ©es', 'Cartes révisées', 'Cartes revisees'], 0) || 0;
-          const tdQuests = document.createElement('td'); tdQuests.textContent = getLeaderboardField(d, ['QuÃªtes_quotidiennes', 'Quêtes_quotidiennes', 'Quetes_quotidiennes'], 0) || 0;
+          const tdCartes = document.createElement('td'); tdCartes.textContent = getLeaderboardField(d, ['Cartes révisées', 'Cartes révisées', 'Cartes revisees'], 0) || 0;
+          const tdQuests = document.createElement('td'); tdQuests.textContent = getLeaderboardField(d, ['Quêtes_quotidiennes', 'Quêtes_quotidiennes', 'Quetes_quotidiennes'], 0) || 0;
           tr.appendChild(tdRank); tr.appendChild(tdPseudo); tr.appendChild(tdTitle); tr.appendChild(tdNiv); tr.appendChild(tdBadges); tr.appendChild(tdScore); tr.appendChild(tdCartes); tr.appendChild(tdQuests);
           return tr;
         }
@@ -21682,10 +22174,10 @@
 
             const currentScore = Number(current?.[scoreField] || 0);
             const nextScore = Number(raw?.[scoreField] || 0);
-            const currentCards = Number(getLeaderboardField(current, ['Cartes rÃ©visÃ©es', 'Cartes révisées', 'Cartes revisees'], 0) || 0);
-            const nextCards = Number(getLeaderboardField(raw, ['Cartes rÃ©visÃ©es', 'Cartes révisées', 'Cartes revisees'], 0) || 0);
-            const currentLevel = Number(getLeaderboardField(current, ['Niveau', 'Niveau PrÃ©pa', 'Niveau Prépa', 'Niveau Prepa'], 0) || 0);
-            const nextLevel = Number(getLeaderboardField(raw, ['Niveau', 'Niveau PrÃ©pa', 'Niveau Prépa', 'Niveau Prepa'], 0) || 0);
+            const currentCards = Number(getLeaderboardField(current, ['Cartes révisées', 'Cartes révisées', 'Cartes revisees'], 0) || 0);
+            const nextCards = Number(getLeaderboardField(raw, ['Cartes révisées', 'Cartes révisées', 'Cartes revisees'], 0) || 0);
+            const currentLevel = Number(getLeaderboardField(current, ['Niveau', 'Niveau Prépa', 'Niveau Prépa', 'Niveau Prepa'], 0) || 0);
+            const nextLevel = Number(getLeaderboardField(raw, ['Niveau', 'Niveau Prépa', 'Niveau Prépa', 'Niveau Prepa'], 0) || 0);
             const preferRaw = nextScore > currentScore || (nextScore === currentScore && (nextCards > currentCards || (nextCards === currentCards && nextLevel > currentLevel)));
             const best = preferRaw ? (raw || {}) : current;
             const other = preferRaw ? current : (raw || {});
@@ -21694,12 +22186,12 @@
             merged.Score_MPSI = Math.max(Number(best.Score_MPSI || 0), Number(other.Score_MPSI || 0));
             merged.Score_MPSI_mois = Math.max(Number(best.Score_MPSI_mois || 0), Number(other.Score_MPSI_mois || 0));
             merged['Cartes révisées'] = Math.max(
-              Number(getLeaderboardField(best, ['Cartes rÃ©visÃ©es', 'Cartes révisées', 'Cartes revisees'], 0) || 0),
-              Number(getLeaderboardField(other, ['Cartes rÃ©visÃ©es', 'Cartes révisées', 'Cartes revisees'], 0) || 0)
+              Number(getLeaderboardField(best, ['Cartes révisées', 'Cartes révisées', 'Cartes revisees'], 0) || 0),
+              Number(getLeaderboardField(other, ['Cartes révisées', 'Cartes révisées', 'Cartes revisees'], 0) || 0)
             );
             merged['Quêtes_quotidiennes'] = Math.max(
-              Number(getLeaderboardField(best, ['QuÃªtes_quotidiennes', 'Quêtes_quotidiennes', 'Quetes_quotidiennes'], 0) || 0),
-              Number(getLeaderboardField(other, ['QuÃªtes_quotidiennes', 'Quêtes_quotidiennes', 'Quetes_quotidiennes'], 0) || 0)
+              Number(getLeaderboardField(best, ['Quêtes_quotidiennes', 'Quêtes_quotidiennes', 'Quetes_quotidiennes'], 0) || 0),
+              Number(getLeaderboardField(other, ['Quêtes_quotidiennes', 'Quêtes_quotidiennes', 'Quetes_quotidiennes'], 0) || 0)
             );
             merged.Niveau = Math.max(Number(best.Niveau || 0), Number(other.Niveau || 0));
 
@@ -22080,32 +22572,23 @@
           if(hint) hint.style.display = 'none';
 
           const entries = await fetchDirectory('./decks/').catch(() => []);
+          await ensureDeckCardCountsIndex().catch(() => {});
+          cardStatesByDeckKey = null;
+          cardStateKeysByPath = null;
           const allFiles = (Array.isArray(entries) ? entries : []).filter(e => typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
 
           const deckRows = [];
           for(const f of allFiles){
             const url = './decks/' + f;
             const name = decodeURIComponent(f.replace(/\+/g,'')).replace(/\.xml$/i,'');
-            const due = await countDueNowForDeck(url).catch(() => 0);
-
-            const deckKey = (typeof normalizeDeckKeyFromURL === 'function') ? normalizeDeckKeyFromURL(url) : null;
-            const prefix = deckKey ? ('fabanki:' + deckKey + ':card:') : null;
-            let reviewed = 0;
+            const counts = computeDeckCountsFromState(url);
+            const cards = getCardStatesForDeck(url, counts.deckKey);
             let lastSeen = 0;
-            if(prefix){
-              for(let i = 0; i < localStorage.length; i++){
-                const k = localStorage.key(i);
-                if(!k || !k.startsWith(prefix)) continue;
-                try{
-                  const st = JSON.parse(localStorage.getItem(k) || '{}');
-                  const reps = Number(st.reps || 0);
-                  if(reps > 0) reviewed += 1;
-                  const ts = st.last ? new Date(st.last).getTime() : 0;
-                  if(Number.isFinite(ts) && ts > lastSeen) lastSeen = ts;
-                }catch(err){}
-              }
+            for(const id of Object.keys(cards || {})){
+              const ts = cards[id] && cards[id].last ? new Date(cards[id].last).getTime() : 0;
+              if(Number.isFinite(ts) && ts > lastSeen) lastSeen = ts;
             }
-            deckRows.push({ name, url, due: Number(due || 0), reviewed, lastSeen, entry: getManifestEntryForDeckUrl(url) });
+            deckRows.push({ name, url, due: Number(counts.due || 0), reviewed: Number(counts.reviewed || 0), lastSeen, entry: getManifestEntryForDeckUrl(url) });
           }
 
           const visibleDeckRows = deckRows.filter(d => !d.entry || isDeckReleasedForUser(d.entry));
@@ -22236,26 +22719,10 @@
             try{
               const rawLimit = limitSelect.value;
               const limitCount = rawLimit === 'all' ? null : Number(rawLimit);
-              updateStatus('Recherche des cartes à réviser...');
-              let xmlFiles = [];
-              try{
-                const dirEntries = await fetchDirectory('./decks/');
-                xmlFiles = (Array.isArray(dirEntries) ? dirEntries : []).filter(e => typeof e === 'string' && e.toLowerCase().endsWith('.xml')).sort();
-              }catch(err){ xmlFiles = []; }
-              const decksWithDue = [];
-              for(const f of xmlFiles){
-                const deckUrl = './decks/' + f;
-                const meta = getManifestEntryForDeckUrl(deckUrl);
-                if(meta && !isDeckReleasedForUser(meta)) continue;
-                const cnt = await countDueNowForDeck(deckUrl);
-                if(cnt > 0) decksWithDue.push(deckUrl);
-              }
-              if(decksWithDue.length > 0){
-                await removeWelcome();
-                await loadMultipleDeckCards(decksWithDue, { onlyNow: true, limitCount: Number.isFinite(limitCount) ? limitCount : null });
-                if(typeof showNextCard === 'function') showNextCard();
-              } else {
-                updateStatus('Aucune carte à réviser maintenant 🎉');
+              document.body.classList.remove('nav-home-active');
+              if(typeof setActivePage === 'function') setActivePage('review');
+              if(typeof window.__fabanki_startNowReview === 'function'){
+                await window.__fabanki_startNowReview(limitCount);
               }
             }catch(err){ updateStatus('Erreur: ' + err.message); }
           });
@@ -22294,7 +22761,6 @@
               nm.className = 'homev2-deck-name';
               nm.textContent = d.name.split('/').pop() || d.name;
               nm.title = d.name;
-              decorateHomeDeckRow(row, nm, d.url);
               const meta = document.createElement('div');
               meta.className = 'homev2-deck-meta';
               const btn = document.createElement('button');
@@ -22304,6 +22770,7 @@
               btn.addEventListener('click', (e) => { e.stopPropagation(); openDeckWithModeSelection(d.url, d.name, btn); });
               meta.appendChild(btn);
               row.appendChild(nm);
+              decorateHomeDeckRow(row, nm, d.url);
               row.appendChild(meta);
               wkList.appendChild(row);
             }
@@ -22429,7 +22896,6 @@
               nm.className = 'homev2-deck-name';
               nm.textContent = d.name.split('/').pop() || d.name;
               nm.title = d.name;
-              decorateHomeDeckRow(row, nm, d.url);
               const meta = document.createElement('div');
               meta.className = 'homev2-deck-meta';
               const badge = document.createElement('span');
@@ -22443,6 +22909,7 @@
               meta.appendChild(badge);
               meta.appendChild(btn);
               row.appendChild(nm);
+              decorateHomeDeckRow(row, nm, d.url);
               row.appendChild(meta);
               listEl.appendChild(row);
             }
@@ -22473,16 +22940,6 @@
           container.appendChild(grid);
 
           try{ syncPostWelcomeQuestTime(); }catch(e){}
-          try{
-            const existingQuestCard = container.querySelector('.post-welcome-quest-card');
-            if(existingQuestCard) existingQuestCard.remove();
-            const postWelcomeQuestCard = renderPostWelcomeQuestCard();
-            if(postWelcomeQuestCard){
-              postWelcomeQuestCard.style.marginTop = '12px';
-              container.appendChild(postWelcomeQuestCard);
-            }
-          }catch(e){ console.warn('Post-welcome quest card error:', e); }
-
           try{ window.__welcomeDecksContainer = container; }catch(e){}
           const host = document.querySelector('.app') || document.body;
           const footer = host.querySelector('footer') || document.querySelector('footer') || null;
@@ -22537,7 +22994,7 @@
         try{
           const recovered = await recoverFromLeaderboard();
           if(recovered){
-            console.log('[initializeDeckLoader] ? XP recovered from leaderboard!');
+            console.log('[initializeDeckLoader] ✅ XP recovered from leaderboard!');
           }
         }catch(e){
           console.warn('[initializeDeckLoader] Recovery check failed (non-blocking):', e);
@@ -23623,7 +24080,7 @@
     
     // Chrome/Edge Android
     const androidSection = createSection(
-      '? Android (Chrome/Edge)',
+      '🤖 Android (Chrome/Edge)',
       [
         'Appuyez sur le menu (⋮) en haut à droite',
         'Sélectionnez "Installer l\'application" ou "Ajouter à l\'écran d\'accueil"',
@@ -23633,21 +24090,21 @@
     
     // Safari iOS
     const iosSection = createSection(
-      '? iPhone/iPad (Safari)',
+      '🍎 iPhone/iPad (Safari)',
       [
         'Appuyez sur le bouton Partager (□↑) en bas de l\'écran',
         'Faites défiler et appuyez sur "Sur l\'écran d\'accueil"',
         'Appuyez sur "Ajouter" en haut à droite',
-        '?? Note: L\'installation ne fonctionne que dans Safari, pas Chrome iOS'
+        '⚠️ Note: L\'installation ne fonctionne que dans Safari, pas Chrome iOS'
       ]
     );
     
     // Desktop Chrome/Edge
     const desktopSection = createSection(
-      '? Ordinateur (Chrome/Edge)',
+      '💻 Ordinateur (Chrome/Edge)',
       [
         'Cliquez sur l\'icône d\'installation (⊕) dans la barre d\'adresse',
-        'Ou menu (?) ? "Installer Fab\'Anki"',
+        'Ou menu (⋮) → "Installer Fab\'Anki"',
         'Confirmez l\'installation'
       ]
     );
@@ -24260,7 +24717,7 @@
       const editor = document.createElement('div');
       editor.contentEditable = true;
       editor.innerHTML = field.content || '';
-      editor.style.cssText = 'min-height:120px;padding:12px;border:1px solid var(--border-color);border-radius:4px;background:white;overflow-y:auto;max-height:300px;';
+      editor.style.cssText = 'min-height:120px;padding:12px;border:1px solid var(--border-color, var(--border));border-radius:4px;background:var(--card);color:var(--fg);overflow-y:auto;max-height:300px;';
       editor.addEventListener('input', () => {
         field.content = editor.innerHTML;
         saveDraft();
@@ -24290,7 +24747,7 @@
       previewLabel.style.cssText = 'font-weight:600;margin-bottom:6px;';
       
       const preview = document.createElement('div');
-      preview.style.cssText = 'padding:12px;border:1px solid var(--border-color);border-radius:4px;background:white;min-height:60px;';
+      preview.style.cssText = 'padding:12px;border:1px solid var(--border-color, var(--border));border-radius:4px;background:var(--card);color:var(--fg);min-height:60px;';
       
       function renderPreview(){
         if(window.katex && field.content){
@@ -24364,8 +24821,8 @@
         { code: 'it-IT', name: 'Italiano' },
         { code: 'pt-PT', name: 'Português' },
         { code: 'ru-RU', name: '???????' },
-        { code: 'ja-JP', name: '???' },
-        { code: 'zh-CN', name: '??' }
+        { code: 'ja-JP', name: '日本語' },
+        { code: 'zh-CN', name: '中文' }
       ];
       
       langs.forEach(lang => {
@@ -25303,7 +25760,7 @@
     el.innerHTML = `<div class="sp-wrap sp-mosaic">
       <div class="sp-header">
         <span class="sp-header-title">Statistiques</span>
-        <button class="sp-sync-btn" id="spSyncBtn">? Sync</button>
+        <button class="sp-sync-btn" id="spSyncBtn">↺ Sync</button>
       </div>
 
       <div class="sp-section sp-box sp-box-progress">
@@ -25331,6 +25788,7 @@
         </div>
       </div>
 
+      <div class="sp-mosaic-stack">
       <div class="sp-section sp-box sp-box-library">
         <span class="sp-section-title">Bibliothèque</span>
         <div class="sp-card">
@@ -25340,22 +25798,6 @@
             <div class="sp-stat-cell"><span class="sp-stat-val">${avgStability}</span><span class="sp-stat-label">Stabilité FSRS</span></div>
             <div class="sp-stat-cell"><span class="sp-stat-val">${masteryPct}%</span><span class="sp-stat-label">Maîtrisées</span></div>
           </div>
-        </div>
-      </div>
-
-      <div class="sp-section sp-box sp-box-quality">
-        <span class="sp-section-title">Qualité des réponses</span>
-        <div class="sp-card">
-          <div class="sp-grid-4" style="margin-bottom:14px">
-            <div class="sp-stat-cell"><span class="sp-stat-val">${total}</span><span class="sp-stat-label">Total</span></div>
-            <div class="sp-stat-cell"><span class="sp-stat-val">${fmtTime(timeSec)}</span><span class="sp-stat-label">Temps total</span></div>
-            <div class="sp-stat-cell"><span class="sp-stat-val">${successRate}%</span><span class="sp-stat-label">Taux succès</span></div>
-            <div class="sp-stat-cell"><span class="sp-stat-val">${fmtTimeAvg(avgTimeSec)}</span><span class="sp-stat-label">Moy/carte</span></div>
-          </div>
-          <div class="sp-qual-row"><span class="sp-qual-label">Raté</span><div class="sp-qual-bar">${qualBar(fail,'#d9534f')}</div><span class="sp-qual-count">${fail}</span></div>
-          <div class="sp-qual-row"><span class="sp-qual-label">Difficile</span><div class="sp-qual-bar">${qualBar(hard,'#e89b27')}</div><span class="sp-qual-count">${hard}</span></div>
-          <div class="sp-qual-row"><span class="sp-qual-label">Bon</span><div class="sp-qual-bar">${qualBar(bon,'#28a745')}</div><span class="sp-qual-count">${bon}</span></div>
-          <div class="sp-qual-row"><span class="sp-qual-label">Facile</span><div class="sp-qual-bar">${qualBar(easy,'#9b59d0')}</div><span class="sp-qual-count">${easy}</span></div>
         </div>
       </div>
 
@@ -25373,6 +25815,23 @@
           <div style="display:flex;gap:5px;margin-top:5px">
             ${['Nouveau','Maintenant','<12h','Demain','<1 sem','Long'].map((l,i)=>`<div style="flex:1;text-align:center;font-size:0.58rem;color:var(--muted)">${l}</div>`).join('')}
           </div>
+        </div>
+      </div>
+      </div>
+
+      <div class="sp-section sp-box sp-box-quality">
+        <span class="sp-section-title">Qualité des réponses</span>
+        <div class="sp-card">
+          <div class="sp-grid-4" style="margin-bottom:14px">
+            <div class="sp-stat-cell"><span class="sp-stat-val">${total}</span><span class="sp-stat-label">Total</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${fmtTime(timeSec)}</span><span class="sp-stat-label">Temps total</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${successRate}%</span><span class="sp-stat-label">Taux succès</span></div>
+            <div class="sp-stat-cell"><span class="sp-stat-val">${fmtTimeAvg(avgTimeSec)}</span><span class="sp-stat-label">Moy/carte</span></div>
+          </div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Raté</span><div class="sp-qual-bar">${qualBar(fail,'#d9534f')}</div><span class="sp-qual-count">${fail}</span></div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Difficile</span><div class="sp-qual-bar">${qualBar(hard,'#e89b27')}</div><span class="sp-qual-count">${hard}</span></div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Bon</span><div class="sp-qual-bar">${qualBar(bon,'#28a745')}</div><span class="sp-qual-count">${bon}</span></div>
+          <div class="sp-qual-row"><span class="sp-qual-label">Facile</span><div class="sp-qual-bar">${qualBar(easy,'#9b59d0')}</div><span class="sp-qual-count">${easy}</span></div>
         </div>
       </div>
 
@@ -25413,7 +25872,7 @@
   }
   function isValidLeaderboardEntry(d){
     try{
-      const level = Number(d.Niveau || d['Niveau Prépa'] || d['Niveau PrÃ©pa'] || 0);
+      const level = Number(d.Niveau || d['Niveau Prépa'] || d['Niveau Prépa'] || 0);
       const score = Number(d.Score_MPSI || 0);
       const scoreMonth = Number(d.Score_MPSI_mois || 0);
       if(level > 999) return false;
@@ -25530,7 +25989,7 @@
         tbody.innerHTML = '';
         let rank = 1;
         unique.forEach(d => {
-          const cards = Number(getLeaderboardField(d, ['Cartes révisées','Cartes rÃ©visÃ©es'], 0) || 0);
+          const cards = Number(getLeaderboardField(d, ['Cartes révisées','Cartes révisées'], 0) || 0);
           if(cards <= 0) return;
           const monthScore = mode === 'month' ? Number(d.__monthScore || 0) : 0;
           if(mode === 'month'){
@@ -25542,10 +26001,10 @@
             <td>${rank++}</td>
             <td>${d.Pseudo || '-'}</td>
             <td>${d.Selected_Title || '-'}</td>
-            <td>${getLeaderboardField(d, ['Niveau','Niveau Prépa','Niveau PrÃ©pa'], 0)}</td>
+            <td>${getLeaderboardField(d, ['Niveau','Niveau Prépa','Niveau Prépa'], 0)}</td>
             <td>${mode === 'month' ? monthScore : Number(d.Score_MPSI || 0)}</td>
             <td>${cards}</td>
-            <td>${getLeaderboardField(d, ['Quêtes_quotidiennes','QuÃªtes_quotidiennes'], 0)}</td>
+            <td>${getLeaderboardField(d, ['Quêtes_quotidiennes','Quêtes_quotidiennes'], 0)}</td>
           `;
           tbody.appendChild(tr);
         });
@@ -25615,7 +26074,7 @@
       wrap.className='rg-wrap';
       wrap.style.paddingTop='16px';
       wrap.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;position:sticky;top:0;background:var(--bg);padding:12px 0;z-index:10">
-        <button class="secondary" id="wizClose" style="min-width:auto;padding:6px 12px">?</button>
+        <button class="secondary" id="wizClose" style="min-width:auto;padding:6px 12px">✕</button>
         <div style="flex:1;text-align:center">
           <div style="font-weight:700;font-size:1rem">Nouvelle session</div>
           <div style="font-size:0.7rem;color:var(--muted)">Étape ${step}/3</div>
@@ -25634,7 +26093,7 @@
               style="width:100%;background:transparent;border:none;font-size:1.1rem;font-weight:600;color:var(--fg);outline:none;padding:6px 0">
           </div>
         </div>
-        <div style="padding:8px 0 24px"><button class="primary" id="wizNext" style="width:100%">Choisir les decks ?</button></div>`;
+        <div style="padding:8px 0 24px"><button class="primary" id="wizNext" style="width:100%">Choisir les decks →</button></div>`;
       } else if(step===2){
         const items=allDecks.length>0
           ?allDecks.map(d=>`<label class="sess-deck-item"><input type="checkbox" value="${d}" ${selectedDecks.has(d)?'checked':''}><span>${d.replace(/\.xml$/i,'')}</span></label>`).join('')
@@ -25646,8 +26105,8 @@
           </div>
         </div>
         <div style="display:flex;gap:8px;padding:8px 0 24px">
-          <button class="secondary" id="wizPrev" style="flex:1">? Retour</button>
-          <button class="primary" id="wizNext" style="flex:2">Configurer ?</button>
+          <button class="secondary" id="wizPrev" style="flex:1">← Retour</button>
+          <button class="primary" id="wizNext" style="flex:2">Configurer →</button>
         </div>`;
       } else if(step===3){
         body.innerHTML=`<div class="sp-section">
@@ -25671,9 +26130,9 @@
           </div>
         </div>
         <div style="display:flex;gap:8px;padding:8px 0 24px">
-          <button class="secondary" id="wizPrev" style="flex:1">? Retour</button>
-          <button class="secondary" id="wizSave" style="flex:2">? Enregistrer</button>
-          <button class="primary" id="wizLaunch" style="flex:2">? Lancer</button>
+          <button class="secondary" id="wizPrev" style="flex:1">← Retour</button>
+          <button class="secondary" id="wizSave" style="flex:2">💾 Enregistrer</button>
+          <button class="primary" id="wizLaunch" style="flex:2">▶ Lancer</button>
         </div>`;
       }
 
@@ -25723,7 +26182,7 @@
         <button class="primary" id="newSessionBtn" style="margin-left:auto;font-size:0.83rem;padding:7px 14px">+ Nouvelle</button>
       </div>
       ${sessions.length===0?`<div class="sess-empty">
-        <div class="sess-empty-icon">?</div>
+        <div class="sess-empty-icon">📚</div>
         <div class="sess-empty-title">Aucune session personnalisée</div>
         <div class="sess-empty-sub">Créez des sessions sur mesure : decks choisis, limite de cartes, mode d'étude.</div>
         <button class="primary" id="newSessionBtn2" style="margin-top:8px">Créer ma première session</button>
@@ -25735,8 +26194,8 @@
             <div class="sess-card-meta">${s.decks?s.decks.length+' deck(s)':''}${s.config?.cardLimit?' · '+s.config.cardLimit+' cartes max':''}${s.lastUsed?' · '+relativeTime(s.lastUsed):''}</div>
           </div>
           <div class="sess-card-actions">
-            <button class="secondary sess-delete-btn" data-idx="${i}" style="min-width:auto;padding:6px 10px;color:#d9534f" title="Supprimer">?</button>
-            <button class="primary sess-launch-btn" data-idx="${i}" style="padding:8px 14px;font-size:0.85rem">? Lancer</button>
+            <button class="secondary sess-delete-btn" data-idx="${i}" style="min-width:auto;padding:6px 10px;color:#d9534f" title="Supprimer">✕</button>
+            <button class="primary sess-launch-btn" data-idx="${i}" style="padding:8px 14px;font-size:0.85rem">▶ Lancer</button>
           </div>
         </div>`).join('')}
       </div>
@@ -25769,10 +26228,15 @@
       ? await window.checkFabankiAdminAccess()
       : false;
     const theme=localStorage.getItem('fabanki:theme')||'light';
+    const uiLang=localStorage.getItem('fabanki:lang')||'fr';
     const dailyGoal=localStorage.getItem('fabanki:daily_goal')||'20';
     const prepaYear=(typeof getPrepaYear==='function'?getPrepaYear():localStorage.getItem('fabanki:prepa_year'))||'1';
     const ret=localStorage.getItem('fabanki:target_retention')||'0.85';
-    const fsz=Number(localStorage.getItem('fabanki:font_size'))||16;
+    const fsz=(typeof window.parseUiFontSizePx==='function')?window.parseUiFontSizePx(localStorage.getItem('fabanki:font_size')):16;
+    const katexPct=Math.round((Number(localStorage.getItem('fabanki:katex_scale'))||1)*100);
+    const respPct=Math.min(170, Math.max(100, Math.round((Number(localStorage.getItem('fabanki:resp_btn_scale'))||1)*100)));
+    const respShape=localStorage.getItem('fabanki:resp_btn_shape')||'circle';
+    const respPos=localStorage.getItem('fabanki:resp_btn_pos')||'auto';
     const haptic=localStorage.getItem('fabanki:haptic')!=='0';
     el.innerHTML=`<div class="rg-wrap">
       <div class="sp-header" style="position:sticky;top:0;z-index:10;background:var(--bg)">
@@ -25788,10 +26252,58 @@
             </div>
           </div>
           <div class="rg-row">
+            <span class="rg-row-label">Langue</span>
+            <div class="rg-seg">
+              <button class="rg-seg-btn ${uiLang==='fr'?'active':''}" data-rg-lang="fr">Français</button>
+              <button class="rg-seg-btn ${uiLang==='en'?'active':''}" data-rg-lang="en">English</button>
+            </div>
+          </div>
+          <div class="rg-row">
             <span class="rg-row-label">Taille du texte</span>
             <div style="display:flex;align-items:center;gap:10px">
               <input type="range" min="12" max="20" step="1" value="${fsz}" id="rg-font-size" class="rg-range">
               <span id="rg-font-size-val" style="font-size:0.8rem;color:var(--muted);min-width:34px">${fsz}px</span>
+            </div>
+          </div>
+          <div class="rg-row" style="flex-wrap:wrap">
+            <div><div class="rg-row-label">Taille des formules</div><div class="rg-row-sub">KaTeX — expressions mathématiques uniquement</div></div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="range" min="100" max="200" step="10" value="${katexPct}" id="rg-katex-size" class="rg-range">
+              <span id="rg-katex-size-val" style="font-size:0.8rem;color:var(--muted);min-width:42px">${katexPct}%</span>
+            </div>
+            <div id="rg-katex-preview" class="rg-katex-preview" aria-hidden="true"></div>
+          </div>
+          <div class="rg-row" style="flex-wrap:wrap">
+            <div><div class="rg-row-label">Boutons de notation</div><div class="rg-row-sub">Taille, forme et placement pendant la révision</div></div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="range" min="100" max="170" step="10" value="${respPct}" id="rg-resp-size" class="rg-range">
+              <span id="rg-resp-size-val" style="font-size:0.8rem;color:var(--muted);min-width:42px">${respPct}%</span>
+            </div>
+          </div>
+          <div class="rg-row">
+            <span class="rg-row-label">Forme</span>
+            <div class="rg-seg rg-seg--compact">
+              <button type="button" class="rg-seg-btn ${respShape==='circle'?'active':''}" data-rg-resp-shape="circle">Rond</button>
+              <button type="button" class="rg-seg-btn ${respShape==='rounded'?'active':''}" data-rg-resp-shape="rounded">Arrondi</button>
+              <button type="button" class="rg-seg-btn ${respShape==='rect'?'active':''}" data-rg-resp-shape="rect">Rectangle</button>
+            </div>
+          </div>
+          <div class="rg-row">
+            <span class="rg-row-label">Position</span>
+            <div class="rg-seg rg-seg--compact">
+              <button type="button" class="rg-seg-btn ${respPos==='auto'||!respPos?'active':''}" data-rg-resp-pos="auto">Auto</button>
+              <button type="button" class="rg-seg-btn ${respPos==='row'?'active':''}" data-rg-resp-pos="row">Ligne</button>
+              <button type="button" class="rg-seg-btn ${respPos==='right'?'active':''}" data-rg-resp-pos="right">Droite</button>
+              <button type="button" class="rg-seg-btn ${respPos==='bottom'?'active':''}" data-rg-resp-pos="bottom">Bas</button>
+            </div>
+          </div>
+          <div class="rg-row" style="flex-wrap:wrap;border-bottom:none">
+            <div class="rg-resp-preview" aria-hidden="true">
+              <button type="button" class="rate-ratte" tabindex="-1">Raté</button>
+              <button type="button" class="rate-difficile" tabindex="-1">Difficile</button>
+              <button type="button" class="rate-bon" tabindex="-1">Bon</button>
+              <button type="button" class="rate-facile" tabindex="-1">Facile</button>
+              <button type="button" id="rg-resp-pass" tabindex="-1">Passer</button>
             </div>
           </div>
         </div>
@@ -25896,9 +26408,49 @@
       else{ const a=document.getElementById('app'); if(a) a.setAttribute('data-theme',t); document.documentElement.setAttribute('data-theme',t); localStorage.setItem('fabanki:theme',t); }
       window.renderReglagesPage();
     }));
+    el.querySelectorAll('[data-rg-lang]').forEach(b=>b.addEventListener('click',()=>{
+      const next=b.dataset.rgLang||'fr';
+      localStorage.setItem('fabanki:lang', next);
+      try{ if(typeof updateUILanguage==='function') updateUILanguage(next); }catch(e){}
+      window.renderReglagesPage();
+    }));
     const fsInput=el.querySelector('#rg-font-size');
     const fsVal=el.querySelector('#rg-font-size-val');
-    fsInput?.addEventListener('input',()=>{ const v=fsInput.value; if(fsVal) fsVal.textContent=v+'px'; document.documentElement.style.fontSize=v+'px'; localStorage.setItem('fabanki:font_size',v); });
+    fsInput?.addEventListener('input',()=>{ const v=(typeof window.parseUiFontSizePx==='function')?window.parseUiFontSizePx(fsInput.value):(Number(fsInput.value)||16); if(fsVal) fsVal.textContent=v+'px'; localStorage.setItem('fabanki:font_size',String(v)); try{ window.applyUiFontSize?.(); }catch(e){} });
+    const kxInput=el.querySelector('#rg-katex-size');
+    const kxVal=el.querySelector('#rg-katex-size-val');
+    const kxPreview=el.querySelector('#rg-katex-preview');
+    const renderKatexPreview=()=>{
+      if(!kxPreview || !window.katex) return;
+      try{
+        window.katex.render('\\displaystyle df=\\frac{\\partial f}{\\partial x}\\,dx+\\frac{\\partial f}{\\partial y}\\,dy', kxPreview, {throwOnError:false, displayMode:false});
+      }catch(e){}
+    };
+    kxInput?.addEventListener('input',()=>{
+      const pct=Number(kxInput.value)||100;
+      if(kxVal) kxVal.textContent=pct+'%';
+      localStorage.setItem('fabanki:katex_scale', String(pct/100));
+      try{ window.applyKatexScale?.(); }catch(e){}
+    });
+    renderKatexPreview();
+    const respSizeInput=el.querySelector('#rg-resp-size');
+    const respSizeVal=el.querySelector('#rg-resp-size-val');
+    respSizeInput?.addEventListener('input',()=>{
+      const pct=Number(respSizeInput.value)||100;
+      if(respSizeVal) respSizeVal.textContent=pct+'%';
+      localStorage.setItem('fabanki:resp_btn_scale', String(pct/100));
+      try{ window.applyRespButtons?.(); }catch(e){}
+    });
+    el.querySelectorAll('[data-rg-resp-shape]').forEach(b=>b.addEventListener('click',()=>{
+      localStorage.setItem('fabanki:resp_btn_shape', b.dataset.rgRespShape||'circle');
+      try{ window.applyRespButtons?.(); }catch(e){}
+      window.renderReglagesPage();
+    }));
+    el.querySelectorAll('[data-rg-resp-pos]').forEach(b=>b.addEventListener('click',()=>{
+      localStorage.setItem('fabanki:resp_btn_pos', b.dataset.rgRespPos||'auto');
+      try{ window.applyRespButtons?.(); }catch(e){}
+      window.renderReglagesPage();
+    }));
     el.querySelector('#rg-daily-goal')?.addEventListener('change',e=>localStorage.setItem('fabanki:daily_goal',e.target.value));
     el.querySelector('#rg-prepa-year')?.addEventListener('change', e => {
       const v = e.target.value;
@@ -25959,7 +26511,7 @@
       }
     }
     el.querySelector('#rg-reset-customize-btn')?.addEventListener('click', ()=>{
-      ['fabanki:bg_color','fabanki:bg_pattern','fabanki:font_stack','fabanki:card_color','fabanki:popup_animation','fabanki:font_size','fabanki:accent_color'].forEach(k=>localStorage.removeItem(k));
+      ['fabanki:bg_color','fabanki:bg_pattern','fabanki:font_stack','fabanki:card_color','fabanki:popup_animation','fabanki:font_size','fabanki:katex_scale','fabanki:resp_btn_scale','fabanki:resp_btn_shape','fabanki:resp_btn_pos','fabanki:accent_color'].forEach(k=>localStorage.removeItem(k));
       if(typeof applyCustomization==='function') applyCustomization();
       window.renderReglagesPage();
     });
@@ -26207,10 +26759,10 @@
       const modTimeWeek = timeMatch ? String(Number(timeMatch[2])) : '';
 
       panel.innerHTML = `
-        <div style="background:var(--card-bg,#fff);border-radius:16px;width:min(900px,98vw);max-height:94vh;overflow:hidden;display:flex;flex-direction:column;">
+        <div style="background:var(--card);border-radius:16px;width:min(900px,98vw);max-height:94vh;overflow:hidden;display:flex;flex-direction:column;">
           <div style="padding:16px 20px;border-bottom:1px solid var(--border-color,#eee);display:flex;justify-content:space-between;align-items:center;gap:12px;">
             <h3 style="margin:0;font-size:1.05em;">Préparer la publication</h3>
-            <button type="button" class="secondary" id="deckModEditorClose" style="padding:4px 12px;">?</button>
+            <button type="button" class="secondary" id="deckModEditorClose" style="padding:4px 12px;">✕</button>
           </div>
           <div style="padding:16px 20px;overflow-y:auto;flex:1;">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -26240,7 +26792,7 @@
                     <div style="padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.06);">
                       <div style="font-weight:600;color:var(--muted);font-size:0.75em;">Carte ${i + 1}</div>
                       <div>${escapeHtml(c.front || '—')}</div>
-                      ${c.back ? `<div style="color:var(--muted);margin-top:4px;">? ${escapeHtml(c.back)}</div>` : ''}
+                      ${c.back ? `<div style="color:var(--muted);margin-top:4px;">→ ${escapeHtml(c.back)}</div>` : ''}
                     </div>
                   `).join('') : '<p style="color:var(--muted);">Aucune carte détectée dans le XML.</p>'}
                   ${preview.total > preview.cards.length ? `<p style="color:var(--muted);font-size:0.8em;margin:8px 0 0;">… et ${preview.total - preview.cards.length} autre(s)</p>` : ''}
@@ -26332,11 +26884,11 @@
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10002;display:flex;align-items:center;justify-content:center;padding:16px;';
 
     const modal = document.createElement('div');
-    modal.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px;width:min(720px,96vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;';
+    modal.style.cssText = 'background:var(--card);border-radius:16px;width:min(720px,96vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;';
     modal.innerHTML = `
       <div style="padding:20px 24px;border-bottom:1px solid var(--border-color,#eee);display:flex;justify-content:space-between;align-items:center;">
         <h2 style="margin:0;font-size:1.1em;">Modération des decks</h2>
-        <button id="deckModClose" class="secondary" style="padding:4px 12px;">?</button>
+        <button id="deckModClose" class="secondary" style="padding:4px 12px;">✕</button>
       </div>
       <div id="deckModBody" style="padding:20px 24px;overflow-y:auto;flex:1;">
         <p style="color:var(--muted);">Chargement...</p>
@@ -26488,6 +27040,55 @@
 // ===== UNIFIED NAVIGATION (bottom bar + sidebar) =====
 (function initNav(){
   let currentPage = 'home';
+  let navHistoryReady = false;
+  const NAV_PAGES = { home:1, stats:1, classement:1, sessions:1, reglages:1, decks:1, marche:1, profile:1, review:1, quests:1 };
+
+  try{ if('scrollRestoration' in history) history.scrollRestoration = 'manual'; }catch(e){}
+
+  function pageUrl(pageId){
+    const url = new URL(location.href);
+    if(pageId && pageId !== 'home') url.hash = pageId;
+    else url.hash = '';
+    return url.pathname + url.search + url.hash;
+  }
+
+  function syncPageHistory(pageId, replace){
+    try{
+      const next = { fabPage: pageId };
+      if(replace || !navHistoryReady || (history.state && history.state.fabPage === pageId)){
+        history.replaceState(next, '', pageUrl(pageId));
+      } else {
+        history.pushState(next, '', pageUrl(pageId));
+      }
+      navHistoryReady = true;
+    }catch(e){}
+  }
+
+  function closeTopChrome(){
+    let closed = false;
+    try{
+      const more = document.getElementById('bnMoreRoot');
+      if(more && more.classList.contains('is-open')){
+        more.classList.remove('is-open');
+        more.setAttribute('aria-hidden', 'true');
+        document.getElementById('bnMore')?.setAttribute('aria-expanded', 'false');
+        closed = true;
+      }
+    }catch(e){}
+    try{
+      document.querySelectorAll('.modal-overlay.open, .page-overlay.open').forEach((el) => {
+        el.classList.remove('open');
+        el.style.display = 'none';
+        el.setAttribute('aria-hidden', 'true');
+        closed = true;
+      });
+      const market = document.getElementById('marketContainer');
+      if(market){ market.remove(); closed = true; }
+      const profile = document.getElementById('profileContainer') || document.getElementById('profileOverlay');
+      if(profile){ profile.remove(); closed = true; }
+    }catch(e){}
+    return closed;
+  }
 
   function hideWelcomePage(){
     const w = document.getElementById('welcomeDecks');
@@ -26499,8 +27100,10 @@
     if(w) w.style.display = '';
   }
 
-  function setActivePage(pageId){
+  function setActivePage(pageId, opts){
+    const fromHistory = !!(opts && opts.fromHistory);
     currentPage = pageId;
+    if(!fromHistory) syncPageHistory(pageId, !!(opts && opts.replace));
     try{
       if(pageId !== 'review'){
         window.__fabanki_detachReviewShellForNav?.();
@@ -26528,6 +27131,7 @@
     const classementPage = document.getElementById('classementPage');
     const sessionsPage = document.getElementById('sessionsPage');
     const reglagesPage = document.getElementById('reglagesPage');
+    const questsPage = document.getElementById('questsPage');
     const footerEl = document.querySelector('footer');
 
     // Hide all custom pages first
@@ -26535,6 +27139,7 @@
     if(classementPage) classementPage.classList.remove('cl-active');
     if(sessionsPage) sessionsPage.classList.remove('sp-active');
     if(reglagesPage) reglagesPage.classList.remove('rg-active');
+    if(questsPage) questsPage.classList.remove('sp-active');
 
     if(pageId !== 'home'){
       hideWelcomePage();
@@ -26564,6 +27169,12 @@
       if(statsSection) statsSection.style.display = 'none';
       if(footerEl) footerEl.style.display = 'none';
       if(reglagesPage){ reglagesPage.classList.add('rg-active'); if(typeof window.renderReglagesPage === 'function') window.renderReglagesPage(); }
+    } else if(pageId === 'quests'){
+      hideWelcomePage();
+      if(mainEl) mainEl.style.display = 'none';
+      if(statsSection) statsSection.style.display = 'none';
+      if(footerEl) footerEl.style.display = 'none';
+      if(questsPage){ questsPage.classList.add('sp-active'); if(typeof window.renderQuestsPage === 'function') window.renderQuestsPage(); }
     } else {
       if(pageId === 'home'){
         if(mainEl) mainEl.style.display = 'none';
@@ -26578,12 +27189,18 @@
           const w = document.getElementById('welcomeDecks');
           if(w) w.style.display = '';
         }
-      } else {
+      } else if(pageId === 'review'){
         if(mainEl) mainEl.style.display = '';
         if(statsSection) statsSection.style.display = '';
         if(footerEl) footerEl.style.display = '';
         const statusNode = document.getElementById('status');
         if(statusNode) statusNode.style.display = '';
+      } else {
+        if(mainEl) mainEl.style.display = 'none';
+        if(statsSection) statsSection.style.display = 'none';
+        if(footerEl) footerEl.style.display = 'none';
+        const statusNode = document.getElementById('status');
+        if(statusNode) statusNode.style.display = 'none';
       }
     }
   }
@@ -26612,6 +27229,7 @@
       root.classList.add('is-open');
       root.setAttribute('aria-hidden', 'false');
       btnMore.setAttribute('aria-expanded', 'true');
+      try{ window.__fabanki_pushOverlay?.(); }catch(e){}
       try{
         const focusable = panel.querySelector('button[data-more], .bn-more-close');
         if(focusable) focusable.focus();
@@ -26638,6 +27256,7 @@
         closeSheet();
         if(key === 'sessions') setActivePage('sessions');
         else if(key === 'classement') setActivePage('classement');
+        else if(key === 'quests') setActivePage('quests');
         else if(key === 'market'){
           setActivePage('marche');
           setTimeout(() => { const b = document.getElementById('marketBtn'); if(b) b.click(); }, 10);
@@ -26677,6 +27296,7 @@
   document.getElementById('snHome')?.addEventListener('click', () => setActivePage('home'));
   document.getElementById('snStats')?.addEventListener('click', () => setActivePage('stats'));
   document.getElementById('snClassement')?.addEventListener('click', () => setActivePage('classement'));
+  document.getElementById('snQuests')?.addEventListener('click', () => setActivePage('quests'));
   document.getElementById('snSessions')?.addEventListener('click', () => setActivePage('sessions'));
   document.getElementById('snReglages')?.addEventListener('click', () => setActivePage('reglages'));
   document.getElementById('snReview')?.addEventListener('click', () => triggerNowReview());
@@ -26693,7 +27313,7 @@
     setTimeout(()=>{ const btn = document.getElementById('profileBtn'); if(btn) btn.click(); }, 10);
   });
 
-  // ?? Badges: observe dueCount ??
+  // ── Badges: observe dueCount ──
   function updateBadges(){
     const n = Number(document.getElementById('dueCount')?.textContent || 0);
     const label = n > 99 ? '99+' : String(n);
@@ -26707,7 +27327,37 @@
   if(dueEl) new MutationObserver(updateBadges).observe(dueEl, {childList:true, characterData:true, subtree:true});
   updateBadges();
 
-  setActivePage('home');
+  window.addEventListener('popstate', (ev) => {
+    const page = (ev.state && ev.state.fabPage) || (location.hash || '').replace(/^#/, '') || 'home';
+    const overlayClosed = closeTopChrome();
+    if(overlayClosed && page === currentPage) return;
+    setActivePage(NAV_PAGES[page] ? page : 'home', { fromHistory: true });
+  });
+
+  window.__fabanki_pushOverlay = function(){
+    try{ history.pushState({ fabPage: currentPage, overlay: true }, '', pageUrl(currentPage)); }catch(e){}
+  };
+
+  document.addEventListener('contextmenu', (e) => {
+    if(e.target && e.target.closest && e.target.closest('input,textarea,[contenteditable],.card-content,.front,.back,#front,#back')) return;
+    e.preventDefault();
+  });
+  document.addEventListener('dragstart', (e) => {
+    if(e.target && (e.target.tagName === 'IMG' || (e.target.closest && e.target.closest('img,svg,.sn-icon,.bn-icon')))) e.preventDefault();
+  });
+
+  setActivePage('home', { replace: true });
+  try{
+    const bootAction = new URLSearchParams(location.search).get('action');
+    const bootHash = (location.hash || '').replace(/^#/, '');
+    if(bootAction === 'review' || bootHash === 'review'){
+      setTimeout(() => { triggerNowReview(); }, 0);
+    } else if(bootAction === 'browse' || bootHash === 'decks'){
+      setTimeout(() => { document.getElementById('snDecks')?.click(); }, 0);
+    } else if(NAV_PAGES[bootHash] && bootHash !== 'home'){
+      setActivePage(bootHash, { replace: true });
+    }
+  }catch(e){}
 
   // Show/hide nav during review
   window.__setBottomNavVisible = function(v){
@@ -26716,7 +27366,7 @@
   };
   window.__setNavActivePage = setActivePage;
 
-  // ?? Sidebar collapse toggle ??
+  // ── Sidebar collapse toggle ──
   (function(){
     const sideNav = document.getElementById('sideNav');
     const collapseBtn = document.getElementById('snCollapseBtn');
@@ -26724,7 +27374,21 @@
     function applySideNavCollapse(collapsed){
       sideNav.classList.toggle('sn-collapsed', collapsed);
       document.body.classList.toggle('sn-collapsed', collapsed);
+      try{ window.__syncSideOverlays?.(); }catch(e){}
     }
+    window.__getSideNavWidth = function(){
+      if(window.innerWidth < 1024) return 0;
+      return sideNav.classList.contains('sn-collapsed') ? 64 : 220;
+    };
+    window.__syncSideOverlays = function(){
+      const w = window.__getSideNavWidth();
+      ['marketContainer','deckOverviewContainer'].forEach((id) => {
+        const el = document.getElementById(id);
+        if(el && el.style && el.style.position === 'fixed'){
+          el.style.left = w + 'px';
+        }
+      });
+    };
     // Restore saved preference
     applySideNavCollapse(localStorage.getItem('fabanki:sidebar:collapsed') === '1');
     collapseBtn.addEventListener('click', () => {
@@ -26732,11 +27396,6 @@
       applySideNavCollapse(nowCollapsed);
       localStorage.setItem('fabanki:sidebar:collapsed', nowCollapsed ? '1' : '0');
     });
-    // Update market/profile overlays left offset when collapsed
-    window.__getSideNavWidth = function(){
-      if(window.innerWidth < 1024) return 0;
-      return sideNav.classList.contains('sn-collapsed') ? 64 : 220;
-    };
   })();
 })();
 
@@ -26778,7 +27437,7 @@
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
 
     const modal = document.createElement('div');
-    modal.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px;width:min(780px,96vw);max-height:90vh;overflow-y:auto;padding:24px;position:relative;';
+    modal.style.cssText = 'background:var(--card);border-radius:16px;width:min(780px,96vw);max-height:90vh;overflow-y:auto;padding:24px;position:relative;';
 
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
@@ -27050,7 +27709,7 @@
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10000;display:flex;align-items:center;justify-content:center;';
 
     const modal = document.createElement('div');
-    modal.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px;width:min(700px,96vw);max-height:92vh;overflow-y:auto;padding:24px;';
+    modal.style.cssText = 'background:var(--card);border-radius:16px;width:min(700px,96vw);max-height:92vh;overflow-y:auto;padding:24px;';
 
     // Header
     const hdr = document.createElement('div');
@@ -27110,7 +27769,7 @@
     const statItems = [
       {label:'Répétitions', val: card.reps || 0},
       {label:'Statut', val: card.category || '—'},
-      {label:'Favori', val: card.favorite ? '? Oui' : 'Non'},
+      {label:'Favori', val: card.favorite ? '⭐ Oui' : 'Non'},
     ];
     if(card.due){
       const diff = Math.round((card.due - new Date()) / (1000*60*60*24));
@@ -27345,7 +28004,7 @@ window.exportProgressCSV = function(){
     }catch(e){}
   };
 
-  // ?? Handle navigation from push tap ??????????????????????????????????????
+  // ── Handle navigation from push tap ??????????????????????????????????????
   if('serviceWorker' in navigator){
     navigator.serviceWorker.addEventListener('message', e => {
       if(e.data?.type === 'PUSH_NAVIGATE' && e.data.url){
@@ -27373,13 +28032,13 @@ window.exportProgressCSV = function(){
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
 
     const modal = document.createElement('div');
-    modal.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px;width:min(600px,96vw);max-height:90vh;overflow-y:auto;padding:24px;';
+    modal.style.cssText = 'background:var(--card);border-radius:16px;width:min(600px,96vw);max-height:90vh;overflow-y:auto;padding:24px;';
 
     // Header
     modal.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-        <h2 style="margin:0;">? Notifications push</h2>
-        <button id="pnClose" class="secondary" style="padding:4px 12px;font-size:1.2em;">?</button>
+        <h2 style="margin:0;">🔔 Notifications push</h2>
+        <button id="pnClose" class="secondary" style="padding:4px 12px;font-size:1.2em;">✕</button>
       </div>
     `;
 

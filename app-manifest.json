@@ -1,15 +1,15 @@
 {
-  "version": "2.0.97",
+  "version": "2.0.122",
   "name": "Fab Anki - Apprentissage par répétition espacée",
   "short_name": "Fab Anki",
   "description": "Application d'apprentissage par répétition espacée avec plusieurs modes de révision",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone"],
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#ffffff",
-  "theme_color": "#0066ff",
+  "background_color": "#16141a",
+  "theme_color": "#7c3dbf",
   "icons": [
     {
       "src": "/assets/icons/fabankiapp.png",
