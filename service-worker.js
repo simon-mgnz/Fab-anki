@@ -1,6 +1,6 @@
 // Fab Anki Service Worker
 // Version management for cache busting
-const VERSION = '2.0.97';
+const VERSION = '2.0.122';
 const CACHE_NAME = `fabanki-v${VERSION}`;
 const DECKS_CACHE = `fabanki-decks-v${VERSION}`;
 const RUNTIME_CACHE = `fabanki-runtime-v${VERSION}`;

@@ -7,6 +7,8 @@
 
   const TEACHING_WEEKS = 36;
   const PREPA_YEAR_KEY = 'fabanki:prepa_year';
+  /** Les decks se débloquent N semaines avant la semaine de cours indiquée dans le manifest. */
+  const UNLOCK_WEEKS_AHEAD = 2;
 
   /** Cycle Zone B : hiver & printemps (mois 1-indexés, année civile y1 = rentrée+1) */
   const ZONE_B_CYCLE = [
@@ -154,6 +156,11 @@
     return 'Non défini';
   }
 
+  function getDeckUnlockWeek(time) {
+    if (!time) return null;
+    return Math.max(1, Number(time.week) - UNLOCK_WEEKS_AHEAD);
+  }
+
   function isDeckReleasedForUser(entry, prepaYear, weekInfo) {
     const time = parseDeckTime(entry && entry.time);
     if (!time) return true;
@@ -164,7 +171,7 @@
 
     if (userYear === 2 && time.year === 1) return true;
     if (userYear === 1 && time.year === 2) return false;
-    if (time.year === userYear) return wk.week >= time.week;
+    if (time.year === userYear) return wk.week >= getDeckUnlockWeek(time);
     return false;
   }
 
@@ -183,7 +190,7 @@
     const userYear = Number(py);
     if (time.year !== userYear) return false;
     const wk = weekInfo || computeScolarWeek(new Date());
-    return time.week === wk.week;
+    return getDeckUnlockWeek(time) === wk.week;
   }
 
   function getDeckTimeBadgeKinds(entry, prepaYear) {
@@ -240,7 +247,7 @@
     const userYear = Number(py);
     if (time.year !== userYear) return false;
     const wk = weekInfo || computeScolarWeek(new Date());
-    if (time.week !== wk.week + 1) return false;
+    if (getDeckUnlockWeek(time) !== wk.week + 1) return false;
     return !isDeckReleasedForUser(entry, prepaYear, wk);
   }
 
@@ -278,7 +285,8 @@
       m.innerHTML = `
         <h3 style="margin:0 0 10px 0;">Votre année de prépa</h3>
         <p style="color:var(--muted);margin:0 0 16px 0;line-height:1.45;font-size:0.92rem;">
-          Les decks sont débloqués semaine par semaine (calendrier Zone B — Grand Est).
+          Les decks sont débloqués semaine par semaine (calendrier Zone B — Grand Est),
+          avec 2 semaines d'avance sur le cours.
           Choisissez votre année pour afficher les bons contenus.
         </p>
         <div class="fab-prepayear-options">
@@ -323,8 +331,10 @@
   const api = {
     TEACHING_WEEKS,
     PREPA_YEAR_KEY,
+    UNLOCK_WEEKS_AHEAD,
     parseDeckTime,
     formatDeckTime,
+    getDeckUnlockWeek,
     computeScolarWeek,
     getSchoolYearStartYear,
     getHolidayPeriods,
