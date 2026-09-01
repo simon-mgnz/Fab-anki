@@ -1748,6 +1748,14 @@
 				"community"
 			],
 			"description": "Deck communautaire soumis par Simon — Graphes."
+		},
+		{
+			"path": "Physique/Constantes physique complet.xml",
+			"tags": [
+				"text",
+				"community"
+			],
+			"description": "Deck communautaire soumis par Simon — Constantes physique complet."
 		}
 	]
 }
