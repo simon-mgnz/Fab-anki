@@ -1756,6 +1756,14 @@
 				"community"
 			],
 			"description": "Deck communautaire soumis par Simon — Constantes physique complet."
+		},
+		{
+			"path": "Physique/Constantes physique générales.xml",
+			"tags": [
+				"text",
+				"community"
+			],
+			"description": "Deck communautaire soumis par Simon — Constantes physique générales."
 		}
 	]
 }
