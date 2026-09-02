@@ -1,6 +1,6 @@
 {
 	"Warning": "",
-	"Information": "Nouveau : temps par deck (1.01, 1.02, pour x:y → x = année, y = semaine)",
+	"Information": "Nouveau : Vous pouvez maintenant réviser plus ou moins un deck grace aux hierarchies des cartes !",
 	"decks": [
 		{
 			"path": "Anglais/Voc de Cours (avec Mme Martin).xml",
