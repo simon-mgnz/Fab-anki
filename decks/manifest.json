@@ -922,6 +922,22 @@
 			"description": "Constantes physiques principales, valeurs, unites et usage courant en exercices."
 		},
 		{
+			"path": "Physique/Constantes physique complet.xml",
+			"tags": [
+				"text"
+			],
+			"time": "2.01",
+			"description": "Constantes et ordres de grandeur (liste complete) — Physique MP*."
+		},
+		{
+			"path": "Physique/Constantes physique générales.xml",
+			"tags": [
+				"text"
+			],
+			"time": "2.01",
+			"description": "Constantes et ordres de grandeur — Physique MP*."
+		},
+		{
 			"path": "Physique/Molécules et ions courants.xml",
 			"tags": [
 				"timer"
@@ -1158,23 +1174,25 @@
 			"description": "Controle de cours sur les transformations thermodynamiques."
 		},
 		{
-			"path": "Physique/MP star 2026-2027/L1 - Homogénéité et expression d'une grandeur.xml",
+			"path": "Physique/Physique Chimie MP star/L1 - Homogénéité et expression d'une grandeur.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.01",
-			"description": "Chiffres significatifs, homogénéité et écriture d'une grandeur (Fabert MP* 2026-2027)."
+			"description": "Chiffres significatifs, homogénéité et écriture d'une grandeur (Fabert MP* 2026-2027).",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/L3 - Équations différentielles.xml",
+			"path": "Physique/Physique Chimie MP star/L3 - Équations différentielles.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.01",
-			"description": "ED d'ordre 1 et 2 usuelles en physique (Fabert MP* 2026-2027)."
+			"description": "ED d'ordre 1 et 2 usuelles en physique (Fabert MP* 2026-2027).",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/SA1 - Circuits linéaires.xml",
+			"path": "Physique/Physique Chimie MP star/SA1 - Circuits linéaires.xml",
 			"tags": [
 				"timer"
 			],
@@ -1182,7 +1200,7 @@
 			"description": "Lois de Kirchhoff, dipôles RLC et régimes transitoires (révision 1A, Fabert MP*)."
 		},
 		{
-			"path": "Physique/MP star 2026-2027/SA2 - Filtrage.xml",
+			"path": "Physique/Physique Chimie MP star/SA2 - Filtrage.xml",
 			"tags": [
 				"timer"
 			],
@@ -1190,7 +1208,7 @@
 			"description": "Notation complexe, impédances, Bode et filtres passifs (Fabert MP*)."
 		},
 		{
-			"path": "Physique/MP star 2026-2027/SB1 - Traitement du signal.xml",
+			"path": "Physique/Physique Chimie MP star/SB1 - Traitement du signal.xml",
 			"tags": [
 				"timer"
 			],
@@ -1198,7 +1216,7 @@
 			"description": "ALI idéal, montages linéaires, Fourier et Shannon (Fabert MP*)."
 		},
 		{
-			"path": "Physique/MP star 2026-2027/SB2 - Association de modules.xml",
+			"path": "Physique/Physique Chimie MP star/SB2 - Association de modules.xml",
 			"tags": [
 				"timer"
 			],
@@ -1206,7 +1224,7 @@
 			"description": "ALI non linéaire, saturation et hystérésis (Fabert MP*)."
 		},
 		{
-			"path": "Physique/MP star 2026-2027/MA0 - Cinématique.xml",
+			"path": "Physique/Physique Chimie MP star/MA0 - Cinématique.xml",
 			"tags": [
 				"timer"
 			],
@@ -1214,7 +1232,7 @@
 			"description": "Coordonnées, vitesse/accélération et mouvements particuliers (Fabert MP*)."
 		},
 		{
-			"path": "Physique/MP star 2026-2027/MA1 - Dynamique galiléenne.xml",
+			"path": "Physique/Physique Chimie MP star/MA1 - Dynamique galiléenne.xml",
 			"tags": [
 				"timer"
 			],
@@ -1222,428 +1240,472 @@
 			"description": "Forces, lois de Newton et théorèmes énergétiques (Fabert MP*)."
 		},
 		{
-			"path": "Physique/MP star 2026-2027/Constantes MP.xml",
-			"tags": [
-				"timer"
-			],
-			"time": "2.01",
-			"description": "Valeurs à connaître (fiche Rigaut, Fabert MP* 2026-2027)."
-		},
-		{
-			"path": "Physique/MP star 2026-2027/MA2 - Théorème du moment cinétique.xml",
+			"path": "Physique/Physique Chimie MP star/MA2 - Théorème du moment cinétique.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.03",
-			"description": "TMC, conservation du moment cinétique et champ central."
+			"description": "TMC, conservation du moment cinétique et champ central.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/MA3 - Autour des solides.xml",
+			"path": "Physique/Physique Chimie MP star/MA3 - Autour des solides.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.03",
-			"description": "Solide en rotation autour d'un axe fixe, moment d'inertie."
+			"description": "Solide en rotation autour d'un axe fixe, moment d'inertie.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/MB1 - Vers l'équation d'onde.xml",
+			"path": "Physique/Physique Chimie MP star/MB1 - Vers l'équation d'onde.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.04",
-			"description": "Célérité, équation de d'Alembert à une dimension."
+			"description": "Célérité, équation de d'Alembert à une dimension.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/MB2 - Ondes.xml",
+			"path": "Physique/Physique Chimie MP star/MB2 - Ondes.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.04",
-			"description": "Ondes stationnaires, modes propres, énergie d'une onde."
+			"description": "Ondes stationnaires, modes propres, énergie d'une onde.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/OA1 - Rappel optique 1A.xml",
+			"path": "Physique/Physique Chimie MP star/OA1 - Rappel optique 1A.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.05",
-			"description": "Lois de Snell-Descartes, lentilles, stigmatisme."
+			"description": "Lois de Snell-Descartes, lentilles, stigmatisme.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/OA2 - Modèle scalaire des ondes lumineuses.xml",
+			"path": "Physique/Physique Chimie MP star/OA2 - Modèle scalaire des ondes lumineuses.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.05",
-			"description": "Chemin optique, vibration lumineuse, théorème de Malus."
+			"description": "Chemin optique, vibration lumineuse, théorème de Malus.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/OB1 - Trous de Young.xml",
+			"path": "Physique/Physique Chimie MP star/OB1 - Trous de Young.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.06",
-			"description": "Interférences à deux ondes, différence de marche."
+			"description": "Interférences à deux ondes, différence de marche.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/OB2 - Young et variantes.xml",
+			"path": "Physique/Physique Chimie MP star/OB2 - Young et variantes.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.06",
-			"description": "Lame d'eau, source étendue, translation des franges."
+			"description": "Lame d'eau, source étendue, translation des franges.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/OB3 - Interféromètre de Michelson.xml",
+			"path": "Physique/Physique Chimie MP star/OB3 - Interféromètre de Michelson.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.06",
-			"description": "Lame d'air, coin d'air, anneaux d'égale inclinaison."
+			"description": "Lame d'air, coin d'air, anneaux d'égale inclinaison.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/OB4 - Cohérence.xml",
+			"path": "Physique/Physique Chimie MP star/OB4 - Cohérence.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.07",
-			"description": "Cohérence temporelle et spatiale, longueur de cohérence."
+			"description": "Cohérence temporelle et spatiale, longueur de cohérence.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/TA1 - Principes de la thermodynamique.xml",
+			"path": "Physique/Physique Chimie MP star/TA1 - Principes de la thermodynamique.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.07",
-			"description": "Premier et second principes, fonctions d'état (révision MP)."
+			"description": "Premier et second principes, fonctions d'état (révision MP).",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/TA2 - Machines thermiques.xml",
+			"path": "Physique/Physique Chimie MP star/TA2 - Machines thermiques.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.07",
-			"description": "Moteurs, réfrigérateurs, rendements de Carnot."
+			"description": "Moteurs, réfrigérateurs, rendements de Carnot.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/CA1 - Thermochimie.xml",
+			"path": "Physique/Physique Chimie MP star/CA1 - Thermochimie.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.08",
-			"description": "Enthalpie de réaction, Hess, Kirchhoff."
+			"description": "Enthalpie de réaction, Hess, Kirchhoff.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/CA2 - Sens et évolution d'une réaction.xml",
+			"path": "Physique/Physique Chimie MP star/CA2 - Sens et évolution d'une réaction.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.08",
-			"description": "Affinité, G, quotient réactionnel et van't Hoff."
+			"description": "Affinité, G, quotient réactionnel et van't Hoff.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/CA3 - Révision chimie des solutions.xml",
+			"path": "Physique/Physique Chimie MP star/CA3 - Révision chimie des solutions.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.08",
-			"description": "pH, acides-bases, solubilité (hors rédox)."
+			"description": "pH, acides-bases, solubilité (hors rédox).",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/Q1 - Introduction à la mécanique quantique.xml",
+			"path": "Physique/Physique Chimie MP star/Q1 - Introduction à la mécanique quantique.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.09",
-			"description": "Dualité, relations de Planck-Einstein et de de Broglie."
+			"description": "Dualité, relations de Planck-Einstein et de de Broglie.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/Q2 - Particule libre et puits infini.xml",
+			"path": "Physique/Physique Chimie MP star/Q2 - Particule libre et puits infini.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.09",
-			"description": "Équation de Schrödinger stationnaire, quantification."
+			"description": "Équation de Schrödinger stationnaire, quantification.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/Q3 - Barrière et effet tunnel.xml",
+			"path": "Physique/Physique Chimie MP star/Q3 - Barrière et effet tunnel.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.09",
-			"description": "Marche de potentiel, coefficients R et T, tunnel."
+			"description": "Marche de potentiel, coefficients R et T, tunnel.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EA1 - Mouvement d'une charge.xml",
+			"path": "Physique/Physique Chimie MP star/EA1 - Mouvement d'une charge.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.10",
-			"description": "Trajectoires dans E et B uniformes, Laplace ponctuel."
+			"description": "Trajectoires dans E et B uniformes, Laplace ponctuel.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EA2 - Courant et force de Laplace.xml",
+			"path": "Physique/Physique Chimie MP star/EA2 - Courant et force de Laplace.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.10",
-			"description": "Force de Laplace sur un circuit, rail de Laplace."
+			"description": "Force de Laplace sur un circuit, rail de Laplace.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EA3 - Induction de Lorentz.xml",
+			"path": "Physique/Physique Chimie MP star/EA3 - Induction de Lorentz.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.10",
-			"description": "Fem de Lorentz, loi de Lenz, rail mobile."
+			"description": "Fem de Lorentz, loi de Lenz, rail mobile.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EB0 - Topographie des champs.xml",
+			"path": "Physique/Physique Chimie MP star/EB0 - Topographie des champs.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.11",
-			"description": "Lignes de champ, flux, circulation, symétries."
+			"description": "Lignes de champ, flux, circulation, symétries.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EB1 - Dipôle électrostatique.xml",
+			"path": "Physique/Physique Chimie MP star/EB1 - Dipôle électrostatique.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.11",
-			"description": "Moment dipolaire, potentiel et champ lointain."
+			"description": "Moment dipolaire, potentiel et champ lointain.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EB2 - Dipôle magnétostatique.xml",
+			"path": "Physique/Physique Chimie MP star/EB2 - Dipôle magnétostatique.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.12",
-			"description": "Moment magnétique, spire, aimant."
+			"description": "Moment magnétique, spire, aimant.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/TB1 - Équation de diffusion.xml",
+			"path": "Physique/Physique Chimie MP star/TB1 - Équation de diffusion.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.12",
-			"description": "Fourier, conservation, équation de la chaleur 1D."
+			"description": "Fourier, conservation, équation de la chaleur 1D.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/TB2 - Solutions classiques de la diffusion.xml",
+			"path": "Physique/Physique Chimie MP star/TB2 - Solutions classiques de la diffusion.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.13",
-			"description": "Régime transitoire, profils types, ailette."
+			"description": "Régime transitoire, profils types, ailette.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/TB3 - Diffusion 3D.xml",
+			"path": "Physique/Physique Chimie MP star/TB3 - Diffusion 3D.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.13",
-			"description": "Laplacien, symétries, régime stationnaire."
+			"description": "Laplacien, symétries, régime stationnaire.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/TB4 - Résistance thermique et diffusion radiale.xml",
+			"path": "Physique/Physique Chimie MP star/TB4 - Résistance thermique et diffusion radiale.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.13",
-			"description": "Associations de résistances thermiques, cylindre, sphère."
+			"description": "Associations de résistances thermiques, cylindre, sphère.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/TC1 - Hydrostatique.xml",
+			"path": "Physique/Physique Chimie MP star/TC1 - Hydrostatique.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.14",
-			"description": "Pression dans un fluide au repos, Archimède."
+			"description": "Pression dans un fluide au repos, Archimède.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/TC2 - Systèmes à deux niveaux.xml",
+			"path": "Physique/Physique Chimie MP star/TC2 - Systèmes à deux niveaux.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.14",
-			"description": "Facteur de Boltzmann, population, paramagnétisme."
+			"description": "Facteur de Boltzmann, population, paramagnétisme.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/TC3 - Systèmes complexes.xml",
+			"path": "Physique/Physique Chimie MP star/TC3 - Systèmes complexes.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.14",
-			"description": "Ensemble canonique, fonction de partition, gaz parfait."
+			"description": "Ensemble canonique, fonction de partition, gaz parfait.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/CB1 - Pile.xml",
+			"path": "Physique/Physique Chimie MP star/CB1 - Pile.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.15",
-			"description": "Oxydoréduction, Nernst, fem à vide."
+			"description": "Oxydoréduction, Nernst, fem à vide.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/CB2 - Pile qui débite.xml",
+			"path": "Physique/Physique Chimie MP star/CB2 - Pile qui débite.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.15",
-			"description": "Intensité, faraday, capacité, rendement."
+			"description": "Intensité, faraday, capacité, rendement.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/CB3 - Pile qui recharge.xml",
+			"path": "Physique/Physique Chimie MP star/CB3 - Pile qui recharge.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.16",
-			"description": "Électrolyse, tension minimale, accumulateurs."
+			"description": "Électrolyse, tension minimale, accumulateurs.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EC1 - Théorème de Gauss.xml",
+			"path": "Physique/Physique Chimie MP star/EC1 - Théorème de Gauss.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.17",
-			"description": "Flux de E, distributions à forte symétrie."
+			"description": "Flux de E, distributions à forte symétrie.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EC2 - Condensateur.xml",
+			"path": "Physique/Physique Chimie MP star/EC2 - Condensateur.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.17",
-			"description": "Capacité, énergie électrostatique, associations."
+			"description": "Capacité, énergie électrostatique, associations.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EC3 - Théorème d'Ampère.xml",
+			"path": "Physique/Physique Chimie MP star/EC3 - Théorème d'Ampère.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.18",
-			"description": "Circulation de B, fil, nappe, cylindre."
+			"description": "Circulation de B, fil, nappe, cylindre.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EC4 - Solénoïde.xml",
+			"path": "Physique/Physique Chimie MP star/EC4 - Solénoïde.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.18",
-			"description": "Champ d'un solénoïde, inductance propre."
+			"description": "Champ d'un solénoïde, inductance propre.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/ED1 - Équations de Maxwell.xml",
+			"path": "Physique/Physique Chimie MP star/ED1 - Équations de Maxwell.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.18",
-			"description": "Les quatre équations, courant de déplacement."
+			"description": "Les quatre équations, courant de déplacement.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/ED2 - Manipuler Maxwell.xml",
+			"path": "Physique/Physique Chimie MP star/ED2 - Manipuler Maxwell.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.20",
-			"description": "Équation de propagation, jauge, potentiels."
+			"description": "Équation de propagation, jauge, potentiels.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/ED3 - Induction de Neumann.xml",
+			"path": "Physique/Physique Chimie MP star/ED3 - Induction de Neumann.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.20",
-			"description": "B variable, circuit fixe, autoinduction."
+			"description": "B variable, circuit fixe, autoinduction.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/ED4 - Auto et mutuelle induction.xml",
+			"path": "Physique/Physique Chimie MP star/ED4 - Auto et mutuelle induction.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.20",
-			"description": "L, M, énergie mutuelle, couplage."
+			"description": "L, M, énergie mutuelle, couplage.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EE1 - Ondes dans le vide.xml",
+			"path": "Physique/Physique Chimie MP star/EE1 - Ondes dans le vide.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.21",
-			"description": "OPP harmonique, polarisation, impédance du vide."
+			"description": "OPP harmonique, polarisation, impédance du vide.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EE2 - Ondes et conducteurs.xml",
+			"path": "Physique/Physique Chimie MP star/EE2 - Ondes et conducteurs.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.21",
-			"description": "Effet de peau, réflexion sur un métal."
+			"description": "Effet de peau, réflexion sur un métal.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EE3 - Onde dans un plasma.xml",
+			"path": "Physique/Physique Chimie MP star/EE3 - Onde dans un plasma.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.21",
-			"description": "Pulsation plasma, relation de dispersion, coupure."
+			"description": "Pulsation plasma, relation de dispersion, coupure.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/EE4 - Dipôle rayonnant.xml",
+			"path": "Physique/Physique Chimie MP star/EE4 - Dipôle rayonnant.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.21",
-			"description": "Rayonnement d'un dipôle oscillant, zone de rayonnement."
+			"description": "Rayonnement d'un dipôle oscillant, zone de rayonnement.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/MC1 - Référentiels non galiléens en translation.xml",
+			"path": "Physique/Physique Chimie MP star/MC1 - Référentiels non galiléens en translation.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.22",
-			"description": "Force d'entraînement, pesanteur effective."
+			"description": "Force d'entraînement, pesanteur effective.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/MC2 - Référentiels non galiléens en rotation.xml",
+			"path": "Physique/Physique Chimie MP star/MC2 - Référentiels non galiléens en rotation.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.22",
-			"description": "Entraînement, Coriolis, centrifuge."
+			"description": "Entraînement, Coriolis, centrifuge.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/MC3 - Référentiel terrestre.xml",
+			"path": "Physique/Physique Chimie MP star/MC3 - Référentiel terrestre.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.23",
-			"description": "Pesanteur, déviations de Coriolis, verticale."
+			"description": "Pesanteur, déviations de Coriolis, verticale.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/CC1 - Révision chimie des matériaux.xml",
+			"path": "Physique/Physique Chimie MP star/CC1 - Révision chimie des matériaux.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.23",
-			"description": "Métaux, oxydes, diagrammes d'Ellingham (idée)."
+			"description": "Métaux, oxydes, diagrammes d'Ellingham (idée).",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/CC2 - Corrosion.xml",
+			"path": "Physique/Physique Chimie MP star/CC2 - Corrosion.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.23",
-			"description": "Corrosion humide, pile de corrosion, protection."
+			"description": "Corrosion humide, pile de corrosion, protection.",
+			"comingSoon": true
 		},
 		{
-			"path": "Physique/MP star 2026-2027/L2 - Calculs.xml",
+			"path": "Physique/Physique Chimie MP star/L2 - Calculs.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.01",
-			"description": "DL, ordres de grandeur, approximations usuelles en physique."
+			"description": "DL, ordres de grandeur, approximations usuelles en physique.",
+			"comingSoon": true
 		},
 		{
 			"path": "Sciences industrielles/Chapitre 1 - SysML et blabla de SI.xml",
@@ -1744,10 +1806,9 @@
 		{
 			"path": "Informatique/Chapitre 4 - Graphes/Graphes.xml",
 			"tags": [
-				"text",
-				"community"
+				"text"
 			],
-			"description": "Deck communautaire soumis par Simon — Graphes."
+			"description": "Graphes."
 		}
 	]
 }

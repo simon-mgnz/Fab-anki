@@ -2,11 +2,12 @@
  * Admin API HTTP (CORS explicite) pour fabanki.fr
  */
 const functions = require('firebase-functions');
+const { onRequest } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const cors = require('cors')({ origin: true });
 
 const { assertAdminContext, isAdminUid } = require('./adminAuth');
-const { removeDeckFromGitHub, listManifestFolders, readManifestFullFromGitHub, updateManifestNotices, bulkAssignManifestDeckTime } = require('./deckPublisher');
+const { removeDeckFromGitHub, listManifestFolders, readManifestFullFromGitHub, updateManifestNotices, bulkAssignManifestDeckTime, updateExistingDeckXmlOnGitHub } = require('./deckPublisher');
 
 const REGION = 'europe-west1';
 const fn = () => functions.region(REGION);
@@ -316,6 +317,85 @@ function buildAdminHttpExports(db, processDeckSubmission) {
       } catch {
         res.json({ isAdmin: false });
       }
+    })),
+
+    adminHttpUpdateDeckXml: onRequest({
+      region: REGION,
+      timeoutSeconds: 120,
+      memory: '256MiB',
+      cors: true,
+      invoker: 'public',
+    }, withCors(async (req, res) => {
+      if (req.method !== 'POST') {
+        res.status(405).json({ error: 'POST required' });
+        return;
+      }
+      const decoded = await verifyAuth(req);
+      const deckPath = String(req.body?.deckPath || '').trim();
+      const xmlContent = String(req.body?.xmlContent || '');
+      const cardId = String(req.body?.cardId || '').trim();
+      if (!deckPath) {
+        res.status(400).json({ error: 'deckPath requis' });
+        return;
+      }
+      if (!xmlContent.trim()) {
+        res.status(400).json({ error: 'xmlContent requis' });
+        return;
+      }
+      const message = cardId
+        ? `Admin (${decoded.uid.slice(0, 8)}): carte ${cardId} dans ${deckPath}`
+        : `Admin (${decoded.uid.slice(0, 8)}): mise à jour ${deckPath}`;
+      const result = await updateExistingDeckXmlOnGitHub(deckPath, xmlContent, message);
+      res.json({ ok: true, ...result });
+    })),
+
+    adminHttpPublishDeck: onRequest({
+      region: REGION,
+      timeoutSeconds: 120,
+      memory: '512MiB',
+      cors: true,
+      invoker: 'public',
+    }, withCors(async (req, res) => {
+      if (req.method !== 'POST') {
+        res.status(405).json({ error: 'POST required' });
+        return;
+      }
+      const decoded = await verifyAuth(req);
+      const body = req.body || {};
+      const title = String(body.title || '').trim();
+      const xmlContent = String(body.xmlContent || '');
+      if (!title) {
+        res.status(400).json({ error: 'Titre requis' });
+        return;
+      }
+      if (!xmlContent.trim() || xmlContent.length > 700000) {
+        res.status(400).json({ error: 'XML manquant ou trop volumineux' });
+        return;
+      }
+      const asCommunity = body.asCommunity === true || body.official === false;
+      const submission = {
+        title,
+        path: body.path || '/',
+        cost: Math.max(0, Number(body.cost) || 0),
+        level: Math.max(0, Number(body.level) || 0),
+        modes: Array.isArray(body.modes) ? body.modes.map(String) : ['anki'],
+        time: String(body.time || '').trim(),
+        xmlContent,
+        cardCount: Math.max(0, Number(body.cardCount) || 0),
+        submittedBy: String(body.submittedBy || 'Admin').slice(0, 80),
+        submittedByUid: decoded.uid,
+        official: !asCommunity,
+        status: 'pending',
+      };
+      const docRef = db.collection('deck_submissions').doc();
+      await docRef.set({
+        ...submission,
+        status: 'publishing',
+        submittedAt: admin.firestore.FieldValue.serverTimestamp(),
+        publishSource: 'adminHttpPublishDeck',
+      });
+      const result = await processDeckSubmission(docRef.id, submission, 'adminHttpPublishDeck');
+      res.json({ ok: true, submissionId: docRef.id, official: !asCommunity, ...result });
     })),
   };
 }
