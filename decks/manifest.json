@@ -1744,26 +1744,23 @@
 		{
 			"path": "Informatique/Chapitre 4 - Graphes/Graphes.xml",
 			"tags": [
-				"text",
-				"community"
+				"text"
 			],
-			"description": "Deck communautaire soumis par Simon — Graphes."
+			"description": "Graphes"
 		},
 		{
 			"path": "Physique/Constantes physique complet.xml",
 			"tags": [
-				"text",
-				"community"
+				"text"
 			],
-			"description": "Deck communautaire soumis par Simon — Constantes physique complet."
+			"description": "Constantes physique complet"
 		},
 		{
 			"path": "Physique/Constantes physique générales.xml",
 			"tags": [
-				"text",
-				"community"
+				"text"
 			],
-			"description": "Deck communautaire soumis par Simon — Constantes physique générales."
+			"description": "Constantes physique générales"
 		}
 	]
 }
