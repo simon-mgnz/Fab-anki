@@ -63,12 +63,16 @@ function normalizeSubmissionFromModificationRequest(data) {
   return {
     title: data.deckTitle || 'Sans titre',
     path: data.deckURL || '/',
-    cost: 0,
-    level: 0,
-    modes: ['anki'],
+    cost: Number(data.cost) || 0,
+    level: Number(data.level) || 0,
+    modes: Array.isArray(data.modes) ? data.modes : ['anki'],
+    time: data.time || '',
     xmlContent: data.suggestedContent || data.currentContent || '',
-    cardCount: 0,
+    cardCount: Number(data.cardCount) || 0,
     submittedBy: data.submittedBy || 'Anonymous',
+    submittedByUid: data.submittedByUid || '',
+    official: data.official === true,
+    community: data.community === true,
     status: 'pending',
   };
 }
@@ -197,6 +201,8 @@ exports.adminHttpGetManifestNotices = _adminHttp.adminHttpGetManifestNotices;
 exports.adminHttpUpdateManifestNotices = _adminHttp.adminHttpUpdateManifestNotices;
 exports.adminHttpBulkAssignDeckTime = _adminHttp.adminHttpBulkAssignDeckTime;
 exports.adminHttpCheckAccess = _adminHttp.adminHttpCheckAccess;
+exports.adminHttpUpdateDeckXml = _adminHttp.adminHttpUpdateDeckXml;
+exports.adminHttpPublishDeck = _adminHttp.adminHttpPublishDeck;
 
 // ── Push: test réel via web-push ──────────────────────────────────────────
 

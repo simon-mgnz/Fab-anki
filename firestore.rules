@@ -34,9 +34,9 @@ service cloud.firestore {
     match /deck_submissions/{docId} {
       allow create: if
         request.resource.data.keys().hasOnly([
-          'title','path','cost','level','modes',
-          'xmlContent','cardCount','submittedBy',
-          'submittedAt','status'
+          'title','path','cost','level','modes','time',
+          'xmlContent','cardCount','submittedBy','submittedByUid',
+          'submittedAt','status','official','description'
         ]) &&
         request.resource.data.title is string &&
         request.resource.data.title.size() > 0 &&
@@ -50,7 +50,16 @@ service cloud.firestore {
         request.resource.data.cost is int &&
         request.resource.data.level is int &&
         request.resource.data.modes is list &&
-        request.resource.data.status == 'pending';
+        request.resource.data.status == 'pending' &&
+        (
+          !('submittedByUid' in request.resource.data) ||
+          (request.auth != null && request.resource.data.submittedByUid == request.auth.uid)
+        ) &&
+        (
+          !('official' in request.resource.data) ||
+          request.resource.data.official == false ||
+          (request.auth != null && request.resource.data.submittedByUid == request.auth.uid)
+        );
       allow read, update, delete: if false;
     }
   }

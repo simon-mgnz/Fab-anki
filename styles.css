@@ -3511,25 +3511,81 @@ body.in-review.review-mobile-global{
 .deck-entry-name{font-size:.83rem}
 .deck-entry-sub{font-size:.68rem}
 @media (max-width:640px){
-  .deck-entry{align-items:center;padding:8px 10px;flex-wrap:nowrap;gap:6px}
+  #deckBrowserOverlay,
+  #deckBrowserOverlay .modal{
+    overflow-x:hidden !important;
+    max-width:100%;
+  }
+  #deckBrowserOverlay .deck-list,
+  .deck-list{
+    overflow-x:hidden;
+    max-width:100%;
+    box-sizing:border-box;
+  }
+  .deck-browser-search{min-width:0;flex:1 1 100%}
+  .deck-browser-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .deck-entry{
+    width:100%;
+    max-width:100%;
+    box-sizing:border-box;
+    padding:8px;
+  }
+  .deck-entry:has(.deck-entry-bar-slot){
+    display:grid;
+    grid-template-columns:28px minmax(0,1fr) auto;
+    grid-template-areas:
+      "icon text actions"
+      "bar bar bar"
+      "stats stats stats";
+    align-items:center;
+    gap:6px 8px;
+    flex-wrap:unset;
+  }
+  .deck-entry > .deck-entry-icon,
   .deck-entry:has(.deck-entry-bar-slot) > .deck-entry-icon{
-    flex-basis:28px;
+    grid-area:icon;
+    flex:none;
+    width:28px;
+    height:28px;
   }
+  .deck-entry > .deck-entry-text,
   .deck-entry:has(.deck-entry-bar-slot) > .deck-entry-text{
-    flex:0 0 108px;
-    width:108px;
-    max-width:108px;
+    grid-area:text;
+    flex:none;
+    width:auto;
+    max-width:none;
+    min-width:0;
   }
+  .deck-entry > .deck-entry-bar-slot,
   .deck-entry:has(.deck-entry-bar-slot) > .deck-entry-bar-slot{
-    min-width:36px;
+    grid-area:bar;
+    flex:none;
+    width:auto;
+    min-width:0;
   }
-  .deck-entry-bar-slot{min-width:0;padding:0}
-  .deck-entry-stats{gap:4px}
-  .deck-kpi{min-width:46px;padding:5px 7px 4px}
+  .deck-entry > .deck-entry-stats,
+  .deck-entry:has(.deck-entry-bar-slot) > .deck-entry-stats{
+    grid-area:stats;
+    flex:none;
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px;
+    justify-content:flex-start;
+    width:100%;
+  }
+  .deck-entry > .deck-entry-actions,
+  .deck-entry:has(.deck-entry-bar-slot) > .deck-entry-actions{
+    grid-area:actions;
+    flex:none;
+    gap:4px;
+  }
+  .deck-entry-pause{min-width:36px;padding:5px 8px}
+  .deck-kpi{min-width:0;flex:1 1 calc(33.33% - 4px);padding:4px 6px 3px}
   .deck-kpi-label{font-size:.56rem;margin-bottom:3px}
   .deck-kpi-value{font-size:.95rem}
   .deck-entry-name{font-size:.84rem}
   .deck-entry-sub{font-size:.64rem}
+  .deck-entry-bar-slot{min-width:0;padding:0}
   .deck-entry-bar-slot .deck-mastery--wide{height:4px;min-height:4px;max-height:4px}
 }
 
@@ -3553,6 +3609,13 @@ body.in-review.review-mobile-global{
 }
 .deck-entry--community{
   border-left:3px solid rgba(230,126,34,0.55);
+}
+.deck-entry--disabled{
+  opacity:.62;
+}
+.deck-entry-pause{
+  min-width:38px;
+  padding:5px 8px;
 }
 .deck-browser-section-title{
   font-size:.72rem;
@@ -3841,14 +3904,15 @@ body:has(#deckOverviewContainer) footer{
   word-wrap:break-word;
   position:relative;
   cursor:pointer;
+  overflow:visible;
+  isolation:isolate;
   border:1px solid rgba(255,255,255,0.22);
   box-shadow:0 4px 12px rgba(0,0,0,0.12);
   color:#fff;
   min-height:72px;
-  transition:transform 0.15s,box-shadow 0.15s;
+  transition:box-shadow 0.15s;
 }
 .deck-overview-card-tile:hover{
-  transform:translateY(-2px);
   box-shadow:0 8px 20px rgba(0,0,0,0.18);
 }
 .deck-overview-card-preview{
@@ -3873,8 +3937,8 @@ body:has(#deckOverviewContainer) footer{
   white-space:normal;
   min-width:170px;
   max-width:260px;
-  z-index:10000;
-  pointer-events:auto;
+  z-index:3;
+  pointer-events:none;
   opacity:0;
   transition:opacity 0.2s;
   margin-bottom:8px;
@@ -4075,13 +4139,18 @@ body:has(#deckOverviewContainer) footer{
   display:flex !important;
   flex-direction:column !important;
   min-height:100vh !important;
-  overflow:hidden !important
+  overflow:hidden !important;
+  max-width:100% !important;
+  box-sizing:border-box
 }
 #deckBrowserOverlay .deck-list{
   flex:1 1 auto;
   min-height:0;
   max-height:none !important;
-  overflow-y:auto
+  overflow-y:auto;
+  overflow-x:hidden;
+  max-width:100%;
+  box-sizing:border-box
 }
 
 /* Manifest notices + summary-grade response buttons */
@@ -4483,3 +4552,15 @@ html[data-resp-pos="bottom"] .review-desktop-active #respButtons button{
   border-color:rgba(255,255,255,0.2)
 }
 .rg-seg--compact .rg-seg-btn{padding:6px 10px;font-size:0.74rem}
+
+.field img,
+.card-content img,
+img.fiche-fig{
+  max-width:min(100%, 560px);
+  height:auto;
+  display:block;
+  margin:10px auto;
+  background:#fff;
+  border-radius:8px;
+  box-shadow:0 1px 4px rgba(0,0,0,0.08);
+}

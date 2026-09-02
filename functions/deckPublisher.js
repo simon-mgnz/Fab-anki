@@ -2,6 +2,7 @@
  * GitHub deck publishing helpers for Fab'Anki Cloud Functions.
  */
 const fetch = require('node-fetch');
+const { isAdminUid } = require('./adminAuth');
 
 function getGitHubConfig() {
   const token = process.env.GITHUB_TOKEN;
@@ -119,17 +120,33 @@ function modesToTags(modes) {
   return [...tags];
 }
 
+function isOfficialAdminSubmission(submission) {
+  if (!isAdminUid(submission && submission.submittedByUid)) return false;
+  if (submission.community === true || submission.asCommunity === true) return false;
+  if (submission.official === false) return false;
+  return true;
+}
+
 function buildManifestEntry(submission, relativePath) {
   const tags = modesToTags(submission.modes);
-  if (!tags.includes('community')) tags.push('community');
+  const official = isOfficialAdminSubmission(submission);
+  if (!official && !tags.includes('community')) tags.push('community');
+  if (official) {
+    const next = tags.filter((t) => t !== 'community');
+    tags.length = 0;
+    tags.push(...next);
+  }
 
   const customDesc = submission.description || submission.manifestDescription;
+  const fallbackDesc = official
+    ? (submission.title || 'Deck')
+    : `Deck communautaire soumis par ${submission.submittedBy || 'un utilisateur'} — ${submission.title || 'Sans titre'}.`;
   const entry = {
     path: relativePath,
     tags,
     description: customDesc && String(customDesc).trim()
       ? String(customDesc).trim()
-      : `Deck communautaire soumis par ${submission.submittedBy || 'un utilisateur'} — ${submission.title || 'Sans titre'}.`,
+      : fallbackDesc,
   };
   const cost = Number(submission.cost);
   const level = Number(submission.level);
@@ -346,6 +363,39 @@ async function removeDeckFromGitHub(publishedPath) {
   return { relativePath, xmlRepoPath };
 }
 
+function assertSafeDeckRepoPath(repoPath) {
+  let p = String(repoPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  try { p = decodeURIComponent(p); } catch (e) { /* keep raw */ }
+  if (!p || p.includes('..') || p.includes('//')) {
+    throw new Error('Chemin de deck invalide');
+  }
+  if (!p.toLowerCase().startsWith('decks/')) {
+    p = `decks/${p}`;
+  }
+  if (!/^decks\/.+\.xml$/i.test(p)) {
+    throw new Error('Le chemin doit être un fichier XML sous decks/');
+  }
+  return p;
+}
+
+async function updateExistingDeckXmlOnGitHub(repoPath, xmlContent, message) {
+  const xmlRepoPath = assertSafeDeckRepoPath(repoPath);
+  const content = String(xmlContent || '');
+  if (!content.trim()) throw new Error('xmlContent vide');
+  if (Buffer.byteLength(content, 'utf8') > 2000000) {
+    throw new Error('XML trop volumineux (max 2 Mo)');
+  }
+  const file = await githubGetFile(xmlRepoPath);
+  if (!file) throw new Error(`Deck introuvable sur GitHub: ${xmlRepoPath}`);
+  await githubPutFile(
+    xmlRepoPath,
+    content,
+    message || `Admin: mise à jour du deck ${xmlRepoPath}`,
+    file.sha
+  );
+  return { xmlRepoPath };
+}
+
 module.exports = {
   publishDeckToGitHub,
   removeDeckFromGitHub,
@@ -356,4 +406,6 @@ module.exports = {
   readManifestFullFromGitHub,
   updateManifestNotices,
   bulkAssignManifestDeckTime,
+  updateExistingDeckXmlOnGitHub,
+  assertSafeDeckRepoPath,
 };

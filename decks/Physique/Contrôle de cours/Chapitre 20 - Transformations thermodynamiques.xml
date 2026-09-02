@@ -1,4 +1,4 @@
-<deck name="Chapitre 20 - Transformations thermodynamiques" tags='Physique::Contrôle de cours'><fields><rich-text name='Front' sides='11' ></rich-text><tex name='TeX' sides='11'></tex><rich-text name='Back' sides='01' ></rich-text><tex name='Formula' sides='01'></tex><rich-text name='Texte enrichi' sides='01' ></rich-text><tex name='TeX2' sides='01'></tex><rich-text name='Texte enrichi2' sides='01' ></rich-text><tex name='TeX5' sides='01'></tex><rich-text name='Texte enrichi3' sides='01' ></rich-text><tex name='TeX3' sides='01'></tex><rich-text name='Texte enrichi4' sides='01' ></rich-text><tex name='TeX4' sides='01'></tex></fields><cards><card><rich-text name='Front'><p>Gaz parfait, transformation 1→2 isotherme : déterminer le travail W et le transfert thermique Q reçus par le système.</p></rich-text><rich-text name='Back'><p>
+<deck name="Chapitre 20 - Transformations thermodynamiques" tags='Physique::Contrôle de cours'><fields><rich-text name='Front' sides='11' ></rich-text><tex name='TeX' sides='11'></tex><rich-text name='Back' sides='01' ></rich-text><tex name='Formula' sides='01'></tex><rich-text name='Texte enrichi' sides='01' ></rich-text><tex name='TeX2' sides='01'></tex><rich-text name='Texte enrichi2' sides='01' ></rich-text><tex name='TeX5' sides='01'></tex><rich-text name='Texte enrichi3' sides='01' ></rich-text><tex name='TeX3' sides='01'></tex><rich-text name='Texte enrichi4' sides='01' ></rich-text><tex name='TeX4' sides='01'></tex></fields><cards><card importance='extra'><rich-text name='Front'><p>Gaz parfait, transformation 1→2 isotherme : déterminer le travail W et le transfert thermique Q reçus par le système.</p></rich-text><rich-text name='Back'><p>
     <strong>Transformation isotherme :</strong>
   </p>
   <p>T₁ = T₂ = T = constante</p>
@@ -30,9 +30,9 @@
 <p>
 <strong>Interprétation :</strong>
 </p>
-<p>Le travail reçu par le gaz est intégralement compensé par un transfert thermique de même valeur absolue mais de signe opposé.</p></rich-text><tex name='TeX4'>\boxed{Q = -W = nRT\ln\left(\frac{V_2}{V_1}\right)}</tex></card><card><rich-text name='Front'><p>Exprimer le travail W des forces de pression reçu par n moles de gaz subissant une transformation monobare.</p></rich-text><rich-text name='Back'><p><strong>Transformation monobare :</strong></p><p>Une transformation monobare se fait à <strong>pression extérieure constante</strong> : Pext = constante</p><p><br/></p></rich-text><tex name='Formula'>P_{\text{ext}} = \text{constante}</tex><rich-text name='Texte enrichi'><p><strong>Travail des forces de pression :</strong></p><p>Le travail élémentaire est :</p><p><br/></p></rich-text><tex name='TeX2'>\delta W = -P_{\text{ext}}dV</tex><rich-text name='Texte enrichi2'><p>En intégrant de l'état 1 à l'état 2 :</p><p><br/></p></rich-text><tex name='TeX5'>W = -P_{\text{ext}}\int_{V_1}^{V_2} dV = -P_{\text{ext}}(V_2 - V_1)</tex><rich-text name='Texte enrichi3'><p><strong>Expression finale :</strong></p><p><br/></p></rich-text><tex name='TeX3'>\boxed{W = -P_{\text{ext}}\Delta V}</tex><rich-text name='Texte enrichi4'><p><strong>Remarque :</strong></p>
+<p>Le travail reçu par le gaz est intégralement compensé par un transfert thermique de même valeur absolue mais de signe opposé.</p></rich-text><tex name='TeX4'>\boxed{Q = -W = nRT\ln\left(\frac{V_2}{V_1}\right)}</tex></card><card importance='extra'><rich-text name='Front'><p>Exprimer le travail W des forces de pression reçu par n moles de gaz subissant une transformation monobare.</p></rich-text><rich-text name='Back'><p><strong>Transformation monobare :</strong></p><p>Une transformation monobare se fait à <strong>pression extérieure constante</strong> : Pext = constante</p><p><br/></p></rich-text><tex name='Formula'>P_{\text{ext}} = \text{constante}</tex><rich-text name='Texte enrichi'><p><strong>Travail des forces de pression :</strong></p><p>Le travail élémentaire est :</p><p><br/></p></rich-text><tex name='TeX2'>\delta W = -P_{\text{ext}}dV</tex><rich-text name='Texte enrichi2'><p>En intégrant de l'état 1 à l'état 2 :</p><p><br/></p></rich-text><tex name='TeX5'>W = -P_{\text{ext}}\int_{V_1}^{V_2} dV = -P_{\text{ext}}(V_2 - V_1)</tex><rich-text name='Texte enrichi3'><p><strong>Expression finale :</strong></p><p><br/></p></rich-text><tex name='TeX3'>\boxed{W = -P_{\text{ext}}\Delta V}</tex><rich-text name='Texte enrichi4'><p><strong>Remarque :</strong></p>
 <p>• Si le gaz se dilate (ΔV &gt; 0) : W &lt; 0 (le gaz fournit du travail)</p>
-<p>• Si le gaz se comprime (ΔV &lt; 0) : W &gt; 0 (le gaz reçoit du travail)</p></rich-text></card><card><rich-text name='Front'><p>Gaz parfait, transformation 1→2 adiabatique : déterminer le travail W et le transfert thermique Q reçus par le système.</p></rich-text><rich-text name='Back'><p>
+<p>• Si le gaz se comprime (ΔV &lt; 0) : W &gt; 0 (le gaz reçoit du travail)</p></rich-text></card><card importance='extra'><rich-text name='Front'><p>Gaz parfait, transformation 1→2 adiabatique : déterminer le travail W et le transfert thermique Q reçus par le système.</p></rich-text><rich-text name='Back'><p>
     <strong>Transformation adiabatique :</strong>
   </p>
   <p>Aucun échange thermique avec l'extérieur : Q = 0</p>
@@ -67,7 +67,7 @@
 <p>
 <strong>Interprétation :</strong>
 </p>
-<p>Le travail reçu par le gaz sert uniquement à modifier son énergie interne (température).</p></rich-text><tex name='TeX4'>W = \frac{nR(T_2 - T_1)}{\gamma - 1} \\ \\ PV^\gamma = \text{constante}</tex></card><card><rich-text name='Front'><p>Enthalpie H de n moles d'un corps pur monophasé : écrire la différentielle dH(T,P), puis définir la capacité thermique isobare.</p></rich-text><rich-text name='Back'><p>
+<p>Le travail reçu par le gaz sert uniquement à modifier son énergie interne (température).</p></rich-text><tex name='TeX4'>W = \frac{nR(T_2 - T_1)}{\gamma - 1} \\ \\ PV^\gamma = \text{constante}</tex></card><card importance='core'><rich-text name='Front'><p>Enthalpie H de n moles d'un corps pur monophasé : écrire la différentielle dH(T,P), puis définir la capacité thermique isobare.</p></rich-text><rich-text name='Back'><p>
     <strong>Différentielle de H(T,P) :</strong>
   </p>
   <p>L'enthalpie H est une fonction d'état qui dépend de T et P.</p>
@@ -97,7 +97,7 @@
 <p>dP = 0, donc :</p>
 <p>
 <br/>
-</p></rich-text><tex name='TeX4'>dH = C_P dT \quad \Rightarrow \quad \Delta H = \int C_P dT</tex></card><card><rich-text name='Front'><p>Donner l'expression de l'enthalpie massique h d'un mélange diphasé liquide/vapeur en fonction de la fraction massique en vapeur x et des enthalpies massiques nécessaires.</p></rich-text><rich-text name='Back'><p>
+</p></rich-text><tex name='TeX4'>dH = C_P dT \quad \Rightarrow \quad \Delta H = \int C_P dT</tex></card><card importance='core'><rich-text name='Front'><p>Donner l'expression de l'enthalpie massique h d'un mélange diphasé liquide/vapeur en fonction de la fraction massique en vapeur x et des enthalpies massiques nécessaires.</p></rich-text><rich-text name='Back'><p>
     <strong>Expression de l'enthalpie massique :</strong>
   </p>
   <p>Pour un système diphasé liquide-vapeur :</p>
@@ -125,7 +125,7 @@
 <strong>Cas limites :</strong>
 </p>
 <p>• xV = 0 (liquide pur) : h = hL</p>
-<p>• xV = 1 (vapeur pure) : h = hV</p></rich-text><tex name='TeX4'>h = h_L + x_V\Delta h_{\text{vap}}</tex></card><card><rich-text name='Front'><p>Gaz parfait, transformation 1→2 isochore : déterminer le travail W et le transfert thermique Q reçus par le système.</p></rich-text><rich-text name='Back'><p>
+<p>• xV = 1 (vapeur pure) : h = hV</p></rich-text><tex name='TeX4'>h = h_L + x_V\Delta h_{\text{vap}}</tex></card><card importance='extra'><rich-text name='Front'><p>Gaz parfait, transformation 1→2 isochore : déterminer le travail W et le transfert thermique Q reçus par le système.</p></rich-text><rich-text name='Back'><p>
     <strong>Transformation isochore :</strong>
   </p>
   <p>V₁ = V₂ = V = constante</p>
@@ -157,7 +157,7 @@
 <p>
 <strong>Interprétation :</strong>
 </p>
-<p>Toute l'énergie thermique reçue sert à augmenter l'énergie interne (température) du gaz, aucun travail n'est fourni.</p></rich-text><tex name='TeX4'>\boxed{Q = \Delta U = nC_{V,m}(T_2 - T_1)}</tex></card><card><rich-text name='Front'><p>Système de n moles soumis aux forces de pression, transformation 1→2 monobare avec P₁ = P₂ = Pext : montrer que ΔH = QP.</p></rich-text><rich-text name='Back'><p>
+<p>Toute l'énergie thermique reçue sert à augmenter l'énergie interne (température) du gaz, aucun travail n'est fourni.</p></rich-text><tex name='TeX4'>\boxed{Q = \Delta U = nC_{V,m}(T_2 - T_1)}</tex></card><card importance='extra'><rich-text name='Front'><p>Système de n moles soumis aux forces de pression, transformation 1→2 monobare avec P₁ = P₂ = Pext : montrer que ΔH = QP.</p></rich-text><rich-text name='Back'><p>
     <strong>Démonstration :</strong>
   </p>
   <p>1. Premier principe de la thermodynamique :</p>
@@ -187,7 +187,7 @@
 <p>
 <br/>
 </p>
-<p>QP désigne le transfert thermique reçu à pression constante.</p></rich-text><tex name='TeX4'>Q = \Delta U + P_2V_2 - P_1V_1 = (U_2 + P_2V_2) - (U_1 + P_1V_1) \\ \\ \boxed{Q_P = \Delta H}</tex></card><card><rich-text name='Front'><p>Énoncer sans démonstration (mais en précisant clairement les conditions d'application) la loi de Laplace.</p></rich-text><rich-text name='Back'><p><strong>Loi de Laplace :</strong></p><p>Pour un gaz parfait subissant une transformation adiabatique réversible :</p><p><br/></p></rich-text><tex name='Formula'>\boxed{PV^\gamma = \text{constante}}</tex><rich-text name='Texte enrichi'><p>ou de manière équivalente :</p><p><br/></p></rich-text><tex name='TeX2'>P_1V_1^\gamma = P_2V_2^\gamma</tex><rich-text name='Texte enrichi2'><p><strong>Notations :</strong></p><p>• P : pression du gaz (Pa)</p><p>• V : volume du gaz (m³)</p><p>• γ = CP/CV : coefficient de Laplace (sans unité)</p><p> - γ = 5/3 pour un gaz monoatomique</p><p> - γ = 7/5 = 1,4 pour un gaz diatomique</p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p><strong>Conditions d'application :</strong></p>
+<p>QP désigne le transfert thermique reçu à pression constante.</p></rich-text><tex name='TeX4'>Q = \Delta U + P_2V_2 - P_1V_1 = (U_2 + P_2V_2) - (U_1 + P_1V_1) \\ \\ \boxed{Q_P = \Delta H}</tex></card><card importance='core'><rich-text name='Front'><p>Énoncer sans démonstration (mais en précisant clairement les conditions d'application) la loi de Laplace.</p></rich-text><rich-text name='Back'><p><strong>Loi de Laplace :</strong></p><p>Pour un gaz parfait subissant une transformation adiabatique réversible :</p><p><br/></p></rich-text><tex name='Formula'>\boxed{PV^\gamma = \text{constante}}</tex><rich-text name='Texte enrichi'><p>ou de manière équivalente :</p><p><br/></p></rich-text><tex name='TeX2'>P_1V_1^\gamma = P_2V_2^\gamma</tex><rich-text name='Texte enrichi2'><p><strong>Notations :</strong></p><p>• P : pression du gaz (Pa)</p><p>• V : volume du gaz (m³)</p><p>• γ = CP/CV : coefficient de Laplace (sans unité)</p><p> - γ = 5/3 pour un gaz monoatomique</p><p> - γ = 7/5 = 1,4 pour un gaz diatomique</p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p><strong>Conditions d'application :</strong></p>
 <p><br/></p>
 <p><strong>1. Gaz parfait</strong></p>
 <p><br/></p>
@@ -197,11 +197,11 @@
 <p><br/></p>
 <p><strong>3. Transformation réversible</strong></p>
 <p>- Quasi-statique</p>
-<p>- Pext = P à chaque instant</p></rich-text><tex name='TeX3'></tex><rich-text name='Texte enrichi4'><p><strong>Autres formes de la loi de Laplace :</strong></p><p><br/></p></rich-text><tex name='TeX4'>TV^{\gamma-1} = \text{cste} \quad \text{et} \quad T^\gamma P^{1-\gamma} = \text{cste}</tex></card><card><rich-text name='Front'><p>Enthalpie massique de fusion Δhfus de l'eau à T = 273 K : quel est le signe ? On solidifie une masse m d'une masse totale m₀ d'eau : exprimer ΔH.</p></rich-text><rich-text name='Back'><p><strong>Signe de Δhfus :</strong></p><p>La fusion est un processus <strong>endothermique</strong> (absorption de chaleur).</p><p><br/></p></rich-text><tex name='Formula'>\boxed{\Delta h_{\text{fus}} \gt 0}</tex><rich-text name='Texte enrichi'><p><strong>Explication :</strong></p><p>• Passage solide → liquide nécessite de l'énergie</p><p>• Il faut rompre une partie des liaisons du réseau cristallin</p><p>• L'enthalpie du liquide est supérieure à celle du solide</p><p>• Typiquement : Δhfus(eau, 273 K) ≈ 334 kJ·kg⁻¹</p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Solidification d'une masse m :</strong></p><p>On part de m₀ d'eau liquide, on solidifie une masse m.</p><p>État initial : m₀ d'eau liquide</p><p>État final : (m₀ - m) d'eau liquide + m de glace</p><p><br/></p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p>La solidification est l'inverse de la fusion :</p><p><br/></p></rich-text><tex name='TeX3'>\Delta h_{\text{sol}} = -\Delta h_{\text{fus}} \lt 0</tex><rich-text name='Texte enrichi4'><p><strong>Variation d'enthalpie :</strong></p>
+<p>- Pext = P à chaque instant</p></rich-text><tex name='TeX3'></tex><rich-text name='Texte enrichi4'><p><strong>Autres formes de la loi de Laplace :</strong></p><p><br/></p></rich-text><tex name='TeX4'>TV^{\gamma-1} = \text{cste} \quad \text{et} \quad T^\gamma P^{1-\gamma} = \text{cste}</tex></card><card importance='core'><rich-text name='Front'><p>Enthalpie massique de fusion Δhfus de l'eau à T = 273 K : quel est le signe ? On solidifie une masse m d'une masse totale m₀ d'eau : exprimer ΔH.</p></rich-text><rich-text name='Back'><p><strong>Signe de Δhfus :</strong></p><p>La fusion est un processus <strong>endothermique</strong> (absorption de chaleur).</p><p><br/></p></rich-text><tex name='Formula'>\boxed{\Delta h_{\text{fus}} \gt 0}</tex><rich-text name='Texte enrichi'><p><strong>Explication :</strong></p><p>• Passage solide → liquide nécessite de l'énergie</p><p>• Il faut rompre une partie des liaisons du réseau cristallin</p><p>• L'enthalpie du liquide est supérieure à celle du solide</p><p>• Typiquement : Δhfus(eau, 273 K) ≈ 334 kJ·kg⁻¹</p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Solidification d'une masse m :</strong></p><p>On part de m₀ d'eau liquide, on solidifie une masse m.</p><p>État initial : m₀ d'eau liquide</p><p>État final : (m₀ - m) d'eau liquide + m de glace</p><p><br/></p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p>La solidification est l'inverse de la fusion :</p><p><br/></p></rich-text><tex name='TeX3'>\Delta h_{\text{sol}} = -\Delta h_{\text{fus}} \lt 0</tex><rich-text name='Texte enrichi4'><p><strong>Variation d'enthalpie :</strong></p>
 <p>Pour solidifier une masse m :</p>
 <p><br/></p>
 <p><strong>Remarque :</strong></p>
-<p>ΔH &lt; 0 : le système libère de l'énergie (processus exothermique)</p></rich-text><tex name='TeX4'>\boxed{\Delta H = -m\Delta h_{\text{fus}}}</tex></card><card><rich-text name='Front'><p>Enthalpie massique de vaporisation Δhvap de l'eau à T = 373 K : quel est le signe ? On liquéfie une masse m d'une masse totale m₀ de vapeur : exprimer ΔH.</p></rich-text><rich-text name='Back'><p>
+<p>ΔH &lt; 0 : le système libère de l'énergie (processus exothermique)</p></rich-text><tex name='TeX4'>\boxed{\Delta H = -m\Delta h_{\text{fus}}}</tex></card><card importance='core'><rich-text name='Front'><p>Enthalpie massique de vaporisation Δhvap de l'eau à T = 373 K : quel est le signe ? On liquéfie une masse m d'une masse totale m₀ de vapeur : exprimer ΔH.</p></rich-text><rich-text name='Back'><p>
     <strong>Signe de Δhvap :</strong>
   </p>
   <p>La vaporisation est un processus <strong>endothermique</strong> (absorption de chaleur).</p>
@@ -230,7 +230,7 @@
 <p>Pour liquéfier une masse m :</p>
 <p>
 <br/>
-</p></rich-text><tex name='TeX4'>\boxed{\Delta H = -m\Delta h_{\text{vap}}}</tex></card><card><rich-text name='Front'><p>Exprimer le travail W des forces de pression reçu par n moles de gaz parfait subissant une transformation isotherme.</p></rich-text><rich-text name='Back'><p>
+</p></rich-text><tex name='TeX4'>\boxed{\Delta H = -m\Delta h_{\text{vap}}}</tex></card><card importance='core'><rich-text name='Front'><p>Exprimer le travail W des forces de pression reçu par n moles de gaz parfait subissant une transformation isotherme.</p></rich-text><rich-text name='Back'><p>
     <strong>Transformation isotherme :</strong>
   </p>
   <p>Une transformation isotherme se fait à <strong>température constante</strong> : T = constante</p>
@@ -256,12 +256,12 @@
 </p></rich-text><tex name='TeX3'>\boxed{W = -nRT\ln\left(\frac{V_2}{V_1}\right) = nRT\ln\left(\frac{V_1}{V_2}\right)}</tex><rich-text name='Texte enrichi4'><p>Ou, en utilisant P₁V₁ = P₂V₂ :</p>
   <p>
   <br/>
-</p></rich-text><tex name='TeX4'>\boxed{W = nRT\ln\left(\frac{P_2}{P_1}\right)}</tex></card><card><rich-text name='Front'><p>Enthalpie massique de sublimation Δhsub de l'eau à T = 253 K : quel est le signe ? On sublime une masse m d'une masse totale m₀ de glace : exprimer ΔH.</p></rich-text><rich-text name='Back'><p><strong>Signe de Δhsub :</strong></p><p>La sublimation est un processus <strong>endothermique</strong> (absorption de chaleur).</p><p><br/></p></rich-text><tex name='Formula'>\boxed{\Delta h_{\text{sub}} \gt 0}</tex><rich-text name='Texte enrichi'><p><strong>Explication :</strong></p>
+</p></rich-text><tex name='TeX4'>\boxed{W = nRT\ln\left(\frac{P_2}{P_1}\right)}</tex></card><card importance='core'><rich-text name='Front'><p>Enthalpie massique de sublimation Δhsub de l'eau à T = 253 K : quel est le signe ? On sublime une masse m d'une masse totale m₀ de glace : exprimer ΔH.</p></rich-text><rich-text name='Back'><p><strong>Signe de Δhsub :</strong></p><p>La sublimation est un processus <strong>endothermique</strong> (absorption de chaleur).</p><p><br/></p></rich-text><tex name='Formula'>\boxed{\Delta h_{\text{sub}} \gt 0}</tex><rich-text name='Texte enrichi'><p><strong>Explication :</strong></p>
 <p>• Passage solide → vapeur nécessite de l'énergie</p>
 <p>• Il faut rompre toutes les liaisons du réseau cristallin</p>
 <p>• L'enthalpie de la vapeur est supérieure à celle du solide</p>
 <p>• Δhsub = Δhfus + Δhvap &gt; 0</p></rich-text><tex name='TeX2'></tex><rich-text name='Texte enrichi2'><p><strong>Sublimation d'une masse m :</strong></p><p>On part de m₀ de glace, on sublime une masse m.</p><p>État initial : m₀ de glace (solide)</p><p>État final : (m₀ - m) de glace + m de vapeur</p><p><br/></p></rich-text><tex name='TeX5'></tex><rich-text name='Texte enrichi3'><p><strong>Variation d'enthalpie :</strong></p><p>Pour sublimer une masse m :</p><p><br/></p></rich-text><tex name='TeX3'>\boxed{\Delta H = m\Delta h_{\text{sub}}}</tex><rich-text name='Texte enrichi4'><p><strong>Remarque :</strong></p>
-<p>ΔH &gt; 0 : le système absorbe de l'énergie (processus endothermique)</p></rich-text></card><card><rich-text name='Front'><p>Exprimer le travail W des forces de pression reçu par n moles de gaz subissant une transformation isobare.</p></rich-text><rich-text name='Back'><p>
+<p>ΔH &gt; 0 : le système absorbe de l'énergie (processus endothermique)</p></rich-text></card><card importance='core'><rich-text name='Front'><p>Exprimer le travail W des forces de pression reçu par n moles de gaz subissant une transformation isobare.</p></rich-text><rich-text name='Back'><p>
     <strong>Transformation isobare :</strong>
   </p>
   <p>Une transformation isobare se fait à <strong>pression constante</strong> : P = constante</p>
@@ -285,7 +285,7 @@
 </p></rich-text><tex name='TeX3'>\boxed{W = -P\Delta V}</tex><rich-text name='Texte enrichi4'><p>Ou, en utilisant l'équation des gaz parfaits PV = nRT :</p>
   <p>
   <br/>
-</p></rich-text><tex name='TeX4'>\boxed{W = -nR\Delta T}</tex></card><card><rich-text name='Front'><p>Gaz parfait, transformation 1→2 isobare : déterminer le travail W et le transfert thermique Q reçus par le système.</p></rich-text><rich-text name='Back'><p>
+</p></rich-text><tex name='TeX4'>\boxed{W = -nR\Delta T}</tex></card><card importance='extra'><rich-text name='Front'><p>Gaz parfait, transformation 1→2 isobare : déterminer le travail W et le transfert thermique Q reçus par le système.</p></rich-text><rich-text name='Back'><p>
     <strong>Transformation isobare :</strong>
   </p>
   <p>P₁ = P₂ = P = constante</p>
@@ -317,7 +317,7 @@
 <p>
 <br/>
 </p>
-<p>avec CP,m = CV,m + R</p></rich-text><tex name='TeX4'>Q = nC_{V,m}(T_2 - T_1) + nR(T_2 - T_1) \\ \\ \boxed{Q = nC_{P,m}(T_2 - T_1) = \Delta H}</tex></card><card><rich-text name='Front'><p>Démontrer l'expression de la capacité thermique isochore CV pour n moles de gaz parfait en fonction du coefficient γ = CP/CV.</p></rich-text><rich-text name='Back'><p>
+<p>avec CP,m = CV,m + R</p></rich-text><tex name='TeX4'>Q = nC_{V,m}(T_2 - T_1) + nR(T_2 - T_1) \\ \\ \boxed{Q = nC_{P,m}(T_2 - T_1) = \Delta H}</tex></card><card importance='core'><rich-text name='Front'><p>Démontrer l'expression de la capacité thermique isochore CV pour n moles de gaz parfait en fonction du coefficient γ = CP/CV.</p></rich-text><rich-text name='Back'><p>
     <strong>Démonstration :</strong>
   </p>
   <p>1. Relation de Mayer pour un gaz parfait :</p>
@@ -342,7 +342,7 @@
 <strong>Applications numériques :</strong>
 </p>
 <p>• Gaz monoatomique : γ = 5/3 → CV = (3/2)nR</p>
-<p>• Gaz diatomique : γ = 7/5 → CV = (5/2)nR</p></rich-text><tex name='TeX4'>\boxed{C_V = \frac{nR}{\gamma - 1}}</tex></card><card><rich-text name='Front'><p>Démontrer l'expression de la capacité thermique isobare CP pour n moles de gaz parfait en fonction du coefficient γ = CP/CV.</p></rich-text><rich-text name='Back'><p>
+<p>• Gaz diatomique : γ = 7/5 → CV = (5/2)nR</p></rich-text><tex name='TeX4'>\boxed{C_V = \frac{nR}{\gamma - 1}}</tex></card><card importance='core'><rich-text name='Front'><p>Démontrer l'expression de la capacité thermique isobare CP pour n moles de gaz parfait en fonction du coefficient γ = CP/CV.</p></rich-text><rich-text name='Back'><p>
     <strong>Démonstration :</strong>
   </p>
   <p>1. Relation de Mayer pour un gaz parfait :</p>
@@ -367,7 +367,7 @@
 <strong>Applications numériques :</strong>
 </p>
 <p>• Gaz monoatomique : γ = 5/3 → CP = (5/2)nR</p>
-<p>• Gaz diatomique : γ = 7/5 → CP = (7/2)nR</p></rich-text><tex name='TeX4'>\boxed{C_P = \frac{\gamma nR}{\gamma - 1}}</tex></card><card><rich-text name='Front'><p>Donner l'expression de la différentielle d'une fonction de plusieurs variables f(x, y, z).</p></rich-text><rich-text name='Back'><p><strong>Expression de la différentielle :</strong></p><p>Pour une fonction f(x, y, z) de trois variables, la différentielle totale s'écrit :</p><p><br/></p></rich-text><tex name='Formula'>\boxed{df = \frac{\partial f}{\partial x}dx + \frac{\partial f}{\partial y}dy + \frac{\partial f}{\partial z}dz}</tex><rich-text name='Texte enrichi'><p><strong>Notation vectorielle :</strong></p><p>On peut aussi l'écrire sous forme de produit scalaire avec le gradient :</p><p><br/></p></rich-text><tex name='TeX2'>df = \vec{\text{grad}}(f) \cdot d\vec{r}</tex><rich-text name='Texte enrichi2'><p>où le gradient est :</p><p><br/></p></rich-text><tex name='TeX5'>\vec{\text{grad}}(f) = \frac{\partial f}{\partial x}\vec{e}_x + \frac{\partial f}{\partial y}\vec{e}_y + \frac{\partial f}{\partial z}\vec{e}_z</tex><rich-text name='Texte enrichi3'><p>et le déplacement élémentaire :</p><p><br/></p></rich-text><tex name='TeX3'>d\vec{r} = dx\,\vec{e}_x + dy\,\vec{e}_y + dz\,\vec{e}_z</tex></card><card><rich-text name='Front'><p>Exprimer le travail W des forces de pression reçu par n moles de gaz subissant une transformation isochore.</p></rich-text><rich-text name='Back'><p>
+<p>• Gaz diatomique : γ = 7/5 → CP = (7/2)nR</p></rich-text><tex name='TeX4'>\boxed{C_P = \frac{\gamma nR}{\gamma - 1}}</tex></card><card importance='extra'><rich-text name='Front'><p>Donner l'expression de la différentielle d'une fonction de plusieurs variables f(x, y, z).</p></rich-text><rich-text name='Back'><p><strong>Expression de la différentielle :</strong></p><p>Pour une fonction f(x, y, z) de trois variables, la différentielle totale s'écrit :</p><p><br/></p></rich-text><tex name='Formula'>\boxed{df = \frac{\partial f}{\partial x}dx + \frac{\partial f}{\partial y}dy + \frac{\partial f}{\partial z}dz}</tex><rich-text name='Texte enrichi'><p><strong>Notation vectorielle :</strong></p><p>On peut aussi l'écrire sous forme de produit scalaire avec le gradient :</p><p><br/></p></rich-text><tex name='TeX2'>df = \vec{\text{grad}}(f) \cdot d\vec{r}</tex><rich-text name='Texte enrichi2'><p>où le gradient est :</p><p><br/></p></rich-text><tex name='TeX5'>\vec{\text{grad}}(f) = \frac{\partial f}{\partial x}\vec{e}_x + \frac{\partial f}{\partial y}\vec{e}_y + \frac{\partial f}{\partial z}\vec{e}_z</tex><rich-text name='Texte enrichi3'><p>et le déplacement élémentaire :</p><p><br/></p></rich-text><tex name='TeX3'>d\vec{r} = dx\,\vec{e}_x + dy\,\vec{e}_y + dz\,\vec{e}_z</tex></card><card importance='extra'><rich-text name='Front'><p>Exprimer le travail W des forces de pression reçu par n moles de gaz subissant une transformation isochore.</p></rich-text><rich-text name='Back'><p>
         <strong>Transformation isochore :</strong>
       </p>
       <p>Une transformation isochore se fait à <strong>volume constant</strong> : V = constante</p>

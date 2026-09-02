@@ -1,1 +1,6 @@
 .claude/
+firebase-debug.log
+ui-debug.log
+.firebase/
+_fiche_preview/
+_pdf_extract/

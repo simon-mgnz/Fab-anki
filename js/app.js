@@ -1445,13 +1445,79 @@
     return entry;
   }
 
+  function normalizeCardImportance(v){
+    const s = String(v || '').toLowerCase().trim();
+    if(s === 'core' || s === 'essentiel' || s === 'savoir') return 'core';
+    if(s === 'extra' || s === 'def' || s === 'definition' || s === 'définition') return 'extra';
+    return 'std';
+  }
+
+  function getImportanceFilter(dk){
+    const key = dk || deckKey || '';
+    try{
+      const per = localStorage.getItem('fabanki:importance_filter:' + key);
+      if(per === 'core' || per === 'std' || per === 'all') return per;
+    }catch(e){}
+    return 'all';
+  }
+
+  function setImportanceFilter(val, dk){
+    const key = dk || deckKey || '';
+    try{ localStorage.setItem('fabanki:importance_filter:' + key, val); }catch(e){}
+  }
+
+  function cardPassesImportanceFilter(importance, dk){
+    const f = getImportanceFilter(dk);
+    if(f === 'all') return true;
+    const n = normalizeCardImportance(importance);
+    if(f === 'core') return n === 'core';
+    if(f === 'std') return n === 'core' || n === 'std';
+    return true;
+  }
+
+  function getReviewableDeckCards(){
+    const list = Array.isArray(deck && deck.cards) ? deck.cards : [];
+    return list.filter(c => {
+      const dk = (c && c.__deckKey) || deckKey;
+      if(c && c.deleted) return false;
+      if(isCardDeleted(dk, c && c.id)) return false;
+      return cardPassesImportanceFilter(c.importance, dk);
+    });
+  }
+
+  function deckDisabledStorageKey(dk){
+    return 'fabanki:deck_disabled:' + String(dk || '');
+  }
+
+  function isDeckDisabled(dk){
+    try{ return localStorage.getItem(deckDisabledStorageKey(dk)) === '1'; }catch(e){ return false; }
+  }
+
+  function setDeckDisabled(dk, disabled){
+    try{
+      const key = deckDisabledStorageKey(dk);
+      if(disabled) localStorage.setItem(key, '1');
+      else localStorage.removeItem(key);
+    }catch(e){}
+  }
+
+  function isDeckDisabledUrl(url){
+    try{ return isDeckDisabled(getDeckKeyFromUrl(url)); }catch(e){ return false; }
+  }
+
+  function isOfficialSimonDescription(desc){
+    return /soumis par\s+simon\b/i.test(String(desc || ''));
+  }
+
   function isCommunityManifestEntry(item){
     if(!item || typeof item !== 'object') return false;
+    const desc = String(item.description || '');
+    if(isOfficialSimonDescription(desc)) return false;
     if(item.community === true) return true;
     const tags = item.tags;
     if(Array.isArray(tags) && tags.includes('community')) return true;
-    const desc = String(item.description || '').toLowerCase();
-    return desc.includes('communautaire') || desc.includes('soumis par');
+    const d = desc.toLowerCase();
+    return d.includes('communautaire') || d.includes('soumis par');
   }
 
   function isCommunityDeckRelPath(relPath){
@@ -1589,6 +1655,39 @@
 
   // === FSRS storage key helpers ===
   function storageKey(s){ return `fabanki:${deckKey}:${s}` }
+
+  function isCardDeleted(deckKeyValue, cardId){
+    try{
+      if(!deckKeyValue || !cardId) return false;
+      const raw = localStorage.getItem('fabanki:card_override:' + deckKeyValue + ':' + cardId);
+      if(!raw) return false;
+      const ov = JSON.parse(raw);
+      return !!(ov && ov.deleted);
+    }catch(e){ return false; }
+  }
+
+  function applyStoredCardOverride(deckKeyValue, cardObj){
+    try{
+      if(!deckKeyValue || !cardObj || !cardObj.id) return;
+      const raw = localStorage.getItem('fabanki:card_override:' + deckKeyValue + ':' + cardObj.id);
+      if(!raw) return;
+      const ov = JSON.parse(raw);
+      if(ov && ov.deleted){
+        cardObj.deleted = true;
+        return;
+      }
+      (ov.fields || []).forEach(f => {
+        if(!f || !f.name) return;
+        if(cardObj.fields && cardObj.fields[f.name]){
+          cardObj.fields[f.name].html = f.content;
+        }
+        if(cardObj._originalQuestions && cardObj._originalQuestions[0]){
+          if(f.name === 'Front') cardObj._originalQuestions[0].front = f.content;
+          if(f.name === 'Back') cardObj._originalQuestions[0].back = f.content;
+        }
+      });
+    }catch(e){}
+  }
 
   function getCurrentReviewCard(){
     try{
@@ -1943,7 +2042,7 @@
     const questionElements = Array.from(node.querySelectorAll(':scope > question'));
     if(questionElements.length === 0) return null;
     const id = node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idxRef.value++));
-    const cardObj = { id, fields: {} };
+    const cardObj = { id, fields: {}, importance: normalizeCardImportance(node.getAttribute && node.getAttribute('importance')) };
     cardObj._originalQuestions = questionElements.map(q => {
       const qid = q.getAttribute('id') || '';
       const mode = q.getAttribute('mode') || 'classique';
@@ -2054,6 +2153,9 @@
       for(const url of deckURLs){
         try{
           // Check if deck is locked and skip if it is
+          if(isDeckDisabledUrl(url)){
+            continue;
+          }
           const lockState = evaluateDeckLock(url);
           if(lockState.locked){
             console.log('Skipping locked deck:', url, 'Locked by:', lockState.lockedByCost ? 'cost' : 'level');
@@ -2094,6 +2196,7 @@
                 const cardObj = parseMultiDeckOriginalCardFromNode(node, idxRef);
                 if(cardObj){
                   cardObj.__deckKey = deckKey;
+                  applyStoredCardOverride(deckKey, cardObj);
                   tempDeck.cards.push(cardObj);
                 }
               }catch(e){ continue; }
@@ -2165,7 +2268,9 @@
                   }
                 }
                 // Always create the card with _fieldOrder, even if empty
-                tempDeck.cards.push({id, fields, __deckKey: deckKey, _fieldOrder: _fieldOrder.length > 0 ? _fieldOrder : Object.keys(fields)});
+                const cardObj = {id, fields, __deckKey: deckKey, _fieldOrder: _fieldOrder.length > 0 ? _fieldOrder : Object.keys(fields), importance: normalizeCardImportance(node.getAttribute && node.getAttribute('importance'))};
+                applyStoredCardOverride(deckKey, cardObj);
+                tempDeck.cards.push(cardObj);
               }catch(e){ continue }
             }
           }
@@ -2196,7 +2301,8 @@
             const isNew = (!st || (!st.last && (st.reps===0 || st.reps===undefined)));
             // Store field definitions in map so renderBack can access them
             cardFieldDefsMap.set(getMultiDeckCardMapKey(deckKey, c.id), tempDeck.fieldDefs);
-            // Add all cards to allCards - filtering will happen later
+            if(c.deleted || isCardDeleted(deckKey, c.id)) continue;
+            if(!cardPassesImportanceFilter(c.importance, deckKey)) continue;
             allCards.push({card: c, deckURL: url, deckName, deckKey, deckPath, isNew, hasOriginalTag: isOriginalModeDeck});
           }
         }catch(e){ console.warn('Error loading deck:', url, e); }
@@ -2585,6 +2691,7 @@
       for(const node of candidates){
         try{
           const cardObj = { id: node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idx++)), fields: {} };
+          cardObj.importance = normalizeCardImportance(node.getAttribute && node.getAttribute('importance'));
           const questionElements = Array.from(node.querySelectorAll(':scope > question'));
           
           if(questionElements.length > 0){
@@ -2614,6 +2721,7 @@
               sides: {front:false,back:true,always:false} 
             };
             
+            applyStoredCardOverride(deckKey, cardObj);
             deck.cards.push(cardObj);
           }
         }catch(e){ console.warn('ignored malformed original mode card', e); continue }
@@ -2670,6 +2778,7 @@
       for(const node of candidates){
         try{
           const cardObj = { id: node.getAttribute('id') || node.getAttribute('guid') || ('card-'+(idx++)), fields: {} };
+          cardObj.importance = normalizeCardImportance(node.getAttribute && node.getAttribute('importance'));
           const usedElements = new Set(); // Track which elements we've already assigned
 
           // For each fieldDef, attempt to read the corresponding element inside this <card>
@@ -2725,7 +2834,10 @@
 
           // Only include card if it has at least one non-empty field
           const hasContent = Object.values(cardObj.fields).some(f => f.html && f.html.trim().length > 0);
-          if(hasContent) deck.cards.push(cardObj);
+          if(hasContent){
+            applyStoredCardOverride(deckKey, cardObj);
+            deck.cards.push(cardObj);
+          }
           }catch(e){ console.warn('ignored malformed card', e); continue }
         }
       
@@ -2916,6 +3028,8 @@
           if(inferredCount > deckFieldCount) deckFieldCount = inferredCount;
           // USE SAME ID LOGIC AS parseXMLDeck to ensure consistency with localStorage keys
           const cardId = cardNode.getAttribute('id') || cardNode.getAttribute('guid') || ('card-'+(idx++));
+          if(isCardDeleted(deckKeyForStats, cardId)) continue;
+          if(!cardPassesImportanceFilter(cardNode.getAttribute && cardNode.getAttribute('importance'), deckKeyForStats)) continue;
           const key = `fabanki:${deckKeyForStats}:card:${cardId}`;
           const storedData = localStorage.getItem(key);
           
@@ -3102,6 +3216,24 @@
         }
       });
       buttonRow.appendChild(resetBtn);
+
+      const pauseBtn = document.createElement('button');
+      pauseBtn.type = 'button';
+      pauseBtn.className = 'secondary';
+      const syncPauseBtn = () => {
+        const off = isDeckDisabled(deckKeyForStats);
+        pauseBtn.textContent = off ? 'Réactiver le deck' : 'Désactiver le deck';
+        pauseBtn.title = off
+          ? 'Ce deck reviendra dans Réviser (cartes à réviser).'
+          : 'Ce deck restera ouvrable ici, mais n’entrera plus dans Réviser.';
+        pauseBtn.setAttribute('aria-pressed', off ? 'true' : 'false');
+      };
+      syncPauseBtn();
+      pauseBtn.addEventListener('click', () => {
+        setDeckDisabled(deckKeyForStats, !isDeckDisabled(deckKeyForStats));
+        syncPauseBtn();
+      });
+      buttonRow.appendChild(pauseBtn);
       
       rightPanel.appendChild(buttonRow);
       
@@ -3225,6 +3357,47 @@
       });
 
       rightPanel.appendChild(retentionBox);
+
+      const hasImportanceMeta = cardNodes.some(n => n.getAttribute && n.getAttribute('importance'));
+      if(hasImportanceMeta){
+        const impBox = document.createElement('div');
+        impBox.style.cssText = 'margin-bottom:16px;padding:12px;border-radius:10px;background:rgba(15,118,110,0.06);border:1px solid rgba(15,118,110,0.14);';
+        const impTitle = document.createElement('div');
+        impTitle.style.cssText = 'font-weight:700;margin-bottom:6px;color:#1e293b;';
+        impTitle.textContent = 'Profondeur de révision';
+        impBox.appendChild(impTitle);
+        const impHint = document.createElement('div');
+        impHint.style.cssText = 'font-size:0.78rem;color:var(--muted);margin-bottom:8px;';
+        impHint.textContent = 'Un seul deck : choisis ce que tu révises. « Par cœur » = À SAVOIR / lois.';
+        impBox.appendChild(impHint);
+        const impRow = document.createElement('div');
+        impRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;';
+        const currentImp = getImportanceFilter(deckKeyForStats);
+        [
+          { id: 'core', label: 'Par cœur' },
+          { id: 'std', label: 'Standard' },
+          { id: 'all', label: 'Complet' }
+        ].forEach(opt => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'secondary';
+          b.textContent = opt.label;
+          if(currentImp === opt.id){
+            b.style.background = 'var(--accent)';
+            b.style.color = '#fff';
+            b.style.borderColor = 'transparent';
+          }
+          b.addEventListener('click', async () => {
+            setImportanceFilter(opt.id, deckKeyForStats);
+            const existingOverview = document.getElementById('deckOverviewContainer');
+            if(existingOverview) existingOverview.remove();
+            await showDeckOverview(url);
+          });
+          impRow.appendChild(b);
+        });
+        impBox.appendChild(impRow);
+        rightPanel.insertBefore(impBox, retentionBox);
+      }
       
       // Check if deck is locked and show appropriate button
       const lockState = evaluateDeckLock(url);
@@ -3895,17 +4068,9 @@
 
         for(const card of visibleCards){
         const cardEl = document.createElement('div');
-        cardEl.style.cssText = `
-          background:${colors[card.category]};
-          color:white;
-          padding:12px;
-          border-radius:12px;
-          font-size:0.85em;
-          word-wrap:break-word;
-          opacity:0.9;
-          position:relative;
-          cursor:pointer;
-        `;
+        cardEl.className = 'deck-overview-card-tile';
+        cardEl.style.background = colors[card.category];
+        cardEl.style.color = 'white';
         
         // Render card content with KaTeX support
         const contentDiv = document.createElement('div');
@@ -4030,8 +4195,16 @@
           ev.stopPropagation();
           if(typeof window.openCardOverrideEditor === 'function') window.openCardOverrideEditor(card, url);
         });
-        cardEl.addEventListener('mouseenter', () => { editBtn.style.opacity = '1'; tooltip.style.opacity = '1'; setTimeout(() => tooltip.style.opacity = '0', 3000); });
-        cardEl.addEventListener('mouseleave', () => { editBtn.style.opacity = '0'; tooltip.style.opacity = '0'; });
+        cardEl.addEventListener('mouseenter', () => {
+          editBtn.style.opacity = '1';
+          tooltip.style.opacity = '1';
+          tooltip.style.pointerEvents = 'auto';
+        });
+        cardEl.addEventListener('mouseleave', () => {
+          editBtn.style.opacity = '0';
+          tooltip.style.opacity = '0';
+          tooltip.style.pointerEvents = 'none';
+        });
         cardEl.appendChild(editBtn);
 
         tooltip.appendChild(tooltipInfo);
@@ -4058,6 +4231,7 @@
       
       // Append directly to body so it's on top of everything
       document.body.appendChild(container);
+      try{ window.showDeckOverview = showDeckOverview; }catch(e){}
       
       // Scroll to top
       window.scrollTo(0, 0);
@@ -4862,8 +5036,9 @@
   }
 
   function getDueCards(){
+    const reviewCards = getReviewableDeckCards();
     if(isFsrsDisabledForDeck()){
-      const allCards = Array.isArray(deck.cards) ? deck.cards.slice() : [];
+      const allCards = reviewCards.slice();
       for(let i = allCards.length - 1; i > 0; i--){
         const j = Math.floor(Math.random() * (i + 1));
         [allCards[i], allCards[j]] = [allCards[j], allCards[i]];
@@ -4876,7 +5051,7 @@
     const nouveau = []; // Cards never reviewed (no st.last)
     const futureList = []; // Cards due in the future (sorted by due)
     
-    for(const c of deck.cards){
+    for(const c of reviewCards){
       const key = storageKey('card:'+c.id);
       const st = JSON.parse(localStorage.getItem(key) || '{}');
       const reps = Number(st?.reps || 0);
@@ -4923,10 +5098,7 @@
     if(!deck || !deck.cards) return;
     const now = new Date();
     const counts = {new:0, now:0, h12:0, tomorrow:0, week:0, long:0};
-    for(const c of deck.cards){
-      const key = storageKey('card:'+c.id);
-      const st = JSON.parse(localStorage.getItem(key) || '{}');
-      if(!st || (!st.last && (st.reps===0 || st.reps===undefined))){ counts.new++; continue }
+    for(const c of getReviewableDeckCards()){
       const due = st && st.due ? new Date(st.due) : now;
       const hrs = (due - now) / (1000*60*60);
       if(due <= now) counts.now++;
@@ -5689,6 +5861,33 @@
           }
         });
       }
+      try{
+        const pendingCount = typeof window.getPendingAdminDeckEditCount === 'function'
+          ? window.getPendingAdminDeckEditCount()
+          : 0;
+        if(pendingCount > 0 && typeof window.publishPendingAdminDeckEdits === 'function'){
+          const recapRoot = front.querySelector('div');
+          const status = document.createElement('div');
+          status.id = 'adminPendingPublishStatus';
+          status.style.cssText = 'background:rgba(155,89,208,0.12);border-radius:10px;padding:12px;font-size:0.9em;';
+          status.textContent = 'Publication de ' + pendingCount + ' correction' + (pendingCount > 1 ? 's' : '') + ' dans le deck…';
+          const home = document.getElementById('recapHomeBtn');
+          if(recapRoot && home) recapRoot.insertBefore(status, home);
+          else if(recapRoot) recapRoot.appendChild(status);
+          try{ document.getElementById('adminPendingEditsBanner')?.remove(); }catch(e){}
+          window.publishPendingAdminDeckEdits().then(result => {
+            const ok = result && result.publishedCards ? result.publishedCards : 0;
+            const fail = (result && result.failedDecks) || [];
+            if(fail.length){
+              status.textContent = 'Publication partielle (' + ok + ' carte' + (ok > 1 ? 's' : '') + '). ' + fail.map(f => f.error).join(' · ');
+            } else {
+              status.textContent = '✓ ' + ok + ' correction' + (ok > 1 ? 's' : '') + ' publiée' + (ok > 1 ? 's' : '') + ' dans le deck.';
+            }
+          }).catch(err => {
+            status.textContent = 'Publication impossible : ' + (err && err.message ? err.message : err);
+          });
+        }
+      }catch(e){ console.warn('admin pending publish on recap', e); }
       // Show recap onboarding on first completion
       if(!localStorage.getItem('fabanki:recap_onboarding_completed') && typeof showRecapOnboarding === 'function'){
         setTimeout(() => {
@@ -6136,6 +6335,32 @@
       updateHistogramForDeck(cardData.deckKey);
     }
   }
+
+  window.__fabanki_rerenderCurrentReviewCard = function(){
+    try{
+      if(!isReviewing) return;
+      const cardData = multiDeckMode ? dueCards[currentIndex] : null;
+      const c = cardData ? cardData.card : dueCards[currentIndex];
+      if(!c) return;
+      const backEl = document.getElementById('back');
+      const backVisible = !!(backEl && backEl.style.display !== 'none');
+      renderFront(c);
+      try{ renderKaTeX(document.getElementById('front')); }catch(e){}
+      if(backVisible){
+        renderBack(c);
+        if(backEl){
+          backEl.style.display = '';
+          backEl.classList.add('back-visible');
+        }
+        try{ renderKaTeX(backEl); }catch(e){}
+      } else {
+        try{ preloadBackForStableLayout(c); }catch(e){}
+      }
+      if(reviewMode === 'original'){
+        try{ displayOriginalQuestion(c); }catch(e){}
+      }
+    }catch(e){ console.warn('rerender current card failed', e); }
+  };
   
   function showTimerSettingsDialog(){
     try{
@@ -10426,13 +10651,34 @@
   // Edit/Request modification button
   const requestModBtn = document.getElementById('requestModBtn');
   if(requestModBtn){
-    requestModBtn.addEventListener('click', ()=>{
+    requestModBtn.addEventListener('click', async ()=>{
       try{
         const cardData = multiDeckMode ? dueCards[currentIndex] : null;
         const c = cardData ? cardData.card : dueCards[currentIndex];
-        if(c) showModificationRequestModal(c);
+        if(!c) return;
+        const url = (cardData && cardData.deckURL) ? cardData.deckURL : deckURL;
+        if(!c.deckKey){
+          c.deckKey = (cardData && cardData.deckKey) ? cardData.deckKey : deckKey;
+        }
+        let isAdmin = false;
+        try{
+          isAdmin = typeof window.checkFabankiAdminAccess === 'function'
+            && await window.checkFabankiAdminAccess();
+        }catch(e){}
+        if(isAdmin && typeof window.openCardOverrideEditor === 'function'){
+          window.openCardOverrideEditor(c, url, { persistToDeck: true });
+          return;
+        }
+        showModificationRequestModal(c);
       }catch(e){ console.error('Error opening modification modal:', e); }
     });
+    (async () => {
+      try{
+        const ok = typeof window.checkFabankiAdminAccess === 'function'
+          && await window.checkFabankiAdminAccess();
+        if(ok) requestModBtn.title = 'Modifier cette carte (admin) — publié en fin de session';
+      }catch(e){}
+    })();
   }
   
   function showModificationRequestModal(card){
@@ -11385,7 +11631,9 @@
               Information: parsed.Information || ''
             };
             try{ window.__fabanki_manifestNotices = manifestNotices; }catch(e){}
-            return parsed.decks.map(item => typeof item === 'string' ? item : item.path);
+            return parsed.decks
+              .filter(item => typeof item === 'string' || !item.comingSoon)
+              .map(item => typeof item === 'string' ? item : item.path);
           }
         }
       }catch(e){ console.log('[fetchDirectory] Manifest fetch error:', e); }
@@ -11988,6 +12236,26 @@
             appendDeckManifestBadges(nm, deckRelPath, { entry: manifestEntry, community: isCommunity });
             row.dataset.search = `${fileBuilt.labels.primary} ${fullDeckName} ${prefix}${isCommunity ? ' communautaire' : ''}`.toLowerCase();
             const act = document.createElement('div'); act.className = 'deck-entry-actions';
+            const pauseBtn = document.createElement('button');
+            pauseBtn.type = 'button';
+            pauseBtn.className = 'secondary deck-entry-pause';
+            const fileDeckKey = getDeckKeyFromUrl(deckUrlForMeta);
+            const syncFilePause = () => {
+              const off = isDeckDisabled(fileDeckKey);
+              pauseBtn.textContent = off ? '▶' : '⏸';
+              pauseBtn.title = off
+                ? 'Réactiver ce deck dans Réviser'
+                : 'Désactiver : ce deck ne tournera plus dans Réviser';
+              pauseBtn.setAttribute('aria-label', pauseBtn.title);
+              row.classList.toggle('deck-entry--disabled', off);
+            };
+            syncFilePause();
+            pauseBtn.addEventListener('click', (ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+              setDeckDisabled(fileDeckKey, !isDeckDisabled(fileDeckKey));
+              syncFilePause();
+            });
             const b=document.createElement('button'); b.className='secondary';
             b.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.85rem;font-weight:600;cursor:pointer;';
             if(calendarLocked){
@@ -12016,6 +12284,7 @@
               }
               });
             }
+            if(!calendarLocked) act.appendChild(pauseBtn);
             act.appendChild(b);
             row.addEventListener('click', (ev)=>{ if(ev.target.closest('button')) return; b.click(); });
             appendDeckEntryLayout(row, fileBuilt, act);
@@ -12298,7 +12567,7 @@
     function ensureDeckCardCountsIndex(){
       if(deckCardCountsIndex) return Promise.resolve(deckCardCountsIndex);
       if(deckCardCountsPromise) return deckCardCountsPromise;
-      deckCardCountsPromise = fetch('./decks/card-counts.json?v=2.0.122')
+      deckCardCountsPromise = fetch('./decks/card-counts.json?v=2.0.127')
         .then(res => res.ok ? res.json() : {})
         .then(obj => {
           deckCardCountsIndex = obj && typeof obj === 'object' ? obj : {};
@@ -18674,6 +18943,7 @@
           try{
             const manifestEntry = (typeof getManifestEntryForDeckUrl === 'function') ? getManifestEntryForDeckUrl(url) : null;
             if(manifestEntry && typeof isDeckReleasedForUser === 'function' && !isDeckReleasedForUser(manifestEntry)) continue;
+            if(isDeckDisabledUrl(url)) continue;
             if(typeof evaluateDeckLock === 'function'){
               const lockState = evaluateDeckLock(url);
               if(lockState && lockState.locked) continue;
@@ -23902,6 +24172,7 @@
   // Expose functions as required (so they're available globally)
   window.loadDeckFromURL = loadDeckFromURL;
   window.loadMultipleDeckCards = loadMultipleDeckCards;
+  window.showDeckOverview = showDeckOverview;
   window.showNextCard = showNextCard;
   window.parseXMLDeck = parseXMLDeck;
   window.interpretSides = interpretSides;
@@ -24256,7 +24527,7 @@
       }
     }
     
-    function openDeckCreator(){
+    async function openDeckCreator(){
       try{
         deckCreatorOpenedFromBrowser = false;
         const overlay = document.getElementById('deckCreatorOverlay');
@@ -24280,6 +24551,15 @@
         
         // Initialize modes
         initializeModes();
+
+        try{
+          const row = document.getElementById('deckOfficialRow');
+          const box = document.getElementById('deckAsCommunity');
+          const isAdmin = typeof window.checkFabankiAdminAccess === 'function'
+            && await window.checkFabankiAdminAccess();
+          if(row) row.style.display = isAdmin ? '' : 'none';
+          if(box) box.checked = false;
+        }catch(e){}
 
         // Match global modal animation contract so content is visible.
         setDeckCreatorPageMode(true);
@@ -25140,6 +25420,14 @@
         const xml = generateXML();
         const title = currentDeckData.title;
         const path = currentDeckData.path;
+        let isAdminPublisher = false;
+        try{
+          isAdminPublisher = typeof window.checkFabankiAdminAccess === 'function'
+            && await window.checkFabankiAdminAccess();
+        }catch(e){ isAdminPublisher = false; }
+        const asCommunity = !!document.getElementById('deckAsCommunity')?.checked;
+        let submittedByUid = '';
+        try{ submittedByUid = firebase?.auth?.()?.currentUser?.uid || ''; }catch(e){ submittedByUid = ''; }
 
         const payload = {
           title: title,
@@ -25151,14 +25439,15 @@
           xmlContent: xml,
           cardCount: currentDeckData.cards.length,
           submittedBy: localStorage.getItem('pseudo') || 'Anonymous',
-          status: 'pending'
+          status: 'pending',
+          official: !!(isAdminPublisher && !asCommunity)
         };
+        if(submittedByUid) payload.submittedByUid = submittedByUid;
         
         // Upload to Firebase
         try{
-          if(!window.__fabanki_firestore){
+          if(!isAdminPublisher && !window.__fabanki_firestore){
             alert('Firebase n\'est pas configuré. Le deck sera téléchargé localement.');
-            // Trigger download
             downloadXMLBtn.click();
             return;
           }
@@ -25167,7 +25456,13 @@
           publishBtn.textContent = '⏳ Publication...';
           
           let publishedId = null;
-          try{
+          if(isAdminPublisher && typeof window.adminPublishDeck === 'function'){
+            const data = await window.adminPublishDeck({
+              ...payload,
+              asCommunity: asCommunity
+            });
+            publishedId = data.submissionId || data.relativePath || 'ok';
+          } else try{
             const primaryRef = await window.__fabanki_firestore.collection('deck_submissions').add({
               ...payload,
               submittedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -25186,6 +25481,13 @@
               suggestedContent: payload.xmlContent,
               reason: `Deck submission fallback. modes=${(payload.modes || []).join(',')} cost=${payload.cost} level=${payload.level} cards=${payload.cardCount}`,
               submittedBy: payload.submittedBy,
+              submittedByUid: payload.submittedByUid || '',
+              modes: payload.modes,
+              cost: payload.cost,
+              level: payload.level,
+              time: payload.time,
+              cardCount: payload.cardCount,
+              official: payload.official === true,
               status: 'pending',
               createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
@@ -25194,7 +25496,9 @@
           
           console.log('? Deck submitted successfully with ID:', publishedId);
           
-          alert('Deck soumis avec succès !\n\nIl sera publié automatiquement sur le catalogue dans quelques instants.\n\nID : ' + publishedId);
+          alert(isAdminPublisher
+            ? ('Deck publié' + (asCommunity ? ' (communautaire)' : ' dans le catalogue officiel') + '.\n\nID : ' + publishedId)
+            : ('Deck soumis avec succès !\n\nIl sera publié automatiquement sur le catalogue dans quelques instants.\n\nID : ' + publishedId));
           
           // Clear draft
           localStorage.removeItem('fabanki:deck_draft');
@@ -26601,11 +26905,12 @@
     return auth.currentUser;
   }
 
-  async function adminHttpCall(path, body){
+  async function adminHttpCall(path, body, opts){
     const user = await ensureAdminAuth();
     const token = await user.getIdToken();
+    const timeoutMs = Number(opts?.timeoutMs) > 0 ? Number(opts.timeoutMs) : 25000;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 25000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try{
       const res = await fetch(`${ADMIN_HTTP_BASE}/${path}`, {
         method: 'POST',
@@ -26620,18 +26925,26 @@
       if(!res.ok){
         const err = new Error(data.error || `HTTP ${res.status}`);
         err.code = res.status === 403 ? 'functions/permission-denied' : 'functions/internal';
+        err.status = res.status;
         throw err;
       }
       return data;
     }catch(e){
       if(e.name === 'AbortError'){
-        throw new Error('Délai dépassé (25s). Vérifie firebase deploy --only functions');
+        throw new Error(`Délai dépassé (${Math.round(timeoutMs/1000)}s). Vérifie firebase deploy --only functions`);
       }
       throw e;
     }finally{
       clearTimeout(timer);
     }
   }
+
+  window.adminUpdateDeckXml = function(deckPath, xmlContent, cardId){
+    return adminHttpCall('adminHttpUpdateDeckXml', { deckPath, xmlContent, cardId }, { timeoutMs: 60000 });
+  };
+  window.adminPublishDeck = function(payload){
+    return adminHttpCall('adminHttpPublishDeck', payload, { timeoutMs: 120000 });
+  };
 
   function formatFnError(err){
     if(err?.details) return String(err.details);
@@ -27643,6 +27956,338 @@
     return fields;
   }
 
+  function fieldsFromCard(card){
+    if(card && card.cardNode) return extractCardFields(card.cardNode);
+    const fields = card && card.fields ? card.fields : {};
+    const names = card && Array.isArray(card._fieldOrder) && card._fieldOrder.length
+      ? card._fieldOrder
+      : Object.keys(fields);
+    if(names.length === 0 && card && Array.isArray(card._originalQuestions) && card._originalQuestions[0]){
+      return [
+        { name: 'Front', type: 'richtext', content: card._originalQuestions[0].front || '' },
+        { name: 'Back', type: 'richtext', content: card._originalQuestions[0].back || '' },
+      ];
+    }
+    return names.map(name => {
+      const f = fields[name] || {};
+      const type = String(f.type || '').toLowerCase();
+      return {
+        name,
+        type: (type === 'tex' || type === 'katex') ? 'katex' : 'richtext',
+        content: f.html || '',
+      };
+    });
+  }
+
+  function applyFieldsToLiveCard(card, updatedFields){
+    if(!card || !Array.isArray(updatedFields)) return;
+    updatedFields.forEach(f => {
+      if(!f || !f.name) return;
+      if(card.fields){
+        if(card.fields[f.name]){
+          card.fields[f.name].html = f.content;
+        } else {
+          card.fields[f.name] = {
+            html: f.content,
+            type: f.type === 'katex' ? 'tex' : 'rich-text',
+            sides: {},
+          };
+        }
+      }
+      if(card._originalQuestions && card._originalQuestions[0]){
+        if(f.name === 'Front') card._originalQuestions[0].front = f.content;
+        if(f.name === 'Back') card._originalQuestions[0].back = f.content;
+      }
+      if(card.cardNode){
+        const node = card.cardNode;
+        const byName = Array.from(node.children || []).find(ch => ch.getAttribute && ch.getAttribute('name') === f.name);
+        if(byName){
+          const isTex = (byName.localName || byName.tagName || '').toLowerCase() === 'tex' || f.type === 'katex';
+          if(isTex) byName.textContent = f.content;
+          else byName.innerHTML = f.content;
+        }
+      }
+    });
+  }
+
+  function deckUrlToRepoPath(url){
+    let p = String(url || '').split('?')[0].split('#')[0];
+    try{ p = decodeURIComponent(p); }catch(e){}
+    p = p.replace(/\\/g, '/');
+    const i = p.toLowerCase().lastIndexOf('decks/');
+    if(i >= 0) p = p.slice(i);
+    else {
+      p = p.replace(/^\.\//, '').replace(/^\//, '');
+      if(!p.toLowerCase().startsWith('decks/')) p = 'decks/' + p;
+    }
+    return p;
+  }
+
+  function isPublishedXmlDeckUrl(url){
+    const p = String(url || '').toLowerCase();
+    return p.includes('decks/') && p.includes('.xml');
+  }
+
+  function replaceNamedFieldInner(cardXml, fieldName, newInner){
+    const re = /<([A-Za-z][\w.-]*)(\s[^>]*?)>/g;
+    let m;
+    while((m = re.exec(cardXml))){
+      const tag = m[1];
+      const attrs = m[2] || '';
+      const nameMatch = /\bname\s*=\s*(['"])(.*?)\1/i.exec(attrs);
+      if(!nameMatch || nameMatch[2] !== fieldName) continue;
+      const openEnd = m.index + m[0].length;
+      const closeNeedle = '</' + tag + '>';
+      const closeIdx = cardXml.toLowerCase().indexOf(closeNeedle.toLowerCase(), openEnd);
+      if(closeIdx < 0) continue;
+      return cardXml.slice(0, openEnd) + newInner + cardXml.slice(closeIdx);
+    }
+    return null;
+  }
+
+  function replaceFirstTagInner(xml, tagName, newInner){
+    const openRe = new RegExp('<' + tagName + '\\b[^>]*>', 'i');
+    const m = openRe.exec(xml);
+    if(!m) return xml;
+    const openEnd = m.index + m[0].length;
+    const close = '</' + tagName + '>';
+    const closeIdx = xml.toLowerCase().indexOf(close.toLowerCase(), openEnd);
+    if(closeIdx < 0) return xml;
+    return xml.slice(0, openEnd) + newInner + xml.slice(closeIdx);
+  }
+
+  function idFromCardXml(cardXml, seq){
+    const openEnd = cardXml.indexOf('>');
+    const open = openEnd >= 0 ? cardXml.slice(0, openEnd + 1) : cardXml;
+    const id = /\bid\s*=\s*['"]([^"']+)['"]/i.exec(open);
+    const guid = /\bguid\s*=\s*['"]([^"']+)['"]/i.exec(open);
+    if(id) return id[1];
+    if(guid) return guid[1];
+    const generated = 'card-' + seq.n;
+    seq.n += 1;
+    return generated;
+  }
+
+  function removeCardFromDeckXml(xmlString, cardId){
+    const xml = String(xmlString || '');
+    const re = /<card\b[^>]*>[\s\S]*?<\/card>/gi;
+    const seq = { n: 0 };
+    let last = 0;
+    let out = '';
+    let found = false;
+    let m;
+    while((m = re.exec(xml))){
+      out += xml.slice(last, m.index);
+      const cardXml = m[0];
+      const id = idFromCardXml(cardXml, seq);
+      if(!found && id === cardId){
+        found = true;
+      } else {
+        out += cardXml;
+      }
+      last = m.index + m[0].length;
+    }
+    out += xml.slice(last);
+    if(!found) throw new Error('Carte introuvable dans le XML (' + cardId + ')');
+    return out;
+  }
+
+  function patchDeckXmlString(xmlString, cardId, fields){
+    const xml = String(xmlString || '');
+    const re = /<card\b[^>]*>[\s\S]*?<\/card>/gi;
+    const seq = { n: 0 };
+    let last = 0;
+    let out = '';
+    let found = false;
+    let m;
+    while((m = re.exec(xml))){
+      out += xml.slice(last, m.index);
+      let cardXml = m[0];
+      const id = idFromCardXml(cardXml, seq);
+      if(!found && id === cardId){
+        found = true;
+        const hasQuestion = /<question\b/i.test(cardXml);
+        (fields || []).forEach(f => {
+          if(!f || !f.name) return;
+          const isTex = f.type === 'katex';
+          const inner = isTex ? String(f.content || '') : String(f.content || '');
+          if(hasQuestion && (f.name === 'Front' || f.name === 'Back')){
+            cardXml = replaceFirstTagInner(cardXml, f.name.toLowerCase(), inner);
+            return;
+          }
+          const patched = replaceNamedFieldInner(cardXml, f.name, inner);
+          if(patched != null) cardXml = patched;
+        });
+      }
+      out += cardXml;
+      last = m.index + m[0].length;
+    }
+    out += xml.slice(last);
+    if(!found) throw new Error('Carte introuvable dans le XML (' + cardId + ')');
+    return out;
+  }
+
+  function downloadXmlFile(filename, text){
+    const blob = new Blob([text], { type: 'application/xml;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename || 'deck.xml';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 1000);
+  }
+
+  const PENDING_EDITS_KEY = 'fabanki:admin_pending_deck_edits';
+  let _pendingPublishPromise = null;
+
+  function loadPendingEdits(){
+    try{
+      const raw = localStorage.getItem(PENDING_EDITS_KEY);
+      const data = raw ? JSON.parse(raw) : {};
+      return data && typeof data === 'object' ? data : {};
+    }catch(e){ return {}; }
+  }
+
+  function savePendingEdits(data){
+    try{ localStorage.setItem(PENDING_EDITS_KEY, JSON.stringify(data || {})); }catch(e){}
+  }
+
+  function countPendingEdits(data){
+    const src = data || loadPendingEdits();
+    let n = 0;
+    Object.values(src).forEach(deck => {
+      if(deck && deck.cards) n += Object.keys(deck.cards).length;
+    });
+    return n;
+  }
+
+  function syncPendingEditsBanner(){
+    const n = countPendingEdits();
+    let el = document.getElementById('adminPendingEditsBanner');
+    if(n <= 0){
+      if(el) el.remove();
+      return;
+    }
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'adminPendingEditsBanner';
+      el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:9000;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--card,#1e1e1e);color:var(--fg,#eee);border:1px solid rgba(155,89,208,0.35);border-radius:12px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,0.25);font-size:0.85em;';
+      document.body.appendChild(el);
+    }
+    el.innerHTML = '';
+    const label = document.createElement('span');
+    label.textContent = n + ' correction' + (n > 1 ? 's' : '') + ' — publication en fin de session';
+    el.appendChild(label);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'primary';
+    btn.style.cssText = 'padding:6px 12px;font-size:0.85em;';
+    btn.textContent = 'Publier maintenant';
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = 'Publication…';
+      try{
+        const result = await window.publishPendingAdminDeckEdits();
+        if(result && result.failedDecks && result.failedDecks.length){
+          alert('Publication partielle. ' + result.failedDecks.map(f => f.error).join('\n'));
+        }
+      }catch(e){
+        alert('Publication impossible : ' + (e.message || e));
+      }
+    };
+    el.appendChild(btn);
+  }
+
+  function queueAdminDeckCardEdit(deckUrl, cardId, fields, extra){
+    if(!isPublishedXmlDeckUrl(deckUrl) || !cardId) return;
+    const repoPath = deckUrlToRepoPath(deckUrl);
+    const data = loadPendingEdits();
+    if(!data[repoPath]) data[repoPath] = { deckUrl, cards: {} };
+    data[repoPath].deckUrl = deckUrl;
+    data[repoPath].cards = data[repoPath].cards || {};
+    data[repoPath].cards[cardId] = {
+      fields: extra && extra.deleted ? [] : fields,
+      deleted: !!(extra && extra.deleted),
+      editedAt: new Date().toISOString()
+    };
+    savePendingEdits(data);
+    syncPendingEditsBanner();
+  }
+
+  function unqueueAdminDeckCardEdit(deckUrl, cardId){
+    if(!deckUrl || !cardId) return;
+    const repoPath = deckUrlToRepoPath(deckUrl);
+    const data = loadPendingEdits();
+    if(!data[repoPath] || !data[repoPath].cards) return;
+    delete data[repoPath].cards[cardId];
+    if(!Object.keys(data[repoPath].cards).length) delete data[repoPath];
+    savePendingEdits(data);
+    syncPendingEditsBanner();
+  }
+
+  window.getPendingAdminDeckEditCount = function(){ return countPendingEdits(); };
+
+  window.publishPendingAdminDeckEdits = async function(){
+    if(_pendingPublishPromise) return _pendingPublishPromise;
+    const pending = loadPendingEdits();
+    const repoPaths = Object.keys(pending).filter(p => pending[p] && pending[p].cards && Object.keys(pending[p].cards).length);
+    if(!repoPaths.length) return { publishedCards: 0, publishedDecks: 0, failedDecks: [] };
+    if(typeof window.adminUpdateDeckXml !== 'function'){
+      throw new Error('Function admin non disponible. Déploie adminHttpUpdateDeckXml.');
+    }
+    _pendingPublishPromise = (async () => {
+      const failedDecks = [];
+      let publishedCards = 0;
+      let publishedDecks = 0;
+      for(const repoPath of repoPaths){
+        const entry = pending[repoPath];
+        const cardIds = Object.keys(entry.cards || {});
+        try{
+          const deckUrl = entry.deckUrl;
+          const bust = String(deckUrl) + (String(deckUrl).includes('?') ? '&' : '?') + '_=' + Date.now();
+          const xmlRes = await fetch(bust);
+          if(!xmlRes.ok) throw new Error('Lecture du deck impossible (HTTP ' + xmlRes.status + ')');
+          let xmlText = await xmlRes.text();
+          for(const cardId of cardIds){
+            const edit = entry.cards[cardId] || {};
+            xmlText = edit.deleted
+              ? removeCardFromDeckXml(xmlText, cardId)
+              : patchDeckXmlString(xmlText, cardId, edit.fields);
+          }
+          const summaryId = cardIds.length === 1 ? cardIds[0] : (cardIds.length + ' cartes');
+          await window.adminUpdateDeckXml(repoPath, xmlText, summaryId);
+          publishedCards += cardIds.length;
+          publishedDecks += 1;
+          const remaining = loadPendingEdits();
+          delete remaining[repoPath];
+          savePendingEdits(remaining);
+        }catch(e){
+          console.warn('[admin] batched deck publish failed', repoPath, e);
+          failedDecks.push({ repoPath, error: e && e.message ? e.message : String(e) });
+        }
+      }
+      syncPendingEditsBanner();
+      return { publishedCards, publishedDecks, failedDecks };
+    })();
+    try{
+      return await _pendingPublishPromise;
+    }finally{
+      _pendingPublishPromise = null;
+    }
+  };
+
+  try{
+    window.addEventListener('beforeunload', (ev) => {
+      if(countPendingEdits() <= 0) return;
+      ev.preventDefault();
+      ev.returnValue = '';
+    });
+  }catch(e){}
+  setTimeout(syncPendingEditsBanner, 800);
+
   // Record review history for evolution chart
   window.recordCardReviewHistory = function(deckKey, cardId, quality, interval){
     try{
@@ -27700,7 +28345,8 @@
     });
   }
 
-  window.openCardOverrideEditor = function(card, deckUrl){
+  window.openCardOverrideEditor = function(card, deckUrl, options){
+    const opts = options || {};
     const existingOverlay = document.getElementById('cardOverrideEditorOverlay');
     if(existingOverlay) existingOverlay.remove();
 
@@ -27716,7 +28362,7 @@
     hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
     const hdrTitle = document.createElement('h3');
     hdrTitle.style.cssText = 'margin:0;flex:1;text-align:center;';
-    hdrTitle.textContent = 'Modifier la carte';
+    hdrTitle.textContent = opts.persistToDeck ? 'Modifier la carte (deck)' : 'Modifier la carte';
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '✕';
     closeBtn.className = 'secondary';
@@ -27784,7 +28430,7 @@
     modal.appendChild(statsRow);
 
     // Fields
-    const fields = override ? override.fields : extractCardFields(card.cardNode);
+    const fields = override ? override.fields : fieldsFromCard(card);
     const fieldsContainer = document.createElement('div');
     fieldsContainer.style.cssText = 'display:flex;flex-direction:column;gap:16px;margin-bottom:20px;';
 
@@ -27827,9 +28473,16 @@
     });
     modal.appendChild(fieldsContainer);
 
+    const persistHint = document.createElement('p');
+    persistHint.style.cssText = 'font-size:0.8em;color:var(--muted);margin:0 0 12px;';
+    persistHint.textContent = opts.persistToDeck
+      ? 'La carte change tout de suite. Les corrections sont groupées et publiées dans le deck à la fin de la session.'
+      : '';
+    if(persistHint.textContent) modal.appendChild(persistHint);
+
     // Actions
     const actions = document.createElement('div');
-    actions.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;align-items:center;';
+    actions.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;';
 
     if(override){
       const revertBtn = document.createElement('button');
@@ -27839,15 +28492,16 @@
       revertBtn.onclick = () => {
         if(!confirm('Supprimer les modifications et revenir au contenu original ?')) return;
         localStorage.removeItem('fabanki:card_override:' + card.deckKey + ':' + card.id);
+        unqueueAdminDeckCardEdit(deckUrl, card.id);
         overlay.remove();
       };
       actions.appendChild(revertBtn);
     }
 
     const saveBtn = document.createElement('button');
-    saveBtn.textContent = '💾 Enregistrer';
+    saveBtn.textContent = opts.persistToDeck ? '💾 Enregistrer (fin de session)' : '💾 Enregistrer';
     saveBtn.className = 'primary';
-    saveBtn.onclick = () => {
+    saveBtn.onclick = async () => {
       const updatedFields = fields.map((field, fi) => {
         const inp = fieldsContainer.querySelector('[data-field-index="' + fi + '"]');
         return { ...field, content: inp ? (inp.tagName === 'TEXTAREA' ? inp.value : inp.innerHTML) : field.content };
@@ -27859,12 +28513,73 @@
         editedByName: authUser?.displayName || authUser?.email || null,
       };
       saveCardOverride(card.deckKey, card.id, overrideData);
-      saveBtn.textContent = '✓ Enregistré !';
+      applyFieldsToLiveCard(card, updatedFields);
+      try{ if(typeof window.__fabanki_rerenderCurrentReviewCard === 'function') window.__fabanki_rerenderCurrentReviewCard(); }catch(e){}
+
+      let isAdmin = !!opts.persistToDeck;
+      if(!isAdmin && typeof window.checkFabankiAdminAccess === 'function'){
+        try{ isAdmin = await window.checkFabankiAdminAccess(); }catch(e){ isAdmin = false; }
+      }
+      if(isAdmin && isPublishedXmlDeckUrl(deckUrl)){
+        queueAdminDeckCardEdit(deckUrl, card.id, updatedFields);
+        saveBtn.textContent = '✓ En file — publié en fin de session';
+      } else {
+        saveBtn.textContent = '✓ Enregistré !';
+      }
       saveBtn.disabled = true;
       setTimeout(() => overlay.remove(), 800);
     };
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.textContent = 'Retirer la carte';
+    deleteBtn.className = 'secondary';
+    deleteBtn.style.cssText = 'margin-right:auto;color:#d9534f;border-color:rgba(217,83,79,0.45);';
+    deleteBtn.onclick = async () => {
+      const adminHint = opts.persistToDeck
+        ? '\n\nAdmin : elle sera aussi retirée du XML du deck à la fin de la session.'
+        : '';
+      if(!confirm('Retirer cette carte des révisions ?' + adminHint)) return;
+      const authUser = window.firebase?.auth?.()?.currentUser;
+      saveCardOverride(card.deckKey, card.id, {
+        deleted: true,
+        editedAt: new Date().toISOString(),
+        editedByName: authUser?.displayName || authUser?.email || null,
+      });
+      if(card) card.deleted = true;
+      let isAdmin = !!opts.persistToDeck;
+      if(!isAdmin && typeof window.checkFabankiAdminAccess === 'function'){
+        try{ isAdmin = await window.checkFabankiAdminAccess(); }catch(e){ isAdmin = false; }
+      }
+      if(isAdmin && isPublishedXmlDeckUrl(deckUrl)){
+        queueAdminDeckCardEdit(deckUrl, card.id, null, { deleted: true });
+      }
+      overlay.remove();
+      try{
+        if(typeof window.showDeckOverview === 'function' && deckUrl){
+          const existing = document.getElementById('deckOverviewContainer');
+          if(existing) existing.remove();
+          await window.showDeckOverview(deckUrl);
+        }
+      }catch(e){}
+    };
+
+    actions.appendChild(deleteBtn);
     actions.appendChild(saveBtn);
     modal.appendChild(actions);
+
+    (async () => {
+      try{
+        if(opts.persistToDeck) return;
+        const ok = typeof window.checkFabankiAdminAccess === 'function' && await window.checkFabankiAdminAccess();
+        if(!ok) return;
+        opts.persistToDeck = true;
+        hdrTitle.textContent = 'Modifier la carte (deck)';
+        persistHint.textContent = 'La carte change tout de suite. Les corrections sont groupées et publiées dans le deck à la fin de la session.';
+        if(!persistHint.parentNode) modal.insertBefore(persistHint, actions);
+        saveBtn.textContent = '💾 Enregistrer (fin de session)';
+      }catch(e){}
+    })();
 
     overlay.appendChild(modal);
     overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });

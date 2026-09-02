@@ -29,7 +29,7 @@
   <meta name="theme-color" content="#9b59d0">
   <link id="appFavicon" rel="icon" href="./assets/icons/fabankifavicon.png">
   <!-- PWA Manifest -->
-  <link rel="manifest" href="./app-manifest.json?v=2.0.122">
+  <link rel="manifest" href="./app-manifest.json?v=2.0.127">
   <!-- iOS PWA Support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -46,7 +46,7 @@
   <!-- Firebase configuration -->
   <script src="./config.js"></script>
   <!-- Styles -->
-  <link rel="stylesheet" href="./styles.css?v=2.0.122">
+  <link rel="stylesheet" href="./styles.css?v=2.0.127">
 </head>
 <body>
   <div id="bootSplash" class="boot-splash" aria-hidden="false">
@@ -246,6 +246,15 @@
               <label style="display:block;font-weight:600;margin-bottom:6px;">Semaine scolaire</label>
               <input id="deckTimeWeek" type="number" min="1" max="36" placeholder="Semaine actuelle si vide" style="width:100%;padding:8px;border-radius:4px;border:1px solid var(--border-color);">
               <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">Format manifest : <code>1.05</code> = 1ère année, semaine 5 (Zone B Grand Est)</div>
+            </div>
+            <div id="deckOfficialRow" style="display:none;grid-column:1/-1">
+              <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+                <input id="deckAsCommunity" type="checkbox">
+                <span>
+                  <strong>Publier comme deck communautaire</strong>
+                  <div style="font-size:0.75rem;color:var(--muted);margin-top:2px">Décoché : le deck apparaît dans le catalogue officiel (admin uniquement).</div>
+                </span>
+              </label>
             </div>
           </div>
         </div>
@@ -508,7 +517,7 @@
   </script>
 
   <!-- Main application -->
-  <script src="./js/schoolCalendar.js?v=2.0.122"></script>
-  <script src="./js/app.js?v=2.0.122" onerror="window.__fabanki_showFatal && window.__fabanki_showFatal('Erreur de chargement','Impossible de charger app.js')"></script>
+  <script src="./js/schoolCalendar.js?v=2.0.127"></script>
+  <script src="./js/app.js?v=2.0.127" onerror="window.__fabanki_showFatal && window.__fabanki_showFatal('Erreur de chargement','Impossible de charger app.js')"></script>
 </body>
 </html>
