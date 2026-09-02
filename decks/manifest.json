@@ -1808,7 +1808,14 @@
 			"tags": [
 				"text"
 			],
-			"description": "Graphes."
+			"description": "Graphes"
+		},
+		{
+			"path": "Physique/Constantes physique 2e année.xml",
+			"tags": [
+				"text"
+			],
+			"description": "Deck officiel soumis par Simon."
 		}
 	]
 }
