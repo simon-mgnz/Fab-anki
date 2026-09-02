@@ -1666,15 +1666,38 @@
     }catch(e){ return false; }
   }
 
+  function getCardOverrideData(deckKeyValue, cardId){
+    try{
+      if(!deckKeyValue || !cardId) return null;
+      const raw = localStorage.getItem('fabanki:card_override:' + deckKeyValue + ':' + cardId);
+      if(!raw) return null;
+      const ov = JSON.parse(raw);
+      return ov && typeof ov === 'object' ? ov : null;
+    }catch(e){ return null; }
+  }
+
+  function getEffectiveCardImportance(deckKeyValue, cardId, fallback){
+    try{
+      const ov = getCardOverrideData(deckKeyValue, cardId);
+      if(ov && ov.importance) return normalizeCardImportance(ov.importance);
+    }catch(e){}
+    return normalizeCardImportance(fallback);
+  }
+
   function applyStoredCardOverride(deckKeyValue, cardObj){
     try{
       if(!deckKeyValue || !cardObj || !cardObj.id) return;
-      const raw = localStorage.getItem('fabanki:card_override:' + deckKeyValue + ':' + cardObj.id);
-      if(!raw) return;
-      const ov = JSON.parse(raw);
-      if(ov && ov.deleted){
+      const ov = getCardOverrideData(deckKeyValue, cardObj.id);
+      if(!ov) return;
+      if(ov.deleted){
         cardObj.deleted = true;
         return;
+      }
+      if(ov.importance){
+        cardObj.importance = normalizeCardImportance(ov.importance);
+        if(cardObj.cardNode && cardObj.cardNode.setAttribute){
+          cardObj.cardNode.setAttribute('importance', cardObj.importance);
+        }
       }
       (ov.fields || []).forEach(f => {
         if(!f || !f.name) return;
@@ -3029,7 +3052,9 @@
           // USE SAME ID LOGIC AS parseXMLDeck to ensure consistency with localStorage keys
           const cardId = cardNode.getAttribute('id') || cardNode.getAttribute('guid') || ('card-'+(idx++));
           if(isCardDeleted(deckKeyForStats, cardId)) continue;
-          if(!cardPassesImportanceFilter(cardNode.getAttribute && cardNode.getAttribute('importance'), deckKeyForStats)) continue;
+          const xmlImportance = cardNode.getAttribute && cardNode.getAttribute('importance');
+          const importance = getEffectiveCardImportance(deckKeyForStats, cardId, xmlImportance);
+          if(!cardPassesImportanceFilter(importance, deckKeyForStats)) continue;
           const key = `fabanki:${deckKeyForStats}:card:${cardId}`;
           const storedData = localStorage.getItem(key);
           
@@ -3090,6 +3115,7 @@
           cardsList.push({
             id: cardId,
             category,
+            importance,
             html: firstField,
             due,
             last: validLastReview,
@@ -12538,6 +12564,40 @@
     if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(overlay){ overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); } try{ if(typeof window.__setNavActivePage === 'function') window.__setNavActivePage('home'); }catch(e){} });
     if(overlay){ overlay.addEventListener('click', (ev)=>{ if(ev.target === overlay){ overlay.querySelector('.modal')?.classList.remove('open'); overlay.classList.remove('open'); overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); } }); }
     if(refreshBtn) refreshBtn.addEventListener('click', ()=>{ openDeckBrowser(); });
+    const importCsvBtn = document.getElementById('importCsvBtn');
+    const csvFilePicker = document.getElementById('csvFilePicker');
+    if(importCsvBtn && csvFilePicker){
+      importCsvBtn.addEventListener('click', () => {
+        csvFilePicker.value = '';
+        csvFilePicker.click();
+      });
+      csvFilePicker.addEventListener('change', async (ev) => {
+        const f = ev.target.files && ev.target.files[0];
+        if(!f) return;
+        try{
+          const reader = new FileReader();
+          const text = await new Promise((resolve, reject) => {
+            reader.onerror = () => reject(new Error('Impossible de lire le fichier CSV.'));
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.readAsText(f);
+          });
+          const rec = importCsvTextAsDeck(text, f.name);
+          if(deckMsg) deckMsg.textContent = rec.cardCount + ' cartes importées depuis CSV';
+          if(overlay){
+            overlay.querySelector('.modal')?.classList.remove('open');
+            overlay.classList.remove('open');
+            overlay.style.display = 'none';
+            overlay.setAttribute('aria-hidden', 'true');
+          }
+          await openImportedCsvDeck(rec);
+        }catch(err){
+          console.error(err);
+          alert('Erreur lors de l\'import CSV:\n' + (err && err.message ? err.message : err));
+        }finally{
+          csvFilePicker.value = '';
+        }
+      });
+    }
     
     // Helper: parse card ids from an XML document (lightweight, used by deck browser counts)
     function parseCardIdsFromXML(xml){
@@ -12567,7 +12627,7 @@
     function ensureDeckCardCountsIndex(){
       if(deckCardCountsIndex) return Promise.resolve(deckCardCountsIndex);
       if(deckCardCountsPromise) return deckCardCountsPromise;
-      deckCardCountsPromise = fetch('./decks/card-counts.json?v=2.0.127')
+      deckCardCountsPromise = fetch('./decks/card-counts.json?v=2.0.128')
         .then(res => res.ok ? res.json() : {})
         .then(obj => {
           deckCardCountsIndex = obj && typeof obj === 'object' ? obj : {};
@@ -25761,6 +25821,89 @@
         }
       });
     }
+
+    function importCsvIntoDeckCreator(text, filename){
+      const parse = typeof window.parseCsvDeckTable === 'function' ? window.parseCsvDeckTable : null;
+      if(!parse) throw new Error('Import CSV indisponible.');
+      const rows = parse(text);
+      if(currentDeckData.cards.length > 0){
+        const ok = confirm(
+          rows.length + ' carte(s) dans le CSV.\n\nRemplacer les ' +
+          currentDeckData.cards.length + ' carte(s) déjà présentes dans l\'éditeur ?'
+        );
+        if(!ok) return false;
+      }
+      const esc = (s) => String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\r?\n/g, '<br>');
+      currentDeckData.cards = rows.map((c, i) => ({
+        id: Date.now() + i,
+        fields: [
+          { name: 'Front', type: 'richtext', content: esc(c.front), language: '' },
+          { name: 'Back', type: 'richtext', content: esc(c.back), language: '' }
+        ]
+      }));
+      const titleEl = document.getElementById('deckTitle');
+      const baseName = String(filename || '').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+      if(titleEl && !String(titleEl.value || '').trim() && baseName){
+        titleEl.value = baseName;
+        currentDeckData.title = baseName;
+      }
+      renderCards();
+      updateCardCount();
+      saveDraft();
+      alert(currentDeckData.cards.length + ' carte(s) importées depuis le CSV.');
+      return true;
+    }
+
+    function readCsvFileAsText(file){
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Impossible de lire le fichier CSV.'));
+        reader.onload = () => {
+          try{
+            const buf = reader.result;
+            if(buf instanceof ArrayBuffer){
+              const bytes = new Uint8Array(buf);
+              const hasBom = bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+              const utf8 = new TextDecoder('utf-8').decode(bytes);
+              const bad = (utf8.match(/\uFFFD/g) || []).length;
+              if(!hasBom && bad > 0){
+                try{ resolve(new TextDecoder('windows-1252').decode(bytes)); return; }catch(e){}
+              }
+              resolve(utf8);
+              return;
+            }
+            resolve(String(buf || ''));
+          }catch(e){ reject(e); }
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    const importCsvCreatorBtn = document.getElementById('importCsvCreatorBtn');
+    const csvCreatorFilePicker = document.getElementById('csvCreatorFilePicker');
+    if(importCsvCreatorBtn && csvCreatorFilePicker){
+      importCsvCreatorBtn.addEventListener('click', () => {
+        csvCreatorFilePicker.value = '';
+        csvCreatorFilePicker.click();
+      });
+      csvCreatorFilePicker.addEventListener('change', async (ev) => {
+        const f = ev.target.files && ev.target.files[0];
+        if(!f) return;
+        try{
+          const text = await readCsvFileAsText(f);
+          importCsvIntoDeckCreator(text, f.name);
+        }catch(e){
+          console.error('CSV creator import error:', e);
+          alert('Erreur lors de l\'import CSV:\n' + (e && e.message ? e.message : e));
+        }finally{
+          csvCreatorFilePicker.value = '';
+        }
+      });
+    }
     
     // Close Deck Creator
     const closeDeckCreator = document.getElementById('closeDeckCreator');
@@ -28092,7 +28235,23 @@
     return out;
   }
 
-  function patchDeckXmlString(xmlString, cardId, fields){
+  function setCardXmlImportance(cardXml, importance){
+    const n = (typeof normalizeCardImportance === 'function')
+      ? normalizeCardImportance(importance)
+      : (['core','extra'].includes(String(importance||'').toLowerCase()) ? String(importance).toLowerCase() : 'std');
+    const openEnd = String(cardXml || '').indexOf('>');
+    if(openEnd < 0) return cardXml;
+    let open = cardXml.slice(0, openEnd);
+    const rest = cardXml.slice(openEnd);
+    if(/\bimportance\s*=/i.test(open)){
+      open = open.replace(/\s*importance\s*=\s*(['"]).*?\1/i, " importance='" + n + "'");
+    } else {
+      open += " importance='" + n + "'";
+    }
+    return open + rest;
+  }
+
+  function patchDeckXmlString(xmlString, cardId, fields, importance){
     const xml = String(xmlString || '');
     const re = /<card\b[^>]*>[\s\S]*?<\/card>/gi;
     const seq = { n: 0 };
@@ -28118,6 +28277,9 @@
           const patched = replaceNamedFieldInner(cardXml, f.name, inner);
           if(patched != null) cardXml = patched;
         });
+        if(importance){
+          cardXml = setCardXmlImportance(cardXml, importance);
+        }
       }
       out += cardXml;
       last = m.index + m[0].length;
@@ -28208,9 +28370,12 @@
     if(!data[repoPath]) data[repoPath] = { deckUrl, cards: {} };
     data[repoPath].deckUrl = deckUrl;
     data[repoPath].cards = data[repoPath].cards || {};
+    const prev = data[repoPath].cards[cardId] || {};
+    const deleted = !!(extra && extra.deleted);
     data[repoPath].cards[cardId] = {
-      fields: extra && extra.deleted ? [] : fields,
-      deleted: !!(extra && extra.deleted),
+      fields: deleted ? [] : (Array.isArray(fields) ? fields : (prev.fields || [])),
+      deleted,
+      importance: deleted ? null : ((extra && extra.importance) || prev.importance || null),
       editedAt: new Date().toISOString()
     };
     savePendingEdits(data);
@@ -28255,7 +28420,7 @@
             const edit = entry.cards[cardId] || {};
             xmlText = edit.deleted
               ? removeCardFromDeckXml(xmlText, cardId)
-              : patchDeckXmlString(xmlText, cardId, edit.fields);
+              : patchDeckXmlString(xmlText, cardId, edit.fields, edit.importance);
           }
           const summaryId = cardIds.length === 1 ? cardIds[0] : (cardIds.length + ' cartes');
           await window.adminUpdateDeckXml(repoPath, xmlText, summaryId);
