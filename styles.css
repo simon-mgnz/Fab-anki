@@ -3566,7 +3566,10 @@ body.in-review.review-mobile-global{
   .deck-entry > .deck-entry-stats,
   .deck-entry:has(.deck-entry-bar-slot) > .deck-entry-stats{
     grid-area:stats;
+    grid-column:1 / -1;
     flex:none;
+    min-width:0;
+    max-width:100%;
     display:flex;
     flex-wrap:wrap;
     gap:4px;
@@ -3577,8 +3580,12 @@ body.in-review.review-mobile-global{
   .deck-entry:has(.deck-entry-bar-slot) > .deck-entry-actions{
     grid-area:actions;
     flex:none;
+    min-width:0;
+    max-width:100%;
     gap:4px;
+    justify-content:flex-end;
   }
+  .deck-entry-actions button{min-width:0;padding-left:7px;padding-right:7px}
   .deck-entry-pause{min-width:36px;padding:5px 8px}
   .deck-kpi{min-width:0;flex:1 1 calc(33.33% - 4px);padding:4px 6px 3px}
   .deck-kpi-label{font-size:.56rem;margin-bottom:3px}
