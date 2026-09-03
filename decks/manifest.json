@@ -1816,6 +1816,15 @@
 				"text"
 			],
 			"description": "Deck officiel soumis par Simon."
+		},
+		{
+			"path": "Français/Un lieu à soi — V.Woolf citations.xml",
+			"tags": [
+				"text",
+				"timer"
+			],
+			"description": "Un lieu à soi — V.Woolf citations",
+			"time": "1.01"
 		}
 	]
 }
