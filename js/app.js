@@ -3898,12 +3898,13 @@
         const estimateSec = totalToReview * avgSec;
         let timeLabel = '';
         if(totalToReview > 0){
-          const h = Math.floor(estimateSec / 3600);
-          const m = Math.floor((estimateSec % 3600) / 60);
+          const totalMinutes = Math.max(1, Math.ceil(estimateSec / 60));
+          const h = Math.floor(totalMinutes / 60);
+          const m = totalMinutes % 60;
           if(h > 0 && m > 0)      timeLabel = `~${h}h ${String(m).padStart(2,'0')}min`;
           else if(h > 0)          timeLabel = `~${h}h`;
           else if(m >= 1)         timeLabel = `~${m} min`;
-          else                    timeLabel = '< 1 min';
+          else                    timeLabel = '~1 min';
         }
 
         // Show start button (deck is unlocked)
@@ -5125,7 +5126,17 @@
     const now = new Date();
     const counts = {new:0, now:0, h12:0, tomorrow:0, week:0, long:0};
     for(const c of getReviewableDeckCards()){
-      const due = st && st.due ? new Date(st.due) : now;
+      let st = {};
+      try{
+        st = JSON.parse(localStorage.getItem(storageKey('card:' + c.id)) || '{}');
+      }catch(e){
+        st = {};
+      }
+      if(!st.last && (st.reps === 0 || st.reps === undefined)){
+        counts.new++;
+        continue;
+      }
+      const due = st.due ? new Date(st.due) : now;
       const hrs = (due - now) / (1000*60*60);
       if(due <= now) counts.now++;
       else if(hrs <= 12) counts.h12++;
@@ -11805,7 +11816,7 @@
           deckList.querySelectorAll('.deck-entry[data-deck-file="1"]').forEach(row => {
             const name = (row.dataset.search || '').toLowerCase();
             const visible = !q || name.includes(q);
-            row.style.display = visible ? 'flex' : 'none';
+            row.style.display = visible ? '' : 'none';
           });
         };
         async function refreshDeckBrowserStatsBar(){
@@ -15293,7 +15304,7 @@
                     return;
                   }
                   if(typeof addCredits === 'function') addCredits(-cost);
-                  unlockDeck(path);
+                  setDeckUnlocked(path);
                   showMarketToast(`Deck "${titleText}" acheté ! Il vous reste ${fresh - cost} ℂ`);
                   // Refresh market to hide purchased deck
                   setTimeout(() => {
