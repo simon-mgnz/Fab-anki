@@ -1457,6 +1457,8 @@
     try{
       const per = localStorage.getItem('fabanki:importance_filter:' + key);
       if(per === 'core' || per === 'std' || per === 'all') return per;
+      const global = localStorage.getItem('fabanki:importance_filter_global');
+      if(global === 'core' || global === 'std' || global === 'all') return global;
     }catch(e){}
     return 'all';
   }
@@ -1465,6 +1467,62 @@
     const key = dk || deckKey || '';
     try{ localStorage.setItem('fabanki:importance_filter:' + key, val); }catch(e){}
   }
+
+  function getGlobalImportanceFilter(){
+    try{
+      const value = localStorage.getItem('fabanki:importance_filter_global');
+      return value === 'core' || value === 'std' || value === 'all' ? value : 'all';
+    }catch(e){ return 'all'; }
+  }
+
+  function setGlobalImportanceFilter(value){
+    const normalized = value === 'core' || value === 'std' ? value : 'all';
+    try{ localStorage.setItem('fabanki:importance_filter_global', normalized); }catch(e){}
+    return normalized;
+  }
+
+  window.getGlobalImportanceFilter = getGlobalImportanceFilter;
+  window.setGlobalImportanceFilter = setGlobalImportanceFilter;
+
+  async function checkFabankiCollectionAchievement(){
+    try{
+      if(localStorage.getItem('fabanki:objective_FabankiCollection') === '1') return true;
+      const manifestRes = await fetch('./decks/manifest.json?v=' + Date.now());
+      if(!manifestRes.ok) return false;
+      const parsed = parseDecksManifestRaw(await manifestRes.json());
+      const paths = parsed.decks
+        .filter(item => typeof item === 'string' || (item && item.path && !item.comingSoon))
+        .map(item => typeof item === 'string' ? item : item.path);
+      if(!paths.length) return false;
+      const minimumDue = Date.now() + 10 * 24 * 60 * 60 * 1000;
+      let totalCards = 0;
+      for(const path of paths){
+        const response = await fetch('./decks/' + path);
+        if(!response.ok) return false;
+        const xml = new DOMParser().parseFromString(await response.text(), 'application/xml');
+        const nodes = Array.from(xml.querySelectorAll('card, note, item, entry, record'));
+        const dk = getDeckKeyFromUrl('./decks/' + path);
+        let fallbackIndex = 0;
+        for(const node of nodes){
+          const id = node.getAttribute('id') || node.getAttribute('guid') || ('card-' + (fallbackIndex++));
+          totalCards++;
+          let state;
+          try{ state = JSON.parse(localStorage.getItem(`fabanki:${dk}:card:${id}`) || '{}'); }catch(e){ state = {}; }
+          const due = state.due ? new Date(state.due).getTime() : 0;
+          if(!state.last || !Number.isFinite(due) || due < minimumDue) return false;
+        }
+      }
+      if(totalCards === 0) return false;
+      localStorage.setItem('fabanki:objective_FabankiCollection', '1');
+      try{ showMarketToast('Achievement débloqué : Collection Fab’Anki complète !'); }catch(e){}
+      return true;
+    }catch(e){
+      console.warn('[achievement] FabAnki collection check failed:', e);
+      return false;
+    }
+  }
+
+  window.checkFabankiCollectionAchievement = checkFabankiCollectionAchievement;
 
   function cardPassesImportanceFilter(importance, dk){
     const f = getImportanceFilter(dk);
@@ -1504,6 +1562,33 @@
   function isDeckDisabledUrl(url){
     try{ return isDeckDisabled(getDeckKeyFromUrl(url)); }catch(e){ return false; }
   }
+
+  function getDeckYearFromUrl(url){
+    try{
+      const entry = getManifestEntryForDeckUrl(url);
+      const parsed = entry && sch()?.parseDeckTime(entry.time);
+      return parsed && Number(parsed.year) ? Number(parsed.year) : null;
+    }catch(e){ return null; }
+  }
+
+  function isDeckYearDisabled(year){
+    try{ return localStorage.getItem(`fabanki:year_disabled:${year}`) === '1'; }catch(e){ return false; }
+  }
+
+  function setDeckYearDisabled(year, disabled){
+    try{
+      const key = `fabanki:year_disabled:${Number(year)}`;
+      if(disabled) localStorage.setItem(key, '1');
+      else localStorage.removeItem(key);
+    }catch(e){}
+  }
+
+  function isDeckDisabledByPolicy(url){
+    return isDeckDisabledUrl(url) || (getDeckYearFromUrl(url) !== null && isDeckYearDisabled(getDeckYearFromUrl(url)));
+  }
+
+  window.isDeckYearDisabled = isDeckYearDisabled;
+  window.setDeckYearDisabled = setDeckYearDisabled;
 
   function isOfficialSimonDescription(desc){
     return /soumis par\s+simon\b/i.test(String(desc || ''));
@@ -2217,7 +2302,7 @@
       for(const url of deckURLs){
         try{
           // Check if deck is locked and skip if it is
-          if(isDeckDisabledUrl(url)){
+          if(isDeckDisabledByPolicy(url)){
             continue;
           }
           const lockState = evaluateDeckLock(url);
@@ -11136,6 +11221,9 @@
 
       // Keep mission counters tied to actual review actions (not per-card snapshots)
       try{ trackMissionReviewProgress(reviewMode, q); }catch(e){}
+      if(q >= 3){
+        try{ checkFabankiCollectionAchievement(); }catch(e){}
+      }
 
       // quality handling
       if(q < 3){
@@ -11525,13 +11613,13 @@
 
     function getBrandingAssets(){
       return {
-        favicon: './assets/icons/fabankifavicon.png',
-        pwaIcon: './assets/icons/fabankiapp.png'
+        favicon: './assets/icons/fabanki-logo.png',
+        pwaIcon: './assets/icons/fabanki-logo.png'
       };
     }
 
     function fabBrandMarkHtml(className){
-      return `<span class="fab-brand-mark ${className}" aria-hidden="true">${FAB_BRAND_MARK}</span>`;
+      return `<img class="fab-brand-mark ${className}" src="./assets/icons/fabanki-logo.png" alt="">`;
     }
 
     function applyBrandingForTheme(theme){
@@ -12164,6 +12252,28 @@
           if(createBtn){
             createBtn.style.display = (path === '') ? 'inline-block' : 'none';
           }
+          if(path === ''){
+            const yearControls = document.createElement('div');
+            yearControls.className = 'deck-browser-year-controls';
+            yearControls.innerHTML = '<span>Révisions :</span>';
+            [1, 2].forEach(year => {
+              const yearBtn = document.createElement('button');
+              yearBtn.type = 'button';
+              yearBtn.className = 'secondary';
+              const disabled = isDeckYearDisabled(year);
+              yearBtn.textContent = `${disabled ? '▶' : '⏸'} ${year === 1 ? '1ère' : '2ème'} année`;
+              yearBtn.title = disabled ? 'Réactiver cette année dans Réviser' : 'Désactiver cette année dans Réviser';
+              yearBtn.classList.toggle('is-disabled', disabled);
+              yearBtn.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                setDeckYearDisabled(year, !isDeckYearDisabled(year));
+                renderPath(path);
+              });
+              yearControls.appendChild(yearBtn);
+            });
+            deckList.appendChild(yearControls);
+          }
           if(path === '' && typeof window.renderImportedCsvDeckRows === 'function'){
             window.renderImportedCsvDeckRows(deckList);
           }
@@ -12248,6 +12358,26 @@
               b.addEventListener('click', ()=>{ renderPath(folderPath); currentFolderPath = folderPath; });
             }
             act.appendChild(b);
+            const folderDeckPaths = entries.filter(p => p.startsWith(folderPath) && p.toLowerCase().endsWith('.xml'));
+            const folderDecksDisabled = folderDeckPaths.length > 0 && folderDeckPaths.every(p => isDeckDisabledUrl('./decks/' + p));
+            const toggleFolderBtn = document.createElement('button');
+            toggleFolderBtn.type = 'button';
+            toggleFolderBtn.className = 'secondary deck-folder-toggle-btn';
+            toggleFolderBtn.textContent = folderDecksDisabled ? '▶ Réactiver' : '⏸ Désactiver';
+            toggleFolderBtn.title = folderDecksDisabled
+              ? 'Réactiver tous les decks de ce dossier dans Réviser'
+              : 'Désactiver tous les decks de ce dossier dans Réviser';
+            toggleFolderBtn.addEventListener('click', (ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+              const disable = !folderDeckPaths.every(p => isDeckDisabledUrl('./decks/' + p));
+              folderDeckPaths.forEach(p => setDeckDisabled(getDeckKeyFromUrl('./decks/' + p), disable));
+              toggleFolderBtn.textContent = disable ? '▶ Réactiver' : '⏸ Désactiver';
+              toggleFolderBtn.title = disable
+                ? 'Réactiver tous les decks de ce dossier dans Réviser'
+                : 'Désactiver tous les decks de ce dossier dans Réviser';
+            });
+            if(folderDeckPaths.length) act.appendChild(toggleFolderBtn);
             row.addEventListener('click', (ev)=>{ if(ev.target.closest('button')) return; b.click(); });
             appendDeckEntryLayout(row, folderBuilt, act);
             deckList.appendChild(row);
@@ -19067,7 +19197,7 @@
           try{
             const manifestEntry = (typeof getManifestEntryForDeckUrl === 'function') ? getManifestEntryForDeckUrl(url) : null;
             if(manifestEntry && typeof isDeckReleasedForUser === 'function' && !isDeckReleasedForUser(manifestEntry)) continue;
-            if(isDeckDisabledUrl(url)) continue;
+            if(isDeckDisabledByPolicy(url)) continue;
             if(typeof evaluateDeckLock === 'function'){
               const lockState = evaluateDeckLock(url);
               if(lockState && lockState.locked) continue;
@@ -22115,6 +22245,7 @@
           if(localStorage.getItem('fabanki:objective_Laplace') === '1') objectifs.push('Laplace');
           if(localStorage.getItem('fabanki:objective_Feynman') === '1') objectifs.push('Feynman');
           if(localStorage.getItem('fabanki:objective_Ramanujan') === '1') objectifs.push('Ramanujan');
+          if(localStorage.getItem('fabanki:objective_FabankiCollection') === '1') objectifs.push('Collection Fab’Anki complète');
         }catch(e){}
 
         return { titres, objectifs };
@@ -26742,6 +26873,9 @@
     const uiLang=localStorage.getItem('fabanki:lang')||'fr';
     const dailyGoal=localStorage.getItem('fabanki:daily_goal')||'20';
     const prepaYear=(typeof getPrepaYear==='function'?getPrepaYear():localStorage.getItem('fabanki:prepa_year'))||'1';
+    const importanceFilter=typeof window.getGlobalImportanceFilter==='function'?window.getGlobalImportanceFilter():'all';
+    const year1Disabled=typeof isDeckYearDisabled==='function' && isDeckYearDisabled(1);
+    const year2Disabled=typeof isDeckYearDisabled==='function' && isDeckYearDisabled(2);
     const ret=localStorage.getItem('fabanki:target_retention')||'0.85';
     const fsz=(typeof window.parseUiFontSizePx==='function')?window.parseUiFontSizePx(localStorage.getItem('fabanki:font_size')):16;
     const katexPct=Math.round((Number(localStorage.getItem('fabanki:katex_scale'))||1)*100);
@@ -26829,9 +26963,24 @@
               <option value="finished" ${prepaYear==='finished'?'selected':''}>Classe terminée</option>
             </select>
           </div>
+          <div class="rg-row" style="flex-wrap:wrap">
+            <div><div class="rg-row-label">Decks actifs par année</div><div class="rg-row-sub">Désactiver une année la retire de Réviser sans supprimer sa progression.</div></div>
+            <div class="rg-seg rg-seg--compact" role="group" aria-label="Decks actifs par année">
+              <button type="button" class="rg-seg-btn ${!year1Disabled?'active':''}" data-rg-year-toggle="1">1ère année</button>
+              <button type="button" class="rg-seg-btn ${!year2Disabled?'active':''}" data-rg-year-toggle="2">2ème année</button>
+            </div>
+          </div>
           <div class="rg-row">
             <div><div class="rg-row-label">Objectif quotidien</div><div class="rg-row-sub">Cartes à réviser chaque jour</div></div>
             <input type="number" min="1" max="500" value="${dailyGoal}" id="rg-daily-goal" class="rg-input">
+          </div>
+          <div class="rg-row" style="flex-wrap:wrap">
+            <div><div class="rg-row-label">Profondeur de révision</div><div class="rg-row-sub">Filtrer les cartes lors d’une ouverture rapide ou d’une révision aléatoire</div></div>
+            <div class="rg-seg rg-seg--compact" role="group" aria-label="Profondeur de révision">
+              <button type="button" class="rg-seg-btn ${importanceFilter==='core'?'active':''}" data-rg-importance="core">Par cœur</button>
+              <button type="button" class="rg-seg-btn ${importanceFilter==='std'?'active':''}" data-rg-importance="std">Cœur et standard</button>
+              <button type="button" class="rg-seg-btn ${importanceFilter==='all'?'active':''}" data-rg-importance="all">Toutes</button>
+            </div>
           </div>
           <div class="rg-row">
             <div><div class="rg-row-label">Rétention cible FSRS</div><div class="rg-row-sub">0.70 (moins de révisions) · 0.99 (parfait)</div></div>
@@ -26925,6 +27074,10 @@
       try{ if(typeof updateUILanguage==='function') updateUILanguage(next); }catch(e){}
       window.renderReglagesPage();
     }));
+    el.querySelectorAll('[data-rg-importance]').forEach(b=>b.addEventListener('click',()=>{
+      window.setGlobalImportanceFilter(b.dataset.rgImportance);
+      window.renderReglagesPage();
+    }));
     const fsInput=el.querySelector('#rg-font-size');
     const fsVal=el.querySelector('#rg-font-size-val');
     fsInput?.addEventListener('input',()=>{ const v=(typeof window.parseUiFontSizePx==='function')?window.parseUiFontSizePx(fsInput.value):(Number(fsInput.value)||16); if(fsVal) fsVal.textContent=v+'px'; localStorage.setItem('fabanki:font_size',String(v)); try{ window.applyUiFontSize?.(); }catch(e){} });
@@ -26971,6 +27124,11 @@
         window.renderWelcomeDecks().catch(() => {});
       }
     });
+    el.querySelectorAll('[data-rg-year-toggle]').forEach(b=>b.addEventListener('click',()=>{
+      const year=Number(b.dataset.rgYearToggle);
+      setDeckYearDisabled(year, !isDeckYearDisabled(year));
+      window.renderReglagesPage();
+    }));
     el.querySelector('#rg-retention')?.addEventListener('change',e=>localStorage.setItem('fabanki:target_retention',e.target.value));
     el.querySelector('#rg-fsrs-tuning-btn')?.addEventListener('click', () => { if(typeof window.showFsrsTuningModal === 'function') window.showFsrsTuningModal(); });
     el.querySelector('#rg-push-notif-btn')?.addEventListener('click', () => { if(typeof window.showPushNotifModal === 'function') window.showPushNotifModal(); });
