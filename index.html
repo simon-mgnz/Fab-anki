@@ -27,15 +27,15 @@
   <title>Fab'Anki — Flashcards sans compte</title>
   <meta name="description" content="Application d'apprentissage par répétition espacée avec plusieurs modes de révision">
   <meta name="theme-color" content="#9b59d0">
-  <link id="appFavicon" rel="icon" href="./assets/icons/fabankifavicon.png">
+  <link id="appFavicon" rel="icon" href="./assets/icons/fabanki-logo.png">
   <!-- PWA Manifest -->
-  <link rel="manifest" href="./app-manifest.json?v=2.0.136">
+  <link rel="manifest" href="./app-manifest.json?v=2.0.137">
   <!-- iOS PWA Support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Fab Anki">
-  <link id="appleTouchIcon" rel="apple-touch-icon" href="./assets/icons/fabankiapp.png">
+  <link id="appleTouchIcon" rel="apple-touch-icon" href="./assets/icons/fabanki-logo.png">
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
   <!-- Firebase (compat) -->
@@ -46,12 +46,12 @@
   <!-- Firebase configuration -->
   <script src="./config.js"></script>
   <!-- Styles -->
-  <link rel="stylesheet" href="./styles.css?v=2.0.136">
+  <link rel="stylesheet" href="./styles.css?v=2.0.139">
 </head>
 <body>
   <div id="bootSplash" class="boot-splash" aria-hidden="false">
     <div class="boot-splash__card">
-      <span id="bootSplashLogo" class="fab-brand-mark fab-brand-mark--splash" aria-hidden="true">𝓕</span>
+      <img id="bootSplashLogo" class="fab-brand-mark fab-brand-mark--splash" src="./assets/icons/fabanki-logo.png" alt="">
       <div class="boot-splash__title">Fab'Anki</div>
       <div class="boot-splash__subtitle">Initialisation en cours...</div>
       <div class="boot-splash__bar"><i></i></div>
@@ -60,7 +60,7 @@
   <div id="appShell">
     <nav id="sideNav" aria-label="Navigation">
       <div class="sn-logo">
-        <span id="sideNavLogo" class="fab-brand-mark fab-brand-mark--nav" aria-hidden="true">𝓕</span>
+        <img id="sideNavLogo" class="fab-brand-mark fab-brand-mark--nav" src="./assets/icons/fabanki-logo.png" alt="">
         <span class="sn-logo-text">Fab'Anki</span>
       </div>
       <div class="sn-items">
@@ -104,7 +104,7 @@
     </nav>
     <div class="app" id="app" data-theme="light">
     <header>
-      <h1 id="appTitle" style="display:flex;align-items:center;gap:10px;"><span id="topBarLogo" class="fab-brand-mark fab-brand-mark--top" aria-hidden="true">𝓕</span><span>Fab'Anki — Flashcards (sans compte)</span></h1>
+      <h1 id="appTitle" style="display:flex;align-items:center;gap:10px;"><img id="topBarLogo" class="fab-brand-mark fab-brand-mark--top" src="./assets/icons/fabanki-logo.png" alt=""><span>Fab'Anki — Flashcards (sans compte)</span></h1>
       <div class="controls">
         <!-- Hidden file picker used as a fallback when running the page from file:// -->
         <input id="filePicker" type="file" accept=".xml,.csv,application/xml,text/csv" style="display:none" />
@@ -518,6 +518,6 @@
 
   <!-- Main application -->
   <script src="./js/schoolCalendar.js?v=2.0.128"></script>
-  <script src="./js/app.js?v=2.0.136" onerror="window.__fabanki_showFatal && window.__fabanki_showFatal('Erreur de chargement','Impossible de charger app.js')"></script>
+  <script src="./js/app.js?v=2.0.139" onerror="window.__fabanki_showFatal && window.__fabanki_showFatal('Erreur de chargement','Impossible de charger app.js')"></script>
 </body>
 </html>
