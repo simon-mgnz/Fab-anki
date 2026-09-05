@@ -1773,13 +1773,13 @@
     const tooltip = document.createElement('div');
     tooltip.id = 'modeSelectionTooltip';
 
-    let tooltipTop = '50%';
+    let tooltipTop = '12px';
     let tooltipLeft = '50%';
     let transform = 'translate(-50%, -50%)';
 
     if(triggerButton){
       const rect = triggerButton.getBoundingClientRect();
-      tooltipTop = Math.max(10, rect.top - 100) + 'px';
+      tooltipTop = Math.max(12, rect.top - 100) + 'px';
       tooltipLeft = (rect.left + rect.width / 2) + 'px';
       transform = 'translateX(-50%)';
     }
@@ -1806,6 +1806,7 @@
     modesContainer.className = 'fab-mode-tooltip-grid';
 
     const modeIcons = {
+      'overview': '⋯',
       'default': '📇',
       'fillblank': '✏️',
       'timer': '⏱️',
@@ -1821,6 +1822,7 @@
     };
 
     const modeFullNames = {
+      'overview': 'Aperçu du deck',
       'default': 'Mode Anki',
       'fillblank': 'Texte à trou',
       'timer': 'Rappel sous pression',
@@ -1832,7 +1834,8 @@
       'multiple': 'Multiple',
       'calcul': 'Calcul',
       'associer': 'Associer',
-      'rush': 'Rush'
+      'rush': 'Rush',
+
     };
 
     modes.forEach((mode) => {
@@ -1854,6 +1857,10 @@
         e.stopPropagation();
         tooltip.remove();
         document.removeEventListener('click', closeTooltip);
+        if(mode.id === 'overview'){
+          await showDeckOverview(deckUrl);
+          return;
+        }
         deckURL = deckUrl;
         reviewMode = mode.id;
         localStorage.setItem(`fabanki:review_mode:${tempKey}`, reviewMode);
@@ -1881,6 +1888,40 @@
     };
 
     document.body.appendChild(tooltip);
+    const positionTooltip = () => {
+      const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
+      const margin = 12;
+      const tooltipRect = tooltip.getBoundingClientRect();
+      let left = triggerButton
+        ? triggerButton.getBoundingClientRect().left + triggerButton.getBoundingClientRect().width / 2
+        : viewportWidth / 2;
+      let top = triggerButton
+        ? triggerButton.getBoundingClientRect().top - tooltipRect.height - margin
+        : (viewportHeight - tooltipRect.height) / 2;
+      if(triggerButton && top < margin){
+        top = triggerButton.getBoundingClientRect().bottom + margin;
+      }
+      left = Math.max(tooltipRect.width / 2 + margin, Math.min(left, viewportWidth - tooltipRect.width / 2 - margin));
+      top = Math.max(margin, Math.min(top, viewportHeight - tooltipRect.height - margin));
+      tooltip.style.top = `${top}px`;
+      tooltip.style.left = `${left}px`;
+      tooltip.style.transform = 'translateX(-50%)';
+    };
+    requestAnimationFrame(positionTooltip);
+    window.addEventListener('resize', positionTooltip);
+    window.addEventListener('scroll', positionTooltip, true);
+    const removeTooltipListeners = () => {
+      window.removeEventListener('resize', positionTooltip);
+      window.removeEventListener('scroll', positionTooltip, true);
+    };
+    const originalRemove = tooltip.remove.bind(tooltip);
+    tooltip.remove = () => {
+      removeTooltipListeners();
+      originalRemove();
+    };
+    positionTooltip();
+    requestAnimationFrame(positionTooltip);
     setTimeout(() => document.addEventListener('click', closeTooltip), 0);
   }
 
@@ -1977,7 +2018,7 @@
         return;
       }
       
-      showModeSelectionTooltip(modes, deckUrl, tempKey, triggerButton);
+      showModeSelectionTooltip([...modes, {id: 'overview', name: 'Plus...', unlocked: true}], deckUrl, tempKey, triggerButton);
       
     }catch(e){
       console.error('Mode selection error:', e);
@@ -3898,13 +3939,15 @@
         const estimateSec = totalToReview * avgSec;
         let timeLabel = '';
         if(totalToReview > 0){
-          const totalMinutes = Math.max(1, Math.ceil(estimateSec / 60));
+          const roundedSeconds = Math.max(1, Math.round(estimateSec));
+          const totalMinutes = Math.floor(roundedSeconds / 60);
           const h = Math.floor(totalMinutes / 60);
           const m = totalMinutes % 60;
+          const seconds = roundedSeconds % 60;
           if(h > 0 && m > 0)      timeLabel = `~${h}h ${String(m).padStart(2,'0')}min`;
           else if(h > 0)          timeLabel = `~${h}h`;
           else if(m >= 1)         timeLabel = `~${m} min`;
-          else                    timeLabel = '~1 min';
+          else                    timeLabel = `~${seconds}s`;
         }
 
         // Show start button (deck is unlocked)
@@ -11337,9 +11380,17 @@
   }catch(e){ console.warn('Migration check failed:', e); }
   
   // Set CSS variable for iOS viewport fix
+  function isIOSStandalone(){
+    try{
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }catch(e){ return window.navigator.standalone === true; }
+  }
   function updateVh(){
     try{
-      const viewportHeight = window.visualViewport?.height ? window.visualViewport.height : window.innerHeight;
+      const standalone = isIOSStandalone();
+      const viewportHeight = standalone
+        ? window.innerHeight
+        : (window.visualViewport?.height ? window.visualViewport.height : window.innerHeight);
       const vh = viewportHeight / 100;
       document.documentElement.style.setProperty('--vh', vh + 'px');
       document.documentElement.style.setProperty('--app-viewport-h', viewportHeight + 'px');
@@ -11351,9 +11402,11 @@
       const ua = navigator.userAgent || '';
       const platform = navigator.platform || '';
       const isiOS = /iPhone|iPad|iPod/i.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      document.documentElement.classList.toggle('ios-browser', !!isiOS);
-      // Keep a small safety area on iOS because Safari's browser UI can overlap visual content.
-      document.documentElement.style.setProperty('--ios-searchbar-gap', isiOS ? '20px' : '0px');
+      const standalone = isIOSStandalone();
+      document.documentElement.classList.toggle('ios-browser', !!isiOS && !standalone);
+      document.documentElement.classList.toggle('ios-standalone', !!isiOS && standalone);
+      // Safari needs a small reserve for its search bar; standalone PWAs use the full viewport.
+      document.documentElement.style.setProperty('--ios-searchbar-gap', isiOS && !standalone ? '20px' : '0px');
     }catch(e){
       try{ document.documentElement.style.setProperty('--ios-searchbar-gap', '0px'); }catch(e2){}
     }

@@ -4014,6 +4014,12 @@ body:has(#deckOverviewContainer) footer{
   padding:16px 20px;
   box-shadow:0 12px 40px rgba(0,0,0,0.15);
   z-index:10000;
+  width:min(520px,calc(100vw - 24px));
+  max-width:calc(100vw - 24px);
+  max-height:calc(100dvh - 24px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  box-sizing:border-box;
   opacity:0;
   animation:tooltipFadeIn 0.2s ease forwards;
 }
@@ -4022,11 +4028,10 @@ body:has(#deckOverviewContainer) footer{
   box-shadow:0 12px 40px rgba(0,0,0,0.45);
 }
 .fab-mode-tooltip-grid{
-  display:flex;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));
   gap:12px;
-  flex-wrap:wrap;
-  justify-content:center;
-  align-items:center;
+  width:100%;
 }
 .fab-market-toast{
   position:fixed;
