@@ -2865,6 +2865,36 @@ body.in-review.review-mobile-global{
 .homev2-quest-lines{display:flex;flex-direction:column;gap:7px;margin-top:6px}
 .homev2-quest-line{display:flex;align-items:flex-start;gap:8px;font-size:.86rem;color:var(--fg);padding:6px 8px;border-radius:8px;background:rgba(0,0,0,0.02);line-height:1.35;word-break:break-word}
 .homev2-quest-check{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:rgba(var(--accent-rgb),0.16);color:var(--accent);font-weight:700}
+
+.review-preparation-panel{
+  position:fixed;inset:0;z-index:1800;overflow:auto;
+  background:var(--bg);padding:clamp(16px,4vw,40px);
+}
+.review-preparation-card{
+  width:min(720px,100%);margin:0 auto;padding:clamp(18px,4vw,32px);
+  background:var(--card);border:1px solid var(--border);border-radius:16px;
+  box-shadow:0 12px 36px rgba(0,0,0,.12);color:var(--fg)
+}
+.review-preparation-loading{text-align:center;color:var(--muted);padding:40px 16px}
+.review-preparation-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px}
+.review-preparation-kicker{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);font-weight:700}
+.review-preparation-head h2{margin:4px 0;font-size:clamp(1.35rem,4vw,2rem)}
+.review-preparation-head p{margin:0;color:var(--muted)}
+.review-preparation-list{display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow:auto;margin-bottom:18px}
+.review-preparation-deck{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--surface-2)}
+.review-preparation-deck:hover{border-color:var(--accent)}
+.review-preparation-deck input{width:18px;height:18px;accent-color:var(--accent);flex-shrink:0}
+.review-preparation-deck-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.review-preparation-deck strong{color:var(--accent);font-size:1.05rem}
+.review-preparation-empty{text-align:center;color:var(--muted);padding:24px 12px}
+.review-preparation-start{width:100%;min-height:48px}
+[data-theme='dark'] .review-preparation-card{box-shadow:0 12px 36px rgba(0,0,0,.35)}
+@media(max-width:640px){
+  .review-preparation-panel{padding:12px}
+  .review-preparation-head{align-items:stretch;flex-direction:column}
+  .review-preparation-head .secondary{align-self:flex-end}
+  .review-preparation-list{max-height:none}
+}
 .homev2-quest-line.is-done{color:var(--muted);text-decoration:line-through}
 
 @media (min-width:1024px){

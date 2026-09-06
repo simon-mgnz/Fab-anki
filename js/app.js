@@ -1589,6 +1589,8 @@
 
   window.isDeckYearDisabled = isDeckYearDisabled;
   window.setDeckYearDisabled = setDeckYearDisabled;
+  window.__fabanki_isDeckDisabledByPolicy = isDeckDisabledByPolicy;
+  window.__fabanki_evaluateDeckLock = evaluateDeckLock;
 
   function isOfficialSimonDescription(desc){
     return /soumis par\s+simon\b/i.test(String(desc || ''));
@@ -13014,6 +13016,7 @@
         return { due: 0, fresh: 0, reviewed: 0, total: 0 };
       }
     }
+    try{ window.__fabanki_computeDeckCounts = computeDeckCounts; }catch(e){}
 
     // Count number of cards due now for a deck URL (considers localStorage state for that deck)
     async function countDueNowForDeck(url){
@@ -13134,11 +13137,19 @@
         const hard = Number(localStorage.getItem('fabanki:difficult_total') || 0);
         const bon = Number(localStorage.getItem('fabanki:bon_total') || 0);
         const easy = Number(localStorage.getItem('fabanki:easy_total') || 0);
+        let reviewedCards = 0;
+        for(const key of Object.keys(localStorage)){
+          if(!key.includes(':card:')) continue;
+          try{
+            const state = JSON.parse(localStorage.getItem(key) || '{}');
+            if(state && ((Number(state.reps || 0) > 0) || state.last)) reviewedCards++;
+          }catch(e){}
+        }
         if(bon > 0 || easy > 0 || localStorage.getItem('fabanki:migration_bon_total_v1') === '1'){
-          return Math.max(0, fail + hard + bon + easy);
+          return Math.max(reviewedCards, fail + hard + bon + easy);
         }
         const good = Number(localStorage.getItem('fabanki:good_total') || 0);
-        return Math.max(0, fail + hard + good);
+        return Math.max(reviewedCards, fail + hard + good);
       }catch(e){ return 0 }
     }
     function getProfileStats(){
@@ -13156,7 +13167,8 @@
       }
       const xp = Number(localStorage.getItem('fabanki:xp_total') || 0);
       const totalFromCounters = getTotalReviewedCount();
-      return {totalReviewed: totalFromCounters > 0 ? totalFromCounters : total, todayReviewed: today, xpTotal: xp};
+      // Card state is the durable source of truth; counters can be incomplete after migration/sync.
+      return {totalReviewed: Math.max(total, totalFromCounters), todayReviewed: today, xpTotal: xp};
     }
 
     function setThemeMode(theme){
@@ -17141,14 +17153,15 @@
     function getClassementCardsReviewed(entry){
       if(!entry || typeof entry !== 'object') return 0;
       const aliases = ['Cartes_revisees', 'Cartes révisées', 'Cartes révisées', 'Cartes revisees'];
+      let best = 0;
       for(const key of aliases){
-        if(entry[key] !== undefined && entry[key] !== null) return Math.max(0, Number(entry[key]) || 0);
+        if(entry[key] !== undefined && entry[key] !== null) best = Math.max(best, Math.max(0, Number(entry[key]) || 0));
       }
       for(const [key, value] of Object.entries(entry)){
         const norm = String(key || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
-        if(norm === 'cartesrevisees') return Math.max(0, Number(value) || 0);
+        if(norm === 'cartesrevisees') best = Math.max(best, Math.max(0, Number(value) || 0));
       }
-      return 0;
+      return best;
     }
 
     try{
@@ -22708,6 +22721,7 @@
             const other = preferRaw ? current : (raw || {});
 
             const merged = { ...best };
+            merged[scoreField] = Math.max(Number(best[scoreField] || 0), Number(other[scoreField] || 0));
             merged.Score_MPSI = Math.max(Number(best.Score_MPSI || 0), Number(other.Score_MPSI || 0));
             merged.Score_MPSI_mois = Math.max(Number(best.Score_MPSI_mois || 0), Number(other.Score_MPSI_mois || 0));
             merged['Cartes révisées'] = Math.max(
@@ -22774,7 +22788,7 @@
           const m = getMonthId();
           const normMonth = (s) => {
             const raw = String(s || '').trim();
-            const parts = raw.match(/^(\d{4})-(\d{1,2})$/);
+            const parts = raw.match(/^(\d{4})-(\d{1,2})(?:-|$)/);
             return parts ? `${parts[1]}-${String(parts[2]).padStart(2, '0')}` : raw;
           };
           const qw = db.collection('Classement').orderBy('Score_MPSI_mois','desc');
@@ -23053,6 +23067,7 @@
     }
 
     async function renderWelcomeDecks(){
+      const renderToken = (window.__fabankiWelcomeRenderToken = (window.__fabankiWelcomeRenderToken || 0) + 1);
       try{
         hideBootSplash();
         try{
@@ -23463,6 +23478,10 @@
           grid.appendChild(cardDecks);
 
           container.appendChild(grid);
+
+          if(currentPage !== 'home' || renderToken !== window.__fabankiWelcomeRenderToken){
+            return;
+          }
 
           try{ syncPostWelcomeQuestTime(); }catch(e){}
           try{ window.__welcomeDecksContainer = container; }catch(e){}
@@ -26505,7 +26524,7 @@
     if(!entry || typeof entry !== 'object') return fallback;
     if(aliases.some(a => /cartes/i.test(String(a))) && typeof window.getClassementCardsReviewed === 'function'){
       const cards = window.getClassementCardsReviewed(entry);
-      if(cards > 0) return cards;
+        if(cards >= 0) return cards;
     }
     for(const key of aliases){
       if(entry[key] !== undefined && entry[key] !== null) return entry[key];
@@ -26540,7 +26559,7 @@
 
   function normalizeMonthId(value){
     const raw = String(value || '').trim();
-    const parts = raw.match(/^(\d{4})-(\d{1,2})$/);
+    const parts = raw.match(/^(\d{4})-(\d{1,2})(?:-|$)/);
     return parts ? `${parts[1]}-${String(parts[2]).padStart(2, '0')}` : raw;
   }
 
@@ -26560,7 +26579,7 @@
     const stored = normalizeMonthId(entry.Mois_ID);
     const score = Math.max(0, Number(entry.Score_MPSI_mois || 0));
     if(stored === current) return score;
-    if(!stored && score > 0) return score;
+    if((!stored || stored.length < 7) && score > 0) return score;
     return 0;
   }
 
@@ -27769,8 +27788,7 @@
   }
 
   function hideWelcomePage(){
-    const w = document.getElementById('welcomeDecks');
-    if(w) w.style.display = 'none';
+    document.querySelectorAll('#welcomeDecks, .homev2-root').forEach(w => { w.style.display = 'none'; });
   }
 
   function showWelcomePage(){
@@ -27883,15 +27901,85 @@
     }
   }
 
-  async function triggerNowReview(){
-    if(typeof window.__fabanki_startNowReview !== 'function'){
-      console.warn('[FabAnki] Réviser: démarrage indisponible (__fabanki_startNowReview manquant)');
-      return;
-    }
-    // Use tab id "review" (not "home"): home layout applies nav-home-active and hides <main> with CSS !important,
-    // which blanks the screen after removeWelcome() until multi-deck load finishes.
+  async function showReviewPreparation(){
+    const existing = document.getElementById('reviewPreparationPanel');
+    if(existing) existing.remove();
     setActivePage('review');
-    await window.__fabanki_startNowReview();
+    hideWelcomePage();
+    const panel = document.createElement('section');
+    panel.id = 'reviewPreparationPanel';
+    panel.className = 'review-preparation-panel';
+    panel.innerHTML = '<div class="review-preparation-loading">Analyse des cartes à faire...</div>';
+    document.body.appendChild(panel);
+
+    try{
+      const entries = await window.fetchDirectory('./decks/');
+      const files = (Array.isArray(entries) ? entries : [])
+        .filter(entry => typeof entry === 'string' && entry.toLowerCase().endsWith('.xml'))
+        .sort();
+      const decks = [];
+      for(const file of files){
+        const url = './decks/' + file;
+        try{
+            if(window.__fabanki_isDeckDisabledByPolicy(url)) continue;
+            const lock = window.__fabanki_evaluateDeckLock(url);
+          if(lock && lock.locked) continue;
+          const counts = await window.__fabanki_computeDeckCounts(url);
+          if(Number(counts.due || 0) > 0) decks.push({ url, name: file.replace(/\.xml$/i, ''), due: Number(counts.due) });
+        }catch(e){ console.warn('Review preparation deck error:', url, e); }
+      }
+      decks.sort((a, b) => b.due - a.due || a.name.localeCompare(b.name, 'fr'));
+      const selected = new Set(decks.map(deckInfo => deckInfo.url));
+      const render = () => {
+        const total = decks.filter(deckInfo => selected.has(deckInfo.url)).reduce((sum, deckInfo) => sum + deckInfo.due, 0);
+        panel.innerHTML = `
+          <div class="review-preparation-card">
+            <div class="review-preparation-head">
+              <div>
+                <div class="review-preparation-kicker">Session de révision</div>
+                <h2>Cartes à faire</h2>
+                <p>${total} carte${total > 1 ? 's' : ''} sélectionnée${total > 1 ? 's' : ''}</p>
+              </div>
+              <button type="button" class="secondary" id="reviewPreparationClose">Annuler</button>
+            </div>
+            <div class="review-preparation-list">
+              ${decks.length ? decks.map((deckInfo, index) => `
+                <label class="review-preparation-deck">
+                  <input type="checkbox" data-review-deck="${index}" ${selected.has(deckInfo.url) ? 'checked' : ''}>
+                  <span class="review-preparation-deck-name">${deckInfo.name}</span>
+                  <strong>${deckInfo.due}</strong>
+                </label>`).join('') : '<div class="review-preparation-empty">Aucune carte due dans les decks actifs.</div>'}
+            </div>
+            <button type="button" class="primary review-preparation-start" id="reviewPreparationStart" ${selected.size ? '' : 'disabled'}>Commencer la révision</button>
+          </div>`;
+        panel.querySelector('#reviewPreparationClose')?.addEventListener('click', () => {
+          panel.remove();
+          setActivePage('home');
+        });
+        panel.querySelectorAll('[data-review-deck]').forEach(input => input.addEventListener('change', () => {
+          const deckInfo = decks[Number(input.dataset.reviewDeck)];
+          if(input.checked) selected.add(deckInfo.url); else selected.delete(deckInfo.url);
+          render();
+        }));
+        panel.querySelector('#reviewPreparationStart')?.addEventListener('click', async () => {
+          const urls = decks.filter(deckInfo => selected.has(deckInfo.url)).map(deckInfo => deckInfo.url);
+          if(!urls.length) return;
+          panel.remove();
+          document.body.classList.remove('nav-home-active');
+          await removeWelcome();
+          await loadMultipleDeckCards(urls, { onlyNow: true, limitCount: null, skipEmptyRecap: true });
+          if(dueCards && dueCards.length) showNextCard();
+        });
+      };
+      render();
+    }catch(e){
+      panel.innerHTML = '<div class="review-preparation-card"><h2>Impossible de préparer la session</h2><p>Les decks n’ont pas pu être analysés.</p><button type="button" class="secondary" id="reviewPreparationClose">Retour</button></div>';
+      panel.querySelector('#reviewPreparationClose')?.addEventListener('click', () => { panel.remove(); setActivePage('home'); });
+    }
+  }
+
+  async function triggerNowReview(){
+    await showReviewPreparation();
   }
 
   // ── Bottom nav overflow sheet (“Plus”) ──
