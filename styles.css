@@ -1939,6 +1939,39 @@ body:has(#marketContainer) #cardStatus{
    DECK CREATOR STYLES
    ======================================== */
 
+/* Compact dashboard on short mobile screens: keep decks reachable above analytics. */
+@media (max-width:640px) and (max-height:760px){
+  .homev2-hero{padding:10px !important}
+  .homev2-hero-top{margin-bottom:6px}
+  .homev2-level-wrap,.homev2-hero-grid,.homev2-hero .homev2-actions .homev2-select{display:none}
+  .homev2-actions{margin-top:6px;gap:6px}
+  .homev2-actions .primary{min-height:40px;padding:9px 12px}
+  .homev2-grid > .homev2-card:nth-child(2){display:none}
+  .homev2-grid > .homev2-card:nth-child(3){order:-1}
+  .homev2-card{padding:9px !important}
+  .homev2-card-title{margin-bottom:6px;font-size:.9rem}
+  .homev2-deck-list{gap:5px}
+  .homev2-deck-row{padding:7px 8px}
+}
+
+/* iOS review: reserve the full card area for the prompt and answer. */
+@media (max-width:640px){
+  .review-mobile-active .progress-container{display:none !important}
+  .review-mobile-active .card-content.review-mobile-stable{position:relative;overflow:hidden !important}
+  .review-mobile-active .card-content.review-mobile-stable > #front,
+  .review-mobile-active .card-content.review-mobile-stable > #back{
+    position:absolute !important;
+    inset:0 !important;
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    margin:0 !important;
+    padding:12px 8px !important;
+  }
+  .review-mobile-active .card-content.review-mobile-stable > #front{visibility:visible}
+  .review-mobile-active .card-content.review-mobile-stable > #back.back-preloaded{visibility:hidden}
+}
+
 .app.deck-creator-page-mode > header,
 .app.deck-creator-page-mode > main,
 .app.deck-creator-page-mode > #stats,
@@ -2895,6 +2928,41 @@ body.in-review.review-mobile-global{
   .review-preparation-head{align-items:stretch;flex-direction:column}
   .review-preparation-head-actions{justify-content:flex-start}
   .review-preparation-list{max-height:none}
+}
+
+/* Compact mobile review: reclaim the lower viewport and keep the prompt stable. */
+@media(max-width:640px){
+  .review-mobile-active .card{
+    grid-template-rows:minmax(0,1fr) !important;
+    padding-bottom:env(safe-area-inset-bottom) !important;
+  }
+  .review-mobile-active .card-content{
+    justify-content:center !important;
+    padding:0 8px !important;
+    overflow:hidden !important;
+  }
+  .review-mobile-active .progress-container,
+  .review-mobile-active #progressContainer,
+  .review-mobile-active #progressInfo{
+    display:none !important;
+  }
+  .review-mobile-active .card-content > #front,
+  .review-mobile-active .card-content > #back{
+    flex:0 0 auto !important;
+    min-height:0 !important;
+    transform:none !important;
+  }
+  .review-mobile-active #showAnswer{margin-top:10px !important}
+  .review-mobile-active #respButtons{margin-top:8px !important}
+  .review-mobile-active #requestModBtn{margin-bottom:4px !important}
+  #deckBrowserOverlay .deck-browser-stats{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:4px;
+  }
+  #deckBrowserOverlay .deck-browser-stat{padding:7px 4px;border-radius:9px}
+  #deckBrowserOverlay .deck-browser-stat b{font-size:.95rem}
+  #deckBrowserOverlay .deck-browser-stat span{font-size:.52rem;white-space:nowrap}
+  #deckBrowserOverlay .deck-list{max-height:calc(100dvh - 260px)}
 }
 .homev2-quest-line.is-done{color:var(--muted);text-decoration:line-through}
 
@@ -4385,6 +4453,40 @@ body:has(#deckOverviewContainer) footer{
 [data-theme='dark'] .homev2-quest-line{background:rgba(255,255,255,0.05)}
 [data-theme='dark'] .homev2-ring{background:conic-gradient(var(--accent) calc(var(--p)*1%), rgba(255,255,255,0.1) 0)}
 [data-theme='dark'] .fab-prepayear-opt{border-color:rgba(255,255,255,0.1)}
+
+@media (max-width:640px){
+  .review-mobile-active .progress-container{display:none !important}
+  .review-mobile-active .card-content.review-mobile-stable{
+    position:relative !important;
+    overflow:hidden !important;
+    display:grid !important;
+    grid-template-rows:auto minmax(0,1fr) minmax(0,1fr) auto !important;
+    align-content:stretch !important;
+    justify-content:stretch !important;
+  }
+  .review-mobile-active .card-content.review-mobile-stable > #front,
+  .review-mobile-active .card-content.review-mobile-stable > #back{
+    position:static !important;
+    inset:auto !important;
+    width:100% !important;
+    height:auto !important;
+    min-height:0 !important;
+    flex:none !important;
+    margin:0 !important;
+    padding:12px 8px !important;
+  }
+  .review-mobile-active .card-content.review-mobile-stable > #multiDeckTitle{grid-row:1}
+  .review-mobile-active .card-content.review-mobile-stable > #front{grid-row:2}
+  .review-mobile-active .card-content.review-mobile-stable > #back{grid-row:3}
+  .review-mobile-active .card-content.review-mobile-stable > #always{grid-row:4}
+  .review-mobile-active .card-content.review-mobile-stable > #front{visibility:visible !important}
+  .review-mobile-active .card-content.review-mobile-stable > #back.back-preloaded{
+    display:flex !important;
+    visibility:hidden !important;
+    flex:none !important;
+    height:auto !important;
+  }
+}
 
 .quest-part{
   margin-bottom:16px;padding:12px;border-radius:8px;
