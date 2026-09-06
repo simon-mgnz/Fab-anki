@@ -938,8 +938,10 @@
   function preloadBackForStableLayout(card){
     try{
       const backEl = document.getElementById('back');
+      const cardContent = document.querySelector('.card-content');
       if(!backEl || !card) return;
       if(!shouldUseBackPreload()){
+        cardContent?.classList.remove('review-mobile-stable');
         backEl.classList.remove('back-preloaded', 'back-visible');
         backEl.style.display = 'none';
         backEl.style.visibility = 'visible';
@@ -947,6 +949,7 @@
         return;
       }
       renderBack(card);
+      cardContent?.classList.add('review-mobile-stable');
       backEl.classList.remove('back-visible');
       backEl.classList.add('back-preloaded');
       backEl.style.display = 'block';
@@ -2237,7 +2240,8 @@
       return { fields, _fieldOrder: order };
     }
     const children = Array.from(node.children || []).filter(ch => ch.nodeType === 1);
-    for(const def of fieldDefs){
+    for(let defIndex = 0; defIndex < fieldDefs.length; defIndex++){
+      const def = fieldDefs[defIndex];
       let el = null;
       const defTypeLc = (def.type || '').toLowerCase();
       const byNameChild = children.find(ch =>
@@ -2261,6 +2265,10 @@
           const cand = node.querySelector(`[name="${def.name}"]`);
           if(cand && !usedElements.has(cand)) el = cand;
         }catch(e){}
+      }
+      if(!el){
+        const positional = children[defIndex];
+        if(positional && !usedElements.has(positional) && !positional.getAttribute('name')) el = positional;
       }
       if(el){
         usedElements.add(el);
@@ -6502,7 +6510,7 @@
     // record when this card was shown to compute XP based on time spent
     try{ cardShownAt = Date.now(); }catch(e){}
     // Ensure front is visible (might have been hidden after showing an answer)
-    const frontEl = $('#front'); if(frontEl){ frontEl.style.display = 'flex'; frontEl.style.flex = '1 1 auto'; }
+    const frontEl = $('#front'); if(frontEl){ frontEl.style.display = 'flex'; frontEl.style.visibility = 'visible'; frontEl.style.flex = '1 1 auto'; }
     try{ preloadBackForStableLayout(c); }catch(e){}
     // do not show per-card index (user requested removal)
     // progress
@@ -10411,13 +10419,11 @@
           return;
         }
         console.log('showAnswer clicked');
-        const shouldRenderCurrentBack = !hasPreloadedBack || window.innerWidth > 640;
-        if(shouldRenderCurrentBack){
-          renderBack(c);
-          console.log('renderBack completed');
+        // The preload is only for sizing; render the answer from the current card at reveal time.
+        renderBack(c);
+        console.log('renderBack completed');
           // Multi-deck: do NOT run renderMathInElement on #back — it treats $...$ inside rich-text as math
           // and breaks French prose; explicit <tex>/<katex> fields are already rendered via katex.render in buildFieldElement.
-        }
         
         // For Active Memory mode, stop the timer
         if(reviewMode === 'activeMemory' && window.__activeMemoryTimerState){
@@ -10517,8 +10523,8 @@
         const respBtn = $('#respButtons');
         const showBtn = $('#showAnswer');
         if(window.innerWidth <= 640){
-          // mobile: front stays fixed, reveal preloaded back without relayout jump
-          if(frontEl){ frontEl.style.display = 'block'; frontEl.style.flex = '0 0 auto'; }
+          // Keep the front visible; its reserved slot is followed by the answer.
+          if(frontEl){ frontEl.style.display = 'flex'; frontEl.style.visibility = 'visible'; frontEl.style.flex = '1 1 0'; }
           if(backEl){
             backEl.style.display = 'block';
             backEl.style.flex = '0 0 auto';
@@ -20140,7 +20146,7 @@
     if(syncBtn){
       syncBtn.addEventListener('click', ()=>{ 
         try{
-          showSyncPopup();
+          showConnectionPage();
         }catch(err){
           console.error('Sync button click error:', err);
           alert('âŒ Erreur lors de l\'ouverture du formulaire de synchronisation:\n\n' + (err?.message || String(err)));
@@ -20166,24 +20172,14 @@
         }
       }catch(e){}
     }, 600);
-    // Année de prépa puis objectif quotidien au premier lancement
+    // Année de prépa au premier lancement. L'objectif quotidien reste configurable depuis Profil/Réglages.
     if(!getPrepaYear()){
       setTimeout(() => {
         try{
           const S = sch();
-          const afterPrepa = () => {
-            if(!getDailyGoal() && typeof showDailyGoalDialog === 'function'){
-              showDailyGoalDialog();
-            }
-          };
-          if(S && typeof S.showPrepaYearDialog === 'function') S.showPrepaYearDialog(afterPrepa);
-          else afterPrepa();
+          if(S && typeof S.showPrepaYearDialog === 'function') S.showPrepaYearDialog();
         }catch(e){}
       }, 1200);
-    }else if(!getDailyGoal()){
-      setTimeout(() => {
-        try{ if(typeof showDailyGoalDialog === 'function') showDailyGoalDialog(); }catch(e){}
-      }, 1500);
     }
     // Note: restoreFromCloud() is now called by initializeDeckLoader() to ensure deck loads with restored data
     // refresh periodically - disabled to reduce sync frequency
@@ -21974,6 +21970,50 @@
       }catch(e){ return false }
     }
 
+    function showConnectionPage(){
+      if(document.getElementById('fabankiConnectionPage')) return;
+      const ov = document.createElement('div');
+      ov.id = 'fabankiConnectionPage';
+      ov.className = 'modal-overlay fabanki-connection-page open';
+      ov.style.cssText = 'display:flex;align-items:center;justify-content:center;z-index:2600;';
+      const m = document.createElement('div');
+      m.className = 'modal';
+      m.style.cssText = 'width:min(440px,calc(100% - 32px));max-width:none;';
+      m.innerHTML = '<h2>Se connecter</h2><p class="muted">Synchronisez vos decks et votre progression sur tous vos appareils.</p>';
+      const email = document.createElement('input'); email.type='email'; email.placeholder='Email'; email.autocomplete='email';
+      const password = document.createElement('input'); password.type='password'; password.placeholder='Mot de passe'; password.autocomplete='current-password';
+      [email,password].forEach(input => { input.style.cssText='width:100%;padding:11px 12px;margin:6px 0;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--fg);box-sizing:border-box;'; m.appendChild(input); });
+      const status = document.createElement('div'); status.className='muted small'; status.style.minHeight='22px'; m.appendChild(status);
+      const actions = document.createElement('div'); actions.style.cssText='display:flex;gap:8px;margin-top:10px;';
+      const login = document.createElement('button'); login.className='primary'; login.textContent='Se connecter';
+      const create = document.createElement('button'); create.className='secondary'; create.textContent='Créer un compte';
+      const cancel = document.createElement('button'); cancel.className='secondary'; cancel.textContent='Annuler';
+      const google = document.createElement('button'); google.className='secondary'; google.textContent='Continuer avec Google'; google.style.cssText='width:100%;margin-top:8px;';
+      m.appendChild(google); actions.append(login,create,cancel); m.appendChild(actions); ov.appendChild(m); document.body.appendChild(ov);
+      cancel.addEventListener('click',()=>ov.remove());
+      google.addEventListener('click',async()=>{
+        [google,login,create,cancel].forEach(button=>button.disabled=true);
+        status.textContent='Connexion Google en cours...';
+        try{ await signInWithGoogleAndSync(); ov.remove(); }
+        catch(e){ status.textContent=e?.message || 'Connexion Google impossible'; [google,login,create,cancel].forEach(button=>button.disabled=false); }
+      });
+      login.addEventListener('click',async()=>{
+        const em=email.value.trim(), pw=password.value;
+        if(!em || !pw){ status.textContent='Renseignez votre email et votre mot de passe.'; return; }
+        login.disabled=true; cancel.disabled=true; status.textContent='Connexion en cours...';
+        try{ await loginAndSync(em,pw); ov.remove(); }
+        catch(e){ status.textContent=e?.message || 'Connexion impossible'; login.disabled=false; cancel.disabled=false; }
+      });
+      create.addEventListener('click',async()=>{
+        const em=email.value.trim(), pw=password.value;
+        if(!em || !pw){ status.textContent='Renseignez votre email et votre mot de passe.'; return; }
+        create.disabled=true; login.disabled=true; cancel.disabled=true; google.disabled=true; status.textContent='Création du compte...';
+        try{ await createAccountAndSync(em,pw); ov.remove(); }
+        catch(e){ status.textContent=e?.message || 'Création impossible'; [google,login,create,cancel].forEach(button=>button.disabled=false); }
+      });
+      email.focus();
+    }
+
     function showPseudoModal(){
       try{
         if(document.getElementById('pseudoOverlay')) return;
@@ -22013,11 +22053,7 @@
         const loginBtn = document.createElement('button'); loginBtn.className='secondary'; loginBtn.textContent='Se connecter'; loginBtn.style.width='100%';
         loginBtn.addEventListener('click', async ()=>{
           ov.remove();
-          if(typeof loginAndSync === 'function'){
-            await loginAndSync();
-          } else {
-            alert('Fonctionnalité de connexion non disponible');
-          }
+          showConnectionPage();
         });
         loginSection.appendChild(loginBtn);
         m.appendChild(loginSection);
@@ -23553,7 +23589,7 @@
 
           container.appendChild(grid);
 
-          if(currentPage !== 'home' || renderToken !== window.__fabankiWelcomeRenderToken){
+          if((window.__fabankiCurrentPage || 'home') !== 'home' || renderToken !== window.__fabankiWelcomeRenderToken){
             return;
           }
 
@@ -27873,6 +27909,7 @@
   function setActivePage(pageId, opts){
     const fromHistory = !!(opts && opts.fromHistory);
     currentPage = pageId;
+    window.__fabankiCurrentPage = pageId;
     if(!fromHistory) syncPageHistory(pageId, !!(opts && opts.replace));
     try{
       if(pageId !== 'review'){
@@ -28050,7 +28087,6 @@
           document.body.classList.remove('nav-home-active');
           await removeWelcome();
           await loadMultipleDeckCards(urls, { onlyNow: true, limitCount: null, skipEmptyRecap: true });
-          if(dueCards && dueCards.length) showNextCard();
         });
       };
       render();
