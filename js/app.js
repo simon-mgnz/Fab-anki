@@ -12506,7 +12506,25 @@
               }
               });
             }
+            const shareBtn = document.createElement('button');
+            shareBtn.type = 'button';
+            shareBtn.className = 'secondary deck-entry-share';
+            shareBtn.textContent = 'Partager';
+            shareBtn.title = 'Copier le lien de ce deck';
+            shareBtn.addEventListener('click', async (ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+              const shareUrl = new URL(`?deck=${encodeURIComponent(deckUrlForMeta)}`, window.location.href).href;
+              try{
+                await navigator.clipboard.writeText(shareUrl);
+                shareBtn.textContent = 'Copié';
+                setTimeout(() => { shareBtn.textContent = 'Partager'; }, 1400);
+              }catch(e){
+                window.prompt('Copiez le lien du deck :', shareUrl);
+              }
+            });
             if(!calendarLocked) act.appendChild(pauseBtn);
+            act.appendChild(shareBtn);
             act.appendChild(b);
             row.addEventListener('click', (ev)=>{ if(ev.target.closest('button')) return; b.click(); });
             appendDeckEntryLayout(row, fileBuilt, act);
@@ -13290,6 +13308,63 @@
         const avatarInfo = document.createElement('div');
         avatarInfo.style.cssText = 'flex:1;min-width:0;';
 
+        const shareStatsBtn = document.createElement('button');
+        shareStatsBtn.type = 'button';
+        shareStatsBtn.className = 'secondary profile-share-stats-btn';
+        shareStatsBtn.textContent = 'Partager mes stats';
+        shareStatsBtn.title = 'Créer une image partageable de vos statistiques';
+        shareStatsBtn.addEventListener('click', async () => {
+          try{
+            const canvas = document.createElement('canvas');
+            canvas.width = 1200; canvas.height = 760;
+            const ctx = canvas.getContext('2d');
+            const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+            ctx.fillStyle = dark ? '#171522' : '#f7f8fc';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = dark ? '#29243a' : '#ffffff';
+            ctx.roundRect(40, 40, 1120, 680, 28, 28); ctx.fill();
+            const shareStats = getProfileStats();
+            const xp = Number(shareStats.xpTotal || 0);
+            const level = typeof computeLevelAndProgress === 'function' ? computeLevelAndProgress(xp).level : 1;
+            const streak = Number(localStorage.getItem('fabanki:streak_current') || 0);
+            const mastered = countMasteredCards();
+            const pseudo = localStorage.getItem('pseudo') || 'Fab’Anki';
+            ctx.fillStyle = dark ? '#f4effc' : '#172033';
+            ctx.font = '700 46px Segoe UI, Arial'; ctx.fillText('Fab’Anki', 90, 125);
+            ctx.font = '600 30px Segoe UI, Arial'; ctx.fillText(pseudo, 90, 175);
+            ctx.font = '500 24px Segoe UI, Arial'; ctx.fillStyle = dark ? '#b8afc9' : '#667085';
+            ctx.fillText('Mes statistiques', 90, 220);
+            const items = [
+              ['Cartes révisées', shareStats.totalReviewed || 0],
+              ['Aujourd’hui', shareStats.todayReviewed || 0],
+              ['Maîtrisées', mastered],
+              ['Série', `${streak} j`],
+              ['Niveau', level],
+              ['XP', xp]
+            ];
+            items.forEach((item, index) => {
+              const x = 90 + (index % 3) * 345;
+              const y = 300 + Math.floor(index / 3) * 170;
+              ctx.fillStyle = dark ? '#342d49' : '#f1f3f8';
+              ctx.roundRect(x, y, 300, 120, 18, 18); ctx.fill();
+              ctx.fillStyle = dark ? '#b8afc9' : '#667085';
+              ctx.font = '500 22px Segoe UI, Arial'; ctx.fillText(item[0], x + 24, y + 38);
+              ctx.fillStyle = dark ? '#f4effc' : '#172033';
+              ctx.font = '700 38px Segoe UI, Arial'; ctx.fillText(String(item[1]), x + 24, y + 86);
+            });
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+            const file = blob ? new File([blob], 'fabanki-stats.png', { type: 'image/png' }) : null;
+            if(file && navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))){
+              await navigator.share({ title: 'Mes statistiques Fab’Anki', text: 'Mes statistiques Fab’Anki', files: [file] });
+            }else if(blob){
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(blob); link.download = 'fabanki-stats.png'; link.click();
+              setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+            }
+          }catch(e){ console.warn('Stats image sharing failed:', e); }
+        });
+        avatarInfo.appendChild(shareStatsBtn);
+
         const pseudoRow = document.createElement('div');
         pseudoRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:4px;';
         const p0 = document.createElement('div');
@@ -13540,24 +13615,24 @@
 
           fillSwatches(profileV3Wrap.querySelector('#profileCardColorGrid'), [
             { name: 'Défaut', light: '#fff', dark: '#111319', level: 0 },
-            { name: 'Bleu clair', light: '#e3f2fd', dark: '#1a2a3a', level: 5 },
-            { name: 'Vert clair', light: '#e8f5e9', dark: '#1b2d1f', level: 10 },
-            { name: 'Rose clair', light: '#fce4ec', dark: '#3a1f2e', level: 15 },
-            { name: 'Amber', light: '#fff8e1', dark: '#3a3000', level: 20 },
-            { name: 'Indigo', light: '#e8eaf6', dark: '#1a1535', level: 25 },
+            { name: 'Bleu très clair', light: '#f5f9fd', dark: '#1a2a3a', level: 5 },
+            { name: 'Vert très clair', light: '#f5faf6', dark: '#1b2d1f', level: 10 },
+            { name: 'Rose très clair', light: '#fdf7f9', dark: '#3a1f2e', level: 15 },
+            { name: 'Amber pâle', light: '#fffdf5', dark: '#3a3000', level: 20 },
+            { name: 'Indigo pâle', light: '#f7f8fd', dark: '#1a1535', level: 25 },
             { name: 'Indigo profond', light: '#d8d3f0', dark: '#1a0754', level: 0, special: true, unlocked: localStorage.getItem('fabanki:welcome_quest_indigo') === 'true' },
-            { name: 'Cyan', light: '#e0f7fa', dark: '#0d1b1f', level: 28 },
-            { name: 'Orange pâle', light: '#ffe0b2', dark: '#2d1b0a', level: 22 },
-            { name: 'Menthe', light: '#e0f2f1', dark: '#0d1816', level: 30 },
-            { name: 'Lavande', light: '#f3e5f5', dark: '#2a0e3a', level: 32 },
-            { name: 'Pêche', light: '#ffd7a8', dark: '#3a1f0a', level: 35 },
-            { name: 'Ciel', light: '#b3e5fc', dark: '#0a3a4a', level: 38 },
-            { name: 'Turquoise', light: '#b2dfdb', dark: '#0d3a35', level: 40 },
-            { name: 'Or pâle', light: '#ffecb3', dark: '#3d2d00', level: 42 },
-            { name: 'Vert sapin', light: '#a5d6a7', dark: '#1d3a1f', level: 45 },
-            { name: 'Rose vif', light: '#f8bbd0', dark: '#4a0e2a', level: 45 },
-            { name: 'Bleu royal', light: '#64b5f6', dark: '#0a2558', level: 48 },
-            { name: 'Sunrise', light: '#ffcc80', dark: '#4d2600', level: 50 },
+            { name: 'Cyan pâle', light: '#f3fbfc', dark: '#0d1b1f', level: 28 },
+            { name: 'Orange pâle', light: '#fff9f2', dark: '#2d1b0a', level: 22 },
+            { name: 'Menthe pâle', light: '#f3fbfa', dark: '#0d1816', level: 30 },
+            { name: 'Lavande pâle', light: '#fbf7fc', dark: '#2a0e3a', level: 32 },
+            { name: 'Pêche pâle', light: '#fff8f1', dark: '#3a1f0a', level: 35 },
+            { name: 'Ciel pâle', light: '#f3fbff', dark: '#0a3a4a', level: 38 },
+            { name: 'Turquoise pâle', light: '#f2fbfa', dark: '#0d3a35', level: 40 },
+            { name: 'Or pâle', light: '#fffdf5', dark: '#3d2d00', level: 42 },
+            { name: 'Vert doux', light: '#f4fbf4', dark: '#1d3a1f', level: 45 },
+            { name: 'Rose doux', light: '#fdf6f9', dark: '#4a0e2a', level: 45 },
+            { name: 'Bleu doux', light: '#f3f8fd', dark: '#0a2558', level: 48 },
+            { name: 'Sunrise pâle', light: '#fffaf3', dark: '#4d2600', level: 50 },
             { name: 'Gradient Océan', light: 'linear-gradient(135deg, #e0f7fa 0%, #e3f2fd 100%)', dark: 'linear-gradient(135deg, #0d1b1f 0%, #1a2a3a 100%)', level: 55 },
             { name: 'Gradient Forêt', light: 'linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%)', dark: 'linear-gradient(135deg, #1b2d1f 0%, #0d1816 100%)', level: 55 }
           ], 'fabanki:card_color', 'fabanki:current_card_color_name');
@@ -13612,14 +13687,14 @@
           fillPicker(profileV3Wrap.querySelector('#profileFontPicker'), [
             { name: 'Classique', id: 'system', stack: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial', level: 0 },
             { name: 'Élégant', id: 'elegant', stack: '"Georgia", "Times New Roman", serif', level: 5 },
-            { name: 'Moderne', id: 'modern', stack: '"Inter", "Helvetica", "Arial", sans-serif', level: 10, credit: 30, marketKey: 'fabanki:market_font_modern' },
-            { name: 'Monospace', id: 'mono', stack: '"Courier New", "Monaco", monospace', level: 15 },
+            { name: 'Moderne', id: 'modern', stack: '"Avenir Next", "Segoe UI", sans-serif', level: 10, credit: 30, marketKey: 'fabanki:market_font_modern' },
+            { name: 'Lecture', id: 'reading', stack: '"Trebuchet MS", "Segoe UI", sans-serif', level: 15 },
             { name: 'Lisible', id: 'readable', stack: '"Trebuchet MS", sans-serif', level: 20 },
             { name: 'Confortable', id: 'comfortable', stack: '"Segoe UI", "Tahoma", sans-serif', level: 25, credit: 35, marketKey: 'fabanki:market_font_comfortable' },
-            { name: 'Minimaliste', id: 'minimal', stack: '"Helvetica Neue", "Arial", sans-serif', level: 30 },
-            { name: 'Littéraire', id: 'literary', stack: '"Cambria", "Palatino", serif', level: 35 },
-            { name: 'Futuriste', id: 'futuristic', stack: '"Trebuchet MS", "Lucida Grande", sans-serif', level: 40, credit: 50, marketKey: 'fabanki:market_font_futuristic' },
-            { name: 'Manuscrit', id: 'script', stack: '"Comic Sans MS", "Brush Script MT", cursive', level: 45 }
+            { name: 'Minimaliste', id: 'minimal', stack: '"Helvetica Neue", Arial, sans-serif', level: 30 },
+            { name: 'Littéraire', id: 'literary', stack: '"Cambria", "Palatino Linotype", serif', level: 35 },
+            { name: 'Humaniste', id: 'humanist', stack: '"Gill Sans", "Trebuchet MS", sans-serif', level: 40, credit: 50, marketKey: 'fabanki:market_font_humanist' },
+            { name: 'Système doux', id: 'soft', stack: '"Calibri", "Segoe UI", sans-serif', level: 45 }
           ], {
             idAttr: 'font',
             storageKey: 'fabanki:font_family',
@@ -27940,7 +28015,10 @@
                 <h2>Cartes à faire</h2>
                 <p>${total} carte${total > 1 ? 's' : ''} sélectionnée${total > 1 ? 's' : ''}</p>
               </div>
-              <button type="button" class="secondary" id="reviewPreparationClose">Annuler</button>
+              <div class="review-preparation-head-actions">
+                <button type="button" class="secondary" id="reviewPreparationToggleAll" ${decks.length ? '' : 'disabled'}>${selected.size === decks.length ? 'Désélectionner tout' : 'Sélectionner tout'}</button>
+                <button type="button" class="secondary" id="reviewPreparationClose">Annuler</button>
+              </div>
             </div>
             <div class="review-preparation-list">
               ${decks.length ? decks.map((deckInfo, index) => `
@@ -27955,6 +28033,11 @@
         panel.querySelector('#reviewPreparationClose')?.addEventListener('click', () => {
           panel.remove();
           setActivePage('home');
+        });
+        panel.querySelector('#reviewPreparationToggleAll')?.addEventListener('click', () => {
+          if(selected.size === decks.length) selected.clear();
+          else decks.forEach(deckInfo => selected.add(deckInfo.url));
+          render();
         });
         panel.querySelectorAll('[data-review-deck]').forEach(input => input.addEventListener('change', () => {
           const deckInfo = decks[Number(input.dataset.reviewDeck)];
