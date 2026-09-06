@@ -3371,6 +3371,23 @@
       });
       buttonRow.appendChild(resetBtn);
 
+      const shareOverviewBtn = document.createElement('button');
+      shareOverviewBtn.type = 'button';
+      shareOverviewBtn.textContent = 'Partager';
+      shareOverviewBtn.className = 'secondary';
+      shareOverviewBtn.title = 'Copier le lien de ce deck';
+      shareOverviewBtn.addEventListener('click', async () => {
+        const shareUrl = new URL(`?deck=${encodeURIComponent(url)}`, window.location.href).href;
+        try{
+          await navigator.clipboard.writeText(shareUrl);
+          shareOverviewBtn.textContent = 'Copié';
+          setTimeout(() => { shareOverviewBtn.textContent = 'Partager'; }, 1400);
+        }catch(e){
+          window.prompt('Copiez le lien du deck :', shareUrl);
+        }
+      });
+      buttonRow.appendChild(shareOverviewBtn);
+
       const pauseBtn = document.createElement('button');
       pauseBtn.type = 'button';
       pauseBtn.className = 'secondary';
@@ -12506,26 +12523,8 @@
               }
               });
             }
-            const shareBtn = document.createElement('button');
-            shareBtn.type = 'button';
-            shareBtn.className = 'secondary deck-entry-share';
-            shareBtn.textContent = 'Partager';
-            shareBtn.title = 'Copier le lien de ce deck';
-            shareBtn.addEventListener('click', async (ev) => {
-              ev.preventDefault();
-              ev.stopPropagation();
-              const shareUrl = new URL(`?deck=${encodeURIComponent(deckUrlForMeta)}`, window.location.href).href;
-              try{
-                await navigator.clipboard.writeText(shareUrl);
-                shareBtn.textContent = 'Copié';
-                setTimeout(() => { shareBtn.textContent = 'Partager'; }, 1400);
-              }catch(e){
-                window.prompt('Copiez le lien du deck :', shareUrl);
-              }
-            });
-            if(!calendarLocked) act.appendChild(pauseBtn);
-            act.appendChild(shareBtn);
             act.appendChild(b);
+            if(!calendarLocked) act.appendChild(pauseBtn);
             row.addEventListener('click', (ev)=>{ if(ev.target.closest('button')) return; b.click(); });
             appendDeckEntryLayout(row, fileBuilt, act);
             refreshDeckEntryCounts(fileBuilt.statsCol, fileBuilt.mBar, deckUrlForMeta);
