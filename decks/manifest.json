@@ -1843,6 +1843,14 @@
 			],
 			"description": "L3 Equations différentielles",
 			"time": "2.01"
+		},
+		{
+			"path": "Anglais/Livre de vocabulaire/The computer age the digital age P180.xml",
+			"tags": [
+				"text"
+			],
+			"description": "The computer age / the digital age P180",
+			"time": "1.22"
 		}
 	]
 }
