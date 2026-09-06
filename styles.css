@@ -2877,6 +2877,7 @@ body.in-review.review-mobile-global{
 }
 .review-preparation-loading{text-align:center;color:var(--muted);padding:40px 16px}
 .review-preparation-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px}
+.review-preparation-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .review-preparation-kicker{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);font-weight:700}
 .review-preparation-head h2{margin:4px 0;font-size:clamp(1.35rem,4vw,2rem)}
 .review-preparation-head p{margin:0;color:var(--muted)}
@@ -2892,7 +2893,7 @@ body.in-review.review-mobile-global{
 @media(max-width:640px){
   .review-preparation-panel{padding:12px}
   .review-preparation-head{align-items:stretch;flex-direction:column}
-  .review-preparation-head .secondary{align-self:flex-end}
+  .review-preparation-head-actions{justify-content:flex-start}
   .review-preparation-list{max-height:none}
 }
 .homev2-quest-line.is-done{color:var(--muted);text-decoration:line-through}
@@ -3549,12 +3550,14 @@ body.in-review.review-mobile-global{
 [data-theme='dark'] .deck-mastery{background:rgba(255,255,255,.12)}
 .deck-entry-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .deck-folder-toggle-btn{font-size:.72rem;padding:5px 8px;white-space:nowrap}
+.deck-entry-share{font-size:.72rem;padding:5px 8px;white-space:nowrap}
 .deck-browser-year-controls{
   display:flex;align-items:center;gap:6px;flex-wrap:wrap;
   padding:0 6px 10px;color:var(--muted);font-size:.76rem
 }
 .deck-browser-year-controls button{font-size:.72rem;padding:5px 8px}
 .deck-browser-year-controls button.is-disabled{color:#d9534f;border-color:rgba(217,83,79,.4)}
+.profile-share-stats-btn{margin-top:8px;padding:6px 10px;font-size:.78rem}
 .deck-folder-icon,.deck-file-icon{
   width:24px;height:24px;border-radius:6px;display:grid;place-items:center;flex:0 0 24px;font-size:12px
 }
