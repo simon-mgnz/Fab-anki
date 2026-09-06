@@ -1174,7 +1174,7 @@
 			"description": "Controle de cours sur les transformations thermodynamiques."
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/L1 - Homogénéité et expression d'une grandeur.xml",
+			"path": "Physique/Cours Mp/L1 - Homogénéité et expression d'une grandeur.xml",
 			"tags": [
 				"timer"
 			],
@@ -1183,7 +1183,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/L3 - Équations différentielles.xml",
+			"path": "Physique/Cours Mp/L3 - Équations différentielles.xml",
 			"tags": [
 				"timer"
 			],
@@ -1192,7 +1192,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/SA1 - Circuits linéaires.xml",
+			"path": "Physique/Cours Mp/SA1 - Circuits linéaires.xml",
 			"tags": [
 				"timer"
 			],
@@ -1200,7 +1200,7 @@
 			"description": "Lois de Kirchhoff, dipôles RLC et régimes transitoires (révision 1A, Fabert MP*)."
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/SA2 - Filtrage.xml",
+			"path": "Physique/Cours Mp/SA2 - Filtrage.xml",
 			"tags": [
 				"timer"
 			],
@@ -1208,7 +1208,7 @@
 			"description": "Notation complexe, impédances, Bode et filtres passifs (Fabert MP*)."
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/SB1 - Traitement du signal.xml",
+			"path": "Physique/Cours Mp/SB1 - Traitement du signal.xml",
 			"tags": [
 				"timer"
 			],
@@ -1216,7 +1216,7 @@
 			"description": "ALI idéal, montages linéaires, Fourier et Shannon (Fabert MP*)."
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/SB2 - Association de modules.xml",
+			"path": "Physique/Cours Mp/SB2 - Association de modules.xml",
 			"tags": [
 				"timer"
 			],
@@ -1224,7 +1224,7 @@
 			"description": "ALI non linéaire, saturation et hystérésis (Fabert MP*)."
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/MA0 - Cinématique.xml",
+			"path": "Physique/Cours Mp/MA0 - Cinématique.xml",
 			"tags": [
 				"timer"
 			],
@@ -1232,7 +1232,7 @@
 			"description": "Coordonnées, vitesse/accélération et mouvements particuliers (Fabert MP*)."
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/MA1 - Dynamique galiléenne.xml",
+			"path": "Physique/Cours Mp/MA1 - Dynamique galiléenne.xml",
 			"tags": [
 				"timer"
 			],
@@ -1240,34 +1240,31 @@
 			"description": "Forces, lois de Newton et théorèmes énergétiques (Fabert MP*)."
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/MA2 - Théorème du moment cinétique.xml",
+			"path": "Physique/Cours Mp/MA2 - Théorème du moment cinétique.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.03",
-			"description": "TMC, conservation du moment cinétique et champ central.",
-			"comingSoon": true
+			"description": "TMC, conservation du moment cinétique et champ central."
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/MA3 - Autour des solides.xml",
+			"path": "Physique/Cours Mp/MA3 - Autour des solides.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.03",
-			"description": "Solide en rotation autour d'un axe fixe, moment d'inertie.",
-			"comingSoon": true
+			"description": "Solide en rotation autour d'un axe fixe, moment d'inertie."
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/MB1 - Vers l'équation d'onde.xml",
+			"path": "Physique/Cours Mp/MB1 - Vers l'équation d'onde.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.04",
-			"description": "Célérité, équation de d'Alembert à une dimension.",
-			"comingSoon": true
+			"description": "Célérité, équation de d'Alembert à une dimension."
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/MB2 - Ondes.xml",
+			"path": "Physique/Cours Mp/MB2 - Ondes.xml",
 			"tags": [
 				"timer"
 			],
@@ -1276,7 +1273,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/OA1 - Rappel optique 1A.xml",
+			"path": "Physique/Cours Mp/OA1 - Rappel optique 1A.xml",
 			"tags": [
 				"timer"
 			],
@@ -1285,7 +1282,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/OA2 - Modèle scalaire des ondes lumineuses.xml",
+			"path": "Physique/Cours Mp/OA2 - Modèle scalaire des ondes lumineuses.xml",
 			"tags": [
 				"timer"
 			],
@@ -1294,7 +1291,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/OB1 - Trous de Young.xml",
+			"path": "Physique/Cours Mp/OB1 - Trous de Young.xml",
 			"tags": [
 				"timer"
 			],
@@ -1303,7 +1300,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/OB2 - Young et variantes.xml",
+			"path": "Physique/Cours Mp/OB2 - Young et variantes.xml",
 			"tags": [
 				"timer"
 			],
@@ -1312,7 +1309,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/OB3 - Interféromètre de Michelson.xml",
+			"path": "Physique/Cours Mp/OB3 - Interféromètre de Michelson.xml",
 			"tags": [
 				"timer"
 			],
@@ -1321,7 +1318,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/OB4 - Cohérence.xml",
+			"path": "Physique/Cours Mp/OB4 - Cohérence.xml",
 			"tags": [
 				"timer"
 			],
@@ -1330,7 +1327,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/TA1 - Principes de la thermodynamique.xml",
+			"path": "Physique/Cours Mp/TA1 - Principes de la thermodynamique.xml",
 			"tags": [
 				"timer"
 			],
@@ -1339,7 +1336,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/TA2 - Machines thermiques.xml",
+			"path": "Physique/Cours Mp/TA2 - Machines thermiques.xml",
 			"tags": [
 				"timer"
 			],
@@ -1348,7 +1345,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/CA1 - Thermochimie.xml",
+			"path": "Physique/Cours Mp/CA1 - Thermochimie.xml",
 			"tags": [
 				"timer"
 			],
@@ -1357,7 +1354,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/CA2 - Sens et évolution d'une réaction.xml",
+			"path": "Physique/Cours Mp/CA2 - Sens et évolution d'une réaction.xml",
 			"tags": [
 				"timer"
 			],
@@ -1366,7 +1363,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/CA3 - Révision chimie des solutions.xml",
+			"path": "Physique/Cours Mp/CA3 - Révision chimie des solutions.xml",
 			"tags": [
 				"timer"
 			],
@@ -1375,7 +1372,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/Q1 - Introduction à la mécanique quantique.xml",
+			"path": "Physique/Cours Mp/Q1 - Introduction à la mécanique quantique.xml",
 			"tags": [
 				"timer"
 			],
@@ -1384,7 +1381,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/Q2 - Particule libre et puits infini.xml",
+			"path": "Physique/Cours Mp/Q2 - Particule libre et puits infini.xml",
 			"tags": [
 				"timer"
 			],
@@ -1393,7 +1390,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/Q3 - Barrière et effet tunnel.xml",
+			"path": "Physique/Cours Mp/Q3 - Barrière et effet tunnel.xml",
 			"tags": [
 				"timer"
 			],
@@ -1402,7 +1399,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EA1 - Mouvement d'une charge.xml",
+			"path": "Physique/Cours Mp/EA1 - Mouvement d'une charge.xml",
 			"tags": [
 				"timer"
 			],
@@ -1411,7 +1408,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EA2 - Courant et force de Laplace.xml",
+			"path": "Physique/Cours Mp/EA2 - Courant et force de Laplace.xml",
 			"tags": [
 				"timer"
 			],
@@ -1420,7 +1417,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EA3 - Induction de Lorentz.xml",
+			"path": "Physique/Cours Mp/EA3 - Induction de Lorentz.xml",
 			"tags": [
 				"timer"
 			],
@@ -1429,7 +1426,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EB0 - Topographie des champs.xml",
+			"path": "Physique/Cours Mp/EB0 - Topographie des champs.xml",
 			"tags": [
 				"timer"
 			],
@@ -1438,7 +1435,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EB1 - Dipôle électrostatique.xml",
+			"path": "Physique/Cours Mp/EB1 - Dipôle électrostatique.xml",
 			"tags": [
 				"timer"
 			],
@@ -1447,7 +1444,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EB2 - Dipôle magnétostatique.xml",
+			"path": "Physique/Cours Mp/EB2 - Dipôle magnétostatique.xml",
 			"tags": [
 				"timer"
 			],
@@ -1456,7 +1453,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/TB1 - Équation de diffusion.xml",
+			"path": "Physique/Cours Mp/TB1 - Équation de diffusion.xml",
 			"tags": [
 				"timer"
 			],
@@ -1465,7 +1462,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/TB2 - Solutions classiques de la diffusion.xml",
+			"path": "Physique/Cours Mp/TB2 - Solutions classiques de la diffusion.xml",
 			"tags": [
 				"timer"
 			],
@@ -1474,7 +1471,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/TB3 - Diffusion 3D.xml",
+			"path": "Physique/Cours Mp/TB3 - Diffusion 3D.xml",
 			"tags": [
 				"timer"
 			],
@@ -1483,7 +1480,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/TB4 - Résistance thermique et diffusion radiale.xml",
+			"path": "Physique/Cours Mp/TB4 - Résistance thermique et diffusion radiale.xml",
 			"tags": [
 				"timer"
 			],
@@ -1492,7 +1489,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/TC1 - Hydrostatique.xml",
+			"path": "Physique/Cours Mp/TC1 - Hydrostatique.xml",
 			"tags": [
 				"timer"
 			],
@@ -1501,7 +1498,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/TC2 - Systèmes à deux niveaux.xml",
+			"path": "Physique/Cours Mp/TC2 - Systèmes à deux niveaux.xml",
 			"tags": [
 				"timer"
 			],
@@ -1510,7 +1507,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/TC3 - Systèmes complexes.xml",
+			"path": "Physique/Cours Mp/TC3 - Systèmes complexes.xml",
 			"tags": [
 				"timer"
 			],
@@ -1519,7 +1516,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/CB1 - Pile.xml",
+			"path": "Physique/Cours Mp/CB1 - Pile.xml",
 			"tags": [
 				"timer"
 			],
@@ -1528,7 +1525,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/CB2 - Pile qui débite.xml",
+			"path": "Physique/Cours Mp/CB2 - Pile qui débite.xml",
 			"tags": [
 				"timer"
 			],
@@ -1537,7 +1534,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/CB3 - Pile qui recharge.xml",
+			"path": "Physique/Cours Mp/CB3 - Pile qui recharge.xml",
 			"tags": [
 				"timer"
 			],
@@ -1546,7 +1543,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EC1 - Théorème de Gauss.xml",
+			"path": "Physique/Cours Mp/EC1 - Théorème de Gauss.xml",
 			"tags": [
 				"timer"
 			],
@@ -1555,7 +1552,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EC2 - Condensateur.xml",
+			"path": "Physique/Cours Mp/EC2 - Condensateur.xml",
 			"tags": [
 				"timer"
 			],
@@ -1564,7 +1561,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EC3 - Théorème d'Ampère.xml",
+			"path": "Physique/Cours Mp/EC3 - Théorème d'Ampère.xml",
 			"tags": [
 				"timer"
 			],
@@ -1573,7 +1570,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EC4 - Solénoïde.xml",
+			"path": "Physique/Cours Mp/EC4 - Solénoïde.xml",
 			"tags": [
 				"timer"
 			],
@@ -1582,7 +1579,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/ED1 - Équations de Maxwell.xml",
+			"path": "Physique/Cours Mp/ED1 - Équations de Maxwell.xml",
 			"tags": [
 				"timer"
 			],
@@ -1591,7 +1588,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/ED2 - Manipuler Maxwell.xml",
+			"path": "Physique/Cours Mp/ED2 - Manipuler Maxwell.xml",
 			"tags": [
 				"timer"
 			],
@@ -1600,7 +1597,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/ED3 - Induction de Neumann.xml",
+			"path": "Physique/Cours Mp/ED3 - Induction de Neumann.xml",
 			"tags": [
 				"timer"
 			],
@@ -1609,7 +1606,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/ED4 - Auto et mutuelle induction.xml",
+			"path": "Physique/Cours Mp/ED4 - Auto et mutuelle induction.xml",
 			"tags": [
 				"timer"
 			],
@@ -1618,7 +1615,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EE1 - Ondes dans le vide.xml",
+			"path": "Physique/Cours Mp/EE1 - Ondes dans le vide.xml",
 			"tags": [
 				"timer"
 			],
@@ -1627,7 +1624,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EE2 - Ondes et conducteurs.xml",
+			"path": "Physique/Cours Mp/EE2 - Ondes et conducteurs.xml",
 			"tags": [
 				"timer"
 			],
@@ -1636,7 +1633,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EE3 - Onde dans un plasma.xml",
+			"path": "Physique/Cours Mp/EE3 - Onde dans un plasma.xml",
 			"tags": [
 				"timer"
 			],
@@ -1645,7 +1642,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/EE4 - Dipôle rayonnant.xml",
+			"path": "Physique/Cours Mp/EE4 - Dipôle rayonnant.xml",
 			"tags": [
 				"timer"
 			],
@@ -1654,7 +1651,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/MC1 - Référentiels non galiléens en translation.xml",
+			"path": "Physique/Cours Mp/MC1 - Référentiels non galiléens en translation.xml",
 			"tags": [
 				"timer"
 			],
@@ -1663,7 +1660,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/MC2 - Référentiels non galiléens en rotation.xml",
+			"path": "Physique/Cours Mp/MC2 - Référentiels non galiléens en rotation.xml",
 			"tags": [
 				"timer"
 			],
@@ -1672,7 +1669,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/MC3 - Référentiel terrestre.xml",
+			"path": "Physique/Cours Mp/MC3 - Référentiel terrestre.xml",
 			"tags": [
 				"timer"
 			],
@@ -1681,7 +1678,7 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/CC1 - Révision chimie des matériaux.xml",
+			"path": "Physique/Cours Mp/CC1 - Révision chimie des matériaux.xml",
 			"tags": [
 				"timer"
 			],
@@ -1690,21 +1687,12 @@
 			"comingSoon": true
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/CC2 - Corrosion.xml",
+			"path": "Physique/Cours Mp/CC2 - Corrosion.xml",
 			"tags": [
 				"timer"
 			],
 			"time": "2.23",
 			"description": "Corrosion humide, pile de corrosion, protection.",
-			"comingSoon": true
-		},
-		{
-			"path": "Physique/Physique Chimie MP star/L2 - Calculs.xml",
-			"tags": [
-				"timer"
-			],
-			"time": "2.01",
-			"description": "DL, ordres de grandeur, approximations usuelles en physique.",
 			"comingSoon": true
 		},
 		{
@@ -1836,7 +1824,7 @@
 			"time": "2.01"
 		},
 		{
-			"path": "Physique/Physique Chimie MP star/L3 Equations différentielles.xml",
+			"path": "Physique/Cours Mp/L3 Equations différentielles.xml",
 			"tags": [
 				"text",
 				"timer"
