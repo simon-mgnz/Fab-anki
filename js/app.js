@@ -21997,7 +21997,7 @@
       ov.className = 'modal-overlay fabanki-connection-page open';
       ov.style.cssText = 'display:flex;align-items:center;justify-content:center;z-index:2600;';
       const m = document.createElement('div');
-      m.className = 'modal';
+      m.className = 'modal open';
       m.style.cssText = 'width:min(440px,calc(100% - 32px));max-width:none;';
       m.innerHTML = '<h2>Se connecter</h2><p class="muted">Synchronisez vos decks et votre progression sur tous vos appareils.</p>';
       const email = document.createElement('input'); email.type='email'; email.placeholder='Email'; email.autocomplete='email';
