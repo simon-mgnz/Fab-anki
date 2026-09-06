@@ -4472,6 +4472,23 @@
       return !!(f && f.html && String(f.html).trim());
     }
   }
+  function mirrorBackImagesToFront(card, frontEl){
+    if(!card || !frontEl || !card.fields) return;
+    const backField = card.fields.Back || card.fields.back;
+    if(!backField || !backField.html || frontEl.querySelector('img')) return;
+
+    const template = document.createElement('template');
+    template.innerHTML = decodeHTMLEntities(String(backField.html));
+    const images = Array.from(template.content.querySelectorAll('img'));
+    if(images.length === 0) return;
+
+    const imageGroup = document.createElement('div');
+    imageGroup.className = 'field-images field-images-front';
+    for(const image of images){
+      imageGroup.appendChild(image.cloneNode(true));
+    }
+    frontEl.appendChild(imageGroup);
+  }
   function getOrderedFieldNames(card, defs){
     if(defs && defs.length){
       const names = defs.map(d => d.name).filter(name => card.fields && card.fields[name]);
@@ -4535,6 +4552,7 @@
       window.__stepModeState = { nodes: stepNodes, index: 0, cardId: card.id || null };
       if(stepNodes[0]) frontEl.appendChild(stepNodes[0]);
       alwaysEl.textContent = '';
+      mirrorBackImagesToFront(card, frontEl);
       try{ applyCardScroll(frontEl); }catch(e){}
       return;
     }
@@ -4551,6 +4569,7 @@
         frontEl.appendChild(node);
       }
       alwaysEl.textContent = '';
+      mirrorBackImagesToFront(card, frontEl);
       try{ applyCardScroll(frontEl); }catch(e){}
       return;
     }
@@ -4670,6 +4689,7 @@
       }
     }
 
+    mirrorBackImagesToFront(card, frontEl);
     alwaysEl.textContent = '';
     try{ applyCardScroll(frontEl); }catch(e){}
   }

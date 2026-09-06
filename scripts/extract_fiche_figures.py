@@ -5,8 +5,8 @@ import pymupdf
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "physique-chimie_MPstar_2026-2027" / "Cours"
 if not SRC.exists():
-    SRC = ROOT / "Physique Chimie MP star" / "Cours"
-OUT = ROOT / "decks" / "Physique" / "Physique Chimie MP star" / "media"
+    SRC = ROOT / "Cours Mp" / "Cours"
+OUT = ROOT / "decks" / "Physique" / "Cours Mp" / "media"
 OUT.mkdir(parents=True, exist_ok=True)
 
 ZOOM = 2.4
