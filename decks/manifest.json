@@ -1839,6 +1839,15 @@
 			],
 			"description": "The computer age / the digital age P180",
 			"time": "1.22"
+		},
+		{
+			"path": "Informatique/SQL/Formulaire SQL.xml",
+			"tags": [
+				"text",
+				"timer"
+			],
+			"description": "Formulaire SQL",
+			"time": "2.01"
 		}
 	]
 }
