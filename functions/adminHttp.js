@@ -7,7 +7,7 @@ const admin = require('firebase-admin');
 const cors = require('cors')({ origin: true });
 
 const { assertAdminContext, isAdminUid } = require('./adminAuth');
-const { removeDeckFromGitHub, listManifestFolders, readManifestFullFromGitHub, updateManifestNotices, bulkAssignManifestDeckTime, updateExistingDeckXmlOnGitHub } = require('./deckPublisher');
+const { removeDeckFromGitHub, listManifestFolders, readManifestFullFromGitHub, updateManifestNotices, bulkAssignManifestDeckTime, updateExistingDeckXmlOnGitHub, renameDeckOnGitHub, moveDeckOnGitHub } = require('./deckPublisher');
 
 const REGION = 'europe-west1';
 const fn = () => functions.region(REGION);
@@ -263,6 +263,60 @@ function buildAdminHttpExports(db, processDeckSubmission) {
           removedBy: decoded.uid,
         }, { merge: true });
         res.json({ ok: true, removedPath: publishedPath });
+      })),
+
+    adminHttpRenameDeck: fn()
+      .runWith({ timeoutSeconds: 120, memory: '512MB' })
+      .https.onRequest(withCors(async (req, res) => {
+        if (req.method !== 'POST') {
+          res.status(405).json({ error: 'POST required' });
+          return;
+        }
+        const decoded = await verifyAuth(req);
+        const submissionId = String(req.body?.submissionId || '').trim();
+        const publishedPath = String(req.body?.publishedPath || '').trim();
+        const newTitle = String(req.body?.newTitle || '').trim();
+        if (!submissionId || !publishedPath || !newTitle) {
+          res.status(400).json({ error: 'submissionId, publishedPath et newTitle requis' });
+          return;
+        }
+        const out = await renameDeckOnGitHub(publishedPath, newTitle);
+        await db.collection('deck_submissions').doc(submissionId).set({
+          title: newTitle,
+          publishedPath: `decks/${out.relativePath}`,
+          path: `/${out.relativePath.split('/').slice(0, -1).join('/') || ''}`.replace(/\/+/g, '/').replace(/^\/\//, '/'),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedBy: decoded.uid,
+          status: 'published',
+        }, { merge: true });
+        res.json({ ok: true, relativePath: out.relativePath, xmlRepoPath: out.xmlRepoPath });
+      })),
+
+    adminHttpMoveDeck: fn()
+      .runWith({ timeoutSeconds: 120, memory: '512MB' })
+      .https.onRequest(withCors(async (req, res) => {
+        if (req.method !== 'POST') {
+          res.status(405).json({ error: 'POST required' });
+          return;
+        }
+        const decoded = await verifyAuth(req);
+        const submissionId = String(req.body?.submissionId || '').trim();
+        const publishedPath = String(req.body?.publishedPath || '').trim();
+        const newFolderPath = String(req.body?.newFolderPath || '').trim();
+        if (!submissionId || !publishedPath) {
+          res.status(400).json({ error: 'submissionId et publishedPath requis' });
+          return;
+        }
+        const out = await moveDeckOnGitHub(publishedPath, newFolderPath);
+        const targetFolder = String(newFolderPath || '').replace(/^\/+|\/+$/g, '').replace(/\\/g, '/');
+        await db.collection('deck_submissions').doc(submissionId).set({
+          publishedPath: `decks/${out.relativePath}`,
+          path: targetFolder ? `/${targetFolder}` : '/',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedBy: decoded.uid,
+          status: 'published',
+        }, { merge: true });
+        res.json({ ok: true, relativePath: out.relativePath, xmlRepoPath: out.xmlRepoPath });
       })),
 
     adminHttpGetManifestNotices: fn().https.onRequest(withCors(async (req, res) => {
