@@ -252,16 +252,18 @@ function buildAdminHttpExports(db, processDeckSubmission) {
         const decoded = await verifyAuth(req);
         const submissionId = String(req.body?.submissionId || '').trim();
         const publishedPath = String(req.body?.publishedPath || '').trim();
-        if (!submissionId || !publishedPath) {
-          res.status(400).json({ error: 'submissionId et publishedPath requis' });
+        if (!publishedPath) {
+          res.status(400).json({ error: 'publishedPath requis' });
           return;
         }
         await removeDeckFromGitHub(publishedPath);
-        await db.collection('deck_submissions').doc(submissionId).set({
-          status: 'removed',
-          removedAt: admin.firestore.FieldValue.serverTimestamp(),
-          removedBy: decoded.uid,
-        }, { merge: true });
+        if (submissionId) {
+          await db.collection('deck_submissions').doc(submissionId).set({
+            status: 'removed',
+            removedAt: admin.firestore.FieldValue.serverTimestamp(),
+            removedBy: decoded.uid,
+          }, { merge: true });
+        }
         res.json({ ok: true, removedPath: publishedPath });
       })),
 
@@ -276,19 +278,21 @@ function buildAdminHttpExports(db, processDeckSubmission) {
         const submissionId = String(req.body?.submissionId || '').trim();
         const publishedPath = String(req.body?.publishedPath || '').trim();
         const newTitle = String(req.body?.newTitle || '').trim();
-        if (!submissionId || !publishedPath || !newTitle) {
-          res.status(400).json({ error: 'submissionId, publishedPath et newTitle requis' });
+        if (!publishedPath || !newTitle) {
+          res.status(400).json({ error: 'publishedPath et newTitle requis' });
           return;
         }
         const out = await renameDeckOnGitHub(publishedPath, newTitle);
-        await db.collection('deck_submissions').doc(submissionId).set({
-          title: newTitle,
-          publishedPath: `decks/${out.relativePath}`,
-          path: `/${out.relativePath.split('/').slice(0, -1).join('/') || ''}`.replace(/\/+/g, '/').replace(/^\/\//, '/'),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedBy: decoded.uid,
-          status: 'published',
-        }, { merge: true });
+        if (submissionId) {
+          await db.collection('deck_submissions').doc(submissionId).set({
+            title: newTitle,
+            publishedPath: `decks/${out.relativePath}`,
+            path: `/${out.relativePath.split('/').slice(0, -1).join('/') || ''}`.replace(/\/+/g, '/').replace(/^\/\//, '/'),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedBy: decoded.uid,
+            status: 'published',
+          }, { merge: true });
+        }
         res.json({ ok: true, relativePath: out.relativePath, xmlRepoPath: out.xmlRepoPath });
       })),
 
@@ -303,19 +307,21 @@ function buildAdminHttpExports(db, processDeckSubmission) {
         const submissionId = String(req.body?.submissionId || '').trim();
         const publishedPath = String(req.body?.publishedPath || '').trim();
         const newFolderPath = String(req.body?.newFolderPath || '').trim();
-        if (!submissionId || !publishedPath) {
-          res.status(400).json({ error: 'submissionId et publishedPath requis' });
+        if (!publishedPath) {
+          res.status(400).json({ error: 'publishedPath requis' });
           return;
         }
         const out = await moveDeckOnGitHub(publishedPath, newFolderPath);
-        const targetFolder = String(newFolderPath || '').replace(/^\/+|\/+$/g, '').replace(/\\/g, '/');
-        await db.collection('deck_submissions').doc(submissionId).set({
-          publishedPath: `decks/${out.relativePath}`,
-          path: targetFolder ? `/${targetFolder}` : '/',
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedBy: decoded.uid,
-          status: 'published',
-        }, { merge: true });
+        if (submissionId) {
+          const targetFolder = String(newFolderPath || '').replace(/^\/+|\/+$/g, '').replace(/\\/g, '/');
+          await db.collection('deck_submissions').doc(submissionId).set({
+            publishedPath: `decks/${out.relativePath}`,
+            path: targetFolder ? `/${targetFolder}` : '/',
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedBy: decoded.uid,
+            status: 'published',
+          }, { merge: true });
+        }
         res.json({ ok: true, relativePath: out.relativePath, xmlRepoPath: out.xmlRepoPath });
       })),
 

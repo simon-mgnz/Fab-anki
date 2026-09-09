@@ -3417,6 +3417,98 @@
         syncPauseBtn();
       });
       buttonRow.appendChild(pauseBtn);
+
+      let isAdminOverview = false;
+      try{
+        isAdminOverview = typeof window.checkFabankiAdminAccess === 'function'
+          ? await window.checkFabankiAdminAccess()
+          : false;
+      }catch(e){ isAdminOverview = false; }
+      if(isAdminOverview){
+        const adminDeckRename = document.createElement('button');
+        adminDeckRename.type = 'button';
+        adminDeckRename.className = 'secondary';
+        adminDeckRename.textContent = 'Renommer';
+        adminDeckRename.title = 'Renommer le deck dans le dépôt GitHub';
+        adminDeckRename.addEventListener('click', async () => {
+          const currentTitle = tempDeck.title || 'Deck';
+          const newTitle = prompt('Nouveau titre du deck ?', currentTitle);
+          if(!newTitle || !newTitle.trim()) return;
+          adminDeckRename.disabled = true;
+          adminDeckRename.textContent = 'Renommage...';
+          try{
+            await adminHttpCall('adminHttpRenameDeck', {
+              submittedPath: null,
+              publishedPath: `decks/${normalizeDeckPath(url)}`,
+              newTitle: newTitle.trim(),
+            });
+            alert('Deck renommé dans le dépôt GitHub.');
+            const existingOverview = document.getElementById('deckOverviewContainer');
+            if(existingOverview) existingOverview.remove();
+            await showDeckOverview(url);
+          }catch(err){
+            alert('Erreur : ' + (err.message || err));
+            adminDeckRename.disabled = false;
+            adminDeckRename.textContent = 'Renommer';
+          }
+        });
+        buttonRow.appendChild(adminDeckRename);
+
+        const adminDeckMove = document.createElement('button');
+        adminDeckMove.type = 'button';
+        adminDeckMove.className = 'secondary';
+        adminDeckMove.textContent = 'Déplacer';
+        adminDeckMove.title = 'Déplacer le deck vers un autre dossier GitHub';
+        adminDeckMove.addEventListener('click', async () => {
+          const folder = prompt('Nouveau dossier du deck (ex. /Maths/Terminale) ?', '/');
+          if(folder === null) return;
+          const normalized = String(folder || '/').trim().replace(/\\/g, '/');
+          adminDeckMove.disabled = true;
+          adminDeckMove.textContent = 'Déplacement...';
+          try{
+            await adminHttpCall('adminHttpMoveDeck', {
+              publishedPath: `decks/${normalizeDeckPath(url)}`,
+              newFolderPath: normalized,
+            });
+            alert('Deck déplacé dans le dépôt GitHub.');
+            const existingOverview = document.getElementById('deckOverviewContainer');
+            if(existingOverview) existingOverview.remove();
+            await showDeckOverview(url.replace(normalizeDeckPath(url).split('/').slice(0, -1).join('/'), normalized.replace(/^\/+|\/+$/g, '')));
+          }catch(err){
+            alert('Erreur : ' + (err.message || err));
+            adminDeckMove.disabled = false;
+            adminDeckMove.textContent = 'Déplacer';
+          }
+        });
+        buttonRow.appendChild(adminDeckMove);
+
+        const adminDeckRemove = document.createElement('button');
+        adminDeckRemove.type = 'button';
+        adminDeckRemove.className = 'secondary';
+        adminDeckRemove.textContent = 'Supprimer';
+        adminDeckRemove.title = 'Supprimer le deck du dépôt GitHub';
+        adminDeckRemove.style.color = '#d9534f';
+        adminDeckRemove.style.borderColor = 'rgba(217,83,79,0.4)';
+        adminDeckRemove.addEventListener('click', async () => {
+          if(!confirm('Supprimer définitivement ce deck du dépôt GitHub ?')) return;
+          adminDeckRemove.disabled = true;
+          adminDeckRemove.textContent = 'Suppression...';
+          try{
+            await adminHttpCall('adminHttpRemoveDeck', {
+              publishedPath: `decks/${normalizeDeckPath(url)}`,
+            });
+            alert('Deck supprimé du dépôt GitHub.');
+            const existingOverview = document.getElementById('deckOverviewContainer');
+            if(existingOverview) existingOverview.remove();
+            if(typeof window.openDeckBrowser === 'function') await window.openDeckBrowser();
+          }catch(err){
+            alert('Erreur : ' + (err.message || err));
+            adminDeckRemove.disabled = false;
+            adminDeckRemove.textContent = 'Supprimer';
+          }
+        });
+        buttonRow.appendChild(adminDeckRemove);
+      }
       
       rightPanel.appendChild(buttonRow);
       
