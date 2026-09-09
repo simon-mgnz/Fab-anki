@@ -363,6 +363,112 @@ async function removeDeckFromGitHub(publishedPath) {
   return { relativePath, xmlRepoPath };
 }
 
+function escapeXmlText(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function rewriteDeckTitleInXml(xmlContent, newTitle) {
+  const title = String(newTitle || '').trim();
+  if (!title) throw new Error('Titre requis');
+  const safeTitle = escapeXmlText(title);
+  let text = String(xmlContent || '');
+
+  text = text.replace(/<title\b[^>]*>.*?<\/title>/is, `<title>${safeTitle}</title>`);
+  if (!/<title\b[^>]*>.*?<\/title>/is.test(text)) {
+    text = text.replace(/<name\b[^>]*>.*?<\/name>/is, `<name>${safeTitle}</name>`);
+  }
+  return text;
+}
+
+async function renameDeckOnGitHub(publishedPath, newTitle) {
+  if (!publishedPath) throw new Error('publishedPath manquant');
+  if (!newTitle || !String(newTitle).trim()) throw new Error('Nouveau titre requis');
+
+  const relativePath = String(publishedPath).replace(/^decks\//, '');
+  const oldXmlRepoPath = `decks/${relativePath}`;
+  const xmlFile = await githubGetFile(oldXmlRepoPath);
+  if (!xmlFile) throw new Error(`Deck introuvable sur GitHub: ${oldXmlRepoPath}`);
+
+  const folder = relativePath.includes('/')
+    ? relativePath.slice(0, relativePath.lastIndexOf('/'))
+    : '';
+  const filename = sanitizeFilename(String(newTitle).trim());
+  const newRelativePath = folder ? `${folder}/${filename}` : filename;
+  const newXmlRepoPath = `decks/${newRelativePath}`;
+
+  const rewritten = rewriteDeckTitleInXml(xmlFile.content, newTitle);
+  await githubPutFile(newXmlRepoPath, rewritten, `Admin: rename deck ${relativePath} → ${newRelativePath}`, null);
+  await githubDeleteFile(oldXmlRepoPath, xmlFile.sha, `Admin: remove old deck name ${relativePath}`);
+
+  const manifestFull = await readManifestFullFromGitHub();
+  const manifestEntries = manifestFull.decks || [];
+  const renamed = manifestEntries.map((entry) => {
+    const path = typeof entry === 'string' ? entry : (entry && typeof entry.path === 'string' ? entry.path : '');
+    if (path !== relativePath) return entry;
+    if (typeof entry === 'string') return newRelativePath;
+    return { ...entry, path: newRelativePath };
+  });
+
+  await githubPutFile(
+    'decks/manifest.json',
+    formatManifestEntries(renamed, {
+      Warning: manifestFull.Warning,
+      Information: manifestFull.Information,
+    }),
+    `Admin: rename deck in manifest ${relativePath} → ${newRelativePath}`,
+    manifestFull.sha
+  );
+
+  return { relativePath: newRelativePath, xmlRepoPath: newXmlRepoPath };
+}
+
+async function moveDeckOnGitHub(publishedPath, newFolderPath) {
+  if (!publishedPath) throw new Error('publishedPath manquant');
+
+  const relativePath = String(publishedPath).replace(/^decks\//, '');
+  const xmlRepoPath = `decks/${relativePath}`;
+  const xmlFile = await githubGetFile(xmlRepoPath);
+  if (!xmlFile) throw new Error(`Deck introuvable sur GitHub: ${xmlRepoPath}`);
+
+  const folderName = normalizeFolderPath(newFolderPath || '');
+  const fileName = relativePath.split('/').pop();
+  const newRelativePath = folderName ? `${folderName}/${fileName}` : fileName;
+  const newXmlRepoPath = `decks/${newRelativePath}`;
+
+  if (newRelativePath === relativePath) {
+    return { relativePath, xmlRepoPath };
+  }
+
+  await githubPutFile(newXmlRepoPath, xmlFile.content, `Admin: move deck ${relativePath} → ${newRelativePath}`, null);
+  await githubDeleteFile(xmlRepoPath, xmlFile.sha, `Admin: delete old location ${relativePath}`);
+
+  const manifestFull = await readManifestFullFromGitHub();
+  const manifestEntries = manifestFull.decks || [];
+  const moved = manifestEntries.map((entry) => {
+    const path = typeof entry === 'string' ? entry : (entry && typeof entry.path === 'string' ? entry.path : '');
+    if (path !== relativePath) return entry;
+    if (typeof entry === 'string') return newRelativePath;
+    return { ...entry, path: newRelativePath };
+  });
+
+  await githubPutFile(
+    'decks/manifest.json',
+    formatManifestEntries(moved, {
+      Warning: manifestFull.Warning,
+      Information: manifestFull.Information,
+    }),
+    `Admin: move deck in manifest ${relativePath} → ${newRelativePath}`,
+    manifestFull.sha
+  );
+
+  return { relativePath: newRelativePath, xmlRepoPath: newXmlRepoPath };
+}
+
 function assertSafeDeckRepoPath(repoPath) {
   let p = String(repoPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
   try { p = decodeURIComponent(p); } catch (e) { /* keep raw */ }
@@ -399,6 +505,8 @@ async function updateExistingDeckXmlOnGitHub(repoPath, xmlContent, message) {
 module.exports = {
   publishDeckToGitHub,
   removeDeckFromGitHub,
+  renameDeckOnGitHub,
+  moveDeckOnGitHub,
   buildRelativeDeckPath,
   listManifestFolders,
   modesToTags,

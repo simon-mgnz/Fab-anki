@@ -2278,10 +2278,11 @@
         } else {
           html = (el.innerHTML || '').trim();
         }
-        fields[def.name] = { html, type: def.type, sides: def.sides };
+        html = normalizeDeckImagePathsInHtml(html, def.sourceUrl || '');
+        fields[def.name] = { html, type: def.type, sides: def.sides, sourceUrl: def.sourceUrl || '' };
         order.push(def.name);
       } else {
-        fields[def.name] = { html: '', type: def.type, sides: def.sides };
+        fields[def.name] = { html: '', type: def.type, sides: def.sides, sourceUrl: def.sourceUrl || '' };
         order.push(def.name);
       }
     }
@@ -2377,8 +2378,9 @@
                 if(!sidesAttr || !String(sidesAttr).trim()){
                   sides = i === 0 ? {front:true,back:false,always:false} : {front:false,back:true,always:false};
                 }
+                sides = normalizeMPStarTeXDefSides(name, type, sides, url);
                 console.log('  Field def:', {name, type, sides});
-                tempDeck.fieldDefs.push({name, type, sides});
+                tempDeck.fieldDefs.push({name, type, sides, sourceUrl: url});
               }
             } else {
               console.log('No field definitions container found for', deckName);
@@ -2905,7 +2907,8 @@
           const sidesAttr = f.getAttribute('sides') || (f.textContent||'');
           const sides = interpretSides(sidesAttr);
           const lang = f.getAttribute('lang') || f.getAttribute('xml:lang') || '';
-          if(name) deck.fieldDefs.push({name, type, sides, lang});
+          const normalizedSides = normalizeMPStarTeXDefSides(name, type, sides, url);
+          if(name) deck.fieldDefs.push({name, type, sides: normalizedSides, lang});
         }
       }
 
@@ -2982,12 +2985,13 @@
               } else {
                 html = (el.innerHTML || '').trim();
               }
+              html = normalizeDeckImagePathsInHtml(html, url);
               const fldLang = el.getAttribute && (el.getAttribute('lang') || el.getAttribute('xml:lang')) || def.lang || '';
-              cardObj.fields[def.name] = { html, type: def.type, sides: def.sides, lang: fldLang };
+              cardObj.fields[def.name] = { html, type: def.type, sides: def.sides, lang: fldLang, sourceUrl: url };
             } else {
               // Field not found in card - add empty field so rendering logic can handle it
               console.log(`  Field "${def.name}": not found in card, adding empty field`);
-              cardObj.fields[def.name] = { html: '', type: def.type, sides: def.sides, lang: def.lang || '' };
+              cardObj.fields[def.name] = { html: '', type: def.type, sides: def.sides, lang: def.lang || '', sourceUrl: url };
             }
           }
 
@@ -4489,6 +4493,43 @@
     }
     frontEl.appendChild(imageGroup);
   }
+  function normalizeMPStarTeXDefSides(name, type, sides, url){
+    try {
+      const urlLower = String(url || '').toLowerCase();
+      const isMpStarDeck = /cours\s*mp|physique\s*chimie\s*mp\*|mp\s*star/.test(urlLower) || /mp\s*star/.test(String(name || '').toLowerCase());
+      const isTexField = (type || '').toLowerCase() === 'tex' || /tex|formula|katex/.test(String(name || '').toLowerCase());
+      if(isMpStarDeck && isTexField && sides){
+        // For MP* course decks, the TeX content should appear as a back-only answer.
+        return { front: false, back: true, always: false };
+      }
+      return sides || {front:true,back:false,always:false};
+    }catch(e){ return sides || {front:true,back:false,always:false}; }
+  }
+
+  function normalizeDeckImagePathsInHtml(html, sourceUrl){
+    try {
+      if(!html || typeof html !== 'string') return html || '';
+      return html.replace(/src=\"([^\"]+)\"/gi, (_m, src) => `src="${normalizeDeckImageSrc(src, sourceUrl)}"`)
+                 .replace(/src='([^']+)'/gi, (_m, src) => `src='${normalizeDeckImageSrc(src, sourceUrl)}'`);
+    }catch(e){ return html || ''; }
+  }
+
+  function normalizeDeckImageSrc(src, sourceUrl){
+    try {
+      const raw = String(src || '');
+      if(!raw || raw.startsWith('data:') || raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('blob:')) return raw;
+
+      // Canonical old MP* path emitted by some generation scripts
+      const oldMpMediaPath = './decks/Physique/Physique%20Chimie%20MP%20star/media/';
+      const canonMpMediaPath = './decks/Physique/Cours Mp/media/';
+      const canonical = raw.replace(/\.\/decks\/Physique\/Physique%20Chimie%20MP%20star\/media\//i, canonMpMediaPath)
+                           .replace(/decks\/Physique\/Physique%20Chimie%20MP%20star\/media\//i, 'decks/Physique/Cours Mp/media/')
+                           .replace(/Physique%20Chimie%20MP%20star\/media\//i, 'Cours Mp/media/')
+                           .replace(/\/Physique\s*Chimie\s*MP\s*star\/media\//i, '/Cours Mp/media/');
+      return canonical;
+    }catch(e){ return src || ''; }
+  }
+
   function getOrderedFieldNames(card, defs){
     if(defs && defs.length){
       const names = defs.map(d => d.name).filter(name => card.fields && card.fields[name]);
@@ -4956,7 +4997,8 @@
       wrapper.appendChild(span);
     } else {
       // Render as HTML (rich-text) — decode entities first
-      wrapper.innerHTML = decodedHtml || '';
+      const htmlToRender = normalizeDeckImagePathsInHtml(decodedHtml || '', f.sourceUrl || (deck && deck.sourceUrl) || '');
+      wrapper.innerHTML = htmlToRender;
     }
     return wrapper;
   }
@@ -15653,6 +15695,14 @@
     function getDailyGoal(){ return Number(localStorage.getItem('fabanki:daily_goal') || 0); }
     function setDailyGoal(goal){ localStorage.setItem('fabanki:daily_goal', String(Math.max(0, goal))); }
     function getTodayReviewedCount(){
+      try{
+        const today = fabankiLocalDayKey(new Date());
+        const hist = normalizeDailyHistObj(localStorage.getItem('fabanki:daily_history'));
+        const histCount = Number(hist[today] || 0);
+        if(Number.isFinite(histCount) && histCount >= 0){
+          return histCount;
+        }
+      }catch(e){}
       const today = new Date().toDateString();
       const lastDate = localStorage.getItem('fabanki:daily_reviewed_date');
       if(lastDate !== today) return 0;
@@ -27763,6 +27813,8 @@
             </div>
             <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
               ${(d.status === 'pending' || d.status === 'failed') ? `<button class="primary deck-mod-edit" data-id="${d.id}">Gérer</button>` : ''}
+              ${d.status === 'published' && d.publishedPath ? `<button class="secondary deck-mod-rename" data-id="${d.id}" data-path="${escapeHtml(d.publishedPath)}" style="border-color:rgba(155,89,208,0.45);">Renommer</button>` : ''}
+              ${d.status === 'published' && d.publishedPath ? `<button class="secondary deck-mod-move" data-id="${d.id}" data-path="${escapeHtml(d.publishedPath)}" style="border-color:rgba(90,170,255,0.45);">Déplacer</button>` : ''}
               ${d.status === 'published' && d.publishedPath ? `<button class="secondary deck-mod-remove" data-id="${d.id}" data-path="${escapeHtml(d.publishedPath)}" style="color:#d9534f;border-color:rgba(217,83,79,0.4);">Supprimer</button>` : ''}
               ${(d.status === 'failed' || d.status === 'pending') ? `<button class="secondary deck-mod-retry" data-id="${d.id}">${d.status === 'pending' ? 'Publier direct' : 'Republier'}</button>` : ''}
             </div>
@@ -27789,6 +27841,49 @@
           el.disabled = false;
           el.textContent = 'Publier tout';
         }
+      });
+
+      body.querySelectorAll('.deck-mod-rename').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          const path = btn.dataset.path;
+          const newTitle = prompt('Nouveau titre du deck ?', '');
+          if(!newTitle || !newTitle.trim()) return;
+          btn.disabled = true;
+          btn.textContent = 'Renommage...';
+          try{
+            await adminHttpCall('adminHttpRenameDeck', { submissionId: id, publishedPath: path, newTitle: newTitle.trim() });
+            alert('Deck renommé dans le dépôt GitHub.');
+            overlay.remove();
+            window.showDeckModerationModal();
+          }catch(err){
+            alert('Erreur : ' + (err.message || err));
+            btn.disabled = false;
+            btn.textContent = 'Renommer';
+          }
+        });
+      });
+
+      body.querySelectorAll('.deck-mod-move').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          const path = btn.dataset.path;
+          const folder = prompt('Nouveau dossier du deck (ex. /Maths/Terminale) ?', '/');
+          if(folder === null) return;
+          const normalized = String(folder || '/').trim().replace(/\\/g, '/');
+          btn.disabled = true;
+          btn.textContent = 'Déplacement...';
+          try{
+            await adminHttpCall('adminHttpMoveDeck', { submissionId: id, publishedPath: path, newFolderPath: normalized });
+            alert('Deck déplacé dans le dépôt GitHub.');
+            overlay.remove();
+            window.showDeckModerationModal();
+          }catch(err){
+            alert('Erreur : ' + (err.message || err));
+            btn.disabled = false;
+            btn.textContent = 'Déplacer';
+          }
+        });
       });
 
       body.querySelectorAll('.deck-mod-remove').forEach(btn => {
@@ -29042,6 +29137,28 @@
     });
     modal.appendChild(statsRow);
 
+    const importanceControl = document.createElement('div');
+    importanceControl.style.cssText = 'display:flex;align-items:center;gap:8px;margin:8px 0 12px;';
+    importanceControl.innerHTML = `<label style="font-size:0.82em;color:var(--muted);">Priorité d’apprentissage</label>`;
+    const importanceSelect = document.createElement('select');
+    importanceSelect.className = 'secondary';
+    importanceSelect.style.cssText = 'padding:8px 12px;border-radius:8px;';
+    const currentImportance = normalizeCardImportance((override && override.importance) || card.importance || 'std');
+    const importanceOptions = [
+      {value:'std', label:'Standard'},
+      {value:'core', label:'Cœur / prioritaire'},
+      {value:'extra', label:'Supplémentaire'},
+    ];
+    importanceOptions.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.label;
+      if(o.value === currentImportance) opt.selected = true;
+      importanceSelect.appendChild(opt);
+    });
+    importanceControl.appendChild(importanceSelect);
+    modal.appendChild(importanceControl);
+
     // Fields
     const fields = override ? override.fields : fieldsFromCard(card);
     const fieldsContainer = document.createElement('div');
@@ -29119,13 +29236,16 @@
         const inp = fieldsContainer.querySelector('[data-field-index="' + fi + '"]');
         return { ...field, content: inp ? (inp.tagName === 'TEXTAREA' ? inp.value : inp.innerHTML) : field.content };
       });
+      const selectedImportance = normalizeCardImportance(importanceSelect?.value || 'std');
       const authUser = window.firebase?.auth?.()?.currentUser;
       const overrideData = {
         fields: updatedFields,
         editedAt: new Date().toISOString(),
         editedByName: authUser?.displayName || authUser?.email || null,
+        importance: selectedImportance,
       };
       saveCardOverride(card.deckKey, card.id, overrideData);
+      card.importance = selectedImportance;
       applyFieldsToLiveCard(card, updatedFields);
       try{ if(typeof window.__fabanki_rerenderCurrentReviewCard === 'function') window.__fabanki_rerenderCurrentReviewCard(); }catch(e){}
 
@@ -29134,7 +29254,7 @@
         try{ isAdmin = await window.checkFabankiAdminAccess(); }catch(e){ isAdmin = false; }
       }
       if(isAdmin && isPublishedXmlDeckUrl(deckUrl)){
-        queueAdminDeckCardEdit(deckUrl, card.id, updatedFields);
+        queueAdminDeckCardEdit(deckUrl, card.id, updatedFields, { importance: selectedImportance });
         saveBtn.textContent = '✓ En file — publié en fin de session';
       } else {
         saveBtn.textContent = '✓ Enregistré !';
