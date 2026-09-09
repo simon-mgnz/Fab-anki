@@ -3437,7 +3437,7 @@
           adminDeckRename.disabled = true;
           adminDeckRename.textContent = 'Renommage...';
           try{
-            await adminHttpCall('adminHttpRenameDeck', {
+            await window.adminHttpCall('adminHttpRenameDeck', {
               submittedPath: null,
               publishedPath: `decks/${normalizeDeckPath(url)}`,
               newTitle: newTitle.trim(),
@@ -3466,7 +3466,7 @@
           adminDeckMove.disabled = true;
           adminDeckMove.textContent = 'Déplacement...';
           try{
-            await adminHttpCall('adminHttpMoveDeck', {
+            await window.adminHttpCall('adminHttpMoveDeck', {
               publishedPath: `decks/${normalizeDeckPath(url)}`,
               newFolderPath: normalized,
             });
@@ -3494,7 +3494,7 @@
           adminDeckRemove.disabled = true;
           adminDeckRemove.textContent = 'Suppression...';
           try{
-            await adminHttpCall('adminHttpRemoveDeck', {
+            await window.adminHttpCall('adminHttpRemoveDeck', {
               publishedPath: `decks/${normalizeDeckPath(url)}`,
             });
             alert('Deck supprimé du dépôt GitHub.');
@@ -27594,6 +27594,8 @@
       clearTimeout(timer);
     }
   }
+
+  window.adminHttpCall = adminHttpCall;
 
   window.adminUpdateDeckXml = function(deckPath, xmlContent, cardId){
     return adminHttpCall('adminHttpUpdateDeckXml', { deckPath, xmlContent, cardId }, { timeoutMs: 60000 });
