@@ -1848,6 +1848,15 @@
 			],
 			"description": "Formulaire SQL",
 			"time": "2.01"
+		},
+		{
+			"path": "Maths/Cours Mp*/Chapitre 1 - Structures algébriques et arithmétique.xml",
+			"tags": [
+				"text",
+				"timer"
+			],
+			"description": "Chapitre 1 - Structures algébriques et arithmétique",
+			"time": "2.02"
 		}
 	]
 }
