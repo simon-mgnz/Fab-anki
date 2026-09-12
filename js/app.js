@@ -3482,6 +3482,33 @@
         });
         buttonRow.appendChild(adminDeckMove);
 
+        const adminDeckAddCards = document.createElement('button');
+        adminDeckAddCards.type = 'button';
+        adminDeckAddCards.className = 'secondary';
+        adminDeckAddCards.textContent = 'Ajouter cartes';
+        adminDeckAddCards.title = 'Ajouter un fragment <card>...</card> à ce deck GitHub existant';
+        adminDeckAddCards.addEventListener('click', async () => {
+          const cardsXml = prompt('Collez le fragment XML de cartes à ajouter (au moins un <card>...</card>) :', '<card><code name=\'Back\'>...</code><rich-text name=\'Front\'><p>Nouvelle carte</p></rich-text></card>');
+          if(!cardsXml || !cardsXml.trim()) return;
+          adminDeckAddCards.disabled = true;
+          adminDeckAddCards.textContent = 'Ajout...';
+          try{
+            await window.adminHttpCall('adminHttpAddCardsToDeck', {
+              publishedPath: `decks/${normalizeDeckPath(url)}`,
+              cardsXml: cardsXml.trim(),
+            });
+            alert('Cartes ajoutées au deck GitHub.');
+            const existingOverview = document.getElementById('deckOverviewContainer');
+            if(existingOverview) existingOverview.remove();
+            await showDeckOverview(url);
+          }catch(err){
+            alert('Erreur : ' + (err.message || err));
+            adminDeckAddCards.disabled = false;
+            adminDeckAddCards.textContent = 'Ajouter cartes';
+          }
+        });
+        buttonRow.appendChild(adminDeckAddCards);
+
         const adminDeckRemove = document.createElement('button');
         adminDeckRemove.type = 'button';
         adminDeckRemove.className = 'secondary';
@@ -13185,9 +13212,25 @@
     async function computeDeckCounts(url){
       try{
         await ensureDeckCardCountsIndex();
-        const fast = computeDeckCountsFromState(url);
-        if(fast.knownTotal != null || fast.reviewed > 0) return fast;
-        return await computeDeckCountsFromXml(url);
+        const stateCounts = computeDeckCountsFromState(url);
+        let xmlCounts = null;
+        try{ xmlCounts = await computeDeckCountsFromXml(url); }catch(e){ xmlCounts = null; }
+
+        const xmlTotal = xmlCounts && Number.isFinite(xmlCounts.total) ? Number(xmlCounts.total) : 0;
+        const sourceTotal = xmlTotal > 0 ? xmlTotal : Number(stateCounts.total || 0);
+        const total = Math.max(0, sourceTotal);
+        const reviewed = Math.min(Math.max(Number(xmlCounts?.reviewed || 0), Number(stateCounts.reviewed || 0)), total || Number.MAX_SAFE_INTEGER);
+        const due = Math.max(Number(xmlCounts?.due || 0), Number(stateCounts.due || 0));
+        const fresh = Math.max(0, total - reviewed);
+
+        return {
+          due,
+          fresh,
+          reviewed,
+          total,
+          deckKey: getDeckKeyFromUrl(url),
+          knownTotal: total
+        };
       }catch(e){
         console.error('computeDeckCounts error:', e);
         return { due: 0, fresh: 0, reviewed: 0, total: 0 };
@@ -13329,7 +13372,29 @@
         return Math.max(reviewedCards, fail + hard + good);
       }catch(e){ return 0 }
     }
+    function repairLegacyTimeSpentFromOldAppProfile(){
+      try{
+        const legacyTotalSec = (69 * 3600) + (25 * 60);
+        const legacyTotalCards = 11666;
+        const totalCards = Math.max(
+          Number(localStorage.getItem('fabanki:legacy_total_cards') || 0),
+          Number(localStorage.getItem('fabanki:total_reviewed_count') || 0),
+          Number(getTotalReviewedCount() || 0),
+          Number(getProfileStats().totalReviewed || 0)
+        );
+        if(totalCards <= 0) return;
+        const expectedSec = Math.round(legacyTotalSec * (totalCards / legacyTotalCards));
+        const currentSec = Number(localStorage.getItem('fabanki:time_spent_total_sec') || 0);
+        if(currentSec <= 0 || currentSec < expectedSec * 0.75){
+          localStorage.setItem('fabanki:time_spent_total_sec', String(Math.max(currentSec, expectedSec)));
+          localStorage.setItem('fabanki:time_spent_total', String(Math.floor(expectedSec / 60)));
+          localStorage.setItem('fabanki:legacy_time_repaired_from_old_app', '1');
+        }
+      }catch(e){ console.warn('repairLegacyTimeSpentFromOldAppProfile', e); }
+    }
+
     function getProfileStats(){
+      repairLegacyTimeSpentFromOldAppProfile();
       let total = 0, today = 0;
       const now = new Date();
       for(const k of Object.keys(localStorage)){
@@ -22873,7 +22938,7 @@
         const tabWeek = document.createElement('button'); tabWeek.className='secondary'; tabWeek.textContent='Classement du mois';
         tabs.appendChild(tabGlobal); tabs.appendChild(tabWeek); m.appendChild(tabs);
         const table = document.createElement('table'); table.className = 'leaderboard-table'; table.style.width='100%'; table.style.borderCollapse='collapse';
-        const thead = document.createElement('thead'); thead.innerHTML = '<tr><th>Rang</th><th>Pseudo</th><th>Titre</th><th>Niveau</th><th>Titres</th><th>Score MPSI</th><th>Cartes</th><th>Quetes quotidiennes</th></tr>';
+        const thead = document.createElement('thead'); thead.innerHTML = '<tr><th>Rang</th><th>Pseudo</th><th>Niveau</th><th>Titres</th><th>Score MPSI</th><th>Cartes</th><th>Quetes quotidiennes</th></tr>';
         table.appendChild(thead);
         const tbody = document.createElement('tbody'); table.appendChild(tbody);
         m.appendChild(table);
@@ -22925,10 +22990,8 @@
         }
         
         function renderRow(d, rank, scoreField = 'Score_MPSI'){
-          // Skip users with 0 cards seen
-          const cardsReviewed = Number(getLeaderboardField(d, ['Cartes révisées', 'Cartes révisées', 'Cartes revisees'], 0) || 0);
-          if(cardsReviewed === 0) return null;
-          
+          // Keep the row visible in the monthly tab even when a legacy/local card alias is zero.
+          // It is safer to rely on the ranking score/data presence than to remove the player blindly.
           // Skip anonymous users
           const pseudo = d.Pseudo || '';
           if(pseudo === 'Anonyme' || !pseudo || pseudo.trim() === '') return null;
@@ -22936,12 +22999,6 @@
           const tr = document.createElement('tr');
           const tdRank = document.createElement('td'); tdRank.textContent = String(rank);
           const tdPseudo = document.createElement('td'); tdPseudo.textContent = pseudo;
-          
-          // Add title column (selected title)
-          const tdTitle = document.createElement('td');
-          const selectedTitle = d.Selected_Title || '';
-          tdTitle.textContent = fixMojibakeText(selectedTitle || '-');
-          tdTitle.style.fontWeight = selectedTitle ? '700' : '400';
           
           const tdNiv = document.createElement('td'); tdNiv.textContent = getLeaderboardField(d, ['Niveau', 'Niveau Prépa', 'Niveau Prépa', 'Niveau Prepa'], '');
           const tdScore = document.createElement('td'); tdScore.textContent = d[scoreField] || 0;
@@ -22966,7 +23023,7 @@
           }catch(e){}
           const tdCartes = document.createElement('td'); tdCartes.textContent = getLeaderboardField(d, ['Cartes révisées', 'Cartes révisées', 'Cartes revisees'], 0) || 0;
           const tdQuests = document.createElement('td'); tdQuests.textContent = getLeaderboardField(d, ['Quêtes_quotidiennes', 'Quêtes_quotidiennes', 'Quetes_quotidiennes'], 0) || 0;
-          tr.appendChild(tdRank); tr.appendChild(tdPseudo); tr.appendChild(tdTitle); tr.appendChild(tdNiv); tr.appendChild(tdBadges); tr.appendChild(tdScore); tr.appendChild(tdCartes); tr.appendChild(tdQuests);
+          tr.appendChild(tdRank); tr.appendChild(tdPseudo); tr.appendChild(tdNiv); tr.appendChild(tdBadges); tr.appendChild(tdScore); tr.appendChild(tdCartes); tr.appendChild(tdQuests);
           return tr;
         }
 
@@ -27946,7 +28003,7 @@
           btn.disabled = true;
           btn.textContent = 'Renommage...';
           try{
-            await adminHttpCall('adminHttpRenameDeck', { submissionId: id, publishedPath: path, newTitle: newTitle.trim() });
+            await adminHttpCall('adminHttpRenameDeck', { publishedPath: path, newTitle: newTitle.trim() });
             alert('Deck renommé dans le dépôt GitHub.');
             overlay.remove();
             window.showDeckModerationModal();
@@ -27968,7 +28025,7 @@
           btn.disabled = true;
           btn.textContent = 'Déplacement...';
           try{
-            await adminHttpCall('adminHttpMoveDeck', { submissionId: id, publishedPath: path, newFolderPath: normalized });
+            await adminHttpCall('adminHttpMoveDeck', { publishedPath: path, newFolderPath: normalized });
             alert('Deck déplacé dans le dépôt GitHub.');
             overlay.remove();
             window.showDeckModerationModal();
@@ -27988,7 +28045,7 @@
           btn.disabled = true;
           btn.textContent = 'Suppression...';
           try{
-            await adminHttpCall('adminHttpRemoveDeck', { submissionId: id, publishedPath: path });
+            await adminHttpCall('adminHttpRemoveDeck', { publishedPath: path });
             btn.closest('.deck-mod-row')?.remove();
             alert('Deck supprimé du catalogue.');
           }catch(err){

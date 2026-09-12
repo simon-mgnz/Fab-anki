@@ -375,6 +375,15 @@
 			"description": "Types de données en OCaml: definitions, structures et exemples pratiques."
 		},
 		{
+			"path": "Informatique/Option/Chapitre 1 - Logique propositionnelle.xml",
+			"tags": [
+				"text",
+				"timer"
+			],
+			"time": "2.01",
+			"description": "Logique propositionnelle: propositions, connecteurs, tables de vérité et formules élémentaires."
+		},
+		{
 			"path": "Informatique/Option/Chapitre 4 - Listes.xml",
 			"tags": [
 				"text",

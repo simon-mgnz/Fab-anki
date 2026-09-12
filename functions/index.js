@@ -199,6 +199,7 @@ exports.adminHttpRetryPublish = _adminHttp.adminHttpRetryPublish;
 exports.adminHttpRemoveDeck = _adminHttp.adminHttpRemoveDeck;
 exports.adminHttpRenameDeck = _adminHttp.adminHttpRenameDeck;
 exports.adminHttpMoveDeck = _adminHttp.adminHttpMoveDeck;
+exports.adminHttpAddCardsToDeck = _adminHttp.adminHttpAddCardsToDeck;
 exports.adminHttpGetManifestNotices = _adminHttp.adminHttpGetManifestNotices;
 exports.adminHttpUpdateManifestNotices = _adminHttp.adminHttpUpdateManifestNotices;
 exports.adminHttpBulkAssignDeckTime = _adminHttp.adminHttpBulkAssignDeckTime;

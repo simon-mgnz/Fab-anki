@@ -7,7 +7,7 @@ const admin = require('firebase-admin');
 const cors = require('cors')({ origin: true });
 
 const { assertAdminContext, isAdminUid } = require('./adminAuth');
-const { removeDeckFromGitHub, listManifestFolders, readManifestFullFromGitHub, updateManifestNotices, bulkAssignManifestDeckTime, updateExistingDeckXmlOnGitHub, renameDeckOnGitHub, moveDeckOnGitHub } = require('./deckPublisher');
+const { removeDeckFromGitHub, listManifestFolders, readManifestFullFromGitHub, updateManifestNotices, bulkAssignManifestDeckTime, updateExistingDeckXmlOnGitHub, renameDeckOnGitHub, moveDeckOnGitHub, appendCardsToDeckOnGitHub } = require('./deckPublisher');
 
 const REGION = 'europe-west1';
 const fn = () => functions.region(REGION);
@@ -323,6 +323,28 @@ function buildAdminHttpExports(db, processDeckSubmission) {
           }, { merge: true });
         }
         res.json({ ok: true, relativePath: out.relativePath, xmlRepoPath: out.xmlRepoPath });
+      })),
+
+    adminHttpAddCardsToDeck: fn()
+      .runWith({ timeoutSeconds: 120, memory: '512MB' })
+      .https.onRequest(withCors(async (req, res) => {
+        if (req.method !== 'POST') {
+          res.status(405).json({ error: 'POST required' });
+          return;
+        }
+        const decoded = await verifyAuth(req);
+        const publishedPath = String(req.body?.publishedPath || '').trim();
+        const cardsXml = String(req.body?.cardsXml || req.body?.xmlCards || '').trim();
+        if (!publishedPath) {
+          res.status(400).json({ error: 'publishedPath requis' });
+          return;
+        }
+        if (!cardsXml || !/<card\b[^>]*>.*?<\/card>/is.test(cardsXml)) {
+          res.status(400).json({ error: 'cardsXml doit contenir au moins un fragment <card>...</card>' });
+          return;
+        }
+        const out = await appendCardsToDeckOnGitHub(publishedPath, cardsXml, `Admin (${decoded.uid.slice(0, 8)}): append cards to ${publishedPath}`);
+        res.json({ ok: true, ...out });
       })),
 
     adminHttpGetManifestNotices: fn().https.onRequest(withCors(async (req, res) => {

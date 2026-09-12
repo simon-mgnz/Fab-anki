@@ -484,6 +484,30 @@ function assertSafeDeckRepoPath(repoPath) {
   return p;
 }
 
+function appendCardsXmlToDeckXml(xmlContent, cardsXml) {
+  const base = String(xmlContent || '');
+  const fragment = String(cardsXml || '').trim();
+  if (!base.trim()) throw new Error('XML de deck vide');
+  if (!/<cards\b[^>]*>[\s\S]*<\/cards>/i.test(base)) {
+    throw new Error('Structure <cards>...</cards> introuvable dans le deck');
+  }
+  if (!/<card\b[^>]*>[\s\S]*<\/card>/is.test(fragment)) {
+    throw new Error('Le fragment doit contenir au moins un <card>...</card>');
+  }
+  return base.replace(/<\/cards>/i, `${fragment}\n</cards>`);
+}
+
+async function appendCardsToDeckOnGitHub(publishedPath, cardsXml, message) {
+  if (!publishedPath) throw new Error('publishedPath manquant');
+  const relativePath = String(publishedPath).replace(/^decks\//, '');
+  const xmlRepoPath = `decks/${relativePath}`;
+  const file = await githubGetFile(xmlRepoPath);
+  if (!file) throw new Error(`Deck introuvable sur GitHub: ${xmlRepoPath}`);
+  const updated = appendCardsXmlToDeckXml(file.content, cardsXml);
+  await githubPutFile(xmlRepoPath, updated, message || `Admin: append cards to ${xmlRepoPath}`, file.sha);
+  return { relativePath, xmlRepoPath };
+}
+
 async function updateExistingDeckXmlOnGitHub(repoPath, xmlContent, message) {
   const xmlRepoPath = assertSafeDeckRepoPath(repoPath);
   const content = String(xmlContent || '');
@@ -507,6 +531,7 @@ module.exports = {
   removeDeckFromGitHub,
   renameDeckOnGitHub,
   moveDeckOnGitHub,
+  appendCardsToDeckOnGitHub,
   buildRelativeDeckPath,
   listManifestFolders,
   modesToTags,
