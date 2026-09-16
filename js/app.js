@@ -18268,6 +18268,7 @@
     // Prevents cloud pushes from destroying real account data
     let __cloudRestoreCompleted = false;   // Must be true before any cloud push is allowed
     let __restoreInProgress = false;       // True while restoreFromCloud is executing
+    let __fabankiSyncPaused = false;       // Blocks localStorage-triggered sync loops during login/restore
     let __lastKnownCloudXp = null;         // Cached cloud XP from last successful pull
     let __classementDeleteBlocked = (localStorage.getItem('fabanki:classement_delete_blocked') === '1'); // Firestore rules may forbid deleting stale leaderboard docs
     let __lastCloudPushSignature = '';     // Dedupe identical cloud pushes in a short window
@@ -19539,6 +19540,7 @@
     
     async function restoreFromCloud(){
       __restoreInProgress = true;
+      __fabankiSyncPaused = true;
       console.log('[restoreFromCloud] === STARTING v53 === (timestamp: ' + new Date().toISOString() + ')');
       try{
         const auth = firebase?.auth?.();
@@ -19769,6 +19771,7 @@
       }catch(e){ console.warn('restoreFromCloud error:', e) }
       finally {
         __restoreInProgress = false;
+        __fabankiSyncPaused = false;
         __cloudRestoreCompleted = true;
         console.log('[restoreFromCloud] Restore phase complete. Cloud pushes now allowed. lastKnownCloudXp=' + __lastKnownCloudXp);
         try{
@@ -20079,6 +20082,7 @@
     }
 
     async function loginAndSync(emailArg, passwordArg){
+      __fabankiSyncPaused = true;
       try{
         const db = window.__fabanki_firestore;
         const auth = firebase?.auth?.();
@@ -20312,6 +20316,8 @@
         alert('✅ Connexion et synchronisation terminées.');
       }catch(e){ 
         alert('❌ Échec connexion:\n\n' + (e?.message || e));
+      } finally {
+        __fabankiSyncPaused = false;
       }
     }
 
@@ -20639,6 +20645,7 @@
     function scheduleSave(){
       try{
         if(__isSaving) return; // Prevent loop during save
+        if(__fabankiSyncPaused) return; // Prevent re-login and restore loops
         if(__restoreInProgress) return; // SAFETY: Don't auto-save while restore is in progress
         if(__saveTimer) clearTimeout(__saveTimer);
         __saveTimer = setTimeout(async ()=>{
@@ -20658,6 +20665,9 @@
       try{
         const origSet = localStorage.setItem.bind(localStorage);
         localStorage.setItem = function(key, value){
+          if(__fabankiSyncPaused){
+            return origSet(key, value);
+          }
           origSet(key, value);
           // Schedule save on our keys (but not during an active save)
           if(!__isSaving && (/^fabanki:/.test(key) || key === 'pseudo')){ scheduleSave(); }
