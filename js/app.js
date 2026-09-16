@@ -24097,52 +24097,19 @@
     }
 
 
-    // Wait for restore before loading deck, but with timeout to avoid indefinite wait
+    // Load the local app immediately; cloud restore must not block the first screen.
     async function initializeDeckLoader(){
       try{
-        console.log('[initializeDeckLoader] Starting sync restore check... (version check: timeout=30000ms)');
-        // Wait up to 30 seconds for cloud restore to complete
-        // This gives time for: auth (3s) + network (8s) + Firestore (5s) + parsing (2s) + safety margin (12s) = 30s
-        const restoreStartTime = Date.now();
-        let timeoutHandle = null;
-        const restorePromise = new Promise((resolve) => {
-          restoreFromCloud().catch(e => {
-            console.log('[initializeDeckLoader] restoreFromCloud error:', e);
-            syncLog('restoreFromCloud error (non-blocking):', e);
-          }).finally(() => {
-            const elapsed = Date.now() - restoreStartTime;
-            console.log('[initializeDeckLoader] restoreFromCloud completed after ' + elapsed + 'ms');
-            try{ if(timeoutHandle) clearTimeout(timeoutHandle); }catch(e){}
-            resolve();
-          });
+        console.log('[initializeDeckLoader] Loading local app; cloud restore continues in background');
+        restoreFromCloud().then(async () => {
+          try{
+            const recovered = await recoverFromLeaderboard();
+            if(recovered) console.log('[initializeDeckLoader] XP recovered from leaderboard');
+          }catch(e){ console.warn('[initializeDeckLoader] Background recovery failed:', e); }
+        }).catch(e => {
+          console.warn('[initializeDeckLoader] Background cloud restore failed:', e);
+          syncLog('Background restoreFromCloud error:', e);
         });
-        
-        const timeout = 30000; // GENEROUS timeout to allow slow network/auth
-        const timeoutStartTime = Date.now();
-        await Promise.race([
-          restorePromise,
-          new Promise(resolve => {
-            timeoutHandle = setTimeout(() => {
-              const elapsed = Date.now() - timeoutStartTime;
-              console.error('[initializeDeckLoader] TIMEOUT FIRED after ' + elapsed + 'ms (configured timeout=' + timeout + 'ms) - continuing without cloud data. If you see this, cloud sync was incomplete.');
-              resolve();
-            }, timeout);
-          })
-        ]);
-        
-        const totalElapsed = Date.now() - restoreStartTime;
-        console.log('[initializeDeckLoader] Cloud restore phase complete after ' + totalElapsed + 'ms total');
-        syncLog('Cloud restore completed or timeout reached after ' + totalElapsed + 'ms, loading deck');
-        
-        // ONE-TIME RECOVERY: If cloud/local XP is 0 but leaderboard has real data, recover
-        try{
-          const recovered = await recoverFromLeaderboard();
-          if(recovered){
-            console.log('[initializeDeckLoader] ✅ XP recovered from leaderboard!');
-          }
-        }catch(e){
-          console.warn('[initializeDeckLoader] Recovery check failed (non-blocking):', e);
-        }
       }catch(e){ 
         syncLog('initializeDeckLoader error:', e);
         console.error('[initializeDeckLoader] Exception caught:', e);
