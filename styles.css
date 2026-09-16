@@ -3596,6 +3596,7 @@ body.in-review.review-mobile-global{
 [data-theme='dark'] .deck-kpi{background:rgba(255,255,255,0.09)}
 .deck-kpi--new .deck-kpi-label,.deck-kpi--new .deck-kpi-value{color:#8b5cf6}
 .deck-kpi--due .deck-kpi-label,.deck-kpi--due .deck-kpi-value{color:#d9534f}
+.deck-kpi--future .deck-kpi-label,.deck-kpi--future .deck-kpi-value{color:#06b6d4}
 .deck-kpi--mastery .deck-kpi-label,.deck-kpi--mastery .deck-kpi-value{color:#16a34a}
 .deck-mastery{
   margin-top:7px;height:6px;border-radius:999px;background:rgba(0,0,0,0.1);overflow:hidden
@@ -3936,9 +3937,12 @@ body:has(#deckOverviewContainer) footer{
   border-radius:4px;
   flex-shrink:0;
 }
-.deck-overview-right{flex:1;min-width:200px}
-.deck-overview-btn-row{display:flex;gap:8px;margin-bottom:12px}
-.deck-overview-btn-row .secondary{flex:1;padding:8px;font-size:0.9em}
+.deck-overview-right{flex:1 1 520px;min-width:0}
+.deck-overview-btn-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.deck-overview-btn-row .secondary{flex:1 1 140px;min-width:0;padding:8px;font-size:0.9em;white-space:normal}
+.deck-overview-admin-row{padding-top:4px;border-top:1px solid rgba(148,163,184,.22)}
+.deck-overview-admin-row .secondary{flex-basis:160px}
+.deck-overview-admin-add{border-color:rgba(6,182,212,.55);color:#06b6d4}
 .deck-overview-title{margin:0 0 16px;font-size:1.4em;color:var(--fg)}
 .deck-overview-desc{margin:0 0 16px;color:var(--muted);font-size:0.95em;line-height:1.4}
 .deck-overview-rating-block{margin-bottom:16px}

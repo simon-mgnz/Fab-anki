@@ -3163,6 +3163,50 @@
       const cardNodes = Array.from(xml.getElementsByTagName('card')).length 
         ? Array.from(xml.getElementsByTagName('card')) 
         : Array.from(xml.querySelectorAll('card, note, item, entry, record'));
+
+      const fieldsContainer = xml.querySelector('fields');
+      if(fieldsContainer){
+        tempDeck.fieldDefs = Array.from(fieldsContainer.children || []).map((fieldNode, index) => ({
+          name: fieldNode.getAttribute('name') || `Field ${index + 1}`,
+          type: (fieldNode.localName || fieldNode.tagName || 'rich-text').toLowerCase(),
+          sides: interpretSides(fieldNode.getAttribute('sides') || fieldNode.textContent || '')
+        }));
+      }
+      if(!tempDeck.fieldDefs.length){
+        tempDeck.fieldDefs = [
+          {name:'Front', type:'rich-text', sides:{front:true,back:false,always:false}},
+          {name:'Back', type:'rich-text', sides:{front:false,back:true,always:false}}
+        ];
+      }
+      for(const cardNode of cardNodes){
+        const fields = {};
+        const used = new Set();
+        for(const def of tempDeck.fieldDefs){
+          let fieldNode = Array.from(cardNode.children || []).find(child =>
+            child.getAttribute && child.getAttribute('name') === def.name && !used.has(child)
+          );
+          if(!fieldNode){
+            fieldNode = Array.from(cardNode.children || []).find(child =>
+              !used.has(child) && !child.getAttribute('name') &&
+              (child.localName || child.tagName || '').toLowerCase() === def.type
+            );
+          }
+          if(fieldNode){
+            used.add(fieldNode);
+            fields[def.name] = {
+              html: (def.type === 'tts' ? fieldNode.textContent : fieldNode.innerHTML || fieldNode.textContent || '').trim(),
+              type: def.type,
+              sides: def.sides
+            };
+          }else{
+            fields[def.name] = {html:'', type:def.type, sides:def.sides};
+          }
+        }
+        tempDeck.cards.push({
+          id: cardNode.getAttribute('id') || cardNode.getAttribute('guid') || `card-${tempDeck.cards.length}`,
+          fields
+        });
+      }
       
       // Count cards by due status
       const now = new Date();
@@ -3170,8 +3214,6 @@
       const cardsList = [];
       let reviewed = 0;
       let masteredReviewed = 0;
-      let precisionGraded = 0;
-      let precisionCorrect = 0;
       
       console.log('Overview: deckKeyForStats=', deckKeyForStats, 'Looking for keys like: fabanki:' + deckKeyForStats + ':card:*');
       
@@ -3220,10 +3262,6 @@
             const stability = Number(st?.stability || 0);
             const repsNum = Number(st?.reps || 0);
             if(interval >= 7 || stability >= 14 || repsNum >= 5) masteredReviewed++;
-            if(st && st.lastQuality !== undefined && st.lastQuality !== null){
-              precisionGraded++;
-              if(Number(st.lastQuality) >= 3) precisionCorrect++;
-            }
           }
           
           // Get first field for card display
@@ -3332,6 +3370,8 @@
       // Back button and reset button in a horizontal layout
       const buttonRow = document.createElement('div');
       buttonRow.className = 'deck-overview-btn-row';
+      const adminButtonRow = document.createElement('div');
+      adminButtonRow.className = 'deck-overview-btn-row deck-overview-admin-row';
       
       const backBtn = document.createElement('button');
       backBtn.textContent = '← Retour';
@@ -3400,6 +3440,34 @@
       });
       buttonRow.appendChild(shareOverviewBtn);
 
+      const exportCsvBtn = document.createElement('button');
+      exportCsvBtn.type = 'button';
+      exportCsvBtn.className = 'secondary';
+      exportCsvBtn.textContent = 'Exporter CSV';
+      exportCsvBtn.title = 'Exporter les cartes en CSV';
+      exportCsvBtn.addEventListener('click', () => {
+        try{ exportDeckCsv(tempDeck); }
+        catch(err){ alert('Erreur export CSV : ' + (err.message || err)); }
+      });
+      buttonRow.appendChild(exportCsvBtn);
+
+      const exportApkgBtn = document.createElement('button');
+      exportApkgBtn.type = 'button';
+      exportApkgBtn.className = 'secondary';
+      exportApkgBtn.textContent = 'Exporter .apkg';
+      exportApkgBtn.title = 'Exporter les cartes dans un paquet Anki';
+      exportApkgBtn.addEventListener('click', async () => {
+        exportApkgBtn.disabled = true;
+        exportApkgBtn.textContent = 'Création...';
+        try{ await exportDeckApkg(tempDeck); }
+        catch(err){ alert('Erreur export .apkg : ' + (err.message || err)); }
+        finally{
+          exportApkgBtn.disabled = false;
+          exportApkgBtn.textContent = 'Exporter .apkg';
+        }
+      });
+      buttonRow.appendChild(exportApkgBtn);
+
       const pauseBtn = document.createElement('button');
       pauseBtn.type = 'button';
       pauseBtn.className = 'secondary';
@@ -3452,7 +3520,7 @@
             adminDeckRename.textContent = 'Renommer';
           }
         });
-        buttonRow.appendChild(adminDeckRename);
+        adminButtonRow.appendChild(adminDeckRename);
 
         const adminDeckMove = document.createElement('button');
         adminDeckMove.type = 'button';
@@ -3480,11 +3548,11 @@
             adminDeckMove.textContent = 'Déplacer';
           }
         });
-        buttonRow.appendChild(adminDeckMove);
+        adminButtonRow.appendChild(adminDeckMove);
 
         const adminDeckAddCards = document.createElement('button');
         adminDeckAddCards.type = 'button';
-        adminDeckAddCards.className = 'secondary';
+        adminDeckAddCards.className = 'secondary deck-overview-admin-add';
         adminDeckAddCards.textContent = 'Ajouter cartes';
         adminDeckAddCards.title = 'Ajouter un fragment <card>...</card> à ce deck GitHub existant';
         adminDeckAddCards.addEventListener('click', async () => {
@@ -3507,7 +3575,7 @@
             adminDeckAddCards.textContent = 'Ajouter cartes';
           }
         });
-        buttonRow.appendChild(adminDeckAddCards);
+        adminButtonRow.appendChild(adminDeckAddCards);
 
         const adminDeckRemove = document.createElement('button');
         adminDeckRemove.type = 'button';
@@ -3534,10 +3602,12 @@
             adminDeckRemove.textContent = 'Supprimer';
           }
         });
-        buttonRow.appendChild(adminDeckRemove);
+        adminButtonRow.appendChild(adminDeckRemove);
+        adminButtonRow.setAttribute('aria-label', 'Actions administrateur du deck');
       }
       
       rightPanel.appendChild(buttonRow);
+      if(isAdminOverview) rightPanel.appendChild(adminButtonRow);
       
       const title = document.createElement('h2');
       title.className = 'deck-overview-title';
@@ -3562,16 +3632,14 @@
       rightPanel.appendChild(masteryBox);
 
       const nowCards = counts.now || 0;
-      const precisionPct = precisionGraded > 0 ? Math.round((precisionCorrect / precisionGraded) * 100) : null;
 
-      // Stats grid (4 cells)
+      // Stats grid
       const overviewGrid = document.createElement('div');
-      overviewGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;';
+      overviewGrid.style.cssText = 'display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px;';
       const gridItems = [
         { label:'Total', value:String(total), color:'var(--fg)' },
         { label:'À revoir', value:String(nowCards), color:'#e05252' },
         { label:'Révisées', value:String(reviewed), color:'#4caf78' },
-        { label:'Précision', value: precisionPct !== null ? precisionPct + '%' : 'N/A', color:'var(--accent)' },
       ];
       gridItems.forEach(item => {
         const cell = document.createElement('div');
@@ -3586,16 +3654,6 @@
         overviewGrid.appendChild(cell);
       });
       rightPanel.appendChild(overviewGrid);
-
-      const stats = document.createElement('div');
-      stats.style.cssText = 'background:linear-gradient(135deg, #1e293b 0%, #334155 100%);color:#fff;padding:16px;border-radius:12px;margin-bottom:16px;font-size:0.9em;line-height:1.8;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
-      const precisionLabel = precisionPct !== null ? precisionPct + '%' : 'N/A';
-      stats.innerHTML = `
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Cartes révisées</span><strong>${reviewed}</strong></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Total</span><strong>${total}</strong></div>
-        <div style="display:flex;justify-content:space-between;"><span>Précision</span><strong>${precisionLabel}</strong></div>
-      `;
-      rightPanel.appendChild(stats);
 
       // Retention slider and FSRS toggle
       const retentionBox = document.createElement('div');
@@ -5120,6 +5178,211 @@
       wrapper.innerHTML = htmlToRender;
     }
     return wrapper;
+  }
+
+  function decodeExportHtml(value){
+    const text = String(value || '');
+    const box = document.createElement('textarea');
+    box.innerHTML = text;
+    return box.value;
+  }
+
+  function exportFieldText(field, def, format){
+    const type = String(field?.type || def?.type || '').toLowerCase();
+    const raw = decodeExportHtml(field?.html || '').replace(/<br\s*\/?>/gi, '\n');
+    const isTex = ['tex','math','latex','katex'].includes(type) || /\\(?:[A-Za-z]+|\(|\)|\[|\]|\$)/.test(raw);
+    if(!isTex) return raw;
+    const source = raw.replace(/<[^>]+>/g, '').trim();
+    if(format === 'csv') return source;
+    if(!source) return '';
+    if(/\\\(|\\\[|\$\$|(^|[^\\])\$/.test(source)) return source;
+    return /\n/.test(source) ? `\\[${source}\\]` : `\\(${source}\\)`;
+  }
+
+  function escapeCsvCell(value){
+    const text = String(value ?? '');
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
+  function exportDeckRows(deckData){
+    const defs = Array.isArray(deckData.fieldDefs) && deckData.fieldDefs.length
+      ? deckData.fieldDefs
+      : [{name:'Front', type:'rich-text'}, {name:'Back', type:'rich-text'}];
+    const fieldNames = defs.map(def => def.name).filter(Boolean);
+    const rows = deckData.cards.map(card => fieldNames.map(name => {
+      const def = defs.find(item => item.name === name) || {};
+      return exportFieldText(card.fields?.[name], def, 'csv');
+    }));
+    return { defs, fieldNames, rows };
+  }
+
+  function downloadExportBlob(blob, filename){
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  }
+
+  function exportDeckCsv(deckData){
+    const { fieldNames, rows } = exportDeckRows(deckData);
+    const csv = '\ufeff' + [fieldNames, ...rows].map(row => row.map(escapeCsvCell).join(',')).join('\r\n') + '\r\n';
+    downloadExportBlob(new Blob([csv], {type:'text/csv;charset=utf-8'}), `${deckData.title || 'deck'}.csv`);
+  }
+
+  function sqlValue(value){ return String(value ?? '').replace(/'/g, "''"); }
+
+  async function exportDeckApkg(deckData){
+    if(typeof JSZip === 'undefined' || typeof initSqlJs !== 'function'){
+      throw new Error('Les composants d’export Anki ne sont pas disponibles.');
+    }
+    const { defs } = exportDeckRows(deckData);
+    const SQL = await initSqlJs({locateFile: file => `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`});
+    const db = new SQL.Database();
+    const now = Math.floor(Date.now() / 1000);
+    const deckId = Date.now();
+    const modelId = deckId + 1;
+    const fieldDefs = defs.length ? defs : [{name:'Front', type:'rich-text'}, {name:'Back', type:'rich-text'}];
+    const fieldNames = fieldDefs.map(def => def.name).filter(Boolean);
+    const modelFields = fieldNames.map((name, ord) => ({name, ord, sticky:false, rtl:false, font:'Arial', size:20, media:[]}));
+    const questionFields = fieldNames.filter((name, index) => index === 0 || fieldDefs[index]?.sides?.front);
+    const answerFields = fieldNames.filter((name, index) => index > 0 && (fieldDefs[index]?.sides?.back || index === 1));
+    const frontTemplate = questionFields.length ? questionFields.map(name => `{{${name}}}`).join('<br>') : '{{Front}}';
+    const backTemplate = answerFields.length ? answerFields.map(name => `{{${name}}}`).join('<br>') : '{{FrontSide}}';
+    const models = {};
+    models[String(modelId)] = {
+      id:modelId, name:'FabAnki export', type:0, mod:now, usn:0, sortf:0, did:deckId,
+      tmpls:[{name:'Card 1',ord:0,mtime:0,usn:0,qfmt:frontTemplate,afmt:`{{FrontSide}}<hr id="answer">${backTemplate}`,bqfmt:'',bafmt:''}],
+      flds:modelFields, css:'.card { font-family: arial; font-size: 20px; text-align: left !important; color: black; background-color: white; } .card .field { text-align: left !important; }', latexPre:'', latexPost:'', latexsvg:false
+    };
+    const decks = {};
+    decks[String(deckId)] = {id:deckId,name:deckData.title || 'FabAnki export',desc:'',dyn:0,extendNew:0,extendRev:0,conf:1,collapsed:false, browserCollapsed:false, mod:now, usn:0, newToday:[0,0], revToday:[0,0], lrnToday:[0,0], timeToday:[0,0]};
+    const collection = {conf:{nextPos:1, estTimes:true, activeDecks:[deckId], newSpread:0, collapseTime:1200, dayOffset:0, curDeck:deckId, schedVer:2, sortType:'noteFld', sortBackwards:false, addToCur:true, dayLearnFirst:false, dueCounts:true, curModel:modelId, collapseTime:1200}, models, decks, dconf:{'1':{id:1,name:'FabAnki',mod:now,usn:0,maxTaken:60,autoplay:true,timer:0,replayq:true,new:{delays:[1,10],ints:[1,4],initialFactor:2500},lapse:{delays:[10],mult:0, minInt:1, leechFails:8,delays:[10]},rev:{perDay:200,fuzz:0.05,ivlFct:1.0,maxIvl:36500,easyBonus:1.3,hardFactor:1.2}}}, tags:{}};
+    db.run('CREATE TABLE col (id integer primary key, crt integer not null, mod integer not null, scm integer not null, ver integer not null, dty integer not null, usn integer not null, ls integer not null, conf text not null, models text not null, decks text not null, dconf text not null, tags text not null);');
+    db.run('CREATE TABLE notes (id integer primary key, guid text not null, mid integer not null, mod integer not null, usn integer not null, tags text not null, flds text not null, sfld integer not null, csum integer not null, flags integer not null, data text not null);');
+    db.run('CREATE TABLE cards (id integer primary key, nid integer not null, did integer not null, ord integer not null, mod integer not null, usn integer not null, type integer not null, queue integer not null, due integer not null, ivl integer not null, factor integer not null, reps integer not null, lapses integer not null, left integer not null, odue integer not null, odid integer not null, flags integer not null, data text not null);');
+    db.run('CREATE TABLE revlog (id integer primary key, cid integer not null, usn integer not null, ease integer not null, ivl integer not null, lastIvl integer not null, factor integer not null, time integer not null, type integer not null);');
+    db.run('CREATE TABLE graves (usn integer not null, oid integer not null, type integer not null);');
+    db.run(`INSERT INTO col VALUES (1,${now},${now},${now},11,0,0,0,'${sqlValue(JSON.stringify(collection.conf))}','${sqlValue(JSON.stringify(models))}','${sqlValue(JSON.stringify(decks))}','${sqlValue(JSON.stringify(collection.dconf))}','{}')`);
+    const { rows } = exportDeckRows(deckData);
+    rows.forEach((row, index) => {
+      const card = deckData.cards[index];
+      const flds = fieldNames.map((name, fieldIndex) => exportFieldText(card.fields?.[name], fieldDefs[fieldIndex], 'apkg')).join('\x1f');
+      const noteId = now * 1000 + index;
+      const cardId = noteId;
+      const guid = `${modelId}-${index}-${Math.random().toString(36).slice(2, 10)}`;
+      db.run(`INSERT INTO notes VALUES (${noteId},'${sqlValue(guid)}',${modelId},${now},0,'','${sqlValue(flds)}',0,0,0,'')`);
+      db.run(`INSERT INTO cards VALUES (${cardId},${noteId},${deckId},0,${now},0,0,0,${index},0,0,0,0,0,0,0,0,'')`);
+    });
+    const zip = new JSZip();
+    zip.file('collection.anki2', db.export());
+    zip.file('media', '{}');
+    downloadExportBlob(await zip.generateAsync({type:'blob', compression:'DEFLATE'}), `${deckData.title || 'deck'}.apkg`);
+    db.close();
+  }
+
+  async function loadDeckForExport(url){
+    const text = await readDeckXmlText(url);
+    const parser = new DOMParser();
+    let xml = parser.parseFromString(text, 'application/xml');
+    if(xml.querySelector('parsererror')) xml = parser.parseFromString(text, 'text/html');
+    const titleNode = xml.querySelector('title') || xml.querySelector('name');
+    const title = titleNode?.textContent?.trim() || decodeURIComponent(url.split('/').pop()).replace(/\.xml$/i, '');
+    const definitions = Array.from(xml.querySelector('fields')?.children || []).map((node, index) => ({
+      name: node.getAttribute('name') || `Field ${index + 1}`,
+      type: (node.localName || node.tagName || 'rich-text').toLowerCase(),
+      sides: interpretSides(node.getAttribute('sides') || node.textContent || '')
+    }));
+    const defs = definitions.length ? definitions : [
+      {name:'Front', type:'rich-text', sides:{front:true,back:false,always:false}},
+      {name:'Back', type:'rich-text', sides:{front:false,back:true,always:false}}
+    ];
+    const nodes = Array.from(xml.getElementsByTagName('card'));
+    const cards = nodes.map((node, index) => {
+      const used = new Set();
+      const fields = {};
+      defs.forEach(def => {
+        let child = Array.from(node.children || []).find(item => item.getAttribute?.('name') === def.name && !used.has(item));
+        if(!child) child = Array.from(node.children || []).find(item => !used.has(item) && !item.getAttribute?.('name') && (item.localName || item.tagName || '').toLowerCase() === def.type);
+        if(child) used.add(child);
+        fields[def.name] = {html: child ? (def.type === 'tts' ? child.textContent : child.innerHTML || child.textContent || '').trim() : '', type:def.type, sides:def.sides};
+      });
+      return {id:node.getAttribute('id') || node.getAttribute('guid') || `card-${index}`, fields};
+    });
+    return {title, fieldDefs:defs, cards};
+  }
+
+  async function loadAllDecksForExport(){
+    const entries = Array.isArray(window.deckBrowserEntries) && window.deckBrowserEntries.length
+      ? window.deckBrowserEntries
+      : await fetchDirectory('./decks/');
+    const files = entries.filter(item => typeof item === 'string' && item.toLowerCase().endsWith('.xml'));
+    const decks = [];
+    for(const file of files){
+      try{
+        const deck = await loadDeckForExport('./decks/' + file);
+        deck.path = file;
+        if(deck.cards.length) decks.push(deck);
+      }catch(e){ console.warn('Deck export skipped:', file, e); }
+    }
+    return decks;
+  }
+
+  async function exportAllDecksCsvZip(){
+    if(typeof JSZip === 'undefined') throw new Error('Le composant ZIP n’est pas disponible.');
+    const decks = await loadAllDecksForExport();
+    const zip = new JSZip();
+    for(const deckData of decks){
+      const {fieldNames, rows} = exportDeckRows(deckData);
+      const csv = '\ufeff' + [fieldNames, ...rows].map(row => row.map(escapeCsvCell).join(',')).join('\r\n') + '\r\n';
+      const filename = (deckData.path || deckData.title).replace(/\.xml$/i, '.csv');
+      zip.file(filename, csv);
+    }
+    downloadExportBlob(await zip.generateAsync({type:'blob', compression:'DEFLATE'}), 'fabanki-decks-csv.zip');
+    return decks.length;
+  }
+
+  async function exportAllDecksApkg(){
+    if(typeof JSZip === 'undefined' || typeof initSqlJs !== 'function') throw new Error('Les composants d’export Anki ne sont pas disponibles.');
+    const decks = await loadAllDecksForExport();
+    const SQL = await initSqlJs({locateFile: file => `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`});
+    const db = new SQL.Database();
+    const now = Math.floor(Date.now() / 1000);
+    const models = {}, ankiDecks = {}, dconf = {};
+    const activeDecks = [];
+    db.run('CREATE TABLE col (id integer primary key, crt integer not null, mod integer not null, scm integer not null, ver integer not null, dty integer not null, usn integer not null, ls integer not null, conf text not null, models text not null, decks text not null, dconf text not null, tags text not null);');
+    db.run('CREATE TABLE notes (id integer primary key, guid text not null, mid integer not null, mod integer not null, usn integer not null, tags text not null, flds text not null, sfld integer not null, csum integer not null, flags integer not null, data text not null);');
+    db.run('CREATE TABLE cards (id integer primary key, nid integer not null, did integer not null, ord integer not null, mod integer not null, usn integer not null, type integer not null, queue integer not null, due integer not null, ivl integer not null, factor integer not null, reps integer not null, lapses integer not null, left integer not null, odue integer not null, odid integer not null, flags integer not null, data text not null);');
+    db.run('CREATE TABLE revlog (id integer primary key, cid integer not null, usn integer not null, ease integer not null, ivl integer not null, lastIvl integer not null, factor integer not null, time integer not null, type integer not null);');
+    db.run('CREATE TABLE graves (usn integer not null, oid integer not null, type integer not null);');
+    let sequence = 0;
+    for(const deckData of decks){
+      const deckId = now * 1000 + sequence++;
+      const modelId = deckId + 1000000;
+      const names = deckData.fieldDefs.map(def => def.name).filter(Boolean);
+      const fields = deckData.fieldDefs.map((def, ord) => ({name:def.name, ord, sticky:false, rtl:false, font:'Arial', size:20, media:[]}));
+      const front = names.filter((name, i) => i === 0 || deckData.fieldDefs[i]?.sides?.front);
+      const back = names.filter((name, i) => i > 0 && (deckData.fieldDefs[i]?.sides?.back || i === 1));
+      models[String(modelId)] = {id:modelId,name:`FabAnki - ${deckData.title}`,type:0,mod:now,usn:0,sortf:0,did:deckId,tmpls:[{name:'Card 1',ord:0,mtime:0,usn:0,qfmt:front.map(name=>`{{${name}}}`).join('<br>')||'{{Front}}',afmt:`{{FrontSide}}<hr id="answer">${back.map(name=>`{{${name}}}`).join('<br>')||'{{FrontSide}}'}`,bqfmt:'',bafmt:''}],flds:fields,css:'.card { font-family: arial; font-size: 20px; text-align: left !important; color: black; background-color: white; } .card .field { text-align: left !important; }',latexPre:'',latexPost:'',latexsvg:false};
+      ankiDecks[String(deckId)] = {id:deckId,name:deckData.title || `Deck ${sequence}`,desc:'',dyn:0,extendNew:0,extendRev:0,conf:1,collapsed:false,browserCollapsed:false,mod:now,usn:0,newToday:[0,0],revToday:[0,0],lrnToday:[0,0],timeToday:[0,0]};
+      dconf[String(sequence)] = {id:sequence,name:'FabAnki',mod:now,usn:0,maxTaken:60,autoplay:true,timer:0,replayq:true,new:{delays:[1,10],ints:[1,4],initialFactor:2500},lapse:{delays:[10],mult:0,minInt:1,leechFails:8},rev:{perDay:200,fuzz:0.05,ivlFct:1,maxIvl:36500,easyBonus:1.3,hardFactor:1.2}};
+      activeDecks.push(deckId);
+      deckData.cards.forEach((card, index) => {
+        const noteId = deckId + index + 1;
+        const values = names.map((name, fieldIndex) => exportFieldText(card.fields?.[name], deckData.fieldDefs[fieldIndex], 'apkg')).join('\x1f');
+        const guid = `${modelId}-${index}-${Math.random().toString(36).slice(2,10)}`;
+        db.run(`INSERT INTO notes VALUES (${noteId},'${sqlValue(guid)}',${modelId},${now},0,'','${sqlValue(values)}',0,0,0,'')`);
+        db.run(`INSERT INTO cards VALUES (${noteId},${noteId},${deckId},0,${now},0,0,0,${index},0,0,0,0,0,0,0,0,'')`);
+      });
+    }
+    const conf = {nextPos:1,estTimes:true,activeDecks,newSpread:0,collapseTime:1200,dayOffset:0,curDeck:activeDecks[0]||0,schedVer:2,sortType:'noteFld',sortBackwards:false,addToCur:true,dayLearnFirst:false,dueCounts:true,curModel:Object.keys(models)[0]||0};
+    db.run(`INSERT INTO col VALUES (1,${now},${now},${now},11,0,0,0,'${sqlValue(JSON.stringify(conf))}','${sqlValue(JSON.stringify(models))}','${sqlValue(JSON.stringify(ankiDecks))}','${sqlValue(JSON.stringify(dconf))}','{}')`);
+    const zip = new JSZip(); zip.file('collection.anki2', db.export()); zip.file('media','{}');
+    downloadExportBlob(await zip.generateAsync({type:'blob',compression:'DEFLATE'}), 'fabanki-tous-les-decks.apkg');
+    db.close();
+    return decks.length;
   }
 
   // === Function: renderKaTeX ===
@@ -12130,7 +12393,7 @@
         const statsBar = document.createElement('div');
         statsBar.id = 'deckBrowserStatsBar';
         statsBar.className = 'deck-browser-stats';
-        const statLabels = ['Cartes totales','Dues','Nouvelles','Dossiers'];
+        const statLabels = ['Cartes totales','Dues','Nouvelles','Maitrise moyenne'];
         const statColors = ['var(--fg)','#e05252','var(--accent)','var(--fg)'];
         statLabels.forEach((lbl, i) => {
           const cell = document.createElement('div');
@@ -12168,6 +12431,7 @@
         };
         async function refreshDeckBrowserStatsBar(){
           try{
+            deckUiMetaCache.clear();
             const entries = window.deckBrowserEntries;
             let xmlFiles = [];
             if(Array.isArray(entries) && entries.length){
@@ -12179,11 +12443,13 @@
             const hideComm = deckBrowserHideCommunity();
             const visibleFiles = hideComm ? xmlFiles.filter(f => !isCommunityDeckRelPath(f)) : xmlFiles;
             let totalCards = 0, totalDue = 0, totalNew = 0;
+            let weightedMastery = 0, totalReviewed = 0;
             const metas = await mapWithConcurrency(visibleFiles, 6, async (f) => {
               try{
-                const manifestEntry = getManifestEntryForPath('./decks/' + f);
-                if(manifestEntry && !isDeckReleasedForUser(manifestEntry)) return null;
-                return await computeDeckUiMeta('./decks/' + f, false);
+                const deckUrl = './decks/' + f;
+                const counts = await computeDeckCounts(deckUrl);
+                const mastered = computeDeckMasteryPct(deckUrl, counts.reviewed);
+                return { ...counts, mastered };
               }catch(e){ return null; }
             });
             for(const meta of metas){
@@ -12191,8 +12457,13 @@
               totalDue += Number(meta.due || 0);
               totalNew += Number(meta.fresh || 0);
               totalCards += Number(meta.total || 0);
+              const reviewed = Number(meta.reviewed || 0);
+              weightedMastery += Number(meta.mastered || 0) * reviewed;
+              totalReviewed += reviewed;
             }
-            const folderCount = countDeckBrowserFolders(visibleFiles);
+            const averageMastery = totalReviewed > 0
+              ? Math.round(weightedMastery / totalReviewed)
+              : 0;
             const el0 = document.getElementById('deckStatCell_0');
             const el1 = document.getElementById('deckStatCell_1');
             const el2 = document.getElementById('deckStatCell_2');
@@ -12200,7 +12471,7 @@
             if(el0) el0.textContent = totalCards > 0 ? totalCards.toLocaleString() : String(visibleFiles.length);
             if(el1) el1.textContent = totalDue.toLocaleString();
             if(el2) el2.textContent = totalNew.toLocaleString();
-            if(el3) el3.textContent = String(folderCount);
+            if(el3) el3.textContent = averageMastery + '%';
           }catch(e){ console.warn('stats bar error', e); }
         }
         searchInput.addEventListener('input', applyDeckBrowserFilters);
@@ -12294,6 +12565,7 @@
           const data = {
             due: counts.due,
             fresh: counts.fresh,
+            future: counts.future,
             reviewed: counts.reviewed,
             mastered,
             total: counts.total
@@ -12310,12 +12582,12 @@
           return [
             deckKpiStack('À faire', meta.due, 'due'),
             deckKpiStack('Nouv.', meta.fresh, 'new'),
-            deckKpiStack('Maitrise', meta.mastered + '%', 'mastery')
+            deckKpiStack('À venir', meta.future, 'future')
           ].join('');
         }
 
         function refreshDeckEntryCounts(statsEl, mBar, deckUrl){
-          computeDeckUiMeta(deckUrl, false).then(meta => {
+          computeDeckUiMeta(deckUrl, true).then(meta => {
             if(statsEl) statsEl.innerHTML = deckKpisHtml(meta);
             if(mBar){
               mBar.classList.toggle('deck-mastery--empty', !(meta.mastered > 0));
@@ -12527,7 +12799,7 @@
               kpisHtml: [
                 deckKpiStack('À faire', '…', 'due'),
                 deckKpiStack('Nouv.', '…', 'new'),
-                deckKpiStack('Maitrise', '--', 'mastery')
+                deckKpiStack('À venir', '…', 'future')
               ].join(''),
               masteryPct: null
             });
@@ -12602,32 +12874,20 @@
                 });
                 let totalDue = 0;
                 let totalFresh = 0;
-                let weightedMastery = 0;
-                let totalReviewedDeckCards = 0;
+                let totalFuture = 0;
                 for(const meta of metas){
                   if(!meta) continue;
                   totalDue += Number(meta.due || 0);
                   totalFresh += Number(meta.fresh || 0);
-                  if(meta.reviewed > 0){
-                    weightedMastery += Number(meta.mastered || 0) * Number(meta.reviewed || 0);
-                    totalReviewedDeckCards += Number(meta.reviewed || 0);
-                  }
+                  totalFuture += Number(meta.future || 0);
                 }
-                const masteryFolderPct = totalReviewedDeckCards > 0
-                  ? Math.round(weightedMastery / totalReviewedDeckCards)
-                  : 0;
                 folderBuilt.statsCol.innerHTML = [
                   deckKpiStack('À faire', totalDue, 'due'),
                   deckKpiStack('Nouv.', totalFresh, 'new'),
-                  deckKpiStack('Maitrise', totalReviewedDeckCards > 0 ? masteryFolderPct + '%' : '--', 'mastery')
+                  deckKpiStack('À venir', totalFuture, 'future')
                 ].join('');
-                if(totalReviewedDeckCards > 0){
-                  folderMBar.classList.remove('deck-mastery--empty');
-                  folderMBar.innerHTML = `<i style="width:${Math.max(0, Math.min(100, masteryFolderPct))}%"></i>`;
-                } else {
-                  folderMBar.classList.add('deck-mastery--empty');
-                  folderMBar.innerHTML = '<i style="width:0%"></i>';
-                }
+                folderMBar.classList.add('deck-mastery--empty');
+                folderMBar.innerHTML = '<i style="width:0%"></i>';
               }catch(e){ /* ignore */ }
             })();
           }
@@ -12649,7 +12909,7 @@
               kpisHtml: [
                 deckKpiStack('À faire', '…', 'due'),
                 deckKpiStack('Nouv.', '…', 'new'),
-                deckKpiStack('Maitrise', '…', 'mastery')
+                deckKpiStack('À venir', '…', 'future')
               ].join(''),
               masteryPct: 0
             });
@@ -12802,7 +13062,7 @@
                 kpisHtml: [
                   deckKpiStack('À faire', '…', 'due'),
                   deckKpiStack('Nouv.', '…', 'new'),
-                  deckKpiStack('Maitrise', '…', 'mastery')
+                  deckKpiStack('À venir', '…', 'future')
                 ].join(''),
                 masteryPct: 0
               });
@@ -13147,7 +13407,7 @@
           const reps = Number(st.reps || 0);
           const lastTs = new Date(st.last || 0).getTime();
           const hasValidLast = Number.isFinite(lastTs) && lastTs > 0;
-          const isReviewed = !!(hasValidLast && reps > 0 && st.never !== true);
+          const isReviewed = !!(hasValidLast && st.never !== true);
           if(!isReviewed) continue;
           reviewed++;
           if(!fsrsOff){
@@ -13177,7 +13437,7 @@
     }
 
     async function computeDeckCountsFromXml(url){
-      const empty = { due: 0, fresh: 0, reviewed: 0, total: 0 };
+      const empty = { due: 0, fresh: 0, future: 0, reviewed: 0, total: 0 };
       let text;
       try{ text = await readDeckXmlText(url); }catch(e){ return empty; }
       const parser = new DOMParser();
@@ -13197,7 +13457,7 @@
           const reps = Number(st.reps || 0);
           const lastTs = new Date(st.last || 0).getTime();
           const hasValidLast = Number.isFinite(lastTs) && lastTs > 0;
-          const isReviewed = !!(hasValidLast && reps > 0 && st.never !== true);
+          const isReviewed = !!(hasValidLast && st.never !== true);
           if(!isReviewed){ fresh++; continue; }
           reviewed++;
           if(!fsrsOff){
@@ -13206,7 +13466,7 @@
           }
         }catch(e){ continue; }
       }
-      return { due, fresh, reviewed, total: ids.length, deckKey: deckKeyForCount };
+      return { due, fresh, future: Math.max(0, ids.length - fresh - due), reviewed, total: ids.length, deckKey: deckKeyForCount };
     }
 
     async function computeDeckCounts(url){
@@ -13219,13 +13479,17 @@
         const xmlTotal = xmlCounts && Number.isFinite(xmlCounts.total) ? Number(xmlCounts.total) : 0;
         const sourceTotal = xmlTotal > 0 ? xmlTotal : Number(stateCounts.total || 0);
         const total = Math.max(0, sourceTotal);
-        const reviewed = Math.min(Math.max(Number(xmlCounts?.reviewed || 0), Number(stateCounts.reviewed || 0)), total || Number.MAX_SAFE_INTEGER);
-        const due = Math.max(Number(xmlCounts?.due || 0), Number(stateCounts.due || 0));
-        const fresh = Math.max(0, total - reviewed);
+        const hasXmlCounts = xmlTotal > 0;
+        const reviewed = hasXmlCounts
+          ? Math.min(Number(xmlCounts.reviewed || 0), total)
+          : Math.min(Number(stateCounts.reviewed || 0), total || Number.MAX_SAFE_INTEGER);
+        const due = hasXmlCounts ? Number(xmlCounts.due || 0) : Number(stateCounts.due || 0);
+        const fresh = hasXmlCounts ? Number(xmlCounts.fresh || 0) : Math.max(0, total - reviewed);
 
         return {
           due,
           fresh,
+          future: hasXmlCounts ? Number(xmlCounts.future || 0) : Math.max(0, total - fresh - due),
           reviewed,
           total,
           deckKey: getDeckKeyFromUrl(url),
@@ -13233,7 +13497,7 @@
         };
       }catch(e){
         console.error('computeDeckCounts error:', e);
-        return { due: 0, fresh: 0, reviewed: 0, total: 0 };
+        return { due: 0, fresh: 0, future: 0, reviewed: 0, total: 0 };
       }
     }
     try{ window.__fabanki_computeDeckCounts = computeDeckCounts; }catch(e){}
@@ -27389,6 +27653,17 @@
             <div><div class="rg-row-label">Exporter la progression (CSV)</div><div class="rg-row-sub">Statistiques par carte pour analyse externe</div></div>
             <button class="secondary" id="rg-export-csv-btn">CSV</button>
           </div>
+          <div class="rg-row" style="flex-wrap:wrap">
+            <div><div class="rg-row-label">Exporter la progression pour Anki</div><div class="rg-row-sub">Cartes, nom du deck et état de révision. Le planning Anki doit être recalculé après import.</div></div>
+            <button class="secondary" id="rg-export-anki-progress-btn">CSV Anki</button>
+          </div>
+          <div class="rg-row" style="flex-wrap:wrap">
+            <div><div class="rg-row-label">Exporter tous les decks</div><div class="rg-row-sub">Un ZIP CSV ou un paquet Anki contenant tous les decks publics</div></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="secondary" id="rg-export-decks-csv-btn">ZIP CSV</button>
+              <button class="secondary" id="rg-export-decks-apkg-btn">Tous les decks .apkg</button>
+            </div>
+          </div>
           <div class="rg-row">
             <div><div class="rg-row-label" style="color:#d9534f">Réinitialiser les stats</div><div class="rg-row-sub">Efface les compteurs de révision (irréversible)</div></div>
             <button class="secondary" style="color:#d9534f;border-color:rgba(217,83,79,0.4)" id="rg-reset-stats-btn">Reset</button>
@@ -27481,6 +27756,29 @@
     el.querySelector('#rg-fsrs-tuning-btn')?.addEventListener('click', () => { if(typeof window.showFsrsTuningModal === 'function') window.showFsrsTuningModal(); });
     el.querySelector('#rg-push-notif-btn')?.addEventListener('click', () => { if(typeof window.showPushNotifModal === 'function') window.showPushNotifModal(); });
     el.querySelector('#rg-export-csv-btn')?.addEventListener('click', () => { if(typeof window.exportProgressCSV === 'function') window.exportProgressCSV(); });
+    el.querySelector('#rg-export-anki-progress-btn')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true; button.textContent = 'Création...';
+      try{
+        const count = await window.exportProgressForAnkiCSV();
+        alert(`${count} cartes exportées pour Anki.`);
+      }catch(err){ alert('Erreur export Anki : ' + (err.message || err)); }
+      finally{ button.disabled = false; button.textContent = 'CSV Anki'; }
+    });
+    el.querySelector('#rg-export-decks-csv-btn')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true; button.textContent = 'Création...';
+      try{ const count = await exportAllDecksCsvZip(); alert(`${count} decks exportés dans le ZIP CSV.`); }
+      catch(err){ alert('Erreur export ZIP CSV : ' + (err.message || err)); }
+      finally{ button.disabled = false; button.textContent = 'ZIP CSV'; }
+    });
+    el.querySelector('#rg-export-decks-apkg-btn')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true; button.textContent = 'Création...';
+      try{ const count = await exportAllDecksApkg(); alert(`${count} decks exportés dans le paquet Anki.`); }
+      catch(err){ alert('Erreur export .apkg : ' + (err.message || err)); }
+      finally{ button.disabled = false; button.textContent = 'Tous les decks .apkg'; }
+    });
     el.querySelector('#rg-haptic')?.addEventListener('change',e=>localStorage.setItem('fabanki:haptic',e.target.checked?'1':'0'));
     el.querySelector('#rg-sync-btn')?.addEventListener('click',()=>{
       try{
@@ -29495,6 +29793,62 @@ window.exportProgressCSV = function(){
   a.href = url; a.download = 'fabanki-progression-' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+window.exportProgressForAnkiCSV = async function(){
+  const decks = await loadAllDecksForExport();
+  const rows = [['#deck','#guid','#tags','Deck name','Card ID','FabAnki reps','FabAnki interval','FabAnki stability','FabAnki difficulty','FabAnki due','FabAnki last','FabAnki favorite']];
+  const fieldNames = [];
+  for(const deckData of decks){
+    for(const def of deckData.fieldDefs){
+      if(def.name && !fieldNames.includes(def.name)) fieldNames.push(def.name);
+    }
+  }
+  rows[0].push(...fieldNames);
+  for(const deckData of decks){
+    const deckPath = './decks/' + deckData.path;
+    const deckKey = getDeckKeyFromUrl(deckPath);
+    const states = {};
+    try{
+      const userState = JSON.parse(localStorage.getItem('fabanki:user_state') || 'null');
+      Object.assign(states, userState?.decks?.[deckKey]?.cards || {});
+    }catch(e){}
+    try{
+      const prefix = `fabanki:${deckKey}:card:`;
+      for(let i = 0; i < localStorage.length; i++){
+        const key = localStorage.key(i);
+        if(!key || !key.startsWith(prefix)) continue;
+        const cardId = key.slice(prefix.length);
+        try{ states[cardId] = JSON.parse(localStorage.getItem(key) || '{}'); }catch(e){}
+      }
+    }catch(e){}
+    for(const card of deckData.cards){
+      const state = states[card.id] || {};
+      const guid = `${deckKey}::${card.id}`;
+      const fields = fieldNames.map(name => {
+        const def = deckData.fieldDefs.find(item => item.name === name) || {};
+        return exportFieldText(card.fields?.[name], def, 'csv');
+      });
+      rows.push([
+        deckData.title || deckData.path,
+        guid,
+        'FabAnki',
+        deckData.title || deckData.path,
+        card.id,
+        state.reps || 0,
+        state.interval || 0,
+        state.stability || '',
+        state.difficulty || '',
+        state.due || '',
+        state.last || '',
+        state.favorite ? '1' : '0',
+        ...fields
+      ]);
+    }
+  }
+  const csv = '\ufeff' + rows.map(row => row.map(escapeCsvCell).join(',')).join('\r\n') + '\r\n';
+  downloadExportBlob(new Blob([csv], {type:'text/csv;charset=utf-8'}), 'fabanki-progression-anki-' + new Date().toISOString().slice(0,10) + '.csv');
+  return rows.length - 1;
 };
 
 // ===== WEB PUSH NOTIFICATIONS — SOUSCRIPTION + MODAL DE PRÉFÉRENCES =====
