@@ -5241,7 +5241,7 @@
 
   function sqlValue(value){ return String(value ?? '').replace(/'/g, "''"); }
 
-  async function exportDeckApkg(deckData){
+  async function createDeckApkgBlob(deckData){
     if(typeof JSZip === 'undefined' || typeof initSqlJs !== 'function'){
       throw new Error('Les composants d’export Anki ne sont pas disponibles.');
     }
@@ -5286,8 +5286,14 @@
     const zip = new JSZip();
     zip.file('collection.anki2', db.export());
     zip.file('media', '{}');
-    downloadExportBlob(await zip.generateAsync({type:'blob', compression:'DEFLATE'}), `${deckData.title || 'deck'}.apkg`);
+    const blob = await zip.generateAsync({type:'blob', compression:'DEFLATE'});
     db.close();
+    return blob;
+  }
+
+  async function exportDeckApkg(deckData){
+    const blob = await createDeckApkgBlob(deckData);
+    downloadExportBlob(blob, `${deckData.title || 'deck'}.apkg`);
   }
 
   async function loadDeckForExport(url){
@@ -5321,11 +5327,33 @@
     return {title, fieldDefs:defs, cards};
   }
 
+  async function collectDeckXmlFiles(currentPath = './decks/', seen = new Set()){ 
+    const entries = await fetchDirectory(currentPath);
+    const files = [];
+    for(const entry of entries || []){
+      if(typeof entry !== 'string') continue;
+      const normalized = entry.replace(/\\/g, '/').replace(/^\.\//, '').trim();
+      if(!normalized || normalized === '.' || normalized === '/' || normalized === '../' || normalized === './') continue;
+      if(normalized.endsWith('/')){
+        const folderPath = currentPath === './decks/' ? `./decks/${normalized}` : `${currentPath}${normalized}`;
+        if(!seen.has(folderPath)){
+          seen.add(folderPath);
+          files.push(...await collectDeckXmlFiles(folderPath, seen));
+        }
+        continue;
+      }
+      if(normalized.toLowerCase().endsWith('.xml')){
+        const relativeToDeckRoot = currentPath === './decks/'
+          ? normalized
+          : `${currentPath.replace(/^\.\/decks\/?/, '').replace(/\/$/, '')}/${normalized}`.replace(/^\//, '');
+        if(relativeToDeckRoot) files.push(relativeToDeckRoot);
+      }
+    }
+    return [...new Set(files)];
+  }
+
   async function loadAllDecksForExport(){
-    const entries = Array.isArray(window.deckBrowserEntries) && window.deckBrowserEntries.length
-      ? window.deckBrowserEntries
-      : await fetchDirectory('./decks/');
-    const files = entries.filter(item => typeof item === 'string' && item.toLowerCase().endsWith('.xml'));
+    const files = await collectDeckXmlFiles('./decks/');
     const decks = [];
     for(const file of files){
       try{
@@ -5354,41 +5382,24 @@
   async function exportAllDecksApkg(){
     if(typeof JSZip === 'undefined' || typeof initSqlJs !== 'function') throw new Error('Les composants d’export Anki ne sont pas disponibles.');
     const decks = await loadAllDecksForExport();
-    const SQL = await initSqlJs({locateFile: file => `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`});
-    const db = new SQL.Database();
-    const now = Math.floor(Date.now() / 1000);
-    const models = {}, ankiDecks = {}, dconf = {};
-    const activeDecks = [];
-    db.run('CREATE TABLE col (id integer primary key, crt integer not null, mod integer not null, scm integer not null, ver integer not null, dty integer not null, usn integer not null, ls integer not null, conf text not null, models text not null, decks text not null, dconf text not null, tags text not null);');
-    db.run('CREATE TABLE notes (id integer primary key, guid text not null, mid integer not null, mod integer not null, usn integer not null, tags text not null, flds text not null, sfld integer not null, csum integer not null, flags integer not null, data text not null);');
-    db.run('CREATE TABLE cards (id integer primary key, nid integer not null, did integer not null, ord integer not null, mod integer not null, usn integer not null, type integer not null, queue integer not null, due integer not null, ivl integer not null, factor integer not null, reps integer not null, lapses integer not null, left integer not null, odue integer not null, odid integer not null, flags integer not null, data text not null);');
-    db.run('CREATE TABLE revlog (id integer primary key, cid integer not null, usn integer not null, ease integer not null, ivl integer not null, lastIvl integer not null, factor integer not null, time integer not null, type integer not null);');
-    db.run('CREATE TABLE graves (usn integer not null, oid integer not null, type integer not null);');
-    let sequence = 0;
+    if(!decks.length) return 0;
+    const zip = new JSZip();
+    const usedNames = new Set();
     for(const deckData of decks){
-      const deckId = now * 1000 + sequence++;
-      const modelId = deckId + 1000000;
-      const names = deckData.fieldDefs.map(def => def.name).filter(Boolean);
-      const fields = deckData.fieldDefs.map((def, ord) => ({name:def.name, ord, sticky:false, rtl:false, font:'Arial', size:20, media:[]}));
-      const front = names.filter((name, i) => i === 0 || deckData.fieldDefs[i]?.sides?.front);
-      const back = names.filter((name, i) => i > 0 && (deckData.fieldDefs[i]?.sides?.back || i === 1));
-      models[String(modelId)] = {id:modelId,name:`FabAnki - ${deckData.title}`,type:0,mod:now,usn:0,sortf:0,did:deckId,tmpls:[{name:'Card 1',ord:0,mtime:0,usn:0,qfmt:front.map(name=>`{{${name}}}`).join('<br>')||'{{Front}}',afmt:`{{FrontSide}}<hr id="answer">${back.map(name=>`{{${name}}}`).join('<br>')||'{{FrontSide}}'}`,bqfmt:'',bafmt:''}],flds:fields,css:'.card { font-family: arial; font-size: 20px; text-align: left !important; color: black; background-color: white; } .card .field { text-align: left !important; }',latexPre:'',latexPost:'',latexsvg:false};
-      ankiDecks[String(deckId)] = {id:deckId,name:deckData.title || `Deck ${sequence}`,desc:'',dyn:0,extendNew:0,extendRev:0,conf:1,collapsed:false,browserCollapsed:false,mod:now,usn:0,newToday:[0,0],revToday:[0,0],lrnToday:[0,0],timeToday:[0,0]};
-      dconf[String(sequence)] = {id:sequence,name:'FabAnki',mod:now,usn:0,maxTaken:60,autoplay:true,timer:0,replayq:true,new:{delays:[1,10],ints:[1,4],initialFactor:2500},lapse:{delays:[10],mult:0,minInt:1,leechFails:8},rev:{perDay:200,fuzz:0.05,ivlFct:1,maxIvl:36500,easyBonus:1.3,hardFactor:1.2}};
-      activeDecks.push(deckId);
-      deckData.cards.forEach((card, index) => {
-        const noteId = deckId + index + 1;
-        const values = names.map((name, fieldIndex) => exportFieldText(card.fields?.[name], deckData.fieldDefs[fieldIndex], 'apkg')).join('\x1f');
-        const guid = `${modelId}-${index}-${Math.random().toString(36).slice(2,10)}`;
-        db.run(`INSERT INTO notes VALUES (${noteId},'${sqlValue(guid)}',${modelId},${now},0,'','${sqlValue(values)}',0,0,0,'')`);
-        db.run(`INSERT INTO cards VALUES (${noteId},${noteId},${deckId},0,${now},0,0,0,${index},0,0,0,0,0,0,0,0,'')`);
-      });
+      const baseName = (deckData.path || deckData.title || 'deck').replace(/\.xml$/i, '').replace(/\\/g, '/');
+      let filename = baseName.split('/').pop() || 'deck';
+      filename = filename.replace(/[<>:"/\\|?*]/g, '_').trim() || 'deck';
+      if(usedNames.has(filename)){
+        let counter = 2;
+        while(usedNames.has(`${filename}_${counter}`)) counter += 1;
+        filename = `${filename}_${counter}`;
+      }
+      usedNames.add(filename);
+      const blob = await createDeckApkgBlob(deckData);
+      zip.file(`${filename}.apkg`, blob);
     }
-    const conf = {nextPos:1,estTimes:true,activeDecks,newSpread:0,collapseTime:1200,dayOffset:0,curDeck:activeDecks[0]||0,schedVer:2,sortType:'noteFld',sortBackwards:false,addToCur:true,dayLearnFirst:false,dueCounts:true,curModel:Object.keys(models)[0]||0};
-    db.run(`INSERT INTO col VALUES (1,${now},${now},${now},11,0,0,0,'${sqlValue(JSON.stringify(conf))}','${sqlValue(JSON.stringify(models))}','${sqlValue(JSON.stringify(ankiDecks))}','${sqlValue(JSON.stringify(dconf))}','{}')`);
-    const zip = new JSZip(); zip.file('collection.anki2', db.export()); zip.file('media','{}');
-    downloadExportBlob(await zip.generateAsync({type:'blob',compression:'DEFLATE'}), 'fabanki-tous-les-decks.apkg');
-    db.close();
+    const archiveName = `fabanki-tous-les-decks-${new Date().toISOString().slice(0,10)}.zip`;
+    downloadExportBlob(await zip.generateAsync({type:'blob', compression:'DEFLATE'}), archiveName);
     return decks.length;
   }
 
@@ -17809,15 +17820,26 @@
           if(state.dailyProgress.dailyReviewedDate) localStorage.setItem('fabanki:daily_reviewed_date', state.dailyProgress.dailyReviewedDate);
           if(state.dailyProgress.lastActiveDate) localStorage.setItem('fabanki:last_active_date', state.dailyProgress.lastActiveDate);
         }
-        // Deck cards
+        // Deck cards. Large cloud restores can contain thousands of cards; yield
+        // between batches when requested so the UI remains responsive.
         if(state.decks){
+          const cardWrites = [];
           for(const dKey of Object.keys(state.decks)){
             const cards = state.decks[dKey]?.cards || {};
             for(const cardId of Object.keys(cards)){
-              const k = `fabanki:${dKey}:card:${cardId}`;
-              localStorage.setItem(k, JSON.stringify(cards[cardId]));
+              cardWrites.push([`fabanki:${dKey}:card:${cardId}`, JSON.stringify(cards[cardId])]);
             }
           }
+          const writeBatch = (start) => {
+            const end = Math.min(start + 200, cardWrites.length);
+            for(let i = start; i < end; i++){
+              const [key, value] = cardWrites[i];
+              if(localStorage.getItem(key) !== value) localStorage.setItem(key, value);
+            }
+            if(end < cardWrites.length) setTimeout(() => writeBatch(end), 0);
+          };
+          if(options.deferDeckCards) setTimeout(() => writeBatch(0), 0);
+          else writeBatch(0);
         }
         // Stats — merge strategy: take max for counters, merge dates for daily history
         if(state.stats){
@@ -19613,10 +19635,12 @@
         const deckSigAfterPull = getDeckSnapshotSignature(mergedDecksForLocal);
         if(deckSigAfterPull !== deckSigBeforePull){
           try{
-            applyStateToLocalStorage({ decks: mergedDecksForLocal });
+            applyStateToLocalStorage({ decks: mergedDecksForLocal }, { deferDeckCards: true });
             const localStateRaw0 = localStorage.getItem('fabanki:user_state');
             const localState0 = localStateRaw0 ? JSON.parse(localStateRaw0) : {};
-            localStorage.setItem('fabanki:user_state', JSON.stringify({ ...(localState0 || {}), decks: mergedDecksForLocal }));
+            setTimeout(() => {
+              try{ localStorage.setItem('fabanki:user_state', JSON.stringify({ ...(localState0 || {}), decks: mergedDecksForLocal })); }catch(e){}
+            }, 0);
             console.log('[restoreFromCloud] Applied cardStates-primary pull (per-card merge)');
           }catch(e){
             console.warn('[restoreFromCloud] cardStates apply failed:', e);
@@ -19715,8 +19739,10 @@
             decks: Object.keys(mergedState.decks || {}).length,
             lastUpdated: new Date(mergedState.lastUpdated).toISOString()
           });
-          applyStateToLocalStorage(mergedState, { clearDeckCards: clearDeckCardsBeforeApply });
-          localStorage.setItem('fabanki:user_state', JSON.stringify(mergedState));
+          applyStateToLocalStorage(mergedState, { clearDeckCards: clearDeckCardsBeforeApply, deferDeckCards: true });
+          setTimeout(() => {
+            try{ localStorage.setItem('fabanki:user_state', JSON.stringify(mergedState)); }catch(e){}
+          }, 0);
           localStorage.setItem('fabanki:mode', 'synced');
           localStorage.setItem('fabanki:user_id', uid);
           
