@@ -202,6 +202,13 @@
       };
     });
   }
+
+  function awaitIndexedDbRequest(request){
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error('IndexedDB request failed'));
+    });
+  }
   
   // Queue offline actions
   async function queueOfflineAction(actionData){
@@ -211,11 +218,11 @@
       const transaction = offlineDB.transaction(['offlineQueue'], 'readwrite');
       const store = transaction.objectStore('offlineQueue');
       
-      await store.add({
+      await awaitIndexedDbRequest(store.add({
         ...actionData,
         timestamp: Date.now(),
         retries: 0
-      });
+      }));
       
       console.log('[Offline] Action queued:', actionData);
       updateOfflineIndicator();
@@ -250,7 +257,7 @@
       
       const transaction = offlineDB.transaction(['offlineQueue'], 'readwrite');
       const store = transaction.objectStore('offlineQueue');
-      await store.delete(id);
+      await awaitIndexedDbRequest(store.delete(id));
       
       console.log('[Offline] Action removed from queue:', id);
       updateOfflineIndicator();
