@@ -19071,6 +19071,15 @@
     }catch(e){}
 
     async function saveState(state, preserveTimestamp = false){
+      if(__fabankiSyncPaused || __restoreInProgress){
+        console.warn('[saveState] BLOCKED: sync paused during restore/login; skipping local save');
+        return;
+      }
+      if(__isSaving){
+        return;
+      }
+
+      __isSaving = true;
       try{
         // Preserve original lastUpdated timestamp if explicitly requested (during sync operations)
         // Otherwise set to current time (for new saves)
@@ -19218,6 +19227,9 @@
           }catch(e){ console.warn('saveState cloud', e) }
         }
       }catch(e){ console.warn('saveState', e) }
+      finally {
+        __isSaving = false;
+      }
     }
 
     function getDeckSnapshotSignature(decks){
@@ -19349,6 +19361,10 @@
     // Auto-sync current data to cloud (called after card review, xp, credits changes)
     async function autoSync(){
       try{
+        if(__fabankiSyncPaused || __restoreInProgress){
+          syncLog('autoSync: skipped; restore/login in progress');
+          return;
+        }
         const currentCardId = currentIndex < dueCards.length ? dueCards[currentIndex]?.id : null;
         const mode = localStorage.getItem('fabanki:mode');
         let pulledRemoteDecks = {};
@@ -20649,31 +20665,17 @@
         if(__restoreInProgress) return; // SAFETY: Don't auto-save while restore is in progress
         if(__saveTimer) clearTimeout(__saveTimer);
         __saveTimer = setTimeout(async ()=>{
-          __isSaving = true;
           try{
             const st = defaultUserState();
             await saveState(st);
-          } finally {
-            __isSaving = false;
-          }
+          } catch(e){}
         }, 800);
       }catch(e){}
     }
 
-    // Monkey-patch localStorage.setItem to schedule sync without touching existing logic
-    (function(){
-      try{
-        const origSet = localStorage.setItem.bind(localStorage);
-        localStorage.setItem = function(key, value){
-          if(__fabankiSyncPaused){
-            return origSet(key, value);
-          }
-          origSet(key, value);
-          // Schedule save on our keys (but not during an active save)
-          if(!__isSaving && (/^fabanki:/.test(key) || key === 'pseudo')){ scheduleSave(); }
-        };
-      }catch(e){ /* ignore */ }
-    })();
+    window.__fabanki_scheduleSave = function(){
+      try{ scheduleSave(); }catch(e){}
+    };
 
     // Wire up Sync button
     const syncBtn = document.getElementById('syncBtn');
