@@ -1268,6 +1268,16 @@
     return p;
   }
 
+  function isLikelyValidDeckXmlPath(value){
+    try{
+      const s = String(value || '').trim().replace(/\\/g, '/');
+      if(!s || !s.toLowerCase().endsWith('.xml')) return false;
+      if(s.includes('*') || s.includes('?') || s.includes('[') || s.includes(']') || s.includes('{') || s.includes('}') || s.includes('|') || s.includes('<') || s.includes('>')) return false;
+      if(s.includes('..')) return false;
+      return true;
+    }catch(e){ return false; }
+  }
+
   function getDeckKeyFromUrl(url){
     // Canonical key: based on normalized relative deck path, not raw URL string.
     // This avoids cross-browser key drift like ./decks/x.xml vs /decks/x.xml vs absolute URL.
@@ -2733,12 +2743,19 @@
       err.url = raw;
       throw err;
     }
+    if(!isLikelyValidDeckXmlPath(raw)) {
+      const err = new Error('Chemin de deck invalide : ' + raw);
+      err.status = 0;
+      err.url = raw;
+      throw err;
+    }
 
     const seen = new Set();
     const candidates = [];
     const push = (candidate) => {
       const value = String(candidate || '').trim();
       if(!value || seen.has(value)) return;
+      if(!isLikelyValidDeckXmlPath(value)) return;
       seen.add(value);
       candidates.push(value);
     };
@@ -13072,7 +13089,7 @@
           }
 
           const sortedFolders = Array.from(folders).sort();
-          const sortedFiles = Array.from(files).filter(f => f.toLowerCase().endsWith('.xml')).sort();
+          const sortedFiles = Array.from(files).filter(f => f.toLowerCase().endsWith('.xml') && isLikelyValidDeckXmlPath(f)).sort();
           const officialFolders = [];
           const communityFolders = [];
           for(const folder of sortedFolders){
@@ -13100,7 +13117,7 @@
           }
 
           // Add "Review all decks in this folder" button if there are any XML files
-          const xmlFiles = officialFiles.concat(visibleCommunityFiles);
+          const xmlFiles = officialFiles.concat(visibleCommunityFiles).filter(f => isLikelyValidDeckXmlPath(f));
           if(xmlFiles.length > 0){
             const allBtn = document.createElement('div'); allBtn.className = 'deck-entry'; allBtn.style.marginTop = '12px'; allBtn.style.borderTop = '1px solid rgba(0,0,0,0.06)'; allBtn.style.paddingTop = '12px';
             const allBtnText = document.createElement('div'); allBtnText.textContent = '📚 Réviser tous les decks du dossier'; allBtnText.style.fontWeight = '600';
