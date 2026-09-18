@@ -2725,14 +2725,63 @@
   async function readDeckXmlText(url){
     const imported = getImportedCsvDeckByUrl(url);
     if(imported && imported.xml) return imported.xml;
-    const res = await fetch(url);
-    if(!res.ok){
-      const err = new Error('HTTP ' + res.status);
-      err.status = res.status;
-      err.url = url;
+
+    const raw = String(url || '').trim();
+    if(!raw) {
+      const err = new Error('Aucun deck à charger.');
+      err.status = 0;
+      err.url = raw;
       throw err;
     }
-    return await res.text();
+
+    const seen = new Set();
+    const candidates = [];
+    const push = (candidate) => {
+      const value = String(candidate || '').trim();
+      if(!value || seen.has(value)) return;
+      seen.add(value);
+      candidates.push(value);
+    };
+
+    push(raw);
+    push(raw.replace(/^\.\//, ''));
+    push(raw.replace(/^\/+/, ''));
+    push(raw.replace(/^\.\/decks\//i, 'decks/'));
+    push(raw.replace(/^\/+/,'').replace(/^decks\//i, './decks/'));
+    push(raw.replace(/^decks\//i, './decks/'));
+
+    const normalized = normalizeDeckPath(raw);
+    if(normalized){
+      push('./decks/' + normalized);
+      push('/decks/' + normalized);
+      push('./' + normalized);
+      push(normalized);
+      push('decks/' + normalized);
+    }
+
+    try{
+      const absolute = new URL(raw, window.location.href);
+      push(absolute.href);
+    }catch(e){}
+
+    let lastErr = null;
+    for(const candidate of candidates){
+      try{
+        const res = await fetch(candidate, { cache: 'no-store' });
+        if(res.ok) return await res.text();
+        const err = new Error('HTTP ' + res.status);
+        err.status = res.status;
+        err.url = candidate;
+        lastErr = err;
+        if(res.status !== 404) throw err;
+      }catch(err){
+        lastErr = err instanceof Error ? err : new Error(String(err));
+        lastErr.url = candidate;
+      }
+    }
+
+    if(lastErr) throw lastErr;
+    throw new Error('Impossible de charger le deck.');
   }
 
   function importCsvTextAsDeck(text, filename){
@@ -3149,7 +3198,33 @@
       `;
 
       // Parse deck to get stats
-      const text = await readDeckXmlText(url);
+      let text;
+      try{
+        text = await readDeckXmlText(url);
+      }catch(err){
+        console.error('Deck overview error:', err);
+        showDeckLoading(false);
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay open';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+          <div class="modal" role="dialog" aria-modal="true" style="max-width:420px;">
+            <h3>Deck introuvable</h3>
+            <p>Le deck demandé n’a pas pu être chargé. Il a peut-être été déplacé, supprimé ou laissé dans un ancien chemin.</p>
+            <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+              <button class="primary" type="button" id="deckOverviewRetryBtn">OK</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        const btn = modal.querySelector('#deckOverviewRetryBtn');
+        btn?.addEventListener('click', () => {
+          modal.remove();
+          if(typeof window.openDeckBrowser === 'function') window.openDeckBrowser();
+          else window.location.reload();
+        });
+        return;
+      }
       const parser = new DOMParser();
       let xml = parser.parseFromString(text,'application/xml');
       if(xml.querySelector('parsererror')) xml = parser.parseFromString(text,'text/html');
@@ -13661,8 +13736,7 @@
         const totalCards = Math.max(
           Number(localStorage.getItem('fabanki:legacy_total_cards') || 0),
           Number(localStorage.getItem('fabanki:total_reviewed_count') || 0),
-          Number(getTotalReviewedCount() || 0),
-          Number(getProfileStats().totalReviewed || 0)
+          Number(getTotalReviewedCount() || 0)
         );
         if(totalCards <= 0) return;
         const expectedSec = Math.round(legacyTotalSec * (totalCards / legacyTotalCards));
@@ -13676,7 +13750,6 @@
     }
 
     function getProfileStats(){
-      repairLegacyTimeSpentFromOldAppProfile();
       let total = 0, today = 0;
       const now = new Date();
       for(const k of Object.keys(localStorage)){
